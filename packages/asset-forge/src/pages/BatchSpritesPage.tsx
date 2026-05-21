@@ -200,7 +200,7 @@ export const BatchSpritesPage: React.FC = () => {
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-text-primary mb-2">
+        <h2 className="font-display text-2xl font-medium text-text-primary mb-2 tracking-tight">
           Batch Sprite Generation
         </h2>
         <p className="text-text-secondary">
@@ -210,7 +210,7 @@ export const BatchSpritesPage: React.FC = () => {
       </div>
 
       {/* Controls */}
-      <div className="bg-bg-secondary border border-border-primary rounded-lg p-4 mb-6">
+      <div className="bg-bg-secondary border border-border-primary rounded-lg p-5 mb-6">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <label className="text-text-secondary text-sm">Resolution:</label>
@@ -266,7 +266,7 @@ export const BatchSpritesPage: React.FC = () => {
             </div>
             <div className="w-full bg-bg-tertiary rounded-full h-2">
               <div
-                className="bg-primary h-2 rounded-full transition-all duration-200"
+                className="bg-primary h-2 rounded-full transition-all duration-300 ease-out"
                 style={{ width: `${(progress / total) * 100}%` }}
               />
             </div>

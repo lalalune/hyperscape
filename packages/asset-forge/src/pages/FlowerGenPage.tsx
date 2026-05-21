@@ -441,7 +441,7 @@ export const FlowerGenPage: React.FC = () => {
             <select
               value={selectedBiome}
               onChange={(e) => applyBiomePreset(e.target.value)}
-              className="w-full bg-bg-tertiary border border-border-primary rounded-md px-3 py-2 text-sm text-text-primary"
+              className="w-full bg-bg-tertiary border border-border-primary rounded-md px-5 py-4 text-sm text-text-primary"
             >
               {Object.keys(BIOME_UI_PRESETS).map((biome) => (
                 <option key={biome} value={biome}>
@@ -635,7 +635,7 @@ export const FlowerGenPage: React.FC = () => {
           <button
             onClick={generateFlowers}
             disabled={isGenerating}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-pink-600 hover:bg-pink-700 text-white rounded-md font-medium transition-colors disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-pink-600 hover:bg-pink-700 text-white rounded-md font-medium transition-colors disabled:opacity-50 ease-out"
           >
             <RefreshCw
               size={18}
@@ -647,7 +647,7 @@ export const FlowerGenPage: React.FC = () => {
           {/* Export Button */}
           <button
             onClick={exportConfig}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-bg-tertiary hover:bg-bg-primary text-text-secondary rounded-md text-sm transition-colors"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-bg-tertiary hover:bg-bg-primary text-text-secondary rounded-md text-sm transition-colors ease-out"
           >
             <Download size={16} />
             Export Configuration
@@ -678,7 +678,7 @@ export const FlowerGenPage: React.FC = () => {
           {/* Theme Toggle */}
           <button
             onClick={() => setIsDarkMode(!isDarkMode)}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-bg-tertiary hover:bg-bg-primary text-text-secondary rounded-md text-sm transition-colors"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-bg-tertiary hover:bg-bg-primary text-text-secondary rounded-md text-sm transition-colors ease-out"
           >
             {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
             {isDarkMode ? "Light Mode" : "Dark Mode"}

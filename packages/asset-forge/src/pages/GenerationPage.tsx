@@ -846,7 +846,7 @@ export const GenerationPage: React.FC = () => {
                       <Button
                         onClick={handleStartGeneration}
                         disabled={!assetName || !description || isGenerating}
-                        className="w-full h-14 text-base font-semibold bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-lg hover:shadow-xl transform transition-all duration-200 "
+                        className="w-full h-14 text-base font-semibold bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-lg hover:shadow-xl transform transition-all duration-300 ease-out"
                         size="lg"
                       >
                         {isGenerating ? (

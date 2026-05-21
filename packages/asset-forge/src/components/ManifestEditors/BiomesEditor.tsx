@@ -296,7 +296,7 @@ export const BiomesEditor: React.FC<BiomesEditorProps> = ({
                 selectedBiomeId === biome.id
                   ? "bg-primary bg-opacity-10 border-l-2 border-primary"
                   : ""
-              }`}
+              } ease-out`}
               onClick={() => setSelectedBiomeId(biome.id)}
             >
               <div
@@ -374,7 +374,7 @@ export const BiomesEditor: React.FC<BiomesEditorProps> = ({
                         description: e.target.value,
                       })
                     }
-                    className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary resize-none"
+                    className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary resize-none"
                     rows={2}
                   />
                 </FormField>
@@ -385,7 +385,7 @@ export const BiomesEditor: React.FC<BiomesEditorProps> = ({
                     onChange={(e) =>
                       updateBiome(selectedBiome.id, { terrain: e.target.value })
                     }
-                    className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
+                    className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
                   >
                     {TERRAIN_TYPES.map((t) => (
                       <option key={t} value={t}>
@@ -426,7 +426,7 @@ export const BiomesEditor: React.FC<BiomesEditorProps> = ({
                         ambientSound: e.target.value,
                       })
                     }
-                    className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
+                    className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
                   >
                     {AMBIENT_SOUNDS.map((s) => (
                       <option key={s} value={s}>
@@ -494,7 +494,7 @@ export const BiomesEditor: React.FC<BiomesEditorProps> = ({
                         baseHeight: parseFloat(e.target.value),
                       })
                     }
-                    className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
+                    className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
                   />
                 </FormField>
 
@@ -508,7 +508,7 @@ export const BiomesEditor: React.FC<BiomesEditorProps> = ({
                         heightVariation: parseFloat(e.target.value),
                       })
                     }
-                    className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
+                    className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
                   />
                 </FormField>
 
@@ -524,7 +524,7 @@ export const BiomesEditor: React.FC<BiomesEditorProps> = ({
                         maxSlope: parseFloat(e.target.value),
                       })
                     }
-                    className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
+                    className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
                   />
                 </FormField>
 
@@ -538,7 +538,7 @@ export const BiomesEditor: React.FC<BiomesEditorProps> = ({
                         waterLevel: parseFloat(e.target.value),
                       })
                     }
-                    className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
+                    className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
                   />
                 </FormField>
 
@@ -554,7 +554,7 @@ export const BiomesEditor: React.FC<BiomesEditorProps> = ({
                         fogIntensity: parseFloat(e.target.value),
                       })
                     }
-                    className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
+                    className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
                   />
                 </FormField>
               </div>
@@ -706,7 +706,7 @@ export const BiomesEditor: React.FC<BiomesEditorProps> = ({
                 {/* Add mob dropdown */}
                 <div className="flex items-center gap-2">
                   <select
-                    className="flex-1 px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
+                    className="flex-1 px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
                     onChange={(e) => {
                       if (e.target.value) {
                         addMobToBiome(selectedBiome.id, e.target.value);
@@ -748,7 +748,7 @@ export const BiomesEditor: React.FC<BiomesEditorProps> = ({
                         resourceDensity: parseFloat(e.target.value),
                       })
                     }
-                    className="w-32 px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
+                    className="w-32 px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
                   />
                 </FormField>
 
@@ -872,7 +872,7 @@ const Section: React.FC<SectionProps> = ({
 }) => (
   <div className="border border-border-primary rounded-lg overflow-hidden">
     <button
-      className="w-full px-4 py-3 bg-bg-secondary flex items-center gap-2 hover:bg-bg-tertiary transition-colors"
+      className="w-full px-4 py-3 bg-bg-secondary flex items-center gap-2 hover:bg-bg-tertiary transition-colors ease-out"
       onClick={onToggle}
     >
       {expanded ? (

@@ -30,7 +30,7 @@ export const SpritesDisplay: React.FC<SpritesDisplayProps> = ({
   const sprites = selectedAsset.sprites as Sprite[] | null;
 
   return (
-    <Card className="overflow-hidden shadow-xl hover:shadow-2xl transition-shadow">
+    <Card className="overflow-hidden shadow-xl hover:shadow-2xl transition-shadow ease-out">
       <CardHeader>
         <CardTitle>2D Sprites</CardTitle>
         <CardDescription>8-directional sprite sheet</CardDescription>
@@ -40,17 +40,17 @@ export const SpritesDisplay: React.FC<SpritesDisplayProps> = ({
           <div className="grid grid-cols-4 gap-3">
             {sprites.map((sprite, i) => (
               <div key={i} className="group relative aspect-square">
-                <div className="w-full h-full bg-bg-tertiary rounded-lg p-2 overflow-hidden hover:shadow-lg transition-all ">
+                <div className="w-full h-full bg-bg-tertiary rounded-lg p-2 overflow-hidden hover:shadow-lg transition-all ease-out">
                   <img
                     src={sprite.imageUrl}
                     alt={`${sprite.angle}°`}
                     className="w-full h-full object-contain"
                   />
-                  <div className="absolute inset-0 bg-black bg-opacity-70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <div className="absolute inset-0 bg-black bg-opacity-70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center ease-out">
                     <a
                       href={sprite.imageUrl}
                       download={`${selectedAsset.id}-${sprite.angle}deg.png`}
-                      className="p-2 bg-primary rounded-lg text-white hover:bg-primary-hover transition-colors"
+                      className="p-2 bg-primary rounded-lg text-white hover:bg-primary-hover transition-colors ease-out"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <Download className="w-5 h-5" />
@@ -75,7 +75,7 @@ export const SpritesDisplay: React.FC<SpritesDisplayProps> = ({
               <Button
                 onClick={() => onGenerateSprites(selectedAsset.id)}
                 disabled={isGeneratingSprites}
-                className="shadow-lg hover:shadow-xl transition-all"
+                className="shadow-lg hover:shadow-xl transition-all ease-out"
               >
                 {isGeneratingSprites ? (
                   <>

@@ -60,7 +60,7 @@ const CardTitle = React.forwardRef<HTMLHeadingElement, CardTitleProps>(
     return (
       <Component
         ref={ref}
-        className={cn("text-base font-semibold text-text-primary", className)}
+        className={cn("text-base font-medium text-text-primary", className)}
         {...props}
       />
     );
@@ -104,7 +104,7 @@ const CardFooter = React.forwardRef<HTMLDivElement, CardFooterProps>(
     <div
       ref={ref}
       className={cn(
-        "px-4 py-3 border-t border-border-primary bg-bg-tertiary bg-opacity-50 rounded-b-lg",
+        "px-5 py-4 border-t border-border-primary bg-bg-tertiary bg-opacity-50 rounded-b-lg",
         className,
       )}
       {...props}

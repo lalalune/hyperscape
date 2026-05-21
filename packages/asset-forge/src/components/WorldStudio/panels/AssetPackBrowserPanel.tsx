@@ -531,7 +531,7 @@ export function AssetPackBrowserPanel({
                   isActive
                     ? "bg-primary/15 text-primary shadow-[inset_0_0_0_1px_rgba(99,102,241,0.25)]"
                     : "text-text-tertiary hover:text-text-secondary"
-                }`}
+                } ease-out`}
               >
                 <Icon size={11} />
                 {t.label}
@@ -549,7 +549,7 @@ export function AssetPackBrowserPanel({
                 ? "Create a new asset pack"
                 : "Save the project to a team to create packs"
             }
-            className="inline-flex items-center gap-1 px-2 py-1 text-[11px] rounded bg-primary/15 hover:bg-primary/25 text-primary border border-primary/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="inline-flex items-center gap-1 px-2 py-1 text-[11px] rounded bg-primary/15 hover:bg-primary/25 text-primary border border-primary/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ease-out"
           >
             <Plus size={11} />
             Create Pack
@@ -562,7 +562,7 @@ export function AssetPackBrowserPanel({
                 : reloadTeam())
             }
             disabled={activeFetchState.kind === "loading"}
-            className="p-1.5 rounded text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors disabled:opacity-40"
+            className="p-1.5 rounded text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors disabled:opacity-40 ease-out"
             title="Refresh"
           >
             <RefreshCw
@@ -608,7 +608,7 @@ export function AssetPackBrowserPanel({
             }
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            className="w-full pl-6.5 pr-2 py-1.5 text-xs bg-bg-tertiary/40 border border-transparent rounded text-text-primary placeholder:text-text-tertiary/50 focus:outline-none focus:border-primary/30 focus:bg-bg-tertiary/50 transition-colors"
+            className="w-full pl-6.5 pr-2 py-1.5 text-xs bg-bg-tertiary/40 border border-transparent rounded text-text-primary placeholder:text-text-tertiary/50 focus:outline-none focus:border-primary/30 focus:bg-bg-tertiary/50 transition-colors ease-out"
             style={{ paddingLeft: "1.625rem" }}
           />
         </div>
@@ -708,7 +708,7 @@ export function AssetPackBrowserPanel({
                 <button
                   type="button"
                   onClick={() => setCreateOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors ease-out"
                 >
                   <Plus size={12} />
                   Create your first pack
@@ -1010,7 +1010,7 @@ function CreatePackModal({
           <button
             type="button"
             onClick={() => setShowAdvanced((v) => !v)}
-            className="text-[11px] text-text-tertiary hover:text-text-secondary transition-colors"
+            className="text-[11px] text-text-tertiary hover:text-text-secondary transition-colors ease-out"
           >
             {showAdvanced ? "▾" : "▸"} Advanced
           </button>
@@ -1064,7 +1064,7 @@ function CreatePackModal({
               type="button"
               onClick={onClose}
               disabled={submitting}
-              className="px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary transition-colors"
+              className="px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary transition-colors ease-out"
             >
               Cancel
             </button>
@@ -1076,7 +1076,7 @@ function CreatePackModal({
                 !effectiveManifestId.trim() ||
                 !packVersion.trim()
               }
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ease-out"
             >
               {submitting ? (
                 <>
@@ -1325,7 +1325,7 @@ function AddEntryModal({ pack, onClose, onAdded }: AddEntryModalProps) {
                   isActive
                     ? "text-text-primary border-primary bg-bg-tertiary/40"
                     : "text-text-tertiary border-transparent hover:text-text-secondary"
-                }`}
+                } ease-out`}
               >
                 <Icon size={11} />
                 {t.label}
@@ -1340,12 +1340,12 @@ function AddEntryModal({ pack, onClose, onAdded }: AddEntryModalProps) {
             <button
               type="button"
               onClick={clearSelected}
-              className="inline-flex items-center gap-1 text-[11px] text-text-tertiary hover:text-text-secondary transition-colors"
+              className="inline-flex items-center gap-1 text-[11px] text-text-tertiary hover:text-text-secondary transition-colors ease-out"
             >
               ← Back to library
             </button>
 
-            <div className="flex items-start gap-3 p-3 bg-bg-tertiary/30 border border-border-primary rounded-lg">
+            <div className="flex items-start gap-3 p-5 bg-bg-tertiary/30 border border-border-primary rounded-lg">
               <SelectedAssetThumbnail asset={selectedAsset} />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-text-primary truncate">
@@ -1428,7 +1428,7 @@ function AddEntryModal({ pack, onClose, onAdded }: AddEntryModalProps) {
                 type="button"
                 onClick={clearSelected}
                 disabled={submitting}
-                className="px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary transition-colors"
+                className="px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary transition-colors ease-out"
               >
                 Cancel
               </button>
@@ -1441,7 +1441,7 @@ function AddEntryModal({ pack, onClose, onAdded }: AddEntryModalProps) {
                   !subtype.trim() ||
                   !modelUrl.trim()
                 }
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ease-out"
               >
                 {submitting ? (
                   <>
@@ -1469,7 +1469,7 @@ function AddEntryModal({ pack, onClose, onAdded }: AddEntryModalProps) {
                   value={libraryFilter}
                   onChange={(e) => setLibraryFilter(e.target.value)}
                   placeholder="Search your team's assets…"
-                  className="w-full pl-6.5 pr-2 py-1.5 text-xs bg-bg-tertiary/40 border border-transparent rounded text-text-primary placeholder:text-text-tertiary/50 focus:outline-none focus:border-primary/30 focus:bg-bg-tertiary/50 transition-colors"
+                  className="w-full pl-6.5 pr-2 py-1.5 text-xs bg-bg-tertiary/40 border border-transparent rounded text-text-primary placeholder:text-text-tertiary/50 focus:outline-none focus:border-primary/30 focus:bg-bg-tertiary/50 transition-colors ease-out"
                   style={{ paddingLeft: "1.625rem" }}
                 />
               </div>
@@ -1477,7 +1477,7 @@ function AddEntryModal({ pack, onClose, onAdded }: AddEntryModalProps) {
                 type="button"
                 onClick={() => void reloadLibrary()}
                 disabled={libraryState.kind === "loading"}
-                className="p-1.5 rounded text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors disabled:opacity-40"
+                className="p-1.5 rounded text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors disabled:opacity-40 ease-out"
                 title="Refresh"
               >
                 <RefreshCw
@@ -1574,7 +1574,7 @@ function AddEntryModal({ pack, onClose, onAdded }: AddEntryModalProps) {
                 pack.manifestId,
               )}`}
               onClick={onClose}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors ease-out"
             >
               <ExternalLink size={12} />
               Open Generate for {packDisplayName}
@@ -1660,7 +1660,7 @@ function AddEntryModal({ pack, onClose, onAdded }: AddEntryModalProps) {
             <button
               type="button"
               onClick={() => setShowAdvanced((v) => !v)}
-              className="text-[11px] text-text-tertiary hover:text-text-secondary transition-colors"
+              className="text-[11px] text-text-tertiary hover:text-text-secondary transition-colors ease-out"
             >
               {showAdvanced ? "▾" : "▸"} Advanced
             </button>
@@ -1712,7 +1712,7 @@ function AddEntryModal({ pack, onClose, onAdded }: AddEntryModalProps) {
                 type="button"
                 onClick={onClose}
                 disabled={submitting}
-                className="px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary transition-colors"
+                className="px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary transition-colors ease-out"
               >
                 Cancel
               </button>
@@ -1725,7 +1725,7 @@ function AddEntryModal({ pack, onClose, onAdded }: AddEntryModalProps) {
                   !subtype.trim() ||
                   !modelUrl.trim()
                 }
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ease-out"
               >
                 {submitting ? (
                   <>
@@ -1793,7 +1793,7 @@ function PublishConfirmModal({
         </div>
 
         <div className="px-4 py-4 space-y-3">
-          <div className="flex items-start gap-3 p-3 bg-bg-tertiary/30 border border-border-primary rounded-lg">
+          <div className="flex items-start gap-3 p-5 bg-bg-tertiary/30 border border-border-primary rounded-lg">
             <Package size={20} className="text-primary mt-0.5 flex-shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-text-primary truncate">
@@ -1836,14 +1836,14 @@ function PublishConfirmModal({
           <button
             type="button"
             onClick={onCancel}
-            className="px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary transition-colors"
+            className="px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary transition-colors ease-out"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded bg-emerald-500 text-white hover:bg-emerald-600 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded bg-emerald-500 text-white hover:bg-emerald-600 transition-colors ease-out"
           >
             <Upload size={11} />
             Publish
@@ -1912,7 +1912,7 @@ function PackCard({
   // Single click target for the whole body. Footer button clicks
   // call stopPropagation so they don't accidentally open the modal.
   return (
-    <div className="group flex flex-col rounded-lg border border-border-primary bg-bg-tertiary/30 hover:border-primary/30 hover:bg-bg-tertiary/40 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/30 transition-all duration-200 overflow-hidden">
+    <div className="group flex flex-col rounded-lg border border-border-primary bg-bg-tertiary/30 hover:border-primary/30 hover:bg-bg-tertiary/40 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/30 transition-all duration-300 overflow-hidden ease-out">
       <button
         type="button"
         onClick={onView}
@@ -2025,7 +2025,7 @@ function PackCard({
                 type="button"
                 disabled={installing || !projectId}
                 onClick={onInstall}
-                className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-medium rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-medium rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ease-out"
                 title={
                   !projectId
                     ? "Save the project before installing packs"
@@ -2047,7 +2047,7 @@ function PackCard({
               <button
                 type="button"
                 onClick={onAddAsset}
-                className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-medium rounded bg-primary/15 hover:bg-primary/25 text-primary border border-primary/30 transition-colors"
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-medium rounded bg-primary/15 hover:bg-primary/25 text-primary border border-primary/30 transition-colors ease-out"
                 title="Add an asset to this pack"
               >
                 <FilePlus size={10} />
@@ -2061,7 +2061,7 @@ function PackCard({
                   isPublic
                     ? "bg-bg-tertiary/40 hover:bg-bg-tertiary/60 text-text-secondary border-border-primary"
                     : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
-                }`}
+                } ease-out`}
                 title={
                   isPublic
                     ? "Unpublish — make team-only again"
@@ -2235,7 +2235,7 @@ function PackDetailModal({
 
             {/* Asset grid */}
             <div className="pt-2">
-              <h3 className="text-[11px] font-semibold uppercase tracking-wide text-text-tertiary mb-2">
+              <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-text-tertiary mb-2">
                 Assets in this pack
               </h3>
               {manifestAssets.length === 0 ? (
@@ -2283,7 +2283,7 @@ function PackDetailModal({
                   type="button"
                   disabled={installing || !projectId}
                   onClick={onInstall}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ease-out"
                 >
                   {installing ? (
                     <>
@@ -2300,7 +2300,7 @@ function PackDetailModal({
                 <button
                   type="button"
                   onClick={onAddAsset}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded bg-primary/15 hover:bg-primary/25 text-primary border border-primary/30 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded bg-primary/15 hover:bg-primary/25 text-primary border border-primary/30 transition-colors ease-out"
                 >
                   <FilePlus size={11} />
                   Add Asset
@@ -2309,11 +2309,11 @@ function PackDetailModal({
                   type="button"
                   disabled={publishing}
                   onClick={onPublishToggle}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  className={`inline-flex items-center gap-1.5 px-5 py-1.5 text-[11px] font-medium rounded border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                     isPublic
                       ? "bg-bg-tertiary/40 hover:bg-bg-tertiary/60 text-text-secondary border-border-primary"
                       : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
-                  }`}
+                  } ease-out`}
                 >
                   {publishing ? (
                     <Loader2 size={11} className="animate-spin" />
@@ -2328,7 +2328,7 @@ function PackDetailModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3 py-1.5 text-[11px] text-text-secondary hover:text-text-primary transition-colors"
+                className="px-3 py-1.5 text-[11px] text-text-secondary hover:text-text-primary transition-colors ease-out"
               >
                 Close
               </button>
@@ -2403,7 +2403,7 @@ function PackEntryTile({ entry }: { entry: Record<string, unknown> }) {
   const Icon = style.Icon;
 
   return (
-    <div className="rounded-lg overflow-hidden border border-border-primary bg-bg-tertiary/30 hover:border-border-secondary transition-colors">
+    <div className="rounded-lg overflow-hidden border border-border-primary bg-bg-tertiary/30 hover:border-border-secondary transition-colors ease-out">
       <ModelThumbnail
         modelUrl={modelUrl}
         alt={name}
@@ -2716,12 +2716,12 @@ function LibraryCard({ asset, onPick }: LibraryCardProps) {
     <button
       type="button"
       onClick={onPick}
-      className="text-left group rounded-lg overflow-hidden border border-border-primary hover:border-primary/40 bg-bg-tertiary/30 hover:bg-bg-tertiary/40 transition-colors"
+      className="text-left group rounded-lg overflow-hidden border border-border-primary hover:border-primary/40 bg-bg-tertiary/30 hover:bg-bg-tertiary/40 transition-colors ease-out"
     >
       <ModelThumbnail
         modelUrl={modelUrl}
         alt={asset.name}
-        className={`aspect-square bg-gradient-to-br ${style.bgGradient} flex items-center justify-center overflow-hidden transition-transform `}
+        className={`aspect-square bg-gradient-to-br ${style.bgGradient} flex items-center justify-center overflow-hidden transition-transform ease-out`}
         fallback={<Icon size={28} className={style.fg} strokeWidth={1.5} />}
       />
       <div className="p-1.5">

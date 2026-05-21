@@ -22,7 +22,7 @@ export const AssetActionsCard: React.FC<AssetActionsCardProps> = ({
         <div className="flex flex-wrap gap-4">
           <Button
             variant="secondary"
-            className=" transition-all"
+            className=" transition-all ease-out"
             onClick={onDownload}
           >
             <Download className="w-4 h-4 mr-2" />
@@ -30,7 +30,7 @@ export const AssetActionsCard: React.FC<AssetActionsCardProps> = ({
           </Button>
           <Button
             variant="secondary"
-            className=" transition-all"
+            className=" transition-all ease-out"
             onClick={onAddVariants}
           >
             <Palette className="w-4 h-4 mr-2" />
@@ -38,7 +38,7 @@ export const AssetActionsCard: React.FC<AssetActionsCardProps> = ({
           </Button>
           <Button
             variant="secondary"
-            className=" transition-all"
+            className=" transition-all ease-out"
             onClick={onOpenInBrowser}
           >
             <Eye className="w-4 h-4 mr-2" />
@@ -47,7 +47,7 @@ export const AssetActionsCard: React.FC<AssetActionsCardProps> = ({
           <Button
             variant="secondary"
             onClick={onGenerateNew}
-            className=" transition-all"
+            className=" transition-all ease-out"
           >
             <RefreshCw className="w-4 h-4 mr-2" />
             Generate New Asset

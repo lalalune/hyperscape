@@ -109,7 +109,7 @@ export const PipelineOptionsCard: React.FC<PipelineOptionsCardProps> = ({
       </CardHeader>
       <CardContent className="p-6 space-y-3">
         {/* Quality Selector */}
-        <div className="p-4 rounded-xl border border-border-primary bg-bg-secondary/50">
+        <div className="p-5 rounded-xl border border-border-primary bg-bg-secondary/50">
           <div className="flex items-center justify-between">
             <div>
               <div className="font-medium text-text-primary">Quality</div>

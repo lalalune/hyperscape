@@ -67,7 +67,7 @@ export function PopulationPreview({
       {/* Tier distribution */}
       {tierDistribution.size > 0 && (
         <div>
-          <h4 className="text-[10px] text-text-tertiary uppercase tracking-wider mb-1">
+          <h4 className="text-[10px] text-text-tertiary uppercase tracking-[0.12em] mb-1">
             Entities by Tier
           </h4>
           <div className="space-y-0.5">
@@ -104,7 +104,7 @@ export function PopulationPreview({
       {/* Mine list */}
       {data.mines && data.mines.length > 0 && (
         <div>
-          <h4 className="text-[10px] text-text-tertiary uppercase tracking-wider mb-1">
+          <h4 className="text-[10px] text-text-tertiary uppercase tracking-[0.12em] mb-1">
             Mines ({data.mines.length})
           </h4>
           <div className="max-h-[100px] overflow-y-auto space-y-px border border-border-primary rounded">
@@ -125,7 +125,7 @@ export function PopulationPreview({
 
       {/* Mob types */}
       <div>
-        <h4 className="text-[10px] text-text-tertiary uppercase tracking-wider mb-1">
+        <h4 className="text-[10px] text-text-tertiary uppercase tracking-[0.12em] mb-1">
           Mob Types ({mobCounts.size})
         </h4>
         <div className="max-h-[120px] overflow-y-auto space-y-px border border-border-primary rounded">
@@ -147,7 +147,7 @@ export function PopulationPreview({
 
       {/* Resource types */}
       <div>
-        <h4 className="text-[10px] text-text-tertiary uppercase tracking-wider mb-1">
+        <h4 className="text-[10px] text-text-tertiary uppercase tracking-[0.12em] mb-1">
           Resource Types ({resCounts.size})
         </h4>
         <div className="max-h-[120px] overflow-y-auto space-y-px border border-border-primary rounded">

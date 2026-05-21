@@ -29,7 +29,7 @@ export function GeneratingView({
       </div>
       <div className="w-64 h-1.5 bg-bg-tertiary rounded-full overflow-hidden">
         <div
-          className="h-full bg-primary rounded-full transition-all duration-300"
+          className="h-full bg-primary rounded-full transition-all duration-300 ease-out"
           style={{ width: `${progress}%` }}
         />
       </div>

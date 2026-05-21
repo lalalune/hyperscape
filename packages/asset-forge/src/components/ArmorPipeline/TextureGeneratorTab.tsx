@@ -820,7 +820,7 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
                 setAvatarUrl(e.target.value);
                 setExtractionResult(null); // force re-extract
               }}
-              className="w-full bg-bg-secondary border border-border-primary rounded-lg px-3 py-2 text-sm text-text-primary"
+              className="w-full bg-bg-secondary border border-border-primary rounded-lg px-5 py-4 text-sm text-text-primary"
             >
               {AVATAR_OPTIONS.map((opt) => (
                 <option key={opt.url} value={opt.url}>
@@ -867,7 +867,7 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
                     selectedSlots.has(slot)
                       ? "bg-primary/20 text-primary border border-primary/30"
                       : "bg-bg-secondary text-text-tertiary border border-border-primary hover:border-border-secondary"
-                  }`}
+                  } ease-out`}
                 >
                   {SLOT_LABELS[slot]}
                 </button>
@@ -889,7 +889,7 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
                     selectedBulk === bulk
                       ? "bg-primary/20 text-primary border border-primary/30"
                       : "bg-bg-secondary text-text-tertiary border border-border-primary hover:border-border-secondary"
-                  }`}
+                  } ease-out`}
                 >
                   {bulk} ({BULK_OFFSETS[bulk] * 1000}mm)
                 </button>
@@ -900,7 +900,7 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
                   selectedBulk === "custom"
                     ? "bg-primary/20 text-primary border border-primary/30"
                     : "bg-bg-secondary text-text-tertiary border border-border-primary hover:border-border-secondary"
-                }`}
+                } ease-out`}
               >
                 Custom ({customThicknessMm}mm)
               </button>
@@ -977,7 +977,7 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
                     textureMethod === id
                       ? "bg-primary/20 text-primary border border-primary/30"
                       : "bg-bg-secondary text-text-tertiary border border-border-primary"
-                  }`}
+                  } ease-out`}
                 >
                   <div>{label}</div>
                   <div className="text-[10px] opacity-60">{desc}</div>
@@ -1008,7 +1008,7 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
                           selectedPreset === preset.id && !useCustomColor
                             ? "bg-primary/20 text-primary border border-primary/30"
                             : "bg-bg-secondary text-text-tertiary border border-border-primary hover:border-border-secondary"
-                        }`}
+                        } ease-out`}
                       >
                         {preset.swatch && (
                           <span
@@ -1189,7 +1189,7 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
                           selectedPreset === preset.id && !customPrompt
                             ? "bg-primary/20 text-primary border border-primary/30"
                             : "bg-bg-secondary text-text-tertiary border border-border-primary hover:border-border-secondary"
-                        }`}
+                        } ease-out`}
                       >
                         {preset.swatch && (
                           <span
@@ -1225,7 +1225,7 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
                           selectedPreset === preset.id && !customPrompt
                             ? "bg-primary/20 text-primary border border-primary/30"
                             : "bg-bg-secondary text-text-tertiary border border-border-primary hover:border-border-secondary"
-                        }`}
+                        } ease-out`}
                       >
                         {preset.label}
                       </button>
@@ -1247,7 +1247,7 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
                   onChange={(e) => setCustomPrompt(e.target.value)}
                   placeholder="e.g., gold-trimmed bronze plate armor, ornate engravings..."
                   rows={3}
-                  className="w-full bg-bg-secondary border border-border-primary rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary resize-none"
+                  className="w-full bg-bg-secondary border border-border-primary rounded-lg px-5 py-4 text-sm text-text-primary placeholder:text-text-tertiary resize-none"
                 />
               </div>
 
@@ -1266,7 +1266,7 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
                         detailLevel === level.id
                           ? "bg-primary/20 text-primary border border-primary/30"
                           : "bg-bg-secondary text-text-tertiary border border-border-primary hover:border-border-secondary"
-                      }`}
+                      } ease-out`}
                     >
                       {level.label}
                     </button>
@@ -1285,7 +1285,7 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
               onClick={handleGenerate}
               disabled={isRunning}
               className="w-full px-4 py-2.5 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2
- bg-primary text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+ bg-primary text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed ease-out"
             >
               {isRunning ? (
                 <>
@@ -1320,9 +1320,9 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
               <button
                 onClick={handleDownload}
                 disabled={stage !== "done"}
-                className="flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
+                className="flex-1 px-5 py-4 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
  bg-bg-secondary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary
- disabled:opacity-50 disabled:cursor-not-allowed"
+ disabled:opacity-50 disabled:cursor-not-allowed ease-out"
               >
                 <Download size={14} />
                 Download{slotTasks.length > 1 ? " All" : " GLB"}
@@ -1330,8 +1330,8 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
 
               <button
                 onClick={handleReset}
-                className="flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
- bg-bg-secondary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary"
+                className="flex-1 px-5 py-4 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
+ bg-bg-secondary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary ease-out"
               >
                 <RotateCcw size={14} />
                 Reset
@@ -1410,7 +1410,7 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
                     }
                   }}
                   className="w-full px-4 py-2.5 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2
- bg-green-600 text-white hover:bg-green-500"
+ bg-green-600 text-white hover:bg-green-500 ease-out"
                 >
                   <Wand2 size={16} />
                   Add{" "}
@@ -1475,7 +1475,7 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
               </div>
               <div className="w-full h-1.5 bg-bg-tertiary rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-primary rounded-full transition-all duration-300"
+                  className="h-full bg-primary rounded-full transition-all duration-300 ease-out"
                   style={{ width: `${progress}%` }}
                 />
               </div>
@@ -1494,7 +1494,7 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
           )}
 
           {/* Info box */}
-          <div className="p-3 bg-bg-secondary rounded-lg border border-border-primary space-y-1.5">
+          <div className="p-5 bg-bg-secondary rounded-lg border border-border-primary space-y-1.5">
             <h3 className="text-xs font-semibold text-text-primary flex items-center gap-1.5">
               <Info size={12} />
               {textureMethod === "ai" ? "AI Texture Info" : "Info"}

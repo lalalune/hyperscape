@@ -1489,7 +1489,7 @@ export const TreeGenPage: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary flex items-center gap-3">
+          <h1 className="font-display text-2xl font-medium text-text-primary flex items-center gap-3 tracking-tight">
             <TreePine size={28} />
             Tree Editor
           </h1>
@@ -1514,7 +1514,7 @@ export const TreeGenPage: React.FC = () => {
               showLODPreview
                 ? "bg-purple-600 text-white"
                 : "bg-bg-tertiary text-text-secondary hover:text-text-primary"
-            } disabled:opacity-50`}
+            } disabled:opacity-50 ease-out`}
             title="Show all LODs and impostor side by side"
           >
             <Eye size={18} />
@@ -1528,7 +1528,7 @@ export const TreeGenPage: React.FC = () => {
               batchMode
                 ? "bg-accent text-white"
                 : "bg-bg-tertiary text-text-secondary hover:text-text-primary"
-            }`}
+            } ease-out`}
           >
             <Grid3x3 size={18} />
             Batch
@@ -1537,7 +1537,7 @@ export const TreeGenPage: React.FC = () => {
           {/* Save Preset */}
           <button
             onClick={() => setShowSaveDialog(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-bg-tertiary text-text-secondary hover:text-text-primary rounded-lg transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-bg-tertiary text-text-secondary hover:text-text-primary rounded-lg transition-all ease-out"
           >
             <Save size={18} />
             Save
@@ -1547,7 +1547,7 @@ export const TreeGenPage: React.FC = () => {
           <button
             onClick={() => saveToAssets()}
             disabled={!currentTreeRef.current}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600/20 text-green-500 hover:bg-green-600/30 rounded-lg transition-all disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-green-600/20 text-green-500 hover:bg-green-600/30 rounded-lg transition-all disabled:opacity-50 ease-out"
             title="Save GLB to assets (loses instancing - for external tools only)"
           >
             <Database size={18} />
@@ -1558,7 +1558,7 @@ export const TreeGenPage: React.FC = () => {
           <button
             onClick={() => (batchMode ? exportBatchToGLB() : exportToGLB())}
             disabled={!currentTreeRef.current && batchResults.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-bg-tertiary text-text-secondary hover:text-text-primary rounded-lg transition-all disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-bg-tertiary text-text-secondary hover:text-text-primary rounded-lg transition-all disabled:opacity-50 ease-out"
             title="Export GLB (bakes geometry - loses instancing)"
           >
             <Download size={18} />
@@ -1569,7 +1569,7 @@ export const TreeGenPage: React.FC = () => {
           <button
             onClick={batchMode ? generateBatch : generateTreeMesh}
             disabled={isGenerating}
-            className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition-all disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition-all disabled:opacity-50 ease-out"
           >
             <RefreshCw
               size={18}
@@ -1584,7 +1584,7 @@ export const TreeGenPage: React.FC = () => {
         {/* Controls Panel */}
         <div className="w-80 flex-shrink-0 space-y-3 overflow-y-auto max-h-[calc(100vh-180px)]">
           {/* Base Settings */}
-          <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
+          <div className="bg-bg-secondary rounded-lg p-5 border border-border-primary">
             <h3 className="font-semibold text-text-primary mb-3 flex items-center gap-2">
               <Settings2 size={18} />
               Base Settings
@@ -1602,7 +1602,7 @@ export const TreeGenPage: React.FC = () => {
                     // Reset advanced params when changing preset
                     setAdvancedParams({});
                   }}
-                  className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded-md text-text-primary text-sm"
+                  className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded-md text-text-primary text-sm"
                 >
                   {presetNames.map((name) => (
                     <option key={name} value={name}>
@@ -1624,11 +1624,11 @@ export const TreeGenPage: React.FC = () => {
                     type="number"
                     value={seed}
                     onChange={(e) => setSeed(parseInt(e.target.value) || 0)}
-                    className="flex-1 px-3 py-1.5 bg-bg-tertiary border border-border-primary rounded-md text-text-primary text-sm"
+                    className="flex-1 px-5 py-1.5 bg-bg-tertiary border border-border-primary rounded-md text-text-primary text-sm"
                   />
                   <button
                     onClick={() => setSeed(Math.floor(Math.random() * 1000000))}
-                    className="px-3 py-1.5 bg-bg-tertiary border border-border-primary rounded-md text-text-secondary hover:text-text-primary transition-colors"
+                    className="px-5 py-1.5 bg-bg-tertiary border border-border-primary rounded-md text-text-secondary hover:text-text-primary transition-colors ease-out"
                     title="Random seed"
                   >
                     🎲
@@ -1696,7 +1696,7 @@ export const TreeGenPage: React.FC = () => {
               <button
                 onClick={batchMode ? generateBatch : generateTreeMesh}
                 disabled={isGenerating}
-                className="w-full py-2 bg-primary hover:bg-primary-dark text-white rounded-md transition-all disabled:opacity-50 text-sm"
+                className="w-full py-2 bg-primary hover:bg-primary-dark text-white rounded-md transition-all disabled:opacity-50 text-sm ease-out"
               >
                 {isGenerating
                   ? "Generating..."
@@ -1711,7 +1711,7 @@ export const TreeGenPage: React.FC = () => {
           <div className="bg-bg-secondary rounded-lg border border-border-primary overflow-hidden">
             <button
               onClick={() => togglePanel("shape")}
-              className="w-full px-4 py-3 flex items-center justify-between text-text-primary hover:bg-bg-tertiary transition-colors"
+              className="w-full px-4 py-3 flex items-center justify-between text-text-primary hover:bg-bg-tertiary transition-colors ease-out"
             >
               <span className="font-semibold flex items-center gap-2">
                 <TreePine size={16} />
@@ -1863,7 +1863,7 @@ export const TreeGenPage: React.FC = () => {
           <div className="bg-bg-secondary rounded-lg border border-border-primary overflow-hidden">
             <button
               onClick={() => togglePanel("trunk")}
-              className="w-full px-4 py-3 flex items-center justify-between text-text-primary hover:bg-bg-tertiary transition-colors"
+              className="w-full px-4 py-3 flex items-center justify-between text-text-primary hover:bg-bg-tertiary transition-colors ease-out"
             >
               <span className="font-semibold flex items-center gap-2">
                 <Layers size={16} />
@@ -1941,7 +1941,7 @@ export const TreeGenPage: React.FC = () => {
           <div className="bg-bg-secondary rounded-lg border border-border-primary overflow-hidden">
             <button
               onClick={() => togglePanel("branches")}
-              className="w-full px-4 py-3 flex items-center justify-between text-text-primary hover:bg-bg-tertiary transition-colors"
+              className="w-full px-4 py-3 flex items-center justify-between text-text-primary hover:bg-bg-tertiary transition-colors ease-out"
             >
               <span className="font-semibold flex items-center gap-2">
                 <TreePine size={16} />
@@ -1986,7 +1986,7 @@ export const TreeGenPage: React.FC = () => {
           <div className="bg-bg-secondary rounded-lg border border-border-primary overflow-hidden">
             <button
               onClick={() => togglePanel("leaves")}
-              className="w-full px-4 py-3 flex items-center justify-between text-text-primary hover:bg-bg-tertiary transition-colors"
+              className="w-full px-4 py-3 flex items-center justify-between text-text-primary hover:bg-bg-tertiary transition-colors ease-out"
             >
               <span className="font-semibold flex items-center gap-2">
                 <TreePine size={16} />
@@ -2151,7 +2151,7 @@ export const TreeGenPage: React.FC = () => {
           <div className="bg-bg-secondary rounded-lg border border-border-primary overflow-hidden">
             <button
               onClick={() => togglePanel("geometry")}
-              className="w-full px-4 py-3 flex items-center justify-between text-text-primary hover:bg-bg-tertiary transition-colors"
+              className="w-full px-4 py-3 flex items-center justify-between text-text-primary hover:bg-bg-tertiary transition-colors ease-out"
             >
               <span className="font-semibold flex items-center gap-2">
                 <Settings2 size={16} />
@@ -2276,7 +2276,7 @@ export const TreeGenPage: React.FC = () => {
           <div className="bg-bg-secondary rounded-lg border border-border-primary overflow-hidden">
             <button
               onClick={() => togglePanel("lod")}
-              className="w-full px-4 py-3 flex items-center justify-between text-text-primary hover:bg-bg-tertiary transition-colors"
+              className="w-full px-4 py-3 flex items-center justify-between text-text-primary hover:bg-bg-tertiary transition-colors ease-out"
             >
               <span className="font-semibold flex items-center gap-2">
                 <Sliders size={16} />
@@ -2385,7 +2385,7 @@ export const TreeGenPage: React.FC = () => {
                 <button
                   onClick={generateLODPreviews}
                   disabled={!currentTreeRef.current || isGenerating}
-                  className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-all disabled:opacity-50 text-sm flex items-center justify-center gap-2"
+                  className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-all disabled:opacity-50 text-sm flex items-center justify-center gap-2 ease-out"
                 >
                   <Eye size={16} />
                   Generate LOD Preview
@@ -2398,7 +2398,7 @@ export const TreeGenPage: React.FC = () => {
           <div className="bg-bg-secondary rounded-lg border border-border-primary overflow-hidden">
             <button
               onClick={() => togglePanel("impostor")}
-              className="w-full px-4 py-3 flex items-center justify-between text-text-primary hover:bg-bg-tertiary transition-colors"
+              className="w-full px-4 py-3 flex items-center justify-between text-text-primary hover:bg-bg-tertiary transition-colors ease-out"
             >
               <span className="font-semibold flex items-center gap-2">
                 <Image size={16} />
@@ -2497,7 +2497,7 @@ export const TreeGenPage: React.FC = () => {
           <div className="bg-bg-secondary rounded-lg border border-border-primary overflow-hidden">
             <button
               onClick={() => togglePanel("lighting")}
-              className="w-full px-4 py-3 flex items-center justify-between text-text-primary hover:bg-bg-tertiary transition-colors"
+              className="w-full px-4 py-3 flex items-center justify-between text-text-primary hover:bg-bg-tertiary transition-colors ease-out"
             >
               <span className="font-semibold flex items-center gap-2">
                 <Sun size={16} />
@@ -2611,7 +2611,7 @@ export const TreeGenPage: React.FC = () => {
           </div>
 
           {/* Saved Presets */}
-          <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
+          <div className="bg-bg-secondary rounded-lg p-5 border border-border-primary">
             <h3 className="font-semibold text-text-primary mb-3 flex items-center gap-2">
               <FolderOpen size={18} />
               Saved Presets
@@ -2636,7 +2636,7 @@ export const TreeGenPage: React.FC = () => {
                     </button>
                     <button
                       onClick={() => deleteSavedPreset(savedPreset.id)}
-                      className="p-1 text-text-secondary hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="p-1 text-text-secondary hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity ease-out"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -2648,7 +2648,7 @@ export const TreeGenPage: React.FC = () => {
 
           {/* Stats Panel */}
           {stats && (
-            <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
+            <div className="bg-bg-secondary rounded-lg p-5 border border-border-primary">
               <h3 className="font-semibold text-text-primary mb-3">
                 {showLODPreview
                   ? "LOD Comparison"
@@ -2879,7 +2879,7 @@ export const TreeGenPage: React.FC = () => {
 
           {/* Impostor Atlas Preview */}
           {showLODPreview && impostorData.atlasTexture && (
-            <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
+            <div className="bg-bg-secondary rounded-lg p-5 border border-border-primary">
               <h3 className="font-semibold text-text-primary mb-3 flex items-center gap-2">
                 <Image size={16} />
                 Impostor Atlas
@@ -2941,7 +2941,7 @@ export const TreeGenPage: React.FC = () => {
 
           {/* Batch Results Grid */}
           {batchMode && batchResults.length > 0 && (
-            <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
+            <div className="bg-bg-secondary rounded-lg p-5 border border-border-primary">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold text-text-primary">Results</h3>
                 <button
@@ -2979,7 +2979,7 @@ export const TreeGenPage: React.FC = () => {
                         `${preset}_${seed + selectedBatchIndex * 1000}.glb`,
                       )
                     }
-                    className="w-full py-1.5 text-xs bg-bg-tertiary hover:bg-bg-primary text-text-primary rounded transition-colors flex items-center justify-center gap-1"
+                    className="w-full py-1.5 text-xs bg-bg-tertiary hover:bg-bg-primary text-text-primary rounded transition-colors flex items-center justify-center gap-1 ease-out"
                   >
                     <Download size={12} />
                     Export Selected
@@ -3046,7 +3046,7 @@ export const TreeGenPage: React.FC = () => {
               placeholder="Preset name..."
               value={newPresetName}
               onChange={(e) => setNewPresetName(e.target.value)}
-              className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded-md text-text-primary mb-4"
+              className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded-md text-text-primary mb-4"
               autoFocus
             />
             <div className="flex justify-end gap-2">

@@ -722,7 +722,7 @@ export const ManifestsPage: React.FC = () => {
               activeTab === "manifests"
                 ? "bg-primary bg-opacity-10 text-primary border-b-2 border-primary"
                 : "text-text-secondary hover:text-text-primary hover:bg-bg-tertiary"
-            }`}
+            } ease-out`}
             onClick={() => setActiveTab("manifests")}
           >
             <FileJson className="w-4 h-4 inline mr-2" />
@@ -733,7 +733,7 @@ export const ManifestsPage: React.FC = () => {
               activeTab === "lod"
                 ? "bg-primary bg-opacity-10 text-primary border-b-2 border-primary"
                 : "text-text-secondary hover:text-text-primary hover:bg-bg-tertiary"
-            }`}
+            } ease-out`}
             onClick={() => setActiveTab("lod")}
           >
             <Trees className="w-4 h-4 inline mr-2" />
@@ -744,7 +744,7 @@ export const ManifestsPage: React.FC = () => {
               activeTab === "vat"
                 ? "bg-primary bg-opacity-10 text-primary border-b-2 border-primary"
                 : "text-text-secondary hover:text-text-primary hover:bg-bg-tertiary"
-            }`}
+            } ease-out`}
             onClick={() => setActiveTab("vat")}
           >
             <Package className="w-4 h-4 inline mr-2" />
@@ -755,7 +755,7 @@ export const ManifestsPage: React.FC = () => {
               activeTab === "imposters"
                 ? "bg-primary bg-opacity-10 text-primary border-b-2 border-primary"
                 : "text-text-secondary hover:text-text-primary hover:bg-bg-tertiary"
-            }`}
+            } ease-out`}
             onClick={() => setActiveTab("imposters")}
           >
             <Users className="w-4 h-4 inline mr-2" />
@@ -777,7 +777,7 @@ export const ManifestsPage: React.FC = () => {
                     <span className={CATEGORY_COLORS[category]}>
                       {CATEGORY_ICONS[category]}
                     </span>
-                    <span className="text-xs font-semibold uppercase text-text-secondary">
+                    <span className="text-xs font-semibold uppercase text-text-secondary tracking-[0.12em]">
                       {category}
                     </span>
                     <span className="text-xs text-text-muted">
@@ -791,7 +791,7 @@ export const ManifestsPage: React.FC = () => {
                         selectedManifest === manifest.name
                           ? "bg-primary bg-opacity-10 border-l-2 border-primary"
                           : ""
-                      }`}
+                      } ease-out`}
                       onClick={() => selectManifest(manifest.name)}
                     >
                       <FileJson
@@ -1178,7 +1178,7 @@ export const ManifestsPage: React.FC = () => {
                   showJsonEditor
                     ? "bg-primary bg-opacity-20 text-primary"
                     : "text-text-secondary hover:text-text-primary hover:bg-bg-tertiary"
-                }`}
+                } ease-out`}
                 onClick={() => setShowJsonEditor(true)}
                 title="JSON Editor"
               >
@@ -1189,7 +1189,7 @@ export const ManifestsPage: React.FC = () => {
                   !showJsonEditor
                     ? "bg-primary bg-opacity-20 text-primary"
                     : "text-text-secondary hover:text-text-primary hover:bg-bg-tertiary"
-                }`}
+                } ease-out`}
                 onClick={() => setShowJsonEditor(false)}
                 title="Visual Editor"
               >

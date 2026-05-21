@@ -105,7 +105,7 @@ export const AssetsPage: React.FC = () => {
                 <div className="absolute inset-0">
                   {/* Keep both viewers mounted; fade inactive one to preserve layout and canvas size */}
                   <div
-                    className={`absolute inset-0 transition-opacity duration-200 ${showAnimationView && selectedAsset.type === "character" ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+                    className={`absolute inset-0 transition-opacity duration-500 ${showAnimationView && selectedAsset.type === "character" ? "opacity-0 pointer-events-none" : "opacity-100"} ease-out`}
                   >
                     <ThreeViewer
                       ref={viewerRef}
@@ -130,7 +130,7 @@ export const AssetsPage: React.FC = () => {
                     />
                   </div>
                   <div
-                    className={`absolute inset-0 transition-opacity duration-200 ${showAnimationView && selectedAsset.type === "character" ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+                    className={`absolute inset-0 transition-opacity duration-500 ${showAnimationView && selectedAsset.type === "character" ? "opacity-100" : "opacity-0 pointer-events-none"} ease-out`}
                   >
                     <AnimationPlayer
                       modelUrl={
@@ -160,9 +160,9 @@ export const AssetsPage: React.FC = () => {
                     {selectedAsset.type === "character" && (
                       <button
                         onClick={toggleAnimationView}
-                        className={`group p-3 bg-bg-secondary bg-opacity-90 rounded-xl transition-all duration-200 hover:bg-bg-tertiary shadow-lg ${
+                        className={`group p-3 bg-bg-secondary bg-opacity-90 rounded-xl transition-all duration-300 hover:bg-bg-tertiary shadow-lg ${
                           showAnimationView ? "ring-1 ring-primary/40" : ""
-                        }`}
+                        } ease-out`}
                         title={
                           showAnimationView
                             ? "View 3D Model"
@@ -175,7 +175,7 @@ export const AssetsPage: React.FC = () => {
                             showAnimationView
                               ? "text-primary"
                               : "text-text-secondary group-hover:text-primary"
-                          }`}
+                          } ease-out`}
                         />
                       </button>
                     )}
@@ -183,21 +183,21 @@ export const AssetsPage: React.FC = () => {
                     {/* Edit Button - middle */}
                     <button
                       onClick={() => setShowEditModal(true)}
-                      className="group p-3 bg-bg-secondary bg-opacity-90 rounded-xl transition-all duration-200 hover:bg-bg-tertiary shadow-lg"
+                      className="group p-3 bg-bg-secondary bg-opacity-90 rounded-xl transition-all duration-300 hover:bg-bg-tertiary shadow-lg ease-out"
                       title="Edit Asset"
                     >
                       <Edit3
                         size={20}
-                        className="text-text-secondary group-hover:text-primary transition-colors"
+                        className="text-text-secondary group-hover:text-primary transition-colors ease-out"
                       />
                     </button>
 
                     {/* Details Button - furthest right with Layers icon */}
                     <button
                       onClick={toggleDetailsPanel}
-                      className={`p-3 bg-bg-secondary bg-opacity-90 rounded-xl transition-all duration-200 hover:bg-bg-tertiary shadow-lg ${
+                      className={`p-3 bg-bg-secondary bg-opacity-90 rounded-xl transition-all duration-300 hover:bg-bg-tertiary shadow-lg ${
                         showDetailsPanel ? "ring-1 ring-primary/40" : ""
-                      }`}
+                      } ease-out`}
                       title="Toggle Details (D)"
                     >
                       <Layers
@@ -206,7 +206,7 @@ export const AssetsPage: React.FC = () => {
                           showDetailsPanel
                             ? "text-primary"
                             : "text-text-secondary"
-                        }`}
+                        } ease-out`}
                       />
                     </button>
                   </div>

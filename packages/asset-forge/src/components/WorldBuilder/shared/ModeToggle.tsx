@@ -64,7 +64,7 @@ export const ModeToggle: React.FC<ModeToggleProps> = ({
           mode === "creation"
             ? "bg-primary text-white shadow-sm"
             : "text-text-secondary hover:text-text-primary hover:bg-bg-secondary"
-        }`}
+        } ease-out`}
       >
         <Wand2 className="w-4 h-4" />
         <span>Create</span>
@@ -80,7 +80,7 @@ export const ModeToggle: React.FC<ModeToggleProps> = ({
           mode === "editing"
             ? "bg-primary text-white shadow-sm"
             : "text-text-secondary hover:text-text-primary hover:bg-bg-secondary"
-        }`}
+        } ease-out`}
       >
         <Edit3 className="w-4 h-4" />
         <span>Edit</span>

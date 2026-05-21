@@ -264,7 +264,7 @@ export function UILayoutEditorPage() {
         </p>
         <button
           onClick={handleBack}
-          className="flex items-center gap-1 rounded-md border border-bg-tertiary bg-bg-secondary px-3 py-1.5 text-xs text-text-secondary hover:border-primary/50 hover:text-primary"
+          className="flex items-center gap-1 rounded-md border border-bg-tertiary bg-bg-secondary px-5 py-1.5 text-xs text-text-secondary hover:border-primary/50 hover:text-primary"
         >
           <ArrowLeft size={12} />
           Back to World Studio
@@ -472,11 +472,11 @@ function RightSidebarTab({
       role="tab"
       aria-selected={active}
       onClick={onClick}
-      className={`flex flex-1 items-center justify-center gap-1.5 border-b-2 px-2 py-2 text-[11px] font-semibold uppercase tracking-wider transition-colors ${
+      className={`flex flex-1 items-center justify-center gap-1.5 border-b-2 px-2 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] transition-colors ${
         active
           ? "border-primary bg-bg-primary text-text-primary"
           : "border-transparent text-text-tertiary hover:bg-bg-tertiary/40 hover:text-text-secondary"
-      }`}
+      } ease-out`}
     >
       {icon}
       <span>{label}</span>

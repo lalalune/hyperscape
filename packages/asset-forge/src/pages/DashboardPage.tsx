@@ -173,20 +173,20 @@ function QuickActionCard({ card }: { card: ToolCard }) {
   return (
     <Link
       to={card.route}
-      className="group relative flex flex-col gap-3 p-5 rounded-md bg-bg-tertiary border border-border-primary hover:border-primary/40 transition-colors duration-200"
+      className="group relative flex flex-col gap-3 p-5 rounded-md bg-bg-tertiary border border-border-primary hover:border-primary/40 transition-colors duration-500 ease-out"
     >
       {/* Earned Gold edge — appears only on hover */}
-      <div className="absolute left-0 top-4 bottom-4 w-px bg-primary opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+      <div className="absolute left-0 top-4 bottom-4 w-px bg-primary opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-out" />
 
       <div className="flex items-center justify-between">
         <card.icon
           size={20}
-          className="text-text-secondary group-hover:text-primary transition-colors duration-200"
+          className="text-text-secondary group-hover:text-primary transition-colors duration-500 ease-out"
           strokeWidth={1.5}
         />
         <ArrowRight
           size={14}
-          className="text-text-tertiary opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+          className="text-text-tertiary opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-out"
           strokeWidth={1.5}
         />
       </div>
@@ -209,11 +209,11 @@ function ToolGrid({ title, tools }: { title: string; tools: ToolCard[] }) {
           <Link
             key={tool.route}
             to={tool.route}
-            className="group flex items-center gap-3 px-3.5 py-3 rounded-md bg-bg-tertiary border border-border-primary hover:border-primary/30 transition-colors duration-150"
+            className="group flex items-center gap-3 px-3.5 py-4 rounded-md bg-bg-tertiary border border-border-primary hover:border-primary/30 transition-colors duration-500 ease-out"
           >
             <tool.icon
               size={16}
-              className="text-text-tertiary group-hover:text-primary transition-colors duration-150 flex-shrink-0"
+              className="text-text-tertiary group-hover:text-primary transition-colors duration-500 flex-shrink-0 ease-out"
               strokeWidth={1.5}
             />
             <div className="min-w-0">

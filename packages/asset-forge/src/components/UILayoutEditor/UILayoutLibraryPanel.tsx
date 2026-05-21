@@ -291,7 +291,7 @@ export function UILayoutLibraryPanel() {
                     selectedTeamId &&
                     navigate(buildUILayoutEditorPath(selectedTeamId, layout.id))
                   }
-                  className="flex w-full items-center gap-3 rounded-md border border-bg-tertiary bg-bg-secondary px-3 py-2 text-left hover:border-primary/40 hover:bg-bg-tertiary"
+                  className="flex w-full items-center gap-3 rounded-md border border-bg-tertiary bg-bg-secondary px-5 py-4 text-left hover:border-primary/40 hover:bg-bg-tertiary"
                 >
                   <FileText size={14} className="text-primary/70" />
                   <div className="min-w-0 flex-1">

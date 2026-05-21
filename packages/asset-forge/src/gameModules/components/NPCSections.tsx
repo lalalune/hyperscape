@@ -280,7 +280,7 @@ export function NPCDialogueSection({ entityData }: CustomSectionProps) {
 
   return (
     <button
-      className="w-full flex items-center justify-center gap-1 px-2 py-1.5 text-[10px] rounded border border-dashed border-border-primary text-text-tertiary hover:text-text-secondary hover:border-text-tertiary transition-colors"
+      className="w-full flex items-center justify-center gap-1 px-2 py-1.5 text-[10px] rounded border border-dashed border-border-primary text-text-tertiary hover:text-text-secondary hover:border-text-tertiary transition-colors ease-out"
       onClick={() =>
         setDialogueSection({
           entryNodeId: "greeting",
@@ -342,7 +342,7 @@ export function NPCAIGenerationSection({
   return (
     <div className="space-y-1.5">
       <button
-        className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 text-[11px] bg-primary/10 text-primary hover:bg-primary/20 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 text-[11px] bg-primary/10 text-primary hover:bg-primary/20 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed ease-out"
         disabled={ai.isGenerating || !npcTypeId}
         onClick={() => npcTypeId && ai.generateDialogue(npcTypeId)}
       >
@@ -350,7 +350,7 @@ export function NPCAIGenerationSection({
         {activeOnThis ? "Generating..." : "Generate Dialogue"}
       </button>
       <button
-        className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 text-[11px] bg-primary/10 text-primary hover:bg-primary/20 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 text-[11px] bg-primary/10 text-primary hover:bg-primary/20 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed ease-out"
         disabled={
           ai.isGenerating || !npcTypeId || !mergedDialogue?.nodes?.length
         }

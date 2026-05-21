@@ -235,7 +235,7 @@ export function PlanPreviewPanel({
                     <button
                       type="button"
                       onClick={() => onRemoveNpc(i)}
-                      className="opacity-0 group-hover:opacity-100 text-text-tertiary hover:text-red-400 transition-opacity"
+                      className="opacity-0 group-hover:opacity-100 text-text-tertiary hover:text-red-400 transition-opacity ease-out"
                       aria-label={`Remove ${name}`}
                     >
                       <Trash2 size={11} />
@@ -247,7 +247,7 @@ export function PlanPreviewPanel({
                 type="button"
                 disabled={isPending || isCreating}
                 onClick={() => onAskFor("Add another NPC to my world.")}
-                className="w-full mt-1 px-2.5 py-1.5 text-[11px] rounded-md bg-bg-primary/40 text-text-tertiary hover:text-primary hover:bg-bg-primary/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
+                className="w-full mt-1 px-2.5 py-1.5 text-[11px] rounded-md bg-bg-primary/40 text-text-tertiary hover:text-primary hover:bg-bg-primary/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1 ease-out"
               >
                 <ArrowRight size={10} />
                 Add another
@@ -302,7 +302,7 @@ export function PlanPreviewPanel({
                     <button
                       type="button"
                       onClick={() => onRemoveMobSpawn(i)}
-                      className="opacity-0 group-hover:opacity-100 text-text-tertiary hover:text-red-400 transition-opacity"
+                      className="opacity-0 group-hover:opacity-100 text-text-tertiary hover:text-red-400 transition-opacity ease-out"
                       aria-label={`Remove spawn`}
                     >
                       <Trash2 size={11} />
@@ -354,7 +354,7 @@ export function PlanPreviewPanel({
                     <button
                       type="button"
                       onClick={() => onRemoveQuest(i)}
-                      className="opacity-0 group-hover:opacity-100 text-text-tertiary hover:text-red-400 transition-opacity"
+                      className="opacity-0 group-hover:opacity-100 text-text-tertiary hover:text-red-400 transition-opacity ease-out"
                       aria-label={`Remove quest`}
                     >
                       <Trash2 size={11} />
@@ -397,7 +397,7 @@ export function PlanPreviewPanel({
                     <button
                       type="button"
                       onClick={() => onRemoveAsset(i)}
-                      className="opacity-0 group-hover:opacity-100 text-text-tertiary hover:text-red-400 transition-opacity"
+                      className="opacity-0 group-hover:opacity-100 text-text-tertiary hover:text-red-400 transition-opacity ease-out"
                       aria-label={`Remove asset`}
                     >
                       <Trash2 size={11} />
@@ -431,7 +431,7 @@ export function PlanPreviewPanel({
         <button
           type="button"
           onClick={() => setWorldDetailOpen((v) => !v)}
-          className="w-full flex items-center justify-between gap-2 px-3 py-2 mt-2 rounded-md bg-bg-tertiary/40 hover:bg-bg-tertiary/60 ring-1 ring-white/[0.04] transition-colors"
+          className="w-full flex items-center justify-between gap-2 px-3 py-2 mt-2 rounded-md bg-bg-tertiary/40 hover:bg-bg-tertiary/60 ring-1 ring-white/[0.04] transition-colors ease-out"
         >
           <div className="flex items-center gap-2">
             {worldDetailOpen ? (
@@ -493,10 +493,10 @@ export function PlanPreviewPanel({
               : allPrimarySet
                 ? "bg-primary text-white ring-1 ring-primary/40"
                 : "bg-primary text-white "
-          }`}
+          } ease-out`}
         >
           {canBuild && !isCreating && (
-            <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+            <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-out" />
           )}
           {allPrimarySet && canBuild && !isCreating && (
             <span className="absolute inset-0 bg-primary/30 rounded-lg opacity-30 pointer-events-none" />
@@ -631,7 +631,7 @@ function PlanSlot({
         set
           ? "bg-bg-tertiary/80 ring-white/[0.06] shadow-sm"
           : "bg-bg-tertiary/40 ring-white/[0.04] hover:ring-primary/30 hover:bg-bg-tertiary/60"
-      }`}
+      } ease-out`}
     >
       {set && (
         <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-primary to-primary/40" />
@@ -642,7 +642,7 @@ function PlanSlot({
             set
               ? "bg-primary/15 text-primary ring-1 ring-primary/25"
               : "bg-bg-secondary/60 text-text-tertiary"
-          }`}
+          } ease-out`}
         >
           {icon}
         </div>
@@ -669,7 +669,7 @@ function PlanSlot({
               <button
                 type="button"
                 onClick={onRemove}
-                className="opacity-0 group-hover:opacity-100 text-text-tertiary hover:text-red-400 transition-opacity"
+                className="opacity-0 group-hover:opacity-100 text-text-tertiary hover:text-red-400 transition-opacity ease-out"
                 aria-label={`Remove ${title}`}
               >
                 <Trash2 size={12} />
@@ -684,7 +684,7 @@ function PlanSlot({
               type="button"
               disabled={actionDisabled}
               onClick={onAction}
-              className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed ease-out"
             >
               {actionLabel}
               <ArrowRight size={10} />

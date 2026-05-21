@@ -338,7 +338,7 @@ export const TerrainGenPage: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary flex items-center gap-3">
+          <h1 className="font-display text-2xl font-medium text-text-primary flex items-center gap-3 tracking-tight">
             <Mountain size={28} />
             Terrain Generator
           </h1>
@@ -351,7 +351,7 @@ export const TerrainGenPage: React.FC = () => {
           {/* Save Preset */}
           <button
             onClick={() => setShowSaveDialog(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-bg-tertiary text-text-secondary hover:text-text-primary rounded-lg transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-bg-tertiary text-text-secondary hover:text-text-primary rounded-lg transition-all ease-out"
             title="Save as preset"
           >
             <Save size={18} />
@@ -361,7 +361,7 @@ export const TerrainGenPage: React.FC = () => {
           {/* Export Config */}
           <button
             onClick={exportConfig}
-            className="flex items-center gap-2 px-4 py-2 bg-bg-tertiary text-text-secondary hover:text-text-primary rounded-lg transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-bg-tertiary text-text-secondary hover:text-text-primary rounded-lg transition-all ease-out"
             title="Export config"
           >
             <Download size={18} />
@@ -371,7 +371,7 @@ export const TerrainGenPage: React.FC = () => {
           {/* Import Config */}
           <button
             onClick={importConfig}
-            className="flex items-center gap-2 px-4 py-2 bg-bg-tertiary text-text-secondary hover:text-text-primary rounded-lg transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-bg-tertiary text-text-secondary hover:text-text-primary rounded-lg transition-all ease-out"
             title="Import config"
           >
             <Upload size={18} />
@@ -381,7 +381,7 @@ export const TerrainGenPage: React.FC = () => {
           {/* Random Seed */}
           <button
             onClick={handleRandomSeed}
-            className="flex items-center gap-2 px-4 py-2 bg-bg-tertiary hover:bg-bg-secondary rounded-lg text-text-secondary hover:text-text-primary transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-bg-tertiary hover:bg-bg-secondary rounded-lg text-text-secondary hover:text-text-primary transition-all ease-out"
             title="Random seed"
           >
             🎲
@@ -391,7 +391,7 @@ export const TerrainGenPage: React.FC = () => {
           <button
             onClick={handleRegenerate}
             disabled={isGenerating}
-            className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition-all disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition-all disabled:opacity-50 ease-out"
           >
             <RefreshCw
               size={18}
@@ -406,7 +406,7 @@ export const TerrainGenPage: React.FC = () => {
         {/* Controls Panel */}
         <div className="w-72 flex-shrink-0 space-y-4 overflow-y-auto">
           {/* Preset Selection */}
-          <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
+          <div className="bg-bg-secondary rounded-lg p-5 border border-border-primary">
             <h3 className="font-semibold text-text-primary mb-4 flex items-center gap-2">
               <Settings2 size={18} />
               Terrain Preset
@@ -420,7 +420,7 @@ export const TerrainGenPage: React.FC = () => {
                 <select
                   value={preset}
                   onChange={(e) => setPreset(e.target.value)}
-                  className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded-md text-text-primary"
+                  className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded-md text-text-primary"
                 >
                   {TERRAIN_PRESETS.map((name) => (
                     <option key={name} value={name}>
@@ -439,11 +439,11 @@ export const TerrainGenPage: React.FC = () => {
                     type="number"
                     value={seed}
                     onChange={(e) => setSeed(parseInt(e.target.value) || 0)}
-                    className="flex-1 px-3 py-2 bg-bg-tertiary border border-border-primary rounded-md text-text-primary"
+                    className="flex-1 px-5 py-4 bg-bg-tertiary border border-border-primary rounded-md text-text-primary"
                   />
                   <button
                     onClick={handleRandomSeed}
-                    className="px-3 py-2 bg-bg-tertiary border border-border-primary rounded-md text-text-secondary hover:text-text-primary transition-colors"
+                    className="px-5 py-4 bg-bg-tertiary border border-border-primary rounded-md text-text-secondary hover:text-text-primary transition-colors ease-out"
                     title="Random seed"
                   >
                     🎲
@@ -454,7 +454,7 @@ export const TerrainGenPage: React.FC = () => {
           </div>
 
           {/* Saved Presets */}
-          <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
+          <div className="bg-bg-secondary rounded-lg p-5 border border-border-primary">
             <h3 className="font-semibold text-text-primary mb-3 flex items-center gap-2">
               <FolderOpen size={18} />
               Saved Presets
@@ -479,7 +479,7 @@ export const TerrainGenPage: React.FC = () => {
                     </button>
                     <button
                       onClick={() => deleteSavedPreset(savedPreset.id)}
-                      className="p-1 text-text-secondary hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="p-1 text-text-secondary hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity ease-out"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -490,7 +490,7 @@ export const TerrainGenPage: React.FC = () => {
           </div>
 
           {/* World Size Settings */}
-          <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
+          <div className="bg-bg-secondary rounded-lg p-5 border border-border-primary">
             <h3 className="font-semibold text-text-primary mb-4 flex items-center gap-2">
               <Grid3x3 size={18} />
               World Size
@@ -551,7 +551,7 @@ export const TerrainGenPage: React.FC = () => {
           </div>
 
           {/* Water Settings */}
-          <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
+          <div className="bg-bg-secondary rounded-lg p-5 border border-border-primary">
             <h3 className="font-semibold text-text-primary mb-4 flex items-center gap-2">
               <Waves size={18} />
               Water & Visualization
@@ -630,7 +630,7 @@ export const TerrainGenPage: React.FC = () => {
           </div>
 
           {/* Time of Day */}
-          <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
+          <div className="bg-bg-secondary rounded-lg p-5 border border-border-primary">
             <h3 className="font-semibold text-text-primary mb-4 flex items-center gap-2">
               {timeOfDay >= 6 && timeOfDay < 18 ? (
                 <Sun size={18} />
@@ -677,7 +677,7 @@ export const TerrainGenPage: React.FC = () => {
                       Math.abs(timeOfDay - time) < 2
                         ? "bg-primary text-white"
                         : "bg-bg-tertiary text-text-secondary hover:text-text-primary"
-                    }`}
+                    } ease-out`}
                   >
                     {label}
                   </button>
@@ -687,7 +687,7 @@ export const TerrainGenPage: React.FC = () => {
           </div>
 
           {/* Grass Settings */}
-          <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
+          <div className="bg-bg-secondary rounded-lg p-5 border border-border-primary">
             <h3 className="font-semibold text-text-primary mb-4 flex items-center gap-2">
               <Leaf size={18} />
               Grass
@@ -745,7 +745,7 @@ export const TerrainGenPage: React.FC = () => {
           </div>
 
           {/* Stats Panel */}
-          <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
+          <div className="bg-bg-secondary rounded-lg p-5 border border-border-primary">
             <h3 className="font-semibold text-text-primary mb-3">
               Current Config
             </h3>
@@ -779,7 +779,7 @@ export const TerrainGenPage: React.FC = () => {
           <button
             onClick={handleRegenerate}
             disabled={isGenerating}
-            className="w-full py-3 bg-primary hover:bg-primary-dark text-white rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full py-3 bg-primary hover:bg-primary-dark text-white rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 ease-out"
           >
             <RefreshCw
               size={18}
@@ -801,7 +801,7 @@ export const TerrainGenPage: React.FC = () => {
 
       {/* Info Panel */}
       <div className="mt-4 grid grid-cols-3 gap-4">
-        <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
+        <div className="bg-bg-secondary rounded-lg p-5 border border-border-primary">
           <h3 className="font-semibold text-text-primary mb-2">
             Terrain Presets
           </h3>
@@ -811,14 +811,14 @@ export const TerrainGenPage: React.FC = () => {
             and shorelines.
           </p>
         </div>
-        <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
+        <div className="bg-bg-secondary rounded-lg p-5 border border-border-primary">
           <h3 className="font-semibold text-text-primary mb-2">Biomes</h3>
           <p className="text-sm text-text-secondary">
             Automatic biome generation based on height and moisture. Plains,
             forests, mountains, deserts, swamps, and tundra.
           </p>
         </div>
-        <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
+        <div className="bg-bg-secondary rounded-lg p-5 border border-border-primary">
           <h3 className="font-semibold text-text-primary mb-2">
             Save & Export
           </h3>
@@ -845,7 +845,7 @@ export const TerrainGenPage: React.FC = () => {
               placeholder="Preset name..."
               value={newPresetName}
               onChange={(e) => setNewPresetName(e.target.value)}
-              className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded-md text-text-primary mb-4"
+              className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded-md text-text-primary mb-4"
               autoFocus
             />
             <div className="flex justify-end gap-2">

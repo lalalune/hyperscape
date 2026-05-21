@@ -322,11 +322,11 @@ function MinimapPopover({
   return (
     <div className="bg-[rgba(10,11,16,0.92)] border border-[#1C1E22] rounded-lg shadow-[0_4px_16px_rgba(0,0,0,0.4)] p-2 mb-1.5">
       <div className="flex items-center justify-between mb-1 px-0.5">
-        <span className="text-[9px] text-white/50 uppercase tracking-wider font-medium">
+        <span className="text-[9px] text-white/50 uppercase tracking-[0.12em] font-medium">
           World Map
         </span>
         <button
-          className="p-0.5 rounded text-white/40 hover:text-white hover:bg-[#333] transition-colors"
+          className="p-0.5 rounded text-white/40 hover:text-white hover:bg-[#333] transition-colors ease-out"
           onClick={onClose}
         >
           <X size={10} />
@@ -436,7 +436,7 @@ function ControlsTooltip() {
 
       {open && (
         <div className="absolute bottom-full right-0 mb-1.5 bg-[rgba(8,9,14,0.92)] rounded-lg border border-border-primary shadow-[0_4px_16px_rgba(0,0,0,0.4)] p-3 w-56 pointer-events-auto">
-          <div className="text-[9px] text-white/50 uppercase tracking-wider font-medium mb-1.5">
+          <div className="text-[9px] text-white/50 uppercase tracking-[0.12em] font-medium mb-1.5">
             Controls
           </div>
           <div className="space-y-0.5">

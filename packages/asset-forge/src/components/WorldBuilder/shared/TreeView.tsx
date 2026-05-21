@@ -195,7 +195,7 @@ const TreeNode: React.FC<TreeNodeProps> = memo(
             isSelected
               ? "bg-primary/20 text-text-primary"
               : "hover:bg-bg-tertiary text-text-secondary hover:text-text-primary"
-          }`}
+          } ease-out`}
           style={{ paddingLeft: `${level * 16 + 8}px` }}
           onClick={handleClick}
           onDoubleClick={handleDoubleClick}
@@ -356,7 +356,7 @@ export const TreeView: React.FC<TreeViewProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={searchPlaceholder}
-            className="w-full px-3 py-1.5 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-primary/40"
+            className="w-full px-5 py-1.5 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-primary/40"
           />
         </div>
       )}

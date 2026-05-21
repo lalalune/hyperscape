@@ -66,7 +66,7 @@ export function ChatBubble({
   return (
     <div className="flex justify-start gap-2.5 pr-10">
       <AgentAvatar />
-      <div className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-tl-md bg-bg-secondary text-text-primary text-[13px] leading-relaxed whitespace-pre-wrap border border-border-primary shadow-sm">
+      <div className="max-w-[85%] px-5 py-4.5 rounded-2xl rounded-tl-md bg-bg-secondary text-text-primary text-[13px] leading-relaxed whitespace-pre-wrap border border-border-primary shadow-sm">
         {message.text}
       </div>
     </div>
@@ -86,7 +86,7 @@ export function TypingIndicator({
   return (
     <div className="flex justify-start gap-2.5 pr-10">
       <AgentAvatar pulsing />
-      <div className="px-4 py-3 rounded-2xl rounded-tl-md bg-bg-secondary border border-border-primary shadow-sm">
+      <div className="px-5 py-4 rounded-2xl rounded-tl-md bg-bg-secondary border border-border-primary shadow-sm">
         <div className="flex items-center gap-2">
           <span className="flex items-center gap-1">
             <span

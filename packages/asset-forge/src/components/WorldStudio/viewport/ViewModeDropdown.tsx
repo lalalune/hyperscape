@@ -85,7 +85,7 @@ export function ViewModeDropdown({
           open
             ? "bg-[rgba(99,102,241,0.12)] text-primary border-primary/40 shadow-[0_0_8px_rgba(99,102,241,0.15)]"
             : "bg-[#141416] text-white/60 hover:text-white/80 border-[#1C1E22] hover:bg-[#1e1f28]"
-        }`}
+        } ease-out`}
         onClick={() => setOpen((v) => !v)}
         title="View Mode"
       >
@@ -93,7 +93,7 @@ export function ViewModeDropdown({
         <span>{current.label}</span>
         <ChevronDown
           size={10}
-          className={`transition-transform ${open ? "rotate-180" : ""}`}
+          className={`transition-transform ${open ? "rotate-180" : ""} ease-out`}
         />
       </button>
 
@@ -112,7 +112,7 @@ export function ViewModeDropdown({
                   isActive
                     ? "text-primary bg-primary/[0.12]"
                     : "text-white/60 hover:text-white/90 hover:bg-bg-tertiary/40"
-                }`}
+                } ease-out`}
                 onClick={() => handleSelect(option.mode)}
               >
                 <Icon size={12} className="flex-shrink-0" />

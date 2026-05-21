@@ -352,7 +352,7 @@ export function AutomationPanel() {
       <div className="flex flex-col h-full overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between px-3 py-2 border-b border-border-primary">
-          <span className="text-xs font-semibold text-text-secondary uppercase tracking-wider flex items-center gap-1.5">
+          <span className="text-xs font-semibold text-text-secondary uppercase tracking-[0.12em] flex items-center gap-1.5">
             <Wand2 size={12} />
             AI tools
           </span>
@@ -396,7 +396,7 @@ export function AutomationPanel() {
     <div className="flex flex-col h-full overflow-y-auto">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-border-primary">
-        <span className="text-xs font-semibold text-text-secondary uppercase tracking-wider flex items-center gap-1.5">
+        <span className="text-xs font-semibold text-text-secondary uppercase tracking-[0.12em] flex items-center gap-1.5">
           <Wand2 size={12} />
           AI tools
         </span>
@@ -475,7 +475,7 @@ export function AutomationPanel() {
           return (
             <button
               key={tool.id}
-              className="w-full flex items-center gap-2 px-3 py-2 text-xs bg-bg-tertiary hover:bg-bg-tertiary/80 rounded transition-colors disabled:opacity-50"
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs bg-bg-tertiary hover:bg-bg-tertiary/80 rounded transition-colors disabled:opacity-50 ease-out"
               onClick={tool.run}
               disabled={isRunning}
             >

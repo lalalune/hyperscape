@@ -276,7 +276,7 @@ export function PropertySection({
   return (
     <div className="border-b border-border-primary">
       <button
-        className="w-full flex items-center gap-1.5 px-3 py-2 transition-all duration-120 relative group/section"
+        className="w-full flex items-center gap-1.5 px-3 py-2 transition-all duration-120 relative group/section ease-out"
         style={{
           background: open ? "var(--bg-tertiary)" : "var(--bg-secondary)",
           borderTop: "1px solid var(--surface-highlight)",
@@ -299,10 +299,10 @@ export function PropertySection({
         )}
         <ChevronDown
           size={9}
-          className={`text-text-muted transition-transform duration-150 ${open ? "" : "-rotate-90"}`}
+          className={`text-text-muted transition-transform duration-300 ${open ? "" : "-rotate-90"} ease-out`}
         />
         {icon && <span className="text-text-tertiary">{icon}</span>}
-        <span className="text-[11px] font-semibold text-text-tertiary uppercase tracking-wider flex-1 text-left">
+        <span className="text-[11px] font-semibold text-text-tertiary uppercase tracking-[0.12em] flex-1 text-left">
           {title}
         </span>
         {badge != null && (
@@ -405,7 +405,7 @@ export function DragNumberInput({
         />
       ) : (
         <div
-          className="relative w-20 h-[22px] border rounded-[3px] overflow-hidden cursor-text transition-colors duration-120 hover:border-[var(--input-border-hover)]"
+          className="relative w-20 h-[22px] border rounded-[3px] overflow-hidden cursor-text transition-colors duration-120 hover:border-[var(--input-border-hover)] ease-out"
           style={{
             background: "var(--input-bg)",
             borderColor: "var(--input-border)",
@@ -415,7 +415,7 @@ export function DragNumberInput({
         >
           {/* Fill bar with gradient */}
           <div
-            className="absolute inset-y-0 left-0 transition-[width] duration-75"
+            className="absolute inset-y-0 left-0 transition-[width] duration-75 ease-out"
             style={{
               width: `${pct}%`,
               background:
@@ -558,7 +558,7 @@ export function SliderInput({
           ref={barRef}
           className={`relative h-[22px] rounded-[3px] overflow-hidden select-none transition-all duration-120 ${
             dragging ? "border-primary/50 cursor-ew-resize" : "cursor-ew-resize"
-          }`}
+          } ease-out`}
           style={{
             background: "var(--input-bg)",
             border: `1px solid ${dragging ? "rgba(212, 175, 55, 0.4)" : "var(--input-border)"}`,
@@ -581,7 +581,7 @@ export function SliderInput({
         >
           {/* Fill bar with gradient */}
           <div
-            className="absolute inset-y-0 left-0 transition-[width] duration-75"
+            className="absolute inset-y-0 left-0 transition-[width] duration-75 ease-out"
             style={{
               width: `${pct}%`,
               background:
@@ -678,7 +678,7 @@ export function NumberInput({
           />
         ) : (
           <div
-            className="relative w-16 h-[22px] border rounded-[3px] overflow-hidden cursor-text transition-colors duration-120"
+            className="relative w-16 h-[22px] border rounded-[3px] overflow-hidden cursor-text transition-colors duration-120 ease-out"
             style={{
               background: "var(--input-bg)",
               borderColor: "var(--input-border)",
@@ -697,7 +697,7 @@ export function NumberInput({
             {/* Subtle fill bar when bounds are known */}
             {hasBounds && (
               <div
-                className="absolute inset-y-0 left-0 transition-[width] duration-75"
+                className="absolute inset-y-0 left-0 transition-[width] duration-75 ease-out"
                 style={{
                   width: `${pct}%`,
                   background:
@@ -763,11 +763,11 @@ export function Toggle({ label, value, onChange }: ToggleProps) {
     <div className="flex items-center justify-between">
       <label className="text-xs text-text-secondary">{label}</label>
       <button
-        className={`w-9 h-[18px] rounded-full relative transition-all duration-200 ${
+        className={`w-9 h-[18px] rounded-full relative transition-all duration-300 ${
           value
             ? "bg-primary"
             : "bg-[var(--input-bg)] border border-[var(--input-border)] shadow-[var(--input-shadow)]"
-        }`}
+        } ease-out`}
         onClick={() => onChange(!value)}
       >
         <div
@@ -882,7 +882,7 @@ function AxisInput({
           isDragging
             ? "cursor-ew-resize text-primary"
             : "cursor-ew-resize text-text-tertiary hover:text-text-secondary"
-        }`}
+        } tracking-[0.12em]`}
       >
         {axis}
       </span>
@@ -904,7 +904,7 @@ function AxisInput({
         />
       ) : (
         <div
-          className={`relative flex-1 w-full h-[22px] border border-l-2 ${AXIS_COLORS[axis]} rounded-[3px] overflow-hidden cursor-text transition-colors duration-120`}
+          className={`relative flex-1 w-full h-[22px] border border-l-2 ${AXIS_COLORS[axis]} rounded-[3px] overflow-hidden cursor-text transition-colors duration-120 ease-out`}
           style={{
             background: "var(--input-bg)",
             borderColor: "var(--input-border)",
@@ -992,7 +992,7 @@ export function OverridableField({
         {isOverridden && onReset && (
           <button
             onClick={onReset}
-            className="text-[9px] text-text-tertiary hover:text-primary opacity-0 group-hover/field:opacity-100 transition-opacity"
+            className="text-[9px] text-text-tertiary hover:text-primary opacity-0 group-hover/field:opacity-100 transition-opacity ease-out"
           >
             Reset
           </button>
@@ -1240,7 +1240,7 @@ export function Vector3Input({
       <div className="grid grid-cols-3 gap-1">
         {(["x", "y", "z"] as const).map((axis) => (
           <div key={axis} className="flex items-center gap-1">
-            <span className="text-[10px] uppercase w-3 text-center text-text-tertiary font-semibold">
+            <span className="text-[10px] uppercase w-3 text-center text-text-tertiary font-semibold tracking-[0.12em]">
               {axis}
             </span>
             <input
@@ -1465,7 +1465,7 @@ export function QuaternionInput({
       <div className="grid grid-cols-4 gap-1">
         {(["x", "y", "z", "w"] as const).map((axis) => (
           <div key={axis} className="flex items-center gap-1">
-            <span className="text-[10px] uppercase w-3 text-center text-text-tertiary font-semibold">
+            <span className="text-[10px] uppercase w-3 text-center text-text-tertiary font-semibold tracking-[0.12em]">
               {axis}
             </span>
             <input

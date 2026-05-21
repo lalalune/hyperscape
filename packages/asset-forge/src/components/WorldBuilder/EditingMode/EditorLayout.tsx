@@ -78,7 +78,7 @@ const ResizeHandle: React.FC<ResizeHandleProps> = ({ onResize, position }) => {
     <div
       className={`w-1 cursor-col-resize hover:bg-primary/50 transition-colors ${
         isDragging ? "bg-primary" : "bg-transparent"
-      }`}
+      } ease-out`}
       onMouseDown={handleMouseDown}
     />
   );
@@ -257,7 +257,7 @@ export const EditorLayout: React.FC<EditorLayoutProps> = ({
           {/* Toggle left panel */}
           <button
             onClick={() => setLeftPanelOpen(!leftPanelOpen)}
-            className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-bg-tertiary rounded transition-colors"
+            className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-bg-tertiary rounded transition-colors ease-out"
             title={leftPanelOpen ? "Hide hierarchy" : "Show hierarchy"}
           >
             {leftPanelOpen ? (
@@ -299,7 +299,7 @@ export const EditorLayout: React.FC<EditorLayoutProps> = ({
                   !flyModeEnabled
                     ? "bg-primary text-white"
                     : "text-text-secondary hover:text-text-primary"
-                }`}
+                } ease-out`}
                 title="Selection Mode - Click to select terrain, towns, buildings"
               >
                 <MousePointer2 className="w-3 h-3" />
@@ -311,7 +311,7 @@ export const EditorLayout: React.FC<EditorLayoutProps> = ({
                   flyModeEnabled
                     ? "bg-blue-500 text-white"
                     : "text-text-secondary hover:text-text-primary"
-                }`}
+                } ease-out`}
                 title="Fly Mode - Click to capture mouse, WASD to move"
               >
                 <Navigation className="w-3 h-3" />
@@ -424,7 +424,7 @@ export const EditorLayout: React.FC<EditorLayoutProps> = ({
           {/* Toggle right panel */}
           <button
             onClick={() => setRightPanelOpen(!rightPanelOpen)}
-            className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-bg-tertiary rounded transition-colors"
+            className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-bg-tertiary rounded transition-colors ease-out"
             title={rightPanelOpen ? "Hide properties" : "Show properties"}
           >
             {rightPanelOpen ? (

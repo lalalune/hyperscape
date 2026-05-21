@@ -38,20 +38,20 @@ export function WidgetPalette() {
 
   return (
     <div className="flex flex-col gap-4 p-3">
-      <h2 className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
+      <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-text-secondary">
         Widget Palette
       </h2>
 
       {Array.from(byCategory.entries()).map(([category, items]) => (
         <section key={category} className="flex flex-col gap-1">
-          <h3 className="text-[10px] uppercase tracking-wider text-text-tertiary">
+          <h3 className="text-[10px] uppercase tracking-[0.12em] text-text-tertiary">
             {CATEGORY_LABELS[category]}
           </h3>
           {items.map((w) => (
             <button
               key={w.manifest.id}
               onClick={() => addWidget(w.manifest.id)}
-              className="group flex items-center justify-between gap-2 rounded-md border border-bg-tertiary bg-bg-secondary px-3 py-2 text-left text-xs transition-colors hover:border-primary/50 hover:bg-bg-tertiary"
+              className="group flex items-center justify-between gap-2 rounded-md border border-bg-tertiary bg-bg-secondary px-5 py-4 text-left text-xs transition-colors hover:border-primary/50 hover:bg-bg-tertiary ease-out"
               title={w.manifest.description}
             >
               <span className="font-medium text-text-primary">
@@ -59,7 +59,7 @@ export function WidgetPalette() {
               </span>
               <Plus
                 size={14}
-                className="text-text-tertiary transition-colors group-hover:text-primary"
+                className="text-text-tertiary transition-colors group-hover:text-primary ease-out"
               />
             </button>
           ))}

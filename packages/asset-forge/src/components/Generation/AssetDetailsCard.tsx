@@ -126,7 +126,7 @@ export const AssetDetailsCard: React.FC<AssetDetailsCardProps> = ({
             <select
               value={assetType}
               onChange={(e) => onAssetTypeChange(e.target.value)}
-              className="w-full px-4 py-2 bg-bg-secondary border border-border-primary rounded-lg text-text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40 focus: transition-all appearance-none cursor-pointer [&>option]:bg-bg-primary [&>option]:text-text-primary"
+              className="w-full px-5 py-4 bg-bg-secondary border border-border-primary rounded-lg text-text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40 focus: transition-all appearance-none cursor-pointer [&>option]:bg-bg-primary [&>option]:text-text-primary ease-out"
             >
               {generationType === "avatar" ? (
                 <>
@@ -234,7 +234,7 @@ const GameStyleSelector: React.FC<{
       <select
         value={currentValue}
         onChange={(e) => handleChange(e.target.value)}
-        className="w-full px-4 py-2 bg-bg-secondary border border-border-primary rounded-lg text-text-primary focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary transition-all appearance-none cursor-pointer [&>option]:bg-bg-primary [&>option]:text-text-primary"
+        className="w-full px-5 py-4 bg-bg-secondary border border-border-primary rounded-lg text-text-primary focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary transition-all appearance-none cursor-pointer [&>option]:bg-bg-primary [&>option]:text-text-primary ease-out"
       >
         <option value="runescape">tile-based MMORPG 2007</option>
         {Object.entries(customGameStyles).map(([styleId, style]) => (

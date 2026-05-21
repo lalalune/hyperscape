@@ -131,12 +131,12 @@ export function ZonePaintPanel() {
       <div className="flex items-center justify-between px-3 py-2 border-b border-border-primary">
         <div className="flex items-center gap-1.5">
           <Hexagon size={12} className="text-primary" />
-          <span className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+          <span className="text-xs font-semibold text-text-secondary uppercase tracking-[0.12em]">
             Zone Painter
           </span>
         </div>
         <button
-          className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-primary/20 text-primary hover:bg-primary/30 transition-colors"
+          className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-primary/20 text-primary hover:bg-primary/30 transition-colors ease-out"
           onClick={createNewZone}
           title="Create new zone and start painting"
         >
@@ -149,7 +149,7 @@ export function ZonePaintPanel() {
       <div className="flex-1 overflow-y-auto scrollbar-thin">
         {/* Zone list */}
         <div className="px-2 py-1.5">
-          <div className="text-[9px] text-text-tertiary uppercase tracking-wider font-medium px-1 mb-1">
+          <div className="text-[9px] text-text-tertiary uppercase tracking-[0.12em] font-medium px-1 mb-1">
             Zones ({regions.length})
           </div>
 
@@ -171,7 +171,7 @@ export function ZonePaintPanel() {
                       isActive
                         ? "bg-primary/15 ring-1 ring-primary/30"
                         : "hover:bg-bg-tertiary/40"
-                    }`}
+                    } ease-out`}
                     onClick={() => selectZone(region.id)}
                   >
                     {/* Color indicator */}
@@ -220,7 +220,7 @@ export function ZonePaintPanel() {
                       </div>
                     ) : (
                       <button
-                        className="p-0.5 text-text-tertiary/0 group-hover:text-text-tertiary hover:!text-red-400 transition-colors flex-shrink-0"
+                        className="p-0.5 text-text-tertiary/0 group-hover:text-text-tertiary hover:!text-red-400 transition-colors flex-shrink-0 ease-out"
                         onClick={(e) => {
                           e.stopPropagation();
                           setConfirmDelete(region.id);
@@ -246,7 +246,7 @@ export function ZonePaintPanel() {
           >
             {/* Brush size */}
             <div className="mb-2">
-              <div className="text-[9px] text-text-tertiary uppercase tracking-wider mb-1">
+              <div className="text-[9px] text-text-tertiary uppercase tracking-[0.12em] mb-1">
                 Brush Size
               </div>
               <div className="flex gap-1 flex-wrap">
@@ -259,7 +259,7 @@ export function ZonePaintPanel() {
                         zonePaint.brushSize === size
                           ? "bg-primary/20 text-primary ring-1 ring-primary/30"
                           : "bg-bg-tertiary text-text-secondary hover:text-text-primary hover:bg-bg-tertiary/60"
-                      }`}
+                      } ease-out`}
                       onClick={() => actions.setZoneBrushSize(size)}
                       title={`${size}\u00D7${size} tiles = ${meters}m \u00D7 ${meters}m`}
                     >
@@ -277,7 +277,7 @@ export function ZonePaintPanel() {
 
             {/* Paint / Erase toggle */}
             <div>
-              <div className="text-[9px] text-text-tertiary uppercase tracking-wider mb-1">
+              <div className="text-[9px] text-text-tertiary uppercase tracking-[0.12em] mb-1">
                 Mode
               </div>
               <div className="flex gap-1">
@@ -286,7 +286,7 @@ export function ZonePaintPanel() {
                     zonePaint.mode === "paint"
                       ? "bg-primary/20 text-primary ring-1 ring-primary/30"
                       : "bg-bg-tertiary text-text-secondary hover:text-text-primary hover:bg-bg-tertiary/60"
-                  }`}
+                  } ease-out`}
                   onClick={() => actions.setZonePaintMode("paint")}
                   title="Paint tiles (E to toggle)"
                 >
@@ -298,7 +298,7 @@ export function ZonePaintPanel() {
                     zonePaint.mode === "erase"
                       ? "bg-red-500/20 text-red-400 ring-1 ring-red-500/30"
                       : "bg-bg-tertiary text-text-secondary hover:text-text-primary hover:bg-bg-tertiary/60"
-                  }`}
+                  } ease-out`}
                   onClick={() => actions.setZonePaintMode("erase")}
                   title="Erase tiles (E to toggle)"
                 >
@@ -371,7 +371,7 @@ export function ZonePaintPanel() {
               rules, and audio.
             </p>
             <button
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-[11px] font-medium bg-primary/20 text-primary hover:bg-primary/30 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-[11px] font-medium bg-primary/20 text-primary hover:bg-primary/30 transition-colors ease-out"
               onClick={createNewZone}
             >
               <Plus size={11} />

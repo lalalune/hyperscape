@@ -904,7 +904,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                     setExtractionResult(null);
                   }}
                   disabled={isRunning}
-                  className="w-full bg-bg-secondary border border-border-primary rounded-lg px-3 py-2 text-sm text-text-primary disabled:opacity-50"
+                  className="w-full bg-bg-secondary border border-border-primary rounded-lg px-5 py-4 text-sm text-text-primary disabled:opacity-50"
                 >
                   {AVATAR_OPTIONS.map((opt) => (
                     <option key={opt.url} value={opt.url}>
@@ -929,7 +929,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                         selectedSlot === slot
                           ? "bg-primary/20 text-primary border border-primary/30"
                           : "bg-bg-secondary text-text-tertiary border border-border-primary hover:border-border-secondary"
-                      }`}
+                      } ease-out`}
                     >
                       {slot}
                     </button>
@@ -952,7 +952,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                         selectedBulk === bulk
                           ? "bg-primary/20 text-primary border border-primary/30"
                           : "bg-bg-secondary text-text-tertiary border border-border-primary hover:border-border-secondary"
-                      }`}
+                      } ease-out`}
                     >
                       {bulk} ({BULK_OFFSETS[bulk] * 1000}mm)
                     </button>
@@ -973,7 +973,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                   <button
                     onClick={handleResumeSession}
                     className="w-full px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
- bg-purple-500/20 border border-purple-500/30 text-purple-400 hover:bg-purple-500/30"
+ bg-purple-500/20 border border-purple-500/30 text-purple-400 hover:bg-purple-500/30 ease-out"
                   >
                     <RotateCcw size={14} />
                     Resume — Skip to Customize
@@ -986,7 +986,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                 onClick={handleSegment}
                 disabled={isRunning}
                 className="w-full px-4 py-2.5 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2
- bg-purple-600 text-white hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+ bg-purple-600 text-white hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed ease-out"
               >
                 {step === "segmenting" ? (
                   <>
@@ -1040,9 +1040,9 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                     }
                   }}
                   disabled={isRunning}
-                  className="w-full px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
+                  className="w-full px-5 py-4 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
  bg-bg-secondary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary
- disabled:opacity-50"
+ disabled:opacity-50 ease-out"
                 >
                   <Move size={14} />
                   Skip to 3D Attachments
@@ -1075,7 +1075,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                         isExpanded
                           ? "border-purple-500/30"
                           : "border-border-primary hover:border-border-secondary"
-                      }`}
+                      } ease-out`}
                     >
                       <div className="flex items-center gap-2 px-2 py-1.5">
                         <input
@@ -1166,7 +1166,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                         quality === q
                           ? "bg-purple-500/20 text-purple-400 border border-purple-500/30"
                           : "bg-bg-secondary text-text-tertiary border border-border-primary hover:border-border-secondary"
-                      }`}
+                      } ease-out`}
                     >
                       {q}
                     </button>
@@ -1182,7 +1182,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                   partPrompts.filter((p) => p.enabled).length === 0
                 }
                 className="w-full px-4 py-2.5 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2
- bg-purple-600 text-white hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+ bg-purple-600 text-white hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed ease-out"
               >
                 {step === "texturing" ? (
                   <>
@@ -1227,9 +1227,9 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                 <button
                   onClick={() => setStep("setup")}
                   disabled={step === "texturing"}
-                  className="flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
+                  className="flex-1 px-5 py-4 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
  bg-bg-secondary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary
- disabled:opacity-50"
+ disabled:opacity-50 ease-out"
                 >
                   Back
                 </button>
@@ -1241,7 +1241,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                   disabled={step === "texturing"}
                   className="flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
  bg-purple-500/15 border border-purple-500/30 text-purple-400 hover:bg-purple-500/25
- disabled:opacity-50"
+ disabled:opacity-50 ease-out"
                 >
                   <Move size={14} />
                   Attachments
@@ -1266,7 +1266,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
 
               {/* Add attachment slot picker */}
               <div className="space-y-1.5">
-                <label className="text-[10px] font-medium text-text-tertiary uppercase tracking-wide">
+                <label className="text-[10px] font-medium text-text-tertiary uppercase tracking-[0.12em]">
                   Add Attachment
                 </label>
                 <div className="grid grid-cols-2 gap-1">
@@ -1278,7 +1278,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                       onClick={() => handleAddAttachment(slot.id)}
                       className="px-2 py-1.5 rounded-md text-[10px] font-medium transition-all
  bg-bg-secondary text-text-tertiary border border-border-primary
- hover:border-purple-500/30 hover:text-purple-400 flex items-center gap-1"
+ hover:border-purple-500/30 hover:text-purple-400 flex items-center gap-1 ease-out"
                     >
                       <Plus size={10} />
                       {slot.label}
@@ -1297,7 +1297,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
               {/* Active attachments */}
               {attachments.length > 0 && (
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-medium text-text-tertiary uppercase tracking-wide">
+                  <label className="text-[10px] font-medium text-text-tertiary uppercase tracking-[0.12em]">
                     Active ({attachments.length})
                   </label>
                   <div className="space-y-1">
@@ -1315,7 +1315,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                                 : att.status === "failed"
                                   ? "border-red-500/20"
                                   : "border-border-primary"
-                          }`}
+                          } ease-out`}
                         >
                           {/* Header row */}
                           <div className="flex items-center gap-2 px-2 py-1.5">
@@ -1396,7 +1396,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                                 onClick={() => handleGenerateAttachment(att.id)}
                                 disabled={isGenerating || !att.prompt.trim()}
                                 className="w-full px-2 py-1.5 rounded-md text-xs font-medium transition-all flex items-center justify-center gap-1.5
- bg-purple-600 text-white hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+ bg-purple-600 text-white hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed ease-out"
                               >
                                 {isGenerating ? (
                                   <>
@@ -1425,7 +1425,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                               {/* Transform sliders (only when mesh is ready) */}
                               {att.status === "ready" && (
                                 <div className="space-y-1.5 pt-1 border-t border-border-primary">
-                                  <label className="text-[10px] font-medium text-text-tertiary uppercase tracking-wide">
+                                  <label className="text-[10px] font-medium text-text-tertiary uppercase tracking-[0.12em]">
                                     Position
                                   </label>
                                   {(["x", "y", "z"] as const).map((axis) => (
@@ -1433,7 +1433,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                                       key={axis}
                                       className="flex items-center gap-2"
                                     >
-                                      <span className="text-[10px] text-text-tertiary w-3 uppercase">
+                                      <span className="text-[10px] text-text-tertiary w-3 uppercase tracking-[0.12em]">
                                         {axis}
                                       </span>
                                       <input
@@ -1457,7 +1457,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                                     </div>
                                   ))}
 
-                                  <label className="text-[10px] font-medium text-text-tertiary uppercase tracking-wide">
+                                  <label className="text-[10px] font-medium text-text-tertiary uppercase tracking-[0.12em]">
                                     Rotation
                                   </label>
                                   {(["x", "y", "z"] as const).map((axis) => (
@@ -1465,7 +1465,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                                       key={`rot-${axis}`}
                                       className="flex items-center gap-2"
                                     >
-                                      <span className="text-[10px] text-text-tertiary w-3 uppercase">
+                                      <span className="text-[10px] text-text-tertiary w-3 uppercase tracking-[0.12em]">
                                         {axis}
                                       </span>
                                       <input
@@ -1493,7 +1493,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                                     </div>
                                   ))}
 
-                                  <label className="text-[10px] font-medium text-text-tertiary uppercase tracking-wide">
+                                  <label className="text-[10px] font-medium text-text-tertiary uppercase tracking-[0.12em]">
                                     Scale
                                   </label>
                                   <div className="flex items-center gap-2">
@@ -1529,7 +1529,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
 
               {/* Quality picker for new generations */}
               <div className="space-y-1.5">
-                <label className="text-[10px] font-medium text-text-tertiary uppercase tracking-wide">
+                <label className="text-[10px] font-medium text-text-tertiary uppercase tracking-[0.12em]">
                   Generation Quality
                 </label>
                 <div className="grid grid-cols-2 gap-1">
@@ -1541,7 +1541,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                         quality === q
                           ? "bg-purple-500/20 text-purple-400 border border-purple-500/30"
                           : "bg-bg-secondary text-text-tertiary border border-border-primary hover:border-border-secondary"
-                      }`}
+                      } ease-out`}
                     >
                       {q}
                     </button>
@@ -1554,7 +1554,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                 onClick={() => setStep("done")}
                 disabled={attachments.some((a) => a.status === "generating")}
                 className="w-full px-4 py-2.5 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2
- bg-green-600 text-white hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+ bg-green-600 text-white hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed ease-out"
               >
                 <Check size={16} />
                 Finish
@@ -1563,8 +1563,8 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
               {segmentTaskId && (
                 <button
                   onClick={() => setStep("customize")}
-                  className="w-full px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
- bg-bg-secondary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary"
+                  className="w-full px-5 py-4 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
+ bg-bg-secondary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary ease-out"
                 >
                   Back to Texturing
                 </button>
@@ -1592,15 +1592,15 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                     <button
                       onClick={handlePreview}
                       className="flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
- bg-purple-500/15 border border-purple-500/30 text-purple-400 hover:bg-purple-500/25"
+ bg-purple-500/15 border border-purple-500/30 text-purple-400 hover:bg-purple-500/25 ease-out"
                     >
                       <Box size={14} />
                       Preview 3D
                     </button>
                     <button
                       onClick={handleDownload}
-                      className="flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
- bg-bg-secondary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary"
+                      className="flex-1 px-5 py-4 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
+ bg-bg-secondary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary ease-out"
                     >
                       <Download size={14} />
                       Download
@@ -1616,7 +1616,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                   setStep("attachments");
                 }}
                 className="w-full px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
- bg-purple-500/15 border border-purple-500/30 text-purple-400 hover:bg-purple-500/25"
+ bg-purple-500/15 border border-purple-500/30 text-purple-400 hover:bg-purple-500/25 ease-out"
               >
                 <Move size={14} />
                 {attachments.length > 0
@@ -1628,7 +1628,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                 <button
                   onClick={() => onAddToKit(currentShell, downloadUrl)}
                   className="w-full px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
- bg-green-500/15 border border-green-500/30 text-green-400 hover:bg-green-500/25"
+ bg-green-500/15 border border-green-500/30 text-green-400 hover:bg-green-500/25 ease-out"
                 >
                   <Wand2 size={14} />
                   Add to Armor Kit
@@ -1641,8 +1641,8 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
           {!isRunning && step !== "setup" && (
             <button
               onClick={handleReset}
-              className="w-full px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
- bg-bg-secondary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary"
+              className="w-full px-5 py-4 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
+ bg-bg-secondary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary ease-out"
             >
               <RotateCcw size={14} />
               Start Over
@@ -1661,7 +1661,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
           )}
 
           {/* Info */}
-          <div className="p-3 bg-bg-secondary rounded-lg border border-border-primary space-y-1.5">
+          <div className="p-5 bg-bg-secondary rounded-lg border border-border-primary space-y-1.5">
             <h3 className="text-xs font-semibold text-text-primary flex items-center gap-1.5">
               <Info size={12} />
               How It Works

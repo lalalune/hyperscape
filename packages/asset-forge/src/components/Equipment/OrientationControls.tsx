@@ -74,7 +74,7 @@ export const OrientationControls: React.FC<OrientationControlsProps> = ({
 
         <button
           onClick={() => onRotationChange({ x: 0, y: 0, z: 0 })}
-          className="w-full mt-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 flex items-center justify-center gap-2 bg-bg-secondary/30 text-text-secondary hover:bg-bg-secondary/50 hover:text-text-primary"
+          className="w-full mt-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 flex items-center justify-center gap-2 bg-bg-secondary/30 text-text-secondary hover:bg-bg-secondary/50 hover:text-text-primary ease-out"
         >
           <RefreshCw size={14} />
           <span>Reset Orientation</span>

@@ -499,7 +499,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
 
           <button
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-bg-tertiary transition-colors duration-200"
+            className="p-2 rounded-lg hover:bg-bg-tertiary transition-colors duration-500 ease-out"
           >
             <X className="w-5 h-5 text-text-secondary" />
           </button>
@@ -775,7 +775,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                     </div>
                     <button
                       onClick={resetFittingParameters}
-                      className="text-xs text-primary hover:text-primary-light transition-colors"
+                      className="text-xs text-primary hover:text-primary-light transition-colors ease-out"
                     >
                       Reset
                     </button>
@@ -1155,7 +1155,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                     </h3>
                     <button
                       onClick={resetHelmetSettings}
-                      className="text-xs text-primary hover:text-primary-light transition-colors"
+                      className="text-xs text-primary hover:text-primary-light transition-colors ease-out"
                     >
                       Reset
                     </button>
@@ -1337,7 +1337,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
 
             {/* Wireframe Indicator */}
             {showWireframe && (
-              <div className="absolute top-4 left-4 bg-bg-primary rounded-lg px-3 py-1.5 border border-border-primary flex items-center gap-2">
+              <div className="absolute top-4 left-4 bg-bg-primary rounded-lg px-5 py-1.5 border border-border-primary flex items-center gap-2">
                 <Grid3x3 className="w-4 h-4 text-primary" />
                 <span className="text-xs text-text-secondary">Wireframe</span>
               </div>
@@ -1449,7 +1449,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                                     onClick={() =>
                                       handleExportBoundArmor("full")
                                     }
-                                    className="w-full px-3 py-2 text-left rounded-md hover:bg-bg-secondary transition-colors duration-150 flex items-center gap-2 text-sm"
+                                    className="w-full px-3 py-2 text-left rounded-md hover:bg-bg-secondary transition-colors duration-500 flex items-center gap-2 text-sm ease-out"
                                   >
                                     <FileDown className="w-4 h-4 text-primary" />
                                     <div>
@@ -1466,7 +1466,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                                     onClick={() =>
                                       handleExportBoundArmor("minimal")
                                     }
-                                    className="w-full px-3 py-2 text-left rounded-md hover:bg-bg-secondary transition-colors duration-150 flex items-center gap-2 text-sm"
+                                    className="w-full px-3 py-2 text-left rounded-md hover:bg-bg-secondary transition-colors duration-500 flex items-center gap-2 text-sm ease-out"
                                   >
                                     <Download className="w-4 h-4 text-green-400" />
                                     <div>
@@ -1483,7 +1483,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                                     onClick={() =>
                                       handleExportBoundArmor("static")
                                     }
-                                    className="w-full px-3 py-2 text-left rounded-md hover:bg-bg-secondary transition-colors duration-150 flex items-center gap-2 text-sm"
+                                    className="w-full px-3 py-2 text-left rounded-md hover:bg-bg-secondary transition-colors duration-500 flex items-center gap-2 text-sm ease-out"
                                   >
                                     <Download className="w-4 h-4 text-text-secondary" />
                                     <div>
@@ -1504,7 +1504,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                                         onClick={() =>
                                           handleExportBoundArmor("debug")
                                         }
-                                        className="w-full px-3 py-2 text-left rounded-md hover:bg-bg-secondary transition-colors duration-150 flex items-center gap-2 text-sm"
+                                        className="w-full px-3 py-2 text-left rounded-md hover:bg-bg-secondary transition-colors duration-500 flex items-center gap-2 text-sm ease-out"
                                       >
                                         <Wrench className="w-4 h-4 text-orange-400" />
                                         <div>
@@ -1521,7 +1521,7 @@ export function MeshFittingDebugger({ onClose }: MeshFittingDebuggerProps) {
                                         onClick={() =>
                                           handleExportBoundArmor("scale-fixed")
                                         }
-                                        className="w-full px-3 py-2 text-left rounded-md hover:bg-bg-secondary transition-colors duration-150 flex items-center gap-2 text-sm"
+                                        className="w-full px-3 py-2 text-left rounded-md hover:bg-bg-secondary transition-colors duration-500 flex items-center gap-2 text-sm ease-out"
                                       >
                                         <Wrench className="w-4 h-4 text-red-400" />
                                         <div>

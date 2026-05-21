@@ -72,7 +72,7 @@ export function AnchorPicker({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="flex items-center justify-between text-[10px] uppercase tracking-wider text-text-tertiary">
+      <label className="flex items-center justify-between text-[10px] uppercase tracking-[0.12em] text-text-tertiary">
         <span>{label}</span>
         <span
           className="font-mono text-[10px] normal-case tracking-normal text-text-secondary"

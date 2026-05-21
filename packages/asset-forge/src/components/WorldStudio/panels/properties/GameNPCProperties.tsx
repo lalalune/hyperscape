@@ -507,7 +507,7 @@ export function GameNPCProperties({ entityData }: Props) {
           defaultOpen={false}
         >
           <button
-            className="w-full flex items-center justify-center gap-1 px-2 py-1.5 text-[10px] rounded border border-dashed border-border-primary text-text-tertiary hover:text-text-secondary hover:border-text-tertiary transition-colors"
+            className="w-full flex items-center justify-center gap-1 px-2 py-1.5 text-[10px] rounded border border-dashed border-border-primary text-text-tertiary hover:text-text-secondary hover:border-text-tertiary transition-colors ease-out"
             onClick={() =>
               setSection("dialogue", {
                 entryNodeId: "greeting",
@@ -541,7 +541,7 @@ export function GameNPCProperties({ entityData }: Props) {
       >
         <div className="space-y-1">
           <button
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-bg-tertiary hover:bg-primary/10 hover:text-primary text-text-secondary rounded-md border border-border-primary transition-colors w-full"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-bg-tertiary hover:bg-primary/10 hover:text-primary text-text-secondary rounded-md border border-border-primary transition-colors w-full ease-out"
             onClick={() => console.log("[Action] Generate Voice for", entityId)}
           >
             <Mic size={12} className="flex-shrink-0" />
@@ -623,7 +623,7 @@ function DropTableEditor({
           const dd = baseDrops.defaultDrop as Record<string, unknown>;
           return (
             <div className="py-1 border-b border-border-primary/30">
-              <div className="text-[9px] font-semibold text-text-tertiary uppercase tracking-wider mb-0.5">
+              <div className="text-[9px] font-semibold text-text-tertiary uppercase tracking-[0.12em] mb-0.5">
                 Default
               </div>
               <div className="flex items-center gap-1 text-[10px] text-text-secondary">
@@ -684,7 +684,7 @@ function DropTableEditor({
             >
               <div className="flex items-center justify-between mb-1">
                 <div
-                  className={`text-[9px] font-semibold uppercase tracking-wider flex items-center gap-1 ${TIER_COLORS[tier] ?? "text-text-tertiary"}`}
+                  className={`text-[9px] font-semibold uppercase tracking-[0.12em] flex items-center gap-1 ${TIER_COLORS[tier] ?? "text-text-tertiary"}`}
                 >
                   {TIER_LABELS[tier] ?? tier} ({currentItems.length})
                   {isOverridden && (
@@ -694,7 +694,7 @@ function DropTableEditor({
                 <div className="flex items-center gap-1">
                   {isOverridden && (
                     <button
-                      className="text-[8px] text-text-tertiary hover:text-text-secondary transition-colors px-1"
+                      className="text-[8px] text-text-tertiary hover:text-text-secondary transition-colors px-1 ease-out"
                       onClick={() => onResetTier(tier)}
                       title="Reset to base"
                     >
@@ -702,7 +702,7 @@ function DropTableEditor({
                     </button>
                   )}
                   <button
-                    className="p-0.5 rounded text-text-tertiary hover:text-primary transition-colors"
+                    className="p-0.5 rounded text-text-tertiary hover:text-primary transition-colors ease-out"
                     onClick={handleAddDrop}
                     title="Add drop"
                   >
@@ -726,7 +726,7 @@ function DropTableEditor({
                         {resolveItemName(itemId)}
                       </span>
                       <button
-                        className="p-0.5 rounded text-text-tertiary opacity-0 group-hover:opacity-100 hover:text-error transition-all"
+                        className="p-0.5 rounded text-text-tertiary opacity-0 group-hover:opacity-100 hover:text-error transition-all ease-out"
                         onClick={() => handleDeleteDrop(idx)}
                         title="Remove drop"
                       >

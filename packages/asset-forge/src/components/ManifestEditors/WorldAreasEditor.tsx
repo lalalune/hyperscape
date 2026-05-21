@@ -557,7 +557,7 @@ export const WorldAreasEditor: React.FC<WorldAreasEditorProps> = ({
                 selectedAreaId === area.id
                   ? "bg-primary bg-opacity-10 border-l-2 border-primary"
                   : ""
-              }`}
+              } ease-out`}
               onClick={() => setSelectedAreaId(area.id)}
             >
               <MapPin className="w-4 h-4 text-primary" />
@@ -782,7 +782,7 @@ export const WorldAreasEditor: React.FC<WorldAreasEditorProps> = ({
                           description: e.target.value,
                         })
                       }
-                      className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary resize-none"
+                      className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary resize-none"
                       rows={2}
                     />
                   </FormField>
@@ -795,7 +795,7 @@ export const WorldAreasEditor: React.FC<WorldAreasEditorProps> = ({
                           biomeType: e.target.value,
                         })
                       }
-                      className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
+                      className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
                     >
                       {BIOME_TYPES.map((b) => (
                         <option key={b} value={b}>
@@ -816,7 +816,7 @@ export const WorldAreasEditor: React.FC<WorldAreasEditorProps> = ({
                           difficultyLevel: parseInt(e.target.value, 10),
                         })
                       }
-                      className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
+                      className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
                     />
                   </FormField>
 
@@ -1407,7 +1407,7 @@ const Section: React.FC<SectionProps> = ({
 }) => (
   <div className="border border-border-primary rounded-lg overflow-hidden">
     <button
-      className="w-full px-4 py-3 bg-bg-secondary flex items-center gap-2 hover:bg-bg-tertiary transition-colors"
+      className="w-full px-4 py-3 bg-bg-secondary flex items-center gap-2 hover:bg-bg-tertiary transition-colors ease-out"
       onClick={onToggle}
     >
       {expanded ? (

@@ -20,7 +20,7 @@ export const ModelStats: React.FC<ModelStatsProps> = ({ modelInfo }) => {
       <Card className={cn("p-4", "animate-fade-in")}>
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-2xl font-bold text-text-primary">
+            <p className="font-display text-2xl font-medium text-text-primary tracking-tight">
               {modelInfo.vertices.toLocaleString()}
             </p>
             <p className="text-sm text-text-secondary">Vertices</p>
@@ -34,7 +34,7 @@ export const ModelStats: React.FC<ModelStatsProps> = ({ modelInfo }) => {
       >
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-2xl font-bold text-text-primary">
+            <p className="font-display text-2xl font-medium text-text-primary tracking-tight">
               {modelInfo.faces.toLocaleString()}
             </p>
             <p className="text-sm text-text-secondary">Faces</p>
@@ -48,7 +48,7 @@ export const ModelStats: React.FC<ModelStatsProps> = ({ modelInfo }) => {
       >
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-2xl font-bold text-text-primary">
+            <p className="font-display text-2xl font-medium text-text-primary tracking-tight">
               {modelInfo.materials}
             </p>
             <p className="text-sm text-text-secondary">Materials</p>

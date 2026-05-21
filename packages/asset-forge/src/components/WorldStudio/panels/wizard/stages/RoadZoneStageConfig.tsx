@@ -82,7 +82,7 @@ export function RoadZoneStageConfig({
       </div>
       {/* Tier summary */}
       <div className="space-y-1">
-        <span className="text-[10px] text-text-tertiary uppercase tracking-wider">
+        <span className="text-[10px] text-text-tertiary uppercase tracking-[0.12em]">
           Tiers
         </span>
         {config.tiers.map((tier) => (

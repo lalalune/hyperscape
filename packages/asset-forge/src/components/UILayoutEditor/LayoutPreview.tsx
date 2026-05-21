@@ -1437,7 +1437,7 @@ function WidgetBox({
           : additionallySelected
             ? "outline outline-dashed outline-2 outline-primary/60 outline-offset-2"
             : "outline outline-1 outline-bg-tertiary/40 hover:outline-primary/60"
-      } ${draggable ? "cursor-grab" : "cursor-pointer"}`}
+      } ${draggable ? "cursor-grab" : "cursor-pointer"} ease-out`}
       style={{
         left: `${box.leftPct}%`,
         top: `${box.topPct}%`,
@@ -1450,7 +1450,7 @@ function WidgetBox({
           will be allowed to tweak in-game. */}
       {instance.customization?.movable ? (
         <span
-          className="pointer-events-none absolute right-0 top-0 z-10 rounded-bl-[3px] bg-primary/90 px-1 py-0.5 text-[8px] font-semibold uppercase tracking-wider text-white"
+          className="pointer-events-none absolute right-0 top-0 z-10 rounded-bl-[3px] bg-primary/90 px-1 py-0.5 text-[8px] font-semibold uppercase tracking-[0.12em] text-white"
           title="Movable by players at runtime"
         >
           Move
@@ -1458,7 +1458,7 @@ function WidgetBox({
       ) : null}
       {instance.customization?.resizable ? (
         <span
-          className="pointer-events-none absolute left-0 top-0 z-10 rounded-br-[3px] bg-accent/90 px-1 py-0.5 text-[8px] font-semibold uppercase tracking-wider text-white"
+          className="pointer-events-none absolute left-0 top-0 z-10 rounded-br-[3px] bg-accent/90 px-1 py-0.5 text-[8px] font-semibold uppercase tracking-[0.12em] text-white"
           title="Resizable by players at runtime"
         >
           Size

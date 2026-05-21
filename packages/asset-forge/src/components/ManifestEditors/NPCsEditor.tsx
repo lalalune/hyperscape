@@ -504,7 +504,7 @@ export const NPCsEditor: React.FC<NPCsEditorProps> = ({
                 selectedNpcId === npc.id
                   ? "bg-primary bg-opacity-10 border-l-2 border-primary"
                   : ""
-              }`}
+              } ease-out`}
               onClick={() => setSelectedNpcId(npc.id)}
             >
               <div
@@ -585,7 +585,7 @@ export const NPCsEditor: React.FC<NPCsEditorProps> = ({
                     onChange={(e) =>
                       updateNpc(selectedNpc.id, { description: e.target.value })
                     }
-                    className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary resize-none"
+                    className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary resize-none"
                     rows={2}
                   />
                 </FormField>
@@ -596,7 +596,7 @@ export const NPCsEditor: React.FC<NPCsEditorProps> = ({
                     onChange={(e) =>
                       updateNpc(selectedNpc.id, { faction: e.target.value })
                     }
-                    className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
+                    className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
                   >
                     {FACTIONS.map((f) => (
                       <option key={f} value={f}>
@@ -1200,7 +1200,7 @@ const Section: React.FC<SectionProps> = ({
 }) => (
   <div className="border border-border-primary rounded-lg overflow-hidden">
     <button
-      className="w-full px-4 py-3 bg-bg-secondary flex items-center gap-2 hover:bg-bg-tertiary transition-colors"
+      className="w-full px-4 py-3 bg-bg-secondary flex items-center gap-2 hover:bg-bg-tertiary transition-colors ease-out"
       onClick={onToggle}
     >
       {expanded ? (

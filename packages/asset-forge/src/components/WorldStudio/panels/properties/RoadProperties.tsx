@@ -216,7 +216,7 @@ function CustomRoadEditor({
                   ({Math.round(pt.x)}, {Math.round(pt.z)})
                 </span>
                 <button
-                  className="text-text-tertiary hover:text-red-400 transition-colors p-0.5 opacity-0 group-hover:opacity-100"
+                  className="text-text-tertiary hover:text-red-400 transition-colors p-0.5 opacity-0 group-hover:opacity-100 ease-out"
                   onClick={() => onRemoveWaypoint(index)}
                   title="Remove waypoint"
                 >
@@ -233,14 +233,14 @@ function CustomRoadEditor({
         <PropertySection title="Path Tools">
           <div className="flex gap-1">
             <button
-              className="flex-1 px-2 py-1 rounded bg-bg-tertiary hover:bg-bg-tertiary/80 text-text-secondary text-[10px] transition-colors"
+              className="flex-1 px-2 py-1 rounded bg-bg-tertiary hover:bg-bg-tertiary/80 text-text-secondary text-[10px] transition-colors ease-out"
               onClick={onSmooth}
               title="Apply Chaikin smoothing to the path"
             >
               Smooth
             </button>
             <button
-              className="flex-1 px-2 py-1 rounded bg-bg-tertiary hover:bg-bg-tertiary/80 text-text-secondary text-[10px] transition-colors"
+              className="flex-1 px-2 py-1 rounded bg-bg-tertiary hover:bg-bg-tertiary/80 text-text-secondary text-[10px] transition-colors ease-out"
               onClick={onStraighten}
               title="Straighten path between start and end"
             >
@@ -253,7 +253,7 @@ function CustomRoadEditor({
       {/* Delete */}
       <PropertySection title="Danger Zone" defaultOpen={false}>
         <button
-          className="flex items-center gap-1 px-2 py-1 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[10px] font-medium transition-colors w-full justify-center"
+          className="flex items-center gap-1 px-2 py-1 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[10px] font-medium transition-colors w-full justify-center ease-out"
           onClick={onDelete}
         >
           <Trash2 size={10} />

@@ -51,7 +51,7 @@ export function RoadZonePreview({ data }: { data: RoadZoneStageResult }) {
 
       {/* Tier breakdown */}
       <div>
-        <h4 className="text-[10px] text-text-tertiary uppercase tracking-wider mb-1">
+        <h4 className="text-[10px] text-text-tertiary uppercase tracking-[0.12em] mb-1">
           Tier Breakdown
         </h4>
         <div className="space-y-0.5">
@@ -86,7 +86,7 @@ export function RoadZonePreview({ data }: { data: RoadZoneStageResult }) {
 
       {/* Zone list */}
       <div>
-        <h4 className="text-[10px] text-text-tertiary uppercase tracking-wider mb-1">
+        <h4 className="text-[10px] text-text-tertiary uppercase tracking-[0.12em] mb-1">
           Zones ({zones.length})
         </h4>
         <div className="max-h-[180px] overflow-y-auto space-y-px border border-border-primary rounded">

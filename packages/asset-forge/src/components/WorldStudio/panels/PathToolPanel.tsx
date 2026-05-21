@@ -174,11 +174,11 @@ export function PathToolPanel() {
     <div className="flex flex-col h-full">
       {/* Panel header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-border-primary">
-        <span className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+        <span className="text-xs font-semibold text-text-secondary uppercase tracking-[0.12em]">
           Path / Road Tool
         </span>
         <button
-          className="flex items-center gap-1 px-2 py-1 rounded bg-primary/20 hover:bg-primary/30 text-primary text-[10px] font-medium transition-colors"
+          className="flex items-center gap-1 px-2 py-1 rounded bg-primary/20 hover:bg-primary/30 text-primary text-[10px] font-medium transition-colors ease-out"
           onClick={handleCreateRoad}
           title="Create new custom road"
         >
@@ -209,7 +209,7 @@ export function PathToolPanel() {
                         isActive
                           ? "bg-primary/15 border border-primary/30"
                           : "bg-bg-tertiary/30 border border-transparent hover:bg-bg-tertiary/60"
-                      }`}
+                      } ease-out`}
                       onClick={() => setActivePathId(path.id)}
                     >
                       <Route size={10} className="text-primary flex-shrink-0" />
@@ -223,7 +223,7 @@ export function PathToolPanel() {
                       </div>
                       <div className="flex items-center gap-0.5 flex-shrink-0">
                         <button
-                          className="text-text-tertiary hover:text-primary transition-colors p-0.5"
+                          className="text-text-tertiary hover:text-primary transition-colors p-0.5 ease-out"
                           onClick={(e) => {
                             e.stopPropagation();
                             if (isEditing) handleCancelEdit();
@@ -234,7 +234,7 @@ export function PathToolPanel() {
                           {isEditing ? <X size={10} /> : <Pencil size={10} />}
                         </button>
                         <button
-                          className="text-text-tertiary hover:text-red-400 transition-colors p-0.5"
+                          className="text-text-tertiary hover:text-red-400 transition-colors p-0.5 ease-out"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleDeleteRoad(path.id);
@@ -244,7 +244,7 @@ export function PathToolPanel() {
                           <Trash2 size={10} />
                         </button>
                         <button
-                          className="text-text-tertiary hover:text-text-secondary transition-colors p-0.5"
+                          className="text-text-tertiary hover:text-text-secondary transition-colors p-0.5 ease-out"
                           onClick={(e) => {
                             e.stopPropagation();
                             togglePathVisibility(path.id);
@@ -295,14 +295,14 @@ export function PathToolPanel() {
               </div>
               <div className="flex gap-1">
                 <button
-                  className="flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded bg-primary/20 hover:bg-primary/30 text-primary text-[10px] font-medium transition-colors"
+                  className="flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded bg-primary/20 hover:bg-primary/30 text-primary text-[10px] font-medium transition-colors ease-out"
                   onClick={handleSaveEdit}
                 >
                   <Check size={10} />
                   Save
                 </button>
                 <button
-                  className="flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded bg-bg-tertiary hover:bg-bg-tertiary/80 text-text-secondary text-[10px] transition-colors"
+                  className="flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded bg-bg-tertiary hover:bg-bg-tertiary/80 text-text-secondary text-[10px] transition-colors ease-out"
                   onClick={handleCancelEdit}
                 >
                   Cancel
@@ -339,7 +339,7 @@ export function PathToolPanel() {
                       ({Math.round(pt.x)}, {Math.round(pt.z)})
                     </span>
                     <button
-                      className="text-text-tertiary hover:text-red-400 transition-colors p-0.5"
+                      className="text-text-tertiary hover:text-red-400 transition-colors p-0.5 ease-out"
                       onClick={() =>
                         handleRemoveWaypoint(activeCustomRoad.id, index)
                       }
@@ -352,7 +352,7 @@ export function PathToolPanel() {
               </div>
             )}
             <button
-              className="mt-1 w-full flex items-center justify-center gap-1 px-2 py-1 rounded bg-bg-tertiary hover:bg-bg-tertiary/80 text-text-secondary text-[10px] transition-colors"
+              className="mt-1 w-full flex items-center justify-center gap-1 px-2 py-1 rounded bg-bg-tertiary hover:bg-bg-tertiary/80 text-text-secondary text-[10px] transition-colors ease-out"
               onClick={() => {
                 // Use camera target position as a quick waypoint
                 // In practice, user clicks terrain in viewport
@@ -394,7 +394,7 @@ export function PathToolPanel() {
                         isActive
                           ? "bg-primary/15 border border-primary/30"
                           : "bg-bg-tertiary/30 border border-transparent hover:bg-bg-tertiary/60"
-                      }`}
+                      } ease-out`}
                       onClick={() => setActivePathId(path.id)}
                     >
                       <Route
@@ -410,7 +410,7 @@ export function PathToolPanel() {
                         </div>
                       </div>
                       <button
-                        className="text-text-tertiary hover:text-text-secondary transition-colors p-0.5 flex-shrink-0"
+                        className="text-text-tertiary hover:text-text-secondary transition-colors p-0.5 flex-shrink-0 ease-out"
                         onClick={(e) => {
                           e.stopPropagation();
                           togglePathVisibility(path.id);

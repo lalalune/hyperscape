@@ -1443,7 +1443,7 @@ export function DesignWithAIDialog({
                 type="button"
                 onClick={loadDebugPlan}
                 disabled={isCreatingProject}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] rounded-md text-amber-400/80 hover:text-amber-300 hover:bg-amber-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-mono"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] rounded-md text-amber-400/80 hover:text-amber-300 hover:bg-amber-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-mono ease-out"
                 title="Fill the plan with hardcoded sample content (no LLM call). Useful for iterating on the build pipeline without burning API credits."
               >
                 <Bug size={11} />
@@ -1454,7 +1454,7 @@ export function DesignWithAIDialog({
                   type="button"
                   onClick={startOver}
                   disabled={isCreatingProject}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] rounded-md text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] rounded-md text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors disabled:opacity-50 disabled:cursor-not-allowed ease-out"
                   title="Clear the conversation and start fresh"
                 >
                   <RotateCcw size={11} />
@@ -1466,7 +1466,7 @@ export function DesignWithAIDialog({
                 onClick={onClose}
                 disabled={isCreatingProject}
                 aria-label="Close"
-                className="ml-1 w-8 h-8 flex items-center justify-center rounded-md text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors disabled:opacity-50"
+                className="ml-1 w-8 h-8 flex items-center justify-center rounded-md text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors disabled:opacity-50 ease-out"
               >
                 <X size={16} />
               </button>
@@ -1484,14 +1484,14 @@ export function DesignWithAIDialog({
                       set
                         ? "bg-primary/15 text-text-primary ring-primary/40 "
                         : "bg-bg-tertiary/60 text-text-tertiary ring-white/[0.05]"
-                    }`}
+                    } ease-out`}
                   >
                     <span
                       className={`w-4 h-4 rounded-full flex items-center justify-center transition-all duration-300 ${
                         set
                           ? "bg-primary text-white scale-100"
                           : "bg-transparent text-text-tertiary scale-90"
-                      }`}
+                      } ease-out`}
                     >
                       {set ? (
                         <Check size={10} strokeWidth={3} />
@@ -1507,7 +1507,7 @@ export function DesignWithAIDialog({
                         set
                           ? "bg-gradient-to-r from-primary/50 to-border-primary/40"
                           : "bg-border-primary/40"
-                      }`}
+                      } ease-out`}
                     />
                   )}
                 </React.Fragment>
@@ -1525,7 +1525,7 @@ export function DesignWithAIDialog({
             <button
               type="button"
               onClick={() => setRestoredFromDraft(false)}
-              className="text-text-tertiary hover:text-text-primary transition-colors"
+              className="text-text-tertiary hover:text-text-primary transition-colors ease-out"
             >
               Dismiss
             </button>
@@ -1595,12 +1595,12 @@ export function DesignWithAIDialog({
                             type="button"
                             onClick={() => void sendPrompt(c.prompt)}
                             disabled={pending || isCreatingProject}
-                            className="group inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium rounded-full bg-gradient-to-br from-primary/20 to-primary/10 ring-1 ring-primary/40 text-text-primary hover:from-primary/30 hover:to-primary/20 hover:ring-primary/60 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                            className="group inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium rounded-full bg-gradient-to-br from-primary/20 to-primary/10 ring-1 ring-primary/40 text-text-primary hover:from-primary/30 hover:to-primary/20 hover:ring-primary/60 disabled:opacity-50 disabled:cursor-not-allowed transition-all ease-out"
                           >
                             <span>{c.label}</span>
                             <ArrowRight
                               size={11}
-                              className="text-primary/70 group-hover:translate-x-0.5 transition-transform"
+                              className="text-primary/70 group-hover:translate-x-0.5 transition-transform ease-out"
                             />
                           </button>
                         ))}
@@ -1619,12 +1619,12 @@ export function DesignWithAIDialog({
                               type="button"
                               onClick={() => void sendPrompt(c.prompt)}
                               disabled={pending || isCreatingProject}
-                              className="group inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] rounded-lg bg-bg-tertiary ring-1 ring-white/[0.06] text-text-primary hover:ring-primary/40 hover:bg-bg-secondary hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                              className="group inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] rounded-lg bg-bg-tertiary ring-1 ring-white/[0.06] text-text-primary hover:ring-primary/40 hover:bg-bg-secondary hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all ease-out"
                             >
                               <span>{c.label}</span>
                               <ArrowRight
                                 size={11}
-                                className="text-text-tertiary group-hover:text-primary group-hover:translate-x-0.5 transition-all"
+                                className="text-text-tertiary group-hover:text-primary group-hover:translate-x-0.5 transition-all ease-out"
                               />
                             </button>
                           ))}
@@ -1638,7 +1638,7 @@ export function DesignWithAIDialog({
                                 PLAN_SLOTS.length
                                   ? "bg-primary ring-1 ring-primary/40"
                                   : "bg-primary "
-                              }`}
+                              } ease-out`}
                             >
                               <Sparkles size={12} />
                               {countSetSlots(effectivePlan) ===
@@ -1663,13 +1663,13 @@ export function DesignWithAIDialog({
                               type="button"
                               onClick={() => void sendPrompt(s.prompt)}
                               disabled={pending || isCreatingProject}
-                              className="group flex items-start gap-2.5 px-3 py-2.5 text-left rounded-lg bg-bg-tertiary ring-1 ring-white/[0.06] hover:ring-primary/50 hover:bg-bg-secondary hover:shadow-md hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                              className="group flex items-start gap-2.5 px-3 py-2.5 text-left rounded-lg bg-bg-tertiary ring-1 ring-white/[0.06] hover:ring-primary/50 hover:bg-bg-secondary hover:shadow-md hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed transition-all ease-out"
                             >
                               <span className="text-[18px] leading-none flex-shrink-0 mt-0.5">
                                 {s.emoji}
                               </span>
                               <div className="min-w-0 flex-1">
-                                <div className="text-[12px] font-semibold text-text-primary leading-tight group-hover:text-primary transition-colors">
+                                <div className="text-[12px] font-semibold text-text-primary leading-tight group-hover:text-primary transition-colors ease-out">
                                   {s.title}
                                 </div>
                                 <div className="text-[10.5px] text-text-tertiary mt-1 leading-snug">
@@ -1678,7 +1678,7 @@ export function DesignWithAIDialog({
                               </div>
                               <ArrowRight
                                 size={11}
-                                className="flex-shrink-0 mt-1 text-text-tertiary opacity-0 group-hover:opacity-100 group-hover:text-primary group-hover:translate-x-0.5 transition-all"
+                                className="flex-shrink-0 mt-1 text-text-tertiary opacity-0 group-hover:opacity-100 group-hover:text-primary group-hover:translate-x-0.5 transition-all ease-out"
                               />
                             </button>
                           ))}
@@ -1707,7 +1707,7 @@ export function DesignWithAIDialog({
                       type="button"
                       onClick={() => void retryLast()}
                       disabled={pending}
-                      className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-md bg-red-500/20 hover:bg-red-500/30 text-red-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-md bg-red-500/20 hover:bg-red-500/30 text-red-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ease-out"
                     >
                       <RefreshCw size={11} />
                       Retry
@@ -1722,7 +1722,7 @@ export function DesignWithAIDialog({
               onSubmit={sendMessage}
               className="px-6 py-4 bg-gradient-to-t from-bg-secondary/40 to-transparent"
             >
-              <div className="relative flex items-end gap-2 rounded-xl bg-bg-tertiary ring-1 ring-white/[0.06] focus-within:ring-1 focus-within:ring-primary/40 focus-within:bg-bg-secondary transition-all shadow-sm">
+              <div className="relative flex items-end gap-2 rounded-xl bg-bg-tertiary ring-1 ring-white/[0.06] focus-within:ring-1 focus-within:ring-primary/40 focus-within:bg-bg-secondary transition-all shadow-sm ease-out">
                 <textarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
@@ -1744,7 +1744,7 @@ export function DesignWithAIDialog({
                     <button
                       type="button"
                       onClick={cancel}
-                      className="px-3 py-1.5 text-[12px] font-medium rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-primary/60 transition-colors"
+                      className="px-3 py-1.5 text-[12px] font-medium rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-primary/60 transition-colors ease-out"
                     >
                       Stop
                     </button>
@@ -1753,7 +1753,7 @@ export function DesignWithAIDialog({
                       type="submit"
                       disabled={!input.trim() || isCreatingProject}
                       aria-label="Send"
-                      className="w-8 h-8 flex items-center justify-center rounded-lg bg-primary text-white hover:bg-primary/90 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:shadow-none transition-all"
+                      className="w-8 h-8 flex items-center justify-center rounded-lg bg-primary text-white hover:bg-primary/90 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:shadow-none transition-all ease-out"
                     >
                       <Send size={14} />
                     </button>

@@ -42,7 +42,7 @@ export function StepBar({
                   : isCompleted
                     ? "text-green-400 hover:bg-bg-tertiary cursor-pointer"
                     : "text-text-tertiary cursor-default"
-              }`}
+              } ease-out`}
               onClick={() => canClick && onJump(step.index)}
               disabled={!canClick}
             >

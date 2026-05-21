@@ -131,7 +131,7 @@ const Navigation: React.FC = () => {
       {/* Top bar with hamburger */}
       <div className="h-11 bg-bg-secondary border-b border-border-primary flex items-center px-3 relative z-[100]">
         <button
-          className="p-1.5 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-all duration-150"
+          className="p-1.5 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-all duration-300 ease-out"
           onClick={() => setOpen(true)}
           aria-label="Open navigation menu"
         >
@@ -152,7 +152,7 @@ const Navigation: React.FC = () => {
       {/* Backdrop */}
       {open && (
         <div
-          className="fixed inset-0 bg-black/50 z-[200] transition-opacity duration-200"
+          className="fixed inset-0 bg-black/50 z-[200] transition-opacity duration-500 ease-out"
           onClick={() => setOpen(false)}
         />
       )}
@@ -160,7 +160,7 @@ const Navigation: React.FC = () => {
       {/* Sidebar drawer */}
       <div
         ref={sidebarRef}
-        className={`fixed top-0 left-0 h-full w-[280px] bg-bg-secondary border-r border-border-primary shadow-xl z-[201] flex flex-col transition-transform duration-200 ease-out ${
+        className={`fixed top-0 left-0 h-full w-[280px] bg-bg-secondary border-r border-border-primary shadow-xl z-[201] flex flex-col transition-transform duration-300 ease-out ${
           open ? "translate-x-0" : "-translate-x-full pointer-events-none"
         }`}
       >
@@ -168,12 +168,12 @@ const Navigation: React.FC = () => {
         <div className="flex items-center justify-between px-5 py-4 border-b border-border-primary">
           <Link
             to={ROUTES.DASHBOARD}
-            className="text-lg font-semibold text-gradient hover:opacity-80 transition-opacity"
+            className="text-lg font-semibold text-gradient hover:opacity-80 transition-opacity ease-out"
           >
             Asset Forge
           </Link>
           <button
-            className="p-1.5 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-all duration-150"
+            className="p-1.5 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-all duration-300 ease-out"
             onClick={() => setOpen(false)}
             aria-label="Close navigation menu"
           >
@@ -200,18 +200,18 @@ const Navigation: React.FC = () => {
           {/* Generators section */}
           <div className="pt-2">
             <button
-              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-md text-sm font-medium transition-all duration-150 ${
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-md text-sm font-medium transition-all duration-300 ${
                 isGeneratorRoute && !generatorsExpanded
                   ? ACTIVE_BG
                   : INACTIVE_CLASSES
-              }`}
+              } ease-out`}
               onClick={() => setGeneratorsExpanded(!generatorsExpanded)}
             >
               <Boxes size={18} />
               <span className="flex-1 text-left">Generators</span>
               <ChevronDown
                 size={14}
-                className={`transition-transform duration-150 ${generatorsExpanded ? "rotate-180" : ""}`}
+                className={`transition-transform duration-300 ${generatorsExpanded ? "rotate-180" : ""} ease-out`}
               />
             </button>
 
@@ -223,11 +223,11 @@ const Navigation: React.FC = () => {
                     <Link
                       key={item.route}
                       to={item.route}
-                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all duration-150 ${
+                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all duration-300 ${
                         currentPath === item.route
                           ? ACTIVE_BG
                           : INACTIVE_CLASSES
-                      }`}
+                      } ease-out`}
                     >
                       <Icon size={16} />
                       <span>{item.label}</span>
@@ -264,7 +264,7 @@ const Navigation: React.FC = () => {
             {/* Sign out button */}
             <div className="px-3 pb-3">
               <button
-                className="flex items-center gap-3 px-4 py-2 rounded-md text-sm font-medium text-text-secondary hover:text-red-400 hover:bg-bg-tertiary transition-all duration-150 w-full"
+                className="flex items-center gap-3 px-4 py-2 rounded-md text-sm font-medium text-text-secondary hover:text-red-400 hover:bg-bg-tertiary transition-all duration-300 w-full ease-out"
                 onClick={() => auth.logout()}
               >
                 <LogOut size={16} />

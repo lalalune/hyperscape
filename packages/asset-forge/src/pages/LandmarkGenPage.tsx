@@ -752,7 +752,7 @@ const LandmarkGenPage: React.FC = () => {
               !showAll
                 ? "bg-primary text-white"
                 : "text-text-secondary hover:text-text-primary"
-            }`}
+            } ease-out`}
             onClick={() => setShowAll(false)}
           >
             <Landmark size={14} />
@@ -763,7 +763,7 @@ const LandmarkGenPage: React.FC = () => {
               showAll
                 ? "bg-primary text-white"
                 : "text-text-secondary hover:text-text-primary"
-            }`}
+            } ease-out`}
             onClick={() => setShowAll(true)}
           >
             <Grid3x3 size={14} />
@@ -782,13 +782,13 @@ const LandmarkGenPage: React.FC = () => {
                 key={info.type}
                 disabled={showAll}
                 onClick={() => setSelectedType(info.type)}
-                className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all ${
+                className={`w-full text-left px-5 py-4 rounded-md text-sm transition-all ${
                   showAll
                     ? "opacity-40 cursor-not-allowed bg-bg-tertiary text-text-secondary"
                     : selectedType === info.type
                       ? "bg-primary/20 text-primary border border-primary/40"
                       : "bg-bg-tertiary text-text-primary hover:bg-bg-tertiary/70 border border-transparent"
-                }`}
+                } ease-out`}
               >
                 <span className="font-medium">{info.label}</span>
                 <span className="text-xs text-text-secondary ml-2">
@@ -804,7 +804,7 @@ const LandmarkGenPage: React.FC = () => {
           <button
             onClick={generate}
             disabled={isGenerating}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition-all disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition-all disabled:opacity-50 ease-out"
           >
             <RefreshCw
               size={16}
@@ -816,7 +816,7 @@ const LandmarkGenPage: React.FC = () => {
           <button
             onClick={exportToGLB}
             disabled={!landmarkGroupRef.current}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-bg-tertiary text-text-secondary hover:text-text-primary rounded-lg transition-all disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-bg-tertiary text-text-secondary hover:text-text-primary rounded-lg transition-all disabled:opacity-50 ease-out"
           >
             <Download size={16} />
             Export GLB
@@ -824,7 +824,7 @@ const LandmarkGenPage: React.FC = () => {
         </div>
 
         {/* Stats panel */}
-        <div className="bg-bg-tertiary rounded-lg p-4 border border-border-primary">
+        <div className="bg-bg-tertiary rounded-lg p-5 border border-border-primary">
           <h3 className="font-semibold text-text-primary mb-3 flex items-center gap-2">
             <Gauge size={16} />
             Stats
@@ -874,7 +874,7 @@ const LandmarkGenPage: React.FC = () => {
         </div>
 
         {/* Landmark reference list */}
-        <div className="bg-bg-tertiary rounded-lg p-4 border border-border-primary">
+        <div className="bg-bg-tertiary rounded-lg p-5 border border-border-primary">
           <h3 className="font-semibold text-text-primary mb-3">Reference</h3>
           <div className="space-y-1.5 text-xs text-text-secondary">
             {LANDMARK_TYPES.map((info) => (

@@ -237,7 +237,7 @@ export const RoadsGenPage: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary flex items-center gap-3">
+          <h1 className="font-display text-2xl font-medium text-text-primary flex items-center gap-3 tracking-tight">
             <Route size={28} />
             Road Network Generator
           </h1>
@@ -257,7 +257,7 @@ export const RoadsGenPage: React.FC = () => {
                   townSize === size
                     ? "bg-primary text-white"
                     : "text-text-secondary hover:text-text-primary"
-                }`}
+                } ease-out`}
                 onClick={() => setTownSize(size)}
               >
                 {TOWN_SIZES[size].label}
@@ -268,7 +268,7 @@ export const RoadsGenPage: React.FC = () => {
           {/* Save Preset */}
           <button
             onClick={() => setShowSaveDialog(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-bg-tertiary text-text-secondary hover:text-text-primary rounded-lg transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-bg-tertiary text-text-secondary hover:text-text-primary rounded-lg transition-all ease-out"
             title="Save as preset"
           >
             <Save size={18} />
@@ -278,7 +278,7 @@ export const RoadsGenPage: React.FC = () => {
           {/* Export Config */}
           <button
             onClick={exportConfig}
-            className="flex items-center gap-2 px-4 py-2 bg-bg-tertiary text-text-secondary hover:text-text-primary rounded-lg transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-bg-tertiary text-text-secondary hover:text-text-primary rounded-lg transition-all ease-out"
             title="Export config"
           >
             <Download size={18} />
@@ -288,7 +288,7 @@ export const RoadsGenPage: React.FC = () => {
           {/* Import Config */}
           <button
             onClick={importConfig}
-            className="flex items-center gap-2 px-4 py-2 bg-bg-tertiary text-text-secondary hover:text-text-primary rounded-lg transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-bg-tertiary text-text-secondary hover:text-text-primary rounded-lg transition-all ease-out"
             title="Import config"
           >
             <Upload size={18} />
@@ -298,7 +298,7 @@ export const RoadsGenPage: React.FC = () => {
           {/* Random Seed */}
           <button
             onClick={handleRandomSeed}
-            className="flex items-center gap-2 px-4 py-2 bg-bg-tertiary hover:bg-bg-secondary rounded-lg text-text-secondary hover:text-text-primary transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-bg-tertiary hover:bg-bg-secondary rounded-lg text-text-secondary hover:text-text-primary transition-all ease-out"
             title="Random seed"
           >
             🎲
@@ -308,7 +308,7 @@ export const RoadsGenPage: React.FC = () => {
           <button
             onClick={handleRegenerate}
             disabled={isGenerating}
-            className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition-all disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition-all disabled:opacity-50 ease-out"
           >
             <RefreshCw
               size={18}
@@ -323,7 +323,7 @@ export const RoadsGenPage: React.FC = () => {
         {/* Controls Panel */}
         <div className="w-72 flex-shrink-0 space-y-4 overflow-y-auto">
           {/* Generation Settings */}
-          <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
+          <div className="bg-bg-secondary rounded-lg p-5 border border-border-primary">
             <h3 className="font-semibold text-text-primary mb-4 flex items-center gap-2">
               <Settings2 size={18} />
               Generation Settings
@@ -337,7 +337,7 @@ export const RoadsGenPage: React.FC = () => {
                 <select
                   value={townSize}
                   onChange={(e) => setTownSize(e.target.value as TownSize)}
-                  className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded-md text-text-primary"
+                  className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded-md text-text-primary"
                 >
                   {(Object.keys(TOWN_SIZES) as TownSize[]).map((size) => (
                     <option key={size} value={size}>
@@ -357,11 +357,11 @@ export const RoadsGenPage: React.FC = () => {
                     type="number"
                     value={seed}
                     onChange={(e) => setSeed(parseInt(e.target.value) || 0)}
-                    className="flex-1 px-3 py-2 bg-bg-tertiary border border-border-primary rounded-md text-text-primary"
+                    className="flex-1 px-5 py-4 bg-bg-tertiary border border-border-primary rounded-md text-text-primary"
                   />
                   <button
                     onClick={handleRandomSeed}
-                    className="px-3 py-2 bg-bg-tertiary border border-border-primary rounded-md text-text-secondary hover:text-text-primary transition-colors"
+                    className="px-5 py-4 bg-bg-tertiary border border-border-primary rounded-md text-text-secondary hover:text-text-primary transition-colors ease-out"
                     title="Random seed"
                   >
                     🎲
@@ -372,7 +372,7 @@ export const RoadsGenPage: React.FC = () => {
               <button
                 onClick={handleRegenerate}
                 disabled={isGenerating}
-                className="w-full py-2 bg-primary hover:bg-primary-dark text-white rounded-md transition-all disabled:opacity-50"
+                className="w-full py-2 bg-primary hover:bg-primary-dark text-white rounded-md transition-all disabled:opacity-50 ease-out"
               >
                 Generate Roads
               </button>
@@ -380,7 +380,7 @@ export const RoadsGenPage: React.FC = () => {
           </div>
 
           {/* Saved Presets */}
-          <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
+          <div className="bg-bg-secondary rounded-lg p-5 border border-border-primary">
             <h3 className="font-semibold text-text-primary mb-3 flex items-center gap-2">
               <FolderOpen size={18} />
               Saved Presets
@@ -405,7 +405,7 @@ export const RoadsGenPage: React.FC = () => {
                     </button>
                     <button
                       onClick={() => deleteSavedPreset(savedPreset.id)}
-                      className="p-1 text-text-secondary hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="p-1 text-text-secondary hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity ease-out"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -416,7 +416,7 @@ export const RoadsGenPage: React.FC = () => {
           </div>
 
           {/* Road Layout Info */}
-          <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
+          <div className="bg-bg-secondary rounded-lg p-5 border border-border-primary">
             <h3 className="font-semibold text-text-primary mb-3 flex items-center gap-2">
               <MapPin size={18} />
               Road Layouts
@@ -445,7 +445,7 @@ export const RoadsGenPage: React.FC = () => {
           </div>
 
           {/* Stats Panel */}
-          <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
+          <div className="bg-bg-secondary rounded-lg p-5 border border-border-primary">
             <h3 className="font-semibold text-text-primary mb-3">
               Current: {TOWN_SIZES[townSize].label}
             </h3>
@@ -508,7 +508,7 @@ export const RoadsGenPage: React.FC = () => {
 
       {/* Info Panel */}
       <div className="mt-4 grid grid-cols-3 gap-4">
-        <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
+        <div className="bg-bg-secondary rounded-lg p-5 border border-border-primary">
           <h3 className="font-semibold text-text-primary mb-2">Road Types</h3>
           <p className="text-sm text-text-secondary">
             <strong>Terminus:</strong> Dead-end road for small settlements.
@@ -519,7 +519,7 @@ export const RoadsGenPage: React.FC = () => {
             <strong>Crossroads:</strong> Intersection with 4 entry points.
           </p>
         </div>
-        <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
+        <div className="bg-bg-secondary rounded-lg p-5 border border-border-primary">
           <h3 className="font-semibold text-text-primary mb-2">
             Building Placement
           </h3>
@@ -529,7 +529,7 @@ export const RoadsGenPage: React.FC = () => {
             fill remaining lots.
           </p>
         </div>
-        <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
+        <div className="bg-bg-secondary rounded-lg p-5 border border-border-primary">
           <h3 className="font-semibold text-text-primary mb-2">
             Save & Export
           </h3>
@@ -556,7 +556,7 @@ export const RoadsGenPage: React.FC = () => {
               placeholder="Preset name..."
               value={newPresetName}
               onChange={(e) => setNewPresetName(e.target.value)}
-              className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded-md text-text-primary mb-4"
+              className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded-md text-text-primary mb-4"
               autoFocus
             />
             <div className="flex justify-end gap-2">

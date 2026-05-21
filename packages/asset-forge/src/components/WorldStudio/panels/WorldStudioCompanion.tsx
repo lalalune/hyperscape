@@ -913,7 +913,7 @@ function CompanionInner({ projectId }: { projectId: string }) {
           <button
             type="button"
             onClick={clearChat}
-            className="flex items-center gap-1 px-2 py-1 text-[10px] rounded-md text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors"
+            className="flex items-center gap-1 px-2 py-1 text-[10px] rounded-md text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors ease-out"
             title="Clear chat history"
           >
             <RotateCcw size={10} />
@@ -956,12 +956,12 @@ function CompanionInner({ projectId }: { projectId: string }) {
                         key={ci}
                         type="button"
                         onClick={() => void sendPrompt(c.prompt)}
-                        className="group inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-full bg-gradient-to-br from-primary/20 to-primary/10 ring-1 ring-primary/40 text-text-primary hover:ring-primary/60 transition-all"
+                        className="group inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-full bg-gradient-to-br from-primary/20 to-primary/10 ring-1 ring-primary/40 text-text-primary hover:ring-primary/60 transition-all ease-out"
                       >
                         <span>{c.label}</span>
                         <ArrowRight
                           size={10}
-                          className="text-primary/70 group-hover:translate-x-0.5 transition-transform"
+                          className="text-primary/70 group-hover:translate-x-0.5 transition-transform ease-out"
                         />
                       </button>
                     ))}
@@ -988,7 +988,7 @@ function CompanionInner({ projectId }: { projectId: string }) {
                 type="button"
                 onClick={() => void retryLast()}
                 disabled={pending}
-                className="flex-shrink-0 flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold rounded-md bg-red-500/20 hover:bg-red-500/30 text-red-200 disabled:opacity-50 transition-colors"
+                className="flex-shrink-0 flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold rounded-md bg-red-500/20 hover:bg-red-500/30 text-red-200 disabled:opacity-50 transition-colors ease-out"
               >
                 <RefreshCw size={10} />
                 Retry
@@ -1002,7 +1002,7 @@ function CompanionInner({ projectId }: { projectId: string }) {
         onSubmit={sendMessage}
         className="px-3 py-2.5 bg-gradient-to-t from-bg-secondary/60 to-transparent"
       >
-        <div className="relative flex items-end gap-2 rounded-lg bg-bg-tertiary ring-1 ring-white/[0.06] focus-within:ring-1 focus-within:ring-primary/40 focus-within:bg-bg-primary/40 transition-all shadow-sm">
+        <div className="relative flex items-end gap-2 rounded-lg bg-bg-tertiary ring-1 ring-white/[0.06] focus-within:ring-1 focus-within:ring-primary/40 focus-within:bg-bg-primary/40 transition-all shadow-sm ease-out">
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -1022,7 +1022,7 @@ function CompanionInner({ projectId }: { projectId: string }) {
               <button
                 type="button"
                 onClick={cancel}
-                className="px-2 py-1 text-[11px] font-medium rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-primary/60 transition-colors"
+                className="px-2 py-1 text-[11px] font-medium rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-primary/60 transition-colors ease-out"
               >
                 Stop
               </button>
@@ -1031,7 +1031,7 @@ function CompanionInner({ projectId }: { projectId: string }) {
                 type="submit"
                 disabled={!input.trim()}
                 aria-label="Send"
-                className="w-7 h-7 flex items-center justify-center rounded-md bg-primary text-white hover:bg-primary/90 hover:shadow-sm hover:shadow-primary/30 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:shadow-none transition-all"
+                className="w-7 h-7 flex items-center justify-center rounded-md bg-primary text-white hover:bg-primary/90 hover:shadow-sm hover:shadow-primary/30 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:shadow-none transition-all ease-out"
               >
                 <Send size={12} />
               </button>

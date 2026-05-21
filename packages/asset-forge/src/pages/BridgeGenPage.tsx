@@ -858,7 +858,7 @@ export const BridgeGenPage: React.FC = () => {
             <select
               value={preset}
               onChange={(e) => applyPreset(e.target.value)}
-              className="w-full bg-bg-tertiary border border-border-primary rounded-md px-3 py-2 text-sm text-text-primary"
+              className="w-full bg-bg-tertiary border border-border-primary rounded-md px-5 py-4 text-sm text-text-primary"
             >
               {Object.entries(BRIDGE_PRESETS).map(([key, p]) => (
                 <option key={key} value={key}>
@@ -968,7 +968,7 @@ export const BridgeGenPage: React.FC = () => {
           <button
             onClick={handleGenerate}
             disabled={isGenerating}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium transition-colors disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium transition-colors disabled:opacity-50 ease-out"
           >
             <RefreshCw
               size={18}
@@ -981,7 +981,7 @@ export const BridgeGenPage: React.FC = () => {
           <button
             onClick={exportToGLB}
             disabled={!bridgeGroupRef.current}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-bg-tertiary hover:bg-bg-primary text-text-secondary rounded-md text-sm transition-colors disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-bg-tertiary hover:bg-bg-primary text-text-secondary rounded-md text-sm transition-colors disabled:opacity-50 ease-out"
           >
             <Download size={16} />
             Export GLB

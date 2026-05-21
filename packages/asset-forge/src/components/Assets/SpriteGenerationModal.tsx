@@ -278,11 +278,11 @@ const SpriteGenerationModal: React.FC<SpriteGenerationModalProps> = ({
                               config.resolution <= 128 ? "pixelated" : "auto",
                           }}
                         />
-                        <div className="absolute inset-0 bg-black bg-opacity-70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <div className="absolute inset-0 bg-black bg-opacity-70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center ease-out">
                           <a
                             href={sprite.imageUrl}
                             download={`${asset.id}-${sprite.angle}deg.png`}
-                            className="p-2 bg-primary rounded-lg text-white hover:bg-primary-hover transition-colors"
+                            className="p-2 bg-primary rounded-lg text-white hover:bg-primary-hover transition-colors ease-out"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <Download className="w-5 h-5" />
@@ -307,7 +307,7 @@ const SpriteGenerationModal: React.FC<SpriteGenerationModalProps> = ({
             <ModalSection title="Configuration">
               <div className="space-y-4">
                 {/* Asset Info */}
-                <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
+                <div className="bg-bg-secondary rounded-lg p-5 border border-border-primary">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
                       <Package className="w-6 h-6 text-primary" />
@@ -476,11 +476,11 @@ const SpriteGenerationModal: React.FC<SpriteGenerationModalProps> = ({
                               config.resolution <= 128 ? "pixelated" : "auto",
                           }}
                         />
-                        <div className="absolute inset-0 bg-black bg-opacity-70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <div className="absolute inset-0 bg-black bg-opacity-70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center ease-out">
                           <a
                             href={sprite.imageUrl}
                             download={`${asset.id}-${sprite.angle}deg.png`}
-                            className="p-2 bg-primary rounded-lg text-white hover:bg-primary-hover transition-colors"
+                            className="p-2 bg-primary rounded-lg text-white hover:bg-primary-hover transition-colors ease-out"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <Download className="w-5 h-5" />

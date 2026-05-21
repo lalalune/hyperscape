@@ -194,11 +194,11 @@ export const ArmorPipelinePage: React.FC = () => {
               )}
               <button
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-all ${
+                className={`flex items-center gap-1.5 px-5 py-4 rounded-md text-sm font-medium transition-all ${
                   isActive
                     ? "bg-primary/15 text-primary border border-primary/25"
                     : "text-text-secondary hover:text-text-primary hover:bg-bg-tertiary border border-transparent"
-                }`}
+                } ease-out`}
                 title={tab.description}
               >
                 <span
@@ -233,11 +233,11 @@ export const ArmorPipelinePage: React.FC = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${
+              className={`flex items-center gap-2 px-5 py-4 rounded-md text-sm font-medium transition-all ${
                 isActive
                   ? "bg-yellow-500/15 text-yellow-400 border border-yellow-500/25"
                   : "text-text-tertiary hover:text-yellow-400/80 hover:bg-bg-tertiary border border-transparent"
-              }`}
+              } ease-out`}
               title={tab.description}
             >
               <Icon size={16} />

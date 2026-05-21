@@ -143,7 +143,7 @@ export const CreatureSizeControls: React.FC<CreatureSizeControlsProps> = ({
           )}
 
           {autoScaleWeapon && selectedEquipment && (
-            <div className="p-3 bg-bg-tertiary/20 rounded-lg border border-border-primary space-y-2">
+            <div className="p-5 bg-bg-tertiary/20 rounded-lg border border-border-primary space-y-2">
               <p className="text-xs text-text-tertiary flex items-center gap-1">
                 <Info size={12} />
                 Recommended weapons for{" "}

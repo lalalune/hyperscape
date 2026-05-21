@@ -386,7 +386,7 @@ export const ArmorAssetList: React.FC<ArmorAssetListProps> = ({
       {/* Selected Assets Summary */}
       <div className="p-4 border-t border-border-primary bg-bg-primary bg-opacity-30">
         <div>
-          <h3 className="text-xs font-medium text-text-tertiary uppercase tracking-wider mb-3">
+          <h3 className="text-xs font-medium text-text-tertiary uppercase tracking-[0.12em] mb-3">
             Current Selection
           </h3>
           <div className="space-y-3">

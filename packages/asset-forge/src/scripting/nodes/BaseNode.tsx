@@ -436,7 +436,7 @@ export function BaseNode({ id, data, selected }: NodeProps) {
               style={{
                 fontWeight: 500,
                 letterSpacing: "0.03em",
-                textTransform: "uppercase",
+                textTransform: "uppercase tracking-[0.12em]",
               }}
             >
               Fields

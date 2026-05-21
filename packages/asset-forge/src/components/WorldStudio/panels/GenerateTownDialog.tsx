@@ -499,7 +499,7 @@ export function GenerateTownDialog({
             </h2>
           </div>
           <button
-            className="p-1 rounded-md text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors"
+            className="p-1 rounded-md text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors ease-out"
             onClick={onClose}
           >
             <X size={14} />
@@ -539,7 +539,7 @@ export function GenerateTownDialog({
                 autoFocus
               />
               <button
-                className="px-2 py-1 text-xs bg-bg-tertiary border border-border-primary rounded text-text-secondary hover:text-text-primary hover:border-border-secondary transition-colors"
+                className="px-2 py-1 text-xs bg-bg-tertiary border border-border-primary rounded text-text-secondary hover:text-text-primary hover:border-border-secondary transition-colors ease-out"
                 onClick={handleRandomizeName}
                 title="Generate random name"
               >
@@ -609,7 +609,7 @@ export function GenerateTownDialog({
 
           {/* Preview */}
           <div className="p-2 bg-bg-tertiary/50 rounded border border-border-primary/50">
-            <div className="text-[10px] uppercase tracking-wider text-text-tertiary font-semibold mb-1">
+            <div className="text-[10px] uppercase tracking-[0.12em] text-text-tertiary font-semibold mb-1">
               Preview
             </div>
             <div className="flex gap-4 text-xs text-text-secondary">
@@ -647,14 +647,14 @@ export function GenerateTownDialog({
         {/* Footer */}
         <div className="flex items-center gap-2 px-4 py-3 border-t border-border-primary">
           <button
-            className="flex-1 px-3 py-1.5 text-xs font-medium rounded bg-bg-tertiary border border-border-primary text-text-primary hover:bg-bg-secondary transition-colors"
+            className="flex-1 px-5 py-1.5 text-xs font-medium rounded bg-bg-tertiary border border-border-primary text-text-primary hover:bg-bg-secondary transition-colors ease-out"
             onClick={onClose}
             disabled={isGenerating}
           >
             Cancel
           </button>
           <button
-            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded bg-primary text-white hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded bg-primary text-white hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ease-out"
             onClick={handleGenerate}
             disabled={!townName.trim() || isGenerating || !world}
           >

@@ -201,7 +201,7 @@ const LODTab: React.FC<{
           </div>
           <div className="w-full h-1 bg-bg-tertiary rounded-full overflow-hidden">
             <div
-              className="h-full bg-primary transition-all duration-300"
+              className="h-full bg-primary transition-all duration-300 ease-out"
               style={{ width: `${jobProgress}%` }}
             />
           </div>
@@ -261,7 +261,7 @@ const LODTab: React.FC<{
               <button
                 onClick={() => handleBakeLOD("lod1")}
                 disabled={baking}
-                className="flex items-center gap-1 px-2 py-1 text-[0.625rem] bg-primary bg-opacity-20 text-primary rounded hover:bg-opacity-30 transition-colors disabled:opacity-50"
+                className="flex items-center gap-1 px-2 py-1 text-[0.625rem] bg-primary bg-opacity-20 text-primary rounded hover:bg-opacity-30 transition-colors disabled:opacity-50 ease-out"
               >
                 {baking && bakingLevel === "lod1" ? (
                   <RefreshCw className="animate-spin" size={10} />
@@ -302,7 +302,7 @@ const LODTab: React.FC<{
               <button
                 onClick={() => handleBakeLOD("lod2")}
                 disabled={baking}
-                className="flex items-center gap-1 px-2 py-1 text-[0.625rem] bg-primary bg-opacity-20 text-primary rounded hover:bg-opacity-30 transition-colors disabled:opacity-50"
+                className="flex items-center gap-1 px-2 py-1 text-[0.625rem] bg-primary bg-opacity-20 text-primary rounded hover:bg-opacity-30 transition-colors disabled:opacity-50 ease-out"
               >
                 {baking && bakingLevel === "lod2" ? (
                   <RefreshCw className="animate-spin" size={10} />
@@ -345,7 +345,7 @@ const LODTab: React.FC<{
       {lodBundle && (
         <div className="pt-3 border-t border-border-primary">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[0.625rem] text-text-tertiary uppercase tracking-wider">
+            <span className="text-[0.625rem] text-text-tertiary uppercase tracking-[0.12em]">
               Bundle Status
             </span>
             <span
@@ -359,7 +359,7 @@ const LODTab: React.FC<{
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-[0.625rem] text-text-tertiary uppercase tracking-wider">
+            <span className="text-[0.625rem] text-text-tertiary uppercase tracking-[0.12em]">
               Total Size
             </span>
             <span className="text-xs text-text-secondary">
@@ -408,7 +408,7 @@ const LODTab: React.FC<{
           }
         }}
         disabled={baking}
-        className="w-full px-3 py-2 bg-primary bg-opacity-10 hover:bg-opacity-20 text-primary rounded-lg transition-colors flex items-center justify-center gap-2 text-xs font-medium disabled:opacity-50"
+        className="w-full px-3 py-2 bg-primary bg-opacity-10 hover:bg-opacity-20 text-primary rounded-lg transition-colors flex items-center justify-center gap-2 text-xs font-medium disabled:opacity-50 ease-out"
       >
         {baking ? (
           <>
@@ -424,14 +424,14 @@ const LODTab: React.FC<{
       </button>
 
       {/* Settings Link */}
-      <button className="w-full px-3 py-2 bg-bg-secondary hover:bg-bg-tertiary text-text-primary rounded-lg transition-colors flex items-center justify-between group text-xs font-medium border border-border-primary">
+      <button className="w-full px-5 py-4 bg-bg-secondary hover:bg-bg-tertiary text-text-primary rounded-lg transition-colors flex items-center justify-between group text-xs font-medium border border-border-primary ease-out">
         <div className="flex items-center gap-2">
           <Settings2 size={14} />
           <span>LOD Settings</span>
         </div>
         <ChevronRight
           size={14}
-          className="group-hover:translate-x-1 transition-transform"
+          className="group-hover:translate-x-1 transition-transform ease-out"
         />
       </button>
     </div>
@@ -474,7 +474,7 @@ const AssetDetailsPanel: React.FC<AssetDetailsPanelProps> = ({
           {/* Close button */}
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-bg-hover transition-colors"
+            className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-bg-hover transition-colors ease-out"
             aria-label="Close details panel"
           >
             <X size={18} className="text-text-secondary" />
@@ -541,7 +541,7 @@ const AssetDetailsPanel: React.FC<AssetDetailsPanelProps> = ({
               activeTab === "info"
                 ? "text-primary"
                 : "text-text-tertiary hover:text-text-secondary"
-            }`}
+            } ease-out`}
           >
             Info
             {activeTab === "info" && (
@@ -554,7 +554,7 @@ const AssetDetailsPanel: React.FC<AssetDetailsPanelProps> = ({
               activeTab === "metadata"
                 ? "text-primary"
                 : "text-text-tertiary hover:text-text-secondary"
-            }`}
+            } ease-out`}
           >
             Meta
             {activeTab === "metadata" && (
@@ -567,7 +567,7 @@ const AssetDetailsPanel: React.FC<AssetDetailsPanelProps> = ({
               activeTab === "lod"
                 ? "text-primary"
                 : "text-text-tertiary hover:text-text-secondary"
-            }`}
+            } ease-out`}
           >
             LOD
             {activeTab === "lod" && (
@@ -580,7 +580,7 @@ const AssetDetailsPanel: React.FC<AssetDetailsPanelProps> = ({
               activeTab === "actions"
                 ? "text-primary"
                 : "text-text-tertiary hover:text-text-secondary"
-            }`}
+            } ease-out`}
           >
             Actions
             {activeTab === "actions" && (
@@ -599,7 +599,7 @@ const AssetDetailsPanel: React.FC<AssetDetailsPanelProps> = ({
                 <div className="flex items-start gap-3 group">
                   <Hash className="text-text-muted mt-0.5" size={14} />
                   <div className="flex-1">
-                    <p className="text-[0.625rem] text-text-tertiary uppercase tracking-wider">
+                    <p className="text-[0.625rem] text-text-tertiary uppercase tracking-[0.12em]">
                       Asset ID
                     </p>
                     <div className="flex items-center gap-2">
@@ -608,7 +608,7 @@ const AssetDetailsPanel: React.FC<AssetDetailsPanelProps> = ({
                       </p>
                       <button
                         onClick={() => copyToClipboard(asset.id)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity ease-out"
                       >
                         {copiedId ? (
                           <Check size={12} className="text-success" />
@@ -626,7 +626,7 @@ const AssetDetailsPanel: React.FC<AssetDetailsPanelProps> = ({
                 <div className="flex items-start gap-3">
                   <Package className="text-text-muted mt-0.5" size={14} />
                   <div className="flex-1">
-                    <p className="text-[0.625rem] text-text-tertiary uppercase tracking-wider">
+                    <p className="text-[0.625rem] text-text-tertiary uppercase tracking-[0.12em]">
                       Type
                     </p>
                     <p className="text-xs text-text-secondary capitalize">
@@ -639,7 +639,7 @@ const AssetDetailsPanel: React.FC<AssetDetailsPanelProps> = ({
                   <div className="flex items-start gap-3">
                     <Tag className="text-text-muted mt-0.5" size={14} />
                     <div className="flex-1">
-                      <p className="text-[0.625rem] text-text-tertiary uppercase tracking-wider">
+                      <p className="text-[0.625rem] text-text-tertiary uppercase tracking-[0.12em]">
                         Subtype
                       </p>
                       <p className="text-xs text-text-secondary capitalize">
@@ -653,7 +653,7 @@ const AssetDetailsPanel: React.FC<AssetDetailsPanelProps> = ({
                   <div className="flex items-start gap-3">
                     <Calendar className="text-text-muted mt-0.5" size={14} />
                     <div className="flex-1">
-                      <p className="text-[0.625rem] text-text-tertiary uppercase tracking-wider">
+                      <p className="text-[0.625rem] text-text-tertiary uppercase tracking-[0.12em]">
                         Created
                       </p>
                       <p className="text-xs text-text-secondary">
@@ -702,7 +702,7 @@ const AssetDetailsPanel: React.FC<AssetDetailsPanelProps> = ({
                       <p className="text-text-tertiary text-[0.625rem]">
                         Format
                       </p>
-                      <p className="text-text-secondary font-medium uppercase">
+                      <p className="text-text-secondary font-medium uppercase tracking-[0.12em]">
                         {asset.metadata.format || "GLB"}
                       </p>
                     </div>
@@ -746,7 +746,7 @@ const AssetDetailsPanel: React.FC<AssetDetailsPanelProps> = ({
                         key={key}
                         className="py-2 border-b border-border-primary last:border-0"
                       >
-                        <p className="text-[0.625rem] text-text-tertiary uppercase tracking-wider mb-1">
+                        <p className="text-[0.625rem] text-text-tertiary uppercase tracking-[0.12em] mb-1">
                           {key.replace(/([A-Z])/g, " $1").trim()}
                         </p>
                         <p className="text-xs text-text-secondary font-medium">
@@ -781,47 +781,47 @@ const AssetDetailsPanel: React.FC<AssetDetailsPanelProps> = ({
           {/* Actions Tab */}
           {activeTab === "actions" && (
             <div className="p-5 space-y-3">
-              <button className="w-full px-3 py-2 bg-primary bg-opacity-10 hover:bg-opacity-20 text-primary rounded-lg transition-colors flex items-center justify-between group text-xs font-medium">
+              <button className="w-full px-3 py-2 bg-primary bg-opacity-10 hover:bg-opacity-20 text-primary rounded-lg transition-colors flex items-center justify-between group text-xs font-medium ease-out">
                 <div className="flex items-center gap-2">
                   <Palette size={14} />
                   <span>Create Variants</span>
                 </div>
                 <ChevronRight
                   size={14}
-                  className="group-hover:translate-x-1 transition-transform"
+                  className="group-hover:translate-x-1 transition-transform ease-out"
                 />
               </button>
 
-              <button className="w-full px-3 py-2 bg-bg-secondary hover:bg-bg-tertiary text-text-primary rounded-lg transition-colors flex items-center justify-between group text-xs font-medium border border-border-primary">
+              <button className="w-full px-5 py-4 bg-bg-secondary hover:bg-bg-tertiary text-text-primary rounded-lg transition-colors flex items-center justify-between group text-xs font-medium border border-border-primary ease-out">
                 <div className="flex items-center gap-2">
                   <Download size={14} />
                   <span>Download Model</span>
                 </div>
                 <ChevronRight
                   size={14}
-                  className="group-hover:translate-x-1 transition-transform"
+                  className="group-hover:translate-x-1 transition-transform ease-out"
                 />
               </button>
 
-              <button className="w-full px-3 py-2 bg-bg-secondary hover:bg-bg-tertiary text-text-primary rounded-lg transition-colors flex items-center justify-between group text-xs font-medium border border-border-primary">
+              <button className="w-full px-5 py-4 bg-bg-secondary hover:bg-bg-tertiary text-text-primary rounded-lg transition-colors flex items-center justify-between group text-xs font-medium border border-border-primary ease-out">
                 <div className="flex items-center gap-2">
                   <Code size={14} />
                   <span>View in Editor</span>
                 </div>
                 <ChevronRight
                   size={14}
-                  className="group-hover:translate-x-1 transition-transform"
+                  className="group-hover:translate-x-1 transition-transform ease-out"
                 />
               </button>
 
-              <button className="w-full px-3 py-2 bg-bg-secondary hover:bg-bg-tertiary text-text-primary rounded-lg transition-colors flex items-center justify-between group text-xs font-medium border border-border-primary">
+              <button className="w-full px-5 py-4 bg-bg-secondary hover:bg-bg-tertiary text-text-primary rounded-lg transition-colors flex items-center justify-between group text-xs font-medium border border-border-primary ease-out">
                 <div className="flex items-center gap-2">
                   <Share2 size={14} />
                   <span>Share Asset</span>
                 </div>
                 <ChevronRight
                   size={14}
-                  className="group-hover:translate-x-1 transition-transform"
+                  className="group-hover:translate-x-1 transition-transform ease-out"
                 />
               </button>
             </div>

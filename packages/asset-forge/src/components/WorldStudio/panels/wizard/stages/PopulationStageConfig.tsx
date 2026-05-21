@@ -51,7 +51,7 @@ export function PopulationStageConfig({
       </div>
       {/* Density presets */}
       <div>
-        <span className="text-[10px] text-text-tertiary uppercase tracking-wider">
+        <span className="text-[10px] text-text-tertiary uppercase tracking-[0.12em]">
           Density Preset
         </span>
         <div className="flex gap-1 mt-1">

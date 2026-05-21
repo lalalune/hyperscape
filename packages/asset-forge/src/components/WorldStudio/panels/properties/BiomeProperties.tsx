@@ -216,7 +216,7 @@ export function BiomeProperties({ biomeId, world }: Props) {
             className="space-y-1 pt-2 pb-2 border-t border-border-primary/30"
           >
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-semibold text-text-tertiary uppercase">
+              <span className="text-[10px] font-semibold text-text-tertiary uppercase tracking-[0.12em]">
                 Layer {i + 1}
               </span>
               <button

@@ -174,7 +174,7 @@ export function WorldPickerPage() {
             Sign in to create and manage world projects.
           </p>
           <button
-            className="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-medium rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors"
+            className="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-medium rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors ease-out"
             onClick={auth.login}
           >
             <LogIn size={16} />
@@ -284,7 +284,7 @@ export function WorldPickerPage() {
         </div>
 
         <button
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors disabled:opacity-50"
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors disabled:opacity-50 ease-out"
           onClick={() => setShowNewDialog(true)}
           disabled={!selectedTeamId || !selectedGameId}
         >
@@ -304,7 +304,7 @@ export function WorldPickerPage() {
                 Create your first world to get started.
               </p>
               <button
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors ease-out"
                 onClick={() => setShowNewDialog(true)}
               >
                 <Plus size={16} />
@@ -317,7 +317,7 @@ export function WorldPickerPage() {
             {projects.map((project) => (
               <div
                 key={project.id}
-                className="group relative bg-bg-secondary border border-border-secondary rounded-lg overflow-hidden hover:border-primary/40 transition-all duration-150 cursor-pointer"
+                className="group relative bg-bg-secondary border border-border-secondary rounded-lg overflow-hidden hover:border-primary/40 transition-all duration-300 cursor-pointer ease-out"
                 style={{ borderTop: "1px solid var(--surface-highlight)" }}
                 onClick={() => navigate(`${ROUTES.WORLD_STUDIO}/${project.id}`)}
               >
@@ -352,7 +352,7 @@ export function WorldPickerPage() {
 
                 {/* Delete button (hover) */}
                 <button
-                  className="absolute top-2 right-2 p-1.5 rounded-md bg-bg-secondary/80 text-text-tertiary hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute top-2 right-2 p-1.5 rounded-md bg-bg-secondary/80 text-text-tertiary hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity ease-out"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleDelete(project.id);

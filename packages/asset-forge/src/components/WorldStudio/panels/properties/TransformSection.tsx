@@ -114,7 +114,7 @@ function EditableField({
             readOnly
               ? "text-text-tertiary cursor-default opacity-60"
               : "text-text-primary cursor-text"
-          }`}
+          } ease-out`}
           style={{
             background: "var(--input-bg)",
             borderColor: "var(--input-border)",
@@ -183,11 +183,11 @@ export function TransformSection({
           borderTop: "1px solid var(--surface-highlight)",
         }}
       >
-        <span className="text-[11px] font-semibold text-text-tertiary uppercase tracking-wider">
+        <span className="text-[11px] font-semibold text-text-tertiary uppercase tracking-[0.12em]">
           Transform
         </span>
         {readOnly && (
-          <span className="text-[9px] text-text-muted uppercase">
+          <span className="text-[9px] text-text-muted uppercase tracking-[0.12em]">
             Read Only
           </span>
         )}

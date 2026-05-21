@@ -43,7 +43,12 @@ export const PositionControls: React.FC<PositionControlsProps> = ({
           <div key={axis}>
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm font-medium text-text-primary flex items-center gap-2">
-                <span className={cn("text-xs uppercase font-bold", color)}>
+                <span
+                  className={cn(
+                    "text-xs uppercase font-bold tracking-[0.12em]",
+                    color,
+                  )}
+                >
                   {axis}
                 </span>
                 {label}

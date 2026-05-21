@@ -76,7 +76,7 @@ export const GripDetectionPanel: React.FC<GripDetectionPanelProps> = ({
               </span>
             </div>
 
-            <div className="space-y-3 p-3 bg-bg-secondary/40 rounded-lg border border-border-primary">
+            <div className="space-y-3 p-5 bg-bg-secondary/40 rounded-lg border border-border-primary">
               <div className="flex justify-between text-xs">
                 <span className="text-text-tertiary">Confidence</span>
                 <span className="text-text-primary font-medium">

@@ -74,7 +74,7 @@ export function WaterBodyGeometrySection({ entityId }: CustomSectionProps) {
           isAddingVertices
             ? "bg-primary/20 border-primary/50 text-primary"
             : "bg-bg-tertiary border-border-primary text-text-tertiary hover:text-text-secondary hover:border-border-primary/80"
-        }`}
+        } ease-out`}
         onClick={() => actions.setAddingWaterVertices(!isAddingVertices)}
       >
         {isAddingVertices ? <X size={10} /> : <Plus size={10} />}

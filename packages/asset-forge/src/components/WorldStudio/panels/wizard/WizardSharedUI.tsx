@@ -56,7 +56,7 @@ export function ConfigField({
 }) {
   return (
     <div>
-      <label className="text-[10px] text-text-tertiary uppercase tracking-wider">
+      <label className="text-[10px] text-text-tertiary uppercase tracking-[0.12em]">
         {label}
       </label>
       <div className="flex items-center gap-1 mt-0.5">

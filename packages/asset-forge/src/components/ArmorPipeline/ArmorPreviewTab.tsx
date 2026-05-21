@@ -441,7 +441,7 @@ export const ArmorPreviewTab: React.FC<ArmorPreviewTabProps> = ({
             <select
               value={avatarUrl}
               onChange={(e) => setAvatarUrl(e.target.value)}
-              className="w-full bg-bg-secondary border border-border-primary rounded-lg px-3 py-2 text-sm text-text-primary"
+              className="w-full bg-bg-secondary border border-border-primary rounded-lg px-5 py-4 text-sm text-text-primary"
             >
               {AVATAR_OPTIONS.map((opt) => (
                 <option key={opt.url} value={opt.url}>
@@ -522,7 +522,7 @@ export const ArmorPreviewTab: React.FC<ArmorPreviewTabProps> = ({
               onClick={handleRigAll}
               disabled={isRigging || !hasKit || enabledPieces.size === 0}
               className="w-full px-4 py-2.5 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2
- bg-primary text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+ bg-primary text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed ease-out"
             >
               {isRigging ? (
                 <>
@@ -575,9 +575,9 @@ export const ArmorPreviewTab: React.FC<ArmorPreviewTabProps> = ({
               <button
                 onClick={handleLoadGLB}
                 disabled={isRigging}
-                className="w-full px-3 py-1.5 rounded text-xs font-medium transition-all flex items-center justify-center gap-1.5
+                className="w-full px-5 py-1.5 rounded text-xs font-medium transition-all flex items-center justify-center gap-1.5
  bg-bg-primary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary
- disabled:opacity-50 disabled:cursor-not-allowed"
+ disabled:opacity-50 disabled:cursor-not-allowed ease-out"
               >
                 <Upload size={12} />
                 Choose GLB File
@@ -598,7 +598,7 @@ export const ArmorPreviewTab: React.FC<ArmorPreviewTabProps> = ({
                     !isAnimating
                       ? "bg-primary/20 text-primary border border-primary/30"
                       : "bg-bg-secondary text-text-tertiary border border-border-primary hover:border-border-secondary"
-                  }`}
+                  } ease-out`}
                 >
                   <PersonStanding size={12} />
                   T-Pose
@@ -607,7 +607,7 @@ export const ArmorPreviewTab: React.FC<ArmorPreviewTabProps> = ({
                   onClick={() =>
                     handlePlayAnimation(ANIMATION_URLS.walking, "Walk")
                   }
-                  className="px-2 py-1.5 rounded-md text-xs font-medium bg-bg-secondary text-text-tertiary border border-border-primary hover:border-border-secondary transition-all flex items-center justify-center gap-1"
+                  className="px-2 py-1.5 rounded-md text-xs font-medium bg-bg-secondary text-text-tertiary border border-border-primary hover:border-border-secondary transition-all flex items-center justify-center gap-1 ease-out"
                 >
                   <Play size={12} />
                   Walk
@@ -616,7 +616,7 @@ export const ArmorPreviewTab: React.FC<ArmorPreviewTabProps> = ({
                   onClick={() =>
                     handlePlayAnimation(ANIMATION_URLS.running, "Run")
                   }
-                  className="px-2 py-1.5 rounded-md text-xs font-medium bg-bg-secondary text-text-tertiary border border-border-primary hover:border-border-secondary transition-all flex items-center justify-center gap-1"
+                  className="px-2 py-1.5 rounded-md text-xs font-medium bg-bg-secondary text-text-tertiary border border-border-primary hover:border-border-secondary transition-all flex items-center justify-center gap-1 ease-out"
                 >
                   <Play size={12} />
                   Run
@@ -630,8 +630,8 @@ export const ArmorPreviewTab: React.FC<ArmorPreviewTabProps> = ({
             <div className="flex gap-2">
               <button
                 onClick={handleDownloadAll}
-                className="flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
- bg-bg-secondary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary"
+                className="flex-1 px-5 py-4 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
+ bg-bg-secondary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary ease-out"
               >
                 <Download size={14} />
                 Download All
@@ -639,8 +639,8 @@ export const ArmorPreviewTab: React.FC<ArmorPreviewTabProps> = ({
 
               <button
                 onClick={handleReset}
-                className="flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
- bg-bg-secondary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary"
+                className="flex-1 px-5 py-4 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
+ bg-bg-secondary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary ease-out"
               >
                 <RotateCcw size={14} />
                 Reset
@@ -689,7 +689,7 @@ export const ArmorPreviewTab: React.FC<ArmorPreviewTabProps> = ({
                 onClick={handlePublishToGame}
                 disabled={isPublishing || riggedPieces.size === 0}
                 className="w-full px-4 py-2.5 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2
- bg-green-600 text-white hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+ bg-green-600 text-white hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed ease-out"
               >
                 {isPublishing ? (
                   <>
@@ -719,7 +719,7 @@ export const ArmorPreviewTab: React.FC<ArmorPreviewTabProps> = ({
 
           {/* Stats */}
           {hasRigged && (
-            <div className="p-3 bg-bg-secondary rounded-lg border border-border-primary space-y-1.5">
+            <div className="p-5 bg-bg-secondary rounded-lg border border-border-primary space-y-1.5">
               <h3 className="text-xs font-semibold text-text-primary">
                 Rigging Stats
               </h3>

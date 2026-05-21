@@ -41,7 +41,7 @@ const OverlayToggle: React.FC<OverlayToggleProps> = ({
       active
         ? "bg-primary/20 text-primary"
         : "text-text-muted hover:text-text-secondary hover:bg-bg-tertiary"
-    }`}
+    } ease-out`}
     title={`${active ? "Hide" : "Show"} ${label}`}
   >
     {icon}
@@ -204,7 +204,7 @@ export const OverlayDropdown: React.FC<OverlayDropdownProps> = ({
     <div className={`relative ${className}`}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-1.5 px-3 py-1.5 bg-bg-tertiary rounded text-sm text-text-secondary hover:text-text-primary transition-colors"
+        className="flex items-center gap-1.5 px-3 py-1.5 bg-bg-tertiary rounded text-sm text-text-secondary hover:text-text-primary transition-colors ease-out"
       >
         <Eye className="w-4 h-4" />
         <span>Overlays</span>
@@ -214,7 +214,7 @@ export const OverlayDropdown: React.FC<OverlayDropdownProps> = ({
           </span>
         )}
         <ChevronDown
-          className={`w-3 h-3 transition-transform ${isOpen ? "rotate-180" : ""}`}
+          className={`w-3 h-3 transition-transform ${isOpen ? "rotate-180" : ""} ease-out`}
         />
       </button>
 
@@ -307,7 +307,7 @@ const DropdownItem: React.FC<DropdownItemProps> = ({
 }) => (
   <button
     onClick={onToggle}
-    className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-bg-tertiary transition-colors"
+    className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-bg-tertiary transition-colors ease-out"
   >
     {icon}
     <span className="flex-1 text-left text-text-secondary">{label}</span>

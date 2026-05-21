@@ -228,7 +228,7 @@ function ValidationTab() {
       {issues.map((issue: ManifestValidationIssue, idx: number) => (
         <div
           key={`${issue.manifest}-${issue.entryId}-${issue.field}-${idx}`}
-          className="flex items-start gap-2 px-3 py-1.5 text-xs border-b border-border-primary/30 hover:bg-bg-tertiary/50 transition-colors"
+          className="flex items-start gap-2 px-3 py-1.5 text-xs border-b border-border-primary/30 hover:bg-bg-tertiary/50 transition-colors ease-out"
         >
           <AlertTriangle
             size={12}
@@ -389,7 +389,7 @@ function ConsoleTab() {
           {consoleEntries.length} entries
         </span>
         <button
-          className="text-[10px] text-text-tertiary hover:text-text-primary transition-colors"
+          className="text-[10px] text-text-tertiary hover:text-text-primary transition-colors ease-out"
           onClick={clearConsoleEntries}
         >
           Clear
@@ -475,7 +475,7 @@ function HistoryTab() {
         return (
           <div
             key={`undo-${idx}`}
-            className="flex items-center gap-2 px-3 py-1 text-xs border-b border-border-primary/30 hover:bg-bg-tertiary/50 transition-colors"
+            className="flex items-center gap-2 px-3 py-1 text-xs border-b border-border-primary/30 hover:bg-bg-tertiary/50 transition-colors ease-out"
           >
             <Icon size={11} className="flex-shrink-0 text-text-tertiary" />
             <span className="flex-1 text-text-secondary truncate">
@@ -673,7 +673,7 @@ export const BottomPanel = React.memo(function BottomPanel() {
                   isActive
                     ? "text-text-primary border-primary"
                     : "text-text-tertiary border-transparent hover:text-text-secondary"
-                }`}
+                } ease-out`}
                 style={
                   isActive
                     ? { background: "rgba(99, 102, 241, 0.08)" }
@@ -701,7 +701,7 @@ export const BottomPanel = React.memo(function BottomPanel() {
 
         {/* Collapse/expand toggle */}
         <button
-          className="p-1 rounded text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors"
+          className="p-1 rounded text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors ease-out"
           onClick={toggleExpanded}
           title={expanded ? "Collapse panel" : "Expand panel"}
         >

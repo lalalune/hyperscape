@@ -484,7 +484,7 @@ export function GenerationWizardDialog({
               {/* Re-roll button */}
               {isPreviewing && (
                 <button
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs text-text-secondary hover:text-text-primary hover:bg-bg-tertiary border border-border-primary"
+                  className="flex items-center gap-1.5 px-5 py-1.5 rounded text-xs text-text-secondary hover:text-text-primary hover:bg-bg-tertiary border border-border-primary"
                   onClick={handleReroll}
                 >
                   <RefreshCw size={12} /> Re-roll

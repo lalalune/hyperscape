@@ -399,7 +399,7 @@ export function DialogueEditor({
       {isOverridden && onReset && (
         <div className="flex justify-end mb-1">
           <button
-            className="text-[9px] text-text-tertiary hover:text-primary transition-colors"
+            className="text-[9px] text-text-tertiary hover:text-primary transition-colors ease-out"
             onClick={onReset}
           >
             Reset to Base
@@ -424,7 +424,7 @@ export function DialogueEditor({
         </select>
         <button
           onClick={() => setShowTree((v) => !v)}
-          className="flex items-center gap-1 px-1.5 py-0.5 text-[9px] rounded border border-border-primary text-text-tertiary hover:text-text-secondary hover:border-text-tertiary transition-colors shrink-0"
+          className="flex items-center gap-1 px-1.5 py-0.5 text-[9px] rounded border border-border-primary text-text-tertiary hover:text-text-secondary hover:border-text-tertiary transition-colors shrink-0 ease-out"
           title={showTree ? "Hide tree preview" : "Show tree preview"}
         >
           <GitBranch size={9} />
@@ -454,7 +454,7 @@ export function DialogueEditor({
           >
             {/* Node header */}
             <div
-              className="flex items-center gap-1 py-1 cursor-pointer text-[10px] text-text-secondary hover:text-text-primary transition-colors"
+              className="flex items-center gap-1 py-1 cursor-pointer text-[10px] text-text-secondary hover:text-text-primary transition-colors ease-out"
               onClick={() => toggleNode(node.id)}
             >
               {isExpanded ? (
@@ -469,7 +469,7 @@ export function DialogueEditor({
                 — {textPreview}
               </span>
               <button
-                className="ml-auto p-0.5 text-text-tertiary hover:text-error transition-colors shrink-0"
+                className="ml-auto p-0.5 text-text-tertiary hover:text-error transition-colors shrink-0 ease-out"
                 onClick={(e) => {
                   e.stopPropagation();
                   deleteNode(idx);
@@ -512,7 +512,7 @@ export function DialogueEditor({
 
                 {/* Responses */}
                 <div>
-                  <div className="text-[9px] text-text-tertiary uppercase tracking-wider mb-1">
+                  <div className="text-[9px] text-text-tertiary uppercase tracking-[0.12em] mb-1">
                     Responses ({node.responses?.length ?? 0})
                   </div>
                   {(node.responses ?? []).map((resp, rIdx) => (
@@ -533,7 +533,7 @@ export function DialogueEditor({
                           style={{ fontSize: 10, padding: "2px 6px" }}
                         />
                         <button
-                          className="p-0.5 text-text-tertiary hover:text-error transition-colors shrink-0 mt-0.5"
+                          className="p-0.5 text-text-tertiary hover:text-error transition-colors shrink-0 mt-0.5 ease-out"
                           onClick={() => deleteResponse(idx, rIdx)}
                           title="Remove response"
                         >
@@ -583,7 +583,7 @@ export function DialogueEditor({
                     </div>
                   ))}
                   <button
-                    className="w-full flex items-center justify-center gap-1 py-1 text-[9px] text-text-tertiary hover:text-text-secondary transition-colors"
+                    className="w-full flex items-center justify-center gap-1 py-1 text-[9px] text-text-tertiary hover:text-text-secondary transition-colors ease-out"
                     onClick={() => addResponse(idx)}
                   >
                     <Plus size={8} /> Add Response
@@ -597,7 +597,7 @@ export function DialogueEditor({
 
       {/* Add Node button */}
       <button
-        className="w-full flex items-center justify-center gap-1 px-2 py-1.5 mt-1 text-[10px] rounded border border-dashed border-border-primary text-text-tertiary hover:text-text-secondary hover:border-text-tertiary transition-colors"
+        className="w-full flex items-center justify-center gap-1 px-2 py-1.5 mt-1 text-[10px] rounded border border-dashed border-border-primary text-text-tertiary hover:text-text-secondary hover:border-text-tertiary transition-colors ease-out"
         onClick={addNode}
       >
         <Plus size={10} /> Add Node

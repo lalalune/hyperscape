@@ -178,7 +178,7 @@ export function ViewportOverlayBar() {
           </span>
           {overlays.timeOfDay != null && (
             <button
-              className="text-[9px] text-white/40 hover:text-white/80 transition-colors"
+              className="text-[9px] text-white/40 hover:text-white/80 transition-colors ease-out"
               onClick={() => setTimeOfDay(null)}
             >
               Reset

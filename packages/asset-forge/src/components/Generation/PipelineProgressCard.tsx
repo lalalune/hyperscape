@@ -97,7 +97,7 @@ export const PipelineProgressCard: React.FC<PipelineProgressCardProps> = ({
             onClick={onBackToConfig}
             disabled={isGenerating}
             size="lg"
-            className="shadow-lg hover:shadow-xl transition-all"
+            className="shadow-lg hover:shadow-xl transition-all ease-out"
           >
             Back to Configuration
           </Button>

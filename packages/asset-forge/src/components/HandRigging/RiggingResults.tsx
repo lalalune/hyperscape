@@ -26,19 +26,19 @@ export const RiggingResults: React.FC<RiggingResultsProps> = ({
       <CardContent className="p-6">
         <div className="grid grid-cols-3 gap-6">
           <div className="text-center">
-            <p className="text-3xl font-bold text-text-primary">
+            <p className="font-display text-3xl font-medium text-text-primary tracking-tight">
               {riggingResult.metadata.originalBoneCount}
             </p>
             <p className="text-sm text-text-secondary mt-1">Original Bones</p>
           </div>
           <div className="text-center">
-            <p className="text-3xl font-bold text-success">
+            <p className="font-display text-3xl font-medium text-success tracking-tight">
               +{riggingResult.metadata.addedBoneCount}
             </p>
             <p className="text-sm text-text-secondary mt-1">Added Bones</p>
           </div>
           <div className="text-center">
-            <p className="text-3xl font-bold text-text-primary">
+            <p className="font-display text-3xl font-medium text-text-primary tracking-tight">
               {riggingResult.metadata.originalBoneCount +
                 riggingResult.metadata.addedBoneCount}
             </p>

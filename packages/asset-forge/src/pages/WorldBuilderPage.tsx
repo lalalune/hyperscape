@@ -3478,7 +3478,7 @@ const AssetsLODPanel: React.FC = () => {
                     selectedCategory === cat.id
                       ? "bg-primary text-white"
                       : "bg-bg-tertiary text-text-secondary hover:bg-bg-hover"
-                  }`}
+                  } ease-out`}
                 >
                   {cat.label} ({cat.count})
                 </button>
@@ -3507,7 +3507,7 @@ const AssetsLODPanel: React.FC = () => {
               </div>
               <div className="h-2 bg-bg-tertiary rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-primary transition-all duration-300"
+                  className="h-full bg-primary transition-all duration-300 ease-out"
                   style={{ width: `${bakeJob.progress}%` }}
                 />
               </div>
@@ -3605,7 +3605,7 @@ const AssetsLODPanel: React.FC = () => {
                     {!asset.isComplete && (
                       <button
                         onClick={() => handleBakeCategory(asset.category)}
-                        className="px-2 py-0.5 bg-primary bg-opacity-20 text-primary rounded hover:bg-opacity-30 transition-colors"
+                        className="px-2 py-0.5 bg-primary bg-opacity-20 text-primary rounded hover:bg-opacity-30 transition-colors ease-out"
                         disabled={bakeJob?.status === "running"}
                       >
                         Bake
@@ -5281,7 +5281,7 @@ export const WorldBuilderPage: React.FC = () => {
         activeTab === tab
           ? "bg-primary text-white"
           : "text-text-secondary hover:text-text-primary hover:bg-bg-tertiary"
-      }`}
+      } ease-out`}
     >
       {icon}
       {label}
@@ -5475,7 +5475,7 @@ export const WorldBuilderPage: React.FC = () => {
                       <select
                         value={buildingType}
                         onChange={(e) => setBuildingType(e.target.value)}
-                        className="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary text-sm"
+                        className="w-full px-5 py-4 bg-bg-primary border border-border-primary rounded-md text-text-primary text-sm"
                       >
                         {Object.entries(BUILDING_RECIPES).map(
                           ([key, recipe]) => (
@@ -5497,7 +5497,7 @@ export const WorldBuilderPage: React.FC = () => {
                         type="text"
                         value={seed}
                         onChange={(e) => setSeed(e.target.value)}
-                        className="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary text-sm"
+                        className="w-full px-5 py-4 bg-bg-primary border border-border-primary rounded-md text-text-primary text-sm"
                       />
                       <Button
                         variant="secondary"
@@ -6021,7 +6021,7 @@ export const WorldBuilderPage: React.FC = () => {
                       <select
                         value={treePreset}
                         onChange={(e) => setTreePreset(e.target.value)}
-                        className="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary text-sm"
+                        className="w-full px-5 py-4 bg-bg-primary border border-border-primary rounded-md text-text-primary text-sm"
                       >
                         {treePresetNames.map((name) => (
                           <option key={name} value={name}>
@@ -6041,7 +6041,7 @@ export const WorldBuilderPage: React.FC = () => {
                         type="number"
                         value={treeSeed}
                         onChange={(e) => setTreeSeed(Number(e.target.value))}
-                        className="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary text-sm"
+                        className="w-full px-5 py-4 bg-bg-primary border border-border-primary rounded-md text-text-primary text-sm"
                       />
                       <Button
                         variant="secondary"
@@ -6114,7 +6114,7 @@ export const WorldBuilderPage: React.FC = () => {
                       <select
                         value={rockPreset}
                         onChange={(e) => setRockPreset(e.target.value)}
-                        className="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary text-sm"
+                        className="w-full px-5 py-4 bg-bg-primary border border-border-primary rounded-md text-text-primary text-sm"
                       >
                         {Object.keys(ROCK_SHAPE_PRESETS).map((name) => (
                           <option key={name} value={name}>
@@ -6134,7 +6134,7 @@ export const WorldBuilderPage: React.FC = () => {
                         type="text"
                         value={rockSeed}
                         onChange={(e) => setRockSeed(e.target.value)}
-                        className="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary text-sm"
+                        className="w-full px-5 py-4 bg-bg-primary border border-border-primary rounded-md text-text-primary text-sm"
                       />
                       <Button
                         variant="secondary"
@@ -6241,7 +6241,7 @@ export const WorldBuilderPage: React.FC = () => {
                         onChange={(e) =>
                           setPlantPreset(e.target.value as PlantPresetName)
                         }
-                        className="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary text-sm"
+                        className="w-full px-5 py-4 bg-bg-primary border border-border-primary rounded-md text-text-primary text-sm"
                       >
                         {plantPresetNames.map((name) => (
                           <option key={name} value={name}>
@@ -6261,7 +6261,7 @@ export const WorldBuilderPage: React.FC = () => {
                         type="number"
                         value={plantSeed}
                         onChange={(e) => setPlantSeed(Number(e.target.value))}
-                        className="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary text-sm"
+                        className="w-full px-5 py-4 bg-bg-primary border border-border-primary rounded-md text-text-primary text-sm"
                       />
                       <Button
                         variant="secondary"
@@ -6322,7 +6322,7 @@ export const WorldBuilderPage: React.FC = () => {
                         }));
                         setConfigDirty(true);
                       }}
-                      className="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary text-sm"
+                      className="w-full px-5 py-4 bg-bg-primary border border-border-primary rounded-md text-text-primary text-sm"
                     />
 
                     {/* Save to Manifest */}
@@ -6428,7 +6428,7 @@ export const WorldBuilderPage: React.FC = () => {
                     cameraMode === "orbit"
                       ? "bg-primary text-white"
                       : "text-text-secondary hover:text-text-primary hover:bg-bg-tertiary"
-                  }`}
+                  } ease-out`}
                 >
                   Orbit
                 </button>
@@ -6438,7 +6438,7 @@ export const WorldBuilderPage: React.FC = () => {
                     cameraMode === "flythrough"
                       ? "bg-primary text-white"
                       : "text-text-secondary hover:text-text-primary hover:bg-bg-tertiary"
-                  }`}
+                  } ease-out`}
                 >
                   Fly
                 </button>
@@ -6448,7 +6448,7 @@ export const WorldBuilderPage: React.FC = () => {
                     cameraMode === "player"
                       ? "bg-primary text-white"
                       : "text-text-secondary hover:text-text-primary hover:bg-bg-tertiary"
-                  }`}
+                  } ease-out`}
                 >
                   Player
                 </button>
@@ -6492,7 +6492,7 @@ export const WorldBuilderPage: React.FC = () => {
 
           {/* Click to fly prompt (when not in flythrough and clicking viewport) */}
           {cameraMode === "orbit" && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 hover:opacity-100 transition-opacity">
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 hover:opacity-100 transition-opacity ease-out">
               <div className="bg-black bg-opacity-50 text-white px-4 py-2 rounded-lg text-sm">
                 Click Fly or Player mode to enter first-person view
               </div>

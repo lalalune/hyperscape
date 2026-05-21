@@ -149,7 +149,7 @@ export function BrushSettingsPanel() {
     <div className="flex flex-col h-full">
       {/* Panel header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-border-primary">
-        <span className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+        <span className="text-xs font-semibold text-text-secondary uppercase tracking-[0.12em]">
           Brush Settings
         </span>
       </div>
@@ -165,7 +165,7 @@ export function BrushSettingsPanel() {
                   settings.brushType === opt.value
                     ? "bg-primary/20 border-primary/50 text-primary"
                     : "bg-bg-tertiary border-border-primary text-text-tertiary hover:text-text-secondary hover:border-border-primary/80"
-                }`}
+                } ease-out`}
                 onClick={() => updateSetting({ brushType: opt.value })}
               >
                 {BRUSH_ICONS[opt.value]}
@@ -213,7 +213,7 @@ export function BrushSettingsPanel() {
                     settings.terrainMode === opt.value
                       ? "bg-primary/20 border-primary/50 text-primary"
                       : "bg-bg-tertiary border-border-primary text-text-tertiary hover:text-text-secondary"
-                  }`}
+                  } ease-out`}
                   onClick={() => updateSetting({ terrainMode: opt.value })}
                 >
                   {opt.label}
@@ -389,7 +389,7 @@ export function BrushSettingsPanel() {
                     settings.materialPaintTarget === layer.id
                       ? "bg-primary/20 border-primary/50 text-primary"
                       : "bg-bg-tertiary border-border-primary text-text-tertiary hover:text-text-secondary"
-                  }`}
+                  } ease-out`}
                   onClick={() =>
                     updateSetting({ materialPaintTarget: layer.id })
                   }
@@ -422,7 +422,7 @@ export function BrushSettingsPanel() {
                   settings.collisionMode === "block"
                     ? "bg-red-400/20 border-red-400/50 text-red-400"
                     : "bg-bg-tertiary border-border-primary text-text-tertiary hover:text-text-secondary"
-                }`}
+                } ease-out`}
                 onClick={() => updateSetting({ collisionMode: "block" })}
               >
                 Block
@@ -432,7 +432,7 @@ export function BrushSettingsPanel() {
                   settings.collisionMode === "unblock"
                     ? "bg-green-400/20 border-green-400/50 text-green-400"
                     : "bg-bg-tertiary border-border-primary text-text-tertiary hover:text-text-secondary"
-                }`}
+                } ease-out`}
                 onClick={() => updateSetting({ collisionMode: "unblock" })}
               >
                 Unblock
@@ -458,7 +458,7 @@ export function BrushSettingsPanel() {
           <InfoRow label="Strokes" value={strokeCount} />
           <div className="flex gap-1 pt-1">
             <button
-              className="flex-1 flex items-center justify-center gap-1 px-2 py-1 text-[10px] rounded border border-border-primary text-text-tertiary hover:text-text-secondary hover:bg-bg-tertiary transition-colors disabled:opacity-30"
+              className="flex-1 flex items-center justify-center gap-1 px-2 py-1 text-[10px] rounded border border-border-primary text-text-tertiary hover:text-text-secondary hover:bg-bg-tertiary transition-colors disabled:opacity-30 ease-out"
               onClick={() => actions.undoLastBrushStroke(settings.brushType)}
               disabled={strokeCount === 0}
             >
@@ -466,7 +466,7 @@ export function BrushSettingsPanel() {
               Undo Last
             </button>
             <button
-              className="flex-1 flex items-center justify-center gap-1 px-2 py-1 text-[10px] rounded border border-red-400/30 text-red-400/60 hover:text-red-400 hover:bg-red-400/5 transition-colors disabled:opacity-30"
+              className="flex-1 flex items-center justify-center gap-1 px-2 py-1 text-[10px] rounded border border-red-400/30 text-red-400/60 hover:text-red-400 hover:bg-red-400/5 transition-colors disabled:opacity-30 ease-out"
               onClick={() => actions.clearBrushOverlays(settings.brushType)}
               disabled={strokeCount === 0}
             >

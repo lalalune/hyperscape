@@ -107,7 +107,7 @@ function HistoryInner({ projectId }: { projectId: string }) {
           type="button"
           onClick={() => void refresh()}
           disabled={loading}
-          className="flex items-center gap-1 px-2 py-1 text-[10px] rounded-md text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors disabled:opacity-50"
+          className="flex items-center gap-1 px-2 py-1 text-[10px] rounded-md text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors disabled:opacity-50 ease-out"
           title="Refresh"
         >
           <RotateCcw size={10} className={loading ? "animate-spin" : ""} />
@@ -177,7 +177,7 @@ function RevisionCard({
   const nonZero = counts.filter(([, n]) => n > 0);
 
   return (
-    <div className="bg-bg-tertiary rounded-lg ring-1 ring-white/[0.06] p-2.5 group hover:ring-primary/30 transition-all">
+    <div className="bg-bg-tertiary rounded-lg ring-1 ring-white/[0.06] p-2.5 group hover:ring-primary/30 transition-all ease-out">
       <div className="flex items-start gap-2">
         <div
           className={`flex-shrink-0 w-6 h-6 rounded-md flex items-center justify-center ring-1 ${
@@ -214,7 +214,7 @@ function RevisionCard({
             type="button"
             onClick={onRestore}
             disabled={disabled}
-            className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed ease-out"
           >
             {isRestoring ? (
               <>

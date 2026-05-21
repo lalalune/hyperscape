@@ -112,7 +112,7 @@ export function TerrainProperties({ world }: Props) {
                 key={layer}
                 className="space-y-1 pb-2 border-b border-border-primary/30 last:border-0"
               >
-                <div className="text-[10px] font-semibold text-text-tertiary uppercase">
+                <div className="text-[10px] font-semibold text-text-tertiary uppercase tracking-[0.12em]">
                   {layer}
                   <span className="font-normal ml-1 opacity-60">
                     — {NOISE_LAYER_HINTS[layer]}

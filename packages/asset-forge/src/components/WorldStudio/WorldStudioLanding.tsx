@@ -97,7 +97,7 @@ export function WorldStudioLanding() {
 
         {/* Sign In — restrained, no glow, no shine */}
         <button
-          className="inline-flex items-center gap-2.5 px-7 py-2.5 text-sm font-medium rounded-md bg-primary text-bg-primary hover:bg-primary-dark transition-colors duration-200 border border-primary"
+          className="inline-flex items-center gap-2.5 px-7 py-2.5 text-sm font-medium rounded-md bg-primary text-bg-primary hover:bg-primary-dark transition-colors duration-500 border border-primary ease-out"
           onClick={auth.login}
         >
           <LogIn size={15} strokeWidth={2} />

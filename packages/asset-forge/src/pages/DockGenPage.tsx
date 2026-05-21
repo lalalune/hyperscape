@@ -1024,7 +1024,7 @@ const DockGenPage: React.FC = () => {
             <select
               value={preset}
               onChange={(e) => handlePresetChange(e.target.value)}
-              className="w-full bg-bg-tertiary border border-border-primary rounded-md px-3 py-2 text-sm text-text-primary"
+              className="w-full bg-bg-tertiary border border-border-primary rounded-md px-5 py-4 text-sm text-text-primary"
             >
               {getDockPresetNames().map((name) => (
                 <option key={name} value={name}>
@@ -1039,7 +1039,7 @@ const DockGenPage: React.FC = () => {
             <select
               value={dockStyle}
               onChange={(e) => setDockStyle(e.target.value as DockStyleValue)}
-              className="w-full bg-bg-tertiary border border-border-primary rounded-md px-3 py-2 text-sm text-text-primary"
+              className="w-full bg-bg-tertiary border border-border-primary rounded-md px-5 py-4 text-sm text-text-primary"
             >
               {DOCK_STYLE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -1055,7 +1055,7 @@ const DockGenPage: React.FC = () => {
               type="text"
               value={seed}
               onChange={(e) => setSeed(e.target.value)}
-              className="w-full bg-bg-tertiary border border-border-primary rounded-md px-3 py-2 text-sm text-text-primary"
+              className="w-full bg-bg-tertiary border border-border-primary rounded-md px-5 py-4 text-sm text-text-primary"
             />
           </div>
 
@@ -1263,7 +1263,7 @@ const DockGenPage: React.FC = () => {
             <select
               value={woodType}
               onChange={(e) => setWoodType(e.target.value as WoodTypeValue)}
-              className="w-full bg-bg-tertiary border border-border-primary rounded-md px-3 py-2 text-sm text-text-primary"
+              className="w-full bg-bg-tertiary border border-border-primary rounded-md px-5 py-4 text-sm text-text-primary"
             >
               {WOOD_TYPES.map((wt) => (
                 <option key={wt} value={wt}>
@@ -1276,7 +1276,7 @@ const DockGenPage: React.FC = () => {
           <button
             onClick={generateDock}
             disabled={isGenerating}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors disabled:opacity-50 ease-out"
           >
             <RefreshCw
               className={`w-4 h-4 ${isGenerating ? "animate-spin" : ""}`}
@@ -1287,7 +1287,7 @@ const DockGenPage: React.FC = () => {
           <button
             onClick={exportToGLB}
             disabled={!currentGroupRef.current}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-bg-tertiary hover:bg-bg-tertiary/80 text-text-primary border border-border-primary rounded-md text-sm transition-colors disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 px-5 py-4 bg-bg-tertiary hover:bg-bg-tertiary/80 text-text-primary border border-border-primary rounded-md text-sm transition-colors disabled:opacity-50 ease-out"
           >
             <Download className="w-4 h-4" /> Export GLB
           </button>

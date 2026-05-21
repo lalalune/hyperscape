@@ -114,7 +114,7 @@ export function StoreEditor({ store }: Props) {
                 {item.name}
               </span>
               <button
-                className="p-0.5 rounded text-text-tertiary hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                className="p-0.5 rounded text-text-tertiary hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity ease-out"
                 onClick={() => removeItem(idx)}
                 title="Remove from shop"
               >

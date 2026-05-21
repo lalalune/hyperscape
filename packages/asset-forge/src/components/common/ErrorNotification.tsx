@@ -21,7 +21,7 @@ export const ErrorNotification: React.FC<ErrorNotificationProps> = ({
             <p className="text-sm text-red-200">{error}</p>
             <button
               onClick={onClose}
-              className="ml-2 p-1 hover:bg-red-500/20 rounded transition-all"
+              className="ml-2 p-1 hover:bg-red-500/20 rounded transition-all ease-out"
             >
               <X size={16} className="text-red-300" />
             </button>

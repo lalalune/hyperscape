@@ -106,13 +106,13 @@ function ToolButton({
   const title = shortcut ? `${label} (${shortcut})` : label;
   return (
     <button
-      className={`p-1.5 rounded-md transition-all duration-150 relative ${
+      className={`p-1.5 rounded-md transition-all duration-300 relative ${
         active
           ? "ws-tool-active"
           : disabled
             ? "text-text-muted cursor-not-allowed opacity-40"
             : "text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary/70"
-      } ${className}`}
+      } ${className} ease-out`}
       onClick={onClick}
       disabled={disabled}
       title={title}
@@ -140,7 +140,7 @@ function DropdownItem({
         destructive
           ? "text-red-400 hover:bg-red-500/10"
           : "text-text-secondary hover:text-text-primary hover:bg-bg-tertiary"
-      }`}
+      } ease-out`}
       onMouseDown={(e) => {
         e.preventDefault();
         onClick();
@@ -282,7 +282,7 @@ export function MainToolbar({
                 : genDropdownOpen
                   ? "text-primary bg-primary/15"
                   : "text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary"
-            }`}
+            } ease-out`}
             disabled={!computed.hasLoadedWorld}
             title="World Generation"
             onClick={() => setGenDropdownOpen((v) => !v)}
@@ -363,7 +363,7 @@ export function MainToolbar({
                 state.pie.mode === "simulate"
                   ? "bg-primary/20 text-primary"
                   : "bg-transparent text-text-secondary hover:bg-background-tertiary"
-              }`}
+              } ease-out`}
               onClick={() => actions.pieSetMode("simulate")}
               title="Simulate — editor fly-cam, no pawn possession"
             >
@@ -376,7 +376,7 @@ export function MainToolbar({
                 state.pie.mode === "play"
                   ? "bg-primary/20 text-primary"
                   : "bg-transparent text-text-secondary hover:bg-background-tertiary"
-              }`}
+              } ease-out`}
               onClick={() => actions.pieSetMode("play")}
               title="Play — GameMode controller possesses the pawn"
             >
@@ -394,7 +394,7 @@ export function MainToolbar({
         {/* Play-In-Editor button */}
         {state.pie.active ? (
           <button
-            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-red-500/15 text-red-400 border border-red-400/30 hover:bg-red-500/25 transition-all"
+            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-red-500/15 text-red-400 border border-red-400/30 hover:bg-red-500/25 transition-all ease-out"
             onClick={() => actions.pieStop()}
             title="Stop Play Test (Escape)"
           >
@@ -409,7 +409,7 @@ export function MainToolbar({
                 : state.pie.loading
                   ? "text-text-tertiary cursor-wait"
                   : "bg-emerald-500/15 text-emerald-400 border border-emerald-400/30 hover:bg-emerald-500/25"
-            }`}
+            } ease-out`}
             onClick={() => actions.pieStart()}
             disabled={!computed.hasLoadedWorld || state.pie.loading}
             title="Play In Editor — walk the world with live entities"
@@ -508,7 +508,7 @@ export function MainToolbar({
                   : hasUnsaved
                     ? "text-amber-400 hover:bg-amber-400/10 ws-unsaved-pulse"
                     : "text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary/70"
-            }`}
+            } ease-out`}
             onClick={handleSave}
             disabled={state.persistence.isSaving || !hasUnsaved}
             title={

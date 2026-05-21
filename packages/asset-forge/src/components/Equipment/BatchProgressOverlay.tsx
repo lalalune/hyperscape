@@ -39,7 +39,7 @@ export const BatchProgressOverlay: React.FC<BatchProgressOverlayProps> = ({
           </h3>
           <button
             onClick={onCancel}
-            className="p-1.5 rounded-lg hover:bg-bg-tertiary/30 text-text-tertiary hover:text-text-primary transition-colors"
+            className="p-1.5 rounded-lg hover:bg-bg-tertiary/30 text-text-tertiary hover:text-text-primary transition-colors ease-out"
           >
             <X size={18} />
           </button>
@@ -53,7 +53,7 @@ export const BatchProgressOverlay: React.FC<BatchProgressOverlayProps> = ({
         <div className="space-y-1">
           <div className="w-full h-2 bg-bg-tertiary/30 rounded-full overflow-hidden">
             <div
-              className="h-full rounded-full transition-all duration-300 bg-amber-500"
+              className="h-full rounded-full transition-all duration-300 bg-amber-500 ease-out"
               style={{ width: `${percentage}%` }}
             />
           </div>
@@ -178,7 +178,7 @@ export const BatchReviewBar: React.FC<BatchReviewBarProps> = ({
           <>
             <button
               onClick={onSkip}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium text-text-tertiary hover:text-text-secondary hover:bg-bg-tertiary/20 transition-colors flex items-center gap-1.5"
+              className="px-3 py-1.5 rounded-lg text-xs font-medium text-text-tertiary hover:text-text-secondary hover:bg-bg-tertiary/20 transition-colors flex items-center gap-1.5 ease-out"
             >
               <SkipForward size={12} />
               Skip
@@ -223,7 +223,7 @@ export const BatchReviewBar: React.FC<BatchReviewBarProps> = ({
         <button
           onClick={onDone}
           disabled={review.isExporting}
-          className="p-2 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary/30 transition-colors"
+          className="p-2 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary/30 transition-colors ease-out"
         >
           <X size={16} />
         </button>

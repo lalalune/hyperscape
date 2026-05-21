@@ -285,11 +285,11 @@ export const AnimationPlayer: React.FC<AnimationPlayerProps> = ({
         <div className="flex bg-bg-secondary bg-opacity-90 rounded-lg shadow-lg p-1 border border-border-primary gap-1">
           <button
             onClick={handleToggleSkeleton}
-            className={`p-2 rounded transition-all duration-200 ${
+            className={`p-2 rounded transition-all duration-300 ${
               showingSkeleton
                 ? "bg-primary bg-opacity-20 text-primary"
                 : "text-text-secondary hover:text-text-primary hover:bg-bg-hover"
-            }`}
+            } ease-out`}
             title="Toggle skeleton visualization"
           >
             <Eye size={18} />
@@ -297,7 +297,7 @@ export const AnimationPlayer: React.FC<AnimationPlayerProps> = ({
 
           <button
             onClick={handleLogBones}
-            className="p-2 rounded text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-all duration-200"
+            className="p-2 rounded text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-all duration-300 ease-out"
             title="View bone structure"
           >
             <FileText size={18} />
@@ -305,7 +305,7 @@ export const AnimationPlayer: React.FC<AnimationPlayerProps> = ({
 
           <button
             onClick={handleExportTPose}
-            className="p-2 rounded text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-all duration-200"
+            className="p-2 rounded text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-all duration-300 ease-out"
             title="Export T-pose model"
           >
             <Download size={18} />
@@ -314,7 +314,7 @@ export const AnimationPlayer: React.FC<AnimationPlayerProps> = ({
       </div>
 
       {/* Animation Controls Overlay */}
-      <div className="absolute bottom-4 left-4 right-4 bg-bg-primary bg-opacity-90 rounded-lg p-3 border border-border-primary z-10">
+      <div className="absolute bottom-4 left-4 right-4 bg-bg-primary bg-opacity-90 rounded-lg p-5 border border-border-primary z-10">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Activity className="w-4 h-4 text-primary" />
@@ -372,7 +372,7 @@ export const AnimationPlayer: React.FC<AnimationPlayerProps> = ({
             </h2>
             <button
               onClick={() => setShowBonesModal(false)}
-              className="p-1 hover:bg-bg-primary rounded transition-colors"
+              className="p-1 hover:bg-bg-primary rounded transition-colors ease-out"
             >
               <X size={20} className="text-text-muted" />
             </button>

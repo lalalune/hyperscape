@@ -33,7 +33,7 @@ export function LayoutOutliner() {
                     isSelected
                       ? "border-primary/60 bg-primary/10 text-text-primary"
                       : "border-bg-tertiary bg-bg-secondary text-text-primary hover:border-bg-tertiary/80 hover:bg-bg-tertiary"
-                  }`}
+                  } ease-out`}
                 >
                   <button
                     onClick={() => select(inst.instanceId)}
@@ -57,7 +57,7 @@ export function LayoutOutliner() {
                   </button>
                   <button
                     onClick={() => remove(inst.instanceId)}
-                    className="text-text-tertiary opacity-0 transition-opacity hover:text-red-400 group-hover:opacity-100"
+                    className="text-text-tertiary opacity-0 transition-opacity hover:text-red-400 group-hover:opacity-100 ease-out"
                     title="Remove"
                   >
                     <Trash2 size={14} />

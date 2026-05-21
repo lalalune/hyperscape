@@ -40,7 +40,7 @@ export const AssetPreviewCard: React.FC<AssetPreviewCardProps> = ({
     selectedAsset.metadata.animations;
 
   return (
-    <Card className="overflow-hidden shadow-xl hover:shadow-2xl transition-shadow">
+    <Card className="overflow-hidden shadow-xl hover:shadow-2xl transition-shadow ease-out">
       <CardHeader>
         <CardTitle>3D Preview</CardTitle>
         <CardDescription>Interactive model viewer</CardDescription>
@@ -85,7 +85,7 @@ export const AssetPreviewCard: React.FC<AssetPreviewCardProps> = ({
           <a
             href={modelUrl}
             download={`${selectedAsset.id}.glb`}
-            className="inline-flex items-center gap-2 text-primary hover:text-primary-hover transition-colors"
+            className="inline-flex items-center gap-2 text-primary hover:text-primary-hover transition-colors ease-out"
           >
             <Download className="w-4 h-4" />
             Download GLB Model

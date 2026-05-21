@@ -713,7 +713,7 @@ export const TerrainControls: React.FC<TerrainControlsProps> = ({
               });
             }
           }}
-          className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
+          className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
         >
           <option value="">Custom</option>
           {presetIds.map((id) => (
@@ -734,7 +734,7 @@ export const TerrainControls: React.FC<TerrainControlsProps> = ({
             onChange={(e) =>
               updateConfig({ seed: parseInt(e.target.value, 10) || 0 })
             }
-            className="flex-1 px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
+            className="flex-1 px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
           />
           <button
             onClick={() =>

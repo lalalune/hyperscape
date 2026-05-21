@@ -151,7 +151,7 @@ function ToastCard({ toast }: { toast: Toast }) {
       role="alert"
       className={`
  relative flex overflow-hidden rounded-md border shadow-lg
- transition-all duration-200 ease-out pointer-events-auto
+ transition-all duration-300 ease-out pointer-events-auto
  ${exiting ? "opacity-0 translate-x-8" : "opacity-100 translate-x-0"}
  `}
       style={{
@@ -189,7 +189,7 @@ function ToastCard({ toast }: { toast: Toast }) {
 
           {/* Close button */}
           <button
-            className="flex-shrink-0 p-0.5 rounded hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-white"
+            className="flex-shrink-0 p-0.5 rounded hover:bg-bg-tertiary transition-colors text-text-tertiary hover:text-white ease-out"
             onClick={handleDismiss}
             aria-label="Dismiss notification"
           >

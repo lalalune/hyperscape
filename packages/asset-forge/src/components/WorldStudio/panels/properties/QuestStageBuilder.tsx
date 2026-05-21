@@ -120,7 +120,7 @@ export function QuestStageBuilder({ quest }: Props) {
           >
             {/* Stage header row */}
             <div
-              className="flex items-center gap-1 py-1 cursor-pointer hover:bg-bg-tertiary/30 px-0.5 rounded transition-colors"
+              className="flex items-center gap-1 py-1 cursor-pointer hover:bg-bg-tertiary/30 px-0.5 rounded transition-colors ease-out"
               onClick={() =>
                 setExpandedStage(expandedStage === idx ? null : idx)
               }
@@ -271,7 +271,7 @@ function QuestRewardsEditor({
       />
       {rewards.xp && Object.keys(rewards.xp).length > 0 && (
         <div className="mt-1">
-          <div className="text-[9px] text-text-tertiary uppercase mb-0.5">
+          <div className="text-[9px] text-text-tertiary uppercase mb-0.5 tracking-[0.12em]">
             XP Rewards
           </div>
           {Object.entries(rewards.xp).map(([skill, amount]) => (
@@ -286,7 +286,7 @@ function QuestRewardsEditor({
       )}
       {rewards.items && rewards.items.length > 0 && (
         <div className="mt-1">
-          <div className="text-[9px] text-text-tertiary uppercase mb-0.5">
+          <div className="text-[9px] text-text-tertiary uppercase mb-0.5 tracking-[0.12em]">
             Item Rewards
           </div>
           {rewards.items.map((reward, idx) => (

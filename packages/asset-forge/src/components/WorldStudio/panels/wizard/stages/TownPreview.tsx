@@ -36,7 +36,7 @@ export function TownPreview({ data }: { data: TownStageResult }) {
       </div>
 
       <div>
-        <h4 className="text-[10px] text-text-tertiary uppercase tracking-wider mb-1">
+        <h4 className="text-[10px] text-text-tertiary uppercase tracking-[0.12em] mb-1">
           Towns ({generatedTowns.length})
         </h4>
         <div className="space-y-1">

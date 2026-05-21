@@ -719,7 +719,7 @@ function OutlinerNode({
             isVisible
               ? "opacity-0 group-hover:opacity-60 hover:!opacity-100"
               : "opacity-100"
-          }`}
+          } ease-out`}
           onClick={(e) => {
             e.stopPropagation();
             onToggleVisibility(node.id);
@@ -1391,7 +1391,7 @@ export const OutlinerPanel = React.memo(function OutlinerPanel() {
         }}
       >
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+          <span className="text-xs font-semibold text-text-secondary uppercase tracking-[0.12em]">
             Outliner
           </span>
           <span className="text-[9px] text-text-tertiary tabular-nums">
@@ -1400,14 +1400,14 @@ export const OutlinerPanel = React.memo(function OutlinerPanel() {
         </div>
         <div className="flex items-center gap-1 relative">
           <button
-            className="p-1 rounded transition-colors text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary"
+            className="p-1 rounded transition-colors text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary ease-out"
             onClick={handleCreateFolder}
             title="New Folder"
           >
             <FolderPlus size={12} />
           </button>
           <button
-            className={`p-1 rounded transition-colors ${showFilterDropdown ? "text-primary bg-primary/10" : "text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary"}`}
+            className={`p-1 rounded transition-colors ${showFilterDropdown ? "text-primary bg-primary/10" : "text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary"} ease-out`}
             onClick={() => setShowFilterDropdown((v) => !v)}
             title="Filter by category"
           >
@@ -1428,7 +1428,7 @@ export const OutlinerPanel = React.memo(function OutlinerPanel() {
                     activeFilter === f.id
                       ? "text-primary bg-primary/10"
                       : "text-text-secondary hover:text-text-primary hover:bg-bg-tertiary"
-                  }`}
+                  } ease-out`}
                   onClick={() => {
                     setActiveFilter(f.id);
                     setShowFilterDropdown(false);
@@ -1439,7 +1439,7 @@ export const OutlinerPanel = React.memo(function OutlinerPanel() {
               ))}
               {/* Separator */}
               <div className="border-t border-border-secondary my-1" />
-              <div className="px-3 py-1 text-[10px] text-text-tertiary uppercase tracking-wider">
+              <div className="px-3 py-1 text-[10px] text-text-tertiary uppercase tracking-[0.12em]">
                 Layers
               </div>
               {LAYERS.map((layer) => {
@@ -1448,7 +1448,7 @@ export const OutlinerPanel = React.memo(function OutlinerPanel() {
                 return (
                   <button
                     key={layer.id}
-                    className="w-full px-3 py-1 text-left text-xs transition-colors text-text-secondary hover:text-text-primary hover:bg-bg-tertiary flex items-center gap-2"
+                    className="w-full px-3 py-1 text-left text-xs transition-colors text-text-secondary hover:text-text-primary hover:bg-bg-tertiary flex items-center gap-2 ease-out"
                     onClick={() => handleLayerToggle(layer.id)}
                   >
                     {isLayerVisible ? (

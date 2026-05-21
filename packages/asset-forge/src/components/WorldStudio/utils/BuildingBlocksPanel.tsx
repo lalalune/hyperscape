@@ -111,7 +111,7 @@ export function BuildingBlocksPanel({
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder="Search plugins…"
-          className="w-full px-3 py-2 text-[12px] bg-bg-tertiary rounded-md ring-1 ring-white/[0.06] text-text-primary placeholder-text-tertiary focus:outline-none focus:ring-1 focus:ring-primary/40 focus:bg-bg-secondary transition-all"
+          className="w-full px-3 py-2 text-[12px] bg-bg-tertiary rounded-md ring-1 ring-white/[0.06] text-text-primary placeholder-text-tertiary focus:outline-none focus:ring-1 focus:ring-primary/40 focus:bg-bg-secondary transition-all ease-out"
         />
       </div>
 
@@ -181,7 +181,7 @@ export function PluginCard({
     <div
       className={`bg-bg-tertiary rounded-lg ring-1 ${
         expanded ? "ring-primary/40" : "ring-white/[0.06] hover:ring-primary/30"
-      } transition-all`}
+      } transition-all ease-out`}
     >
       <button
         type="button"
@@ -197,7 +197,7 @@ export function PluginCard({
               v{entry.version}
             </span>
             {entry.source === "workspace" && (
-              <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-primary/15 text-primary flex-shrink-0 font-semibold">
+              <span className="text-[9px] uppercase tracking-[0.12em] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary flex-shrink-0 font-semibold">
                 dev
               </span>
             )}
@@ -218,12 +218,12 @@ export function PluginCard({
           size={11}
           className={`flex-shrink-0 mt-1 text-text-tertiary transition-transform ${
             expanded ? "rotate-90" : ""
-          }`}
+          } ease-out`}
         />
       </button>
 
       {expanded && (
-        <div className="border-t border-border-primary/15 px-3 py-2.5 space-y-1.5 bg-bg-primary/30 rounded-b-lg">
+        <div className="border-t border-border-primary/15 px-5 py-4.5 space-y-1.5 bg-bg-primary/30 rounded-b-lg">
           {renderContribGroup("Systems", entry.contributions.systems)}
           {renderContribGroup("Entities", entry.contributions.entities)}
           {renderContribGroup("Widgets", entry.contributions.widgets)}
@@ -252,7 +252,7 @@ export function PluginCard({
             type="button"
             onClick={onUse}
             disabled={disabled}
-            className="w-full mt-2 px-3 py-2 text-[11px] font-semibold rounded-md bg-primary text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5"
+            className="w-full mt-2 px-3 py-2 text-[11px] font-semibold rounded-md bg-primary text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 ease-out"
           >
             <Sparkles size={11} />
             Use in my world

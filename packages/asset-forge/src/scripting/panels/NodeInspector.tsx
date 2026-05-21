@@ -435,7 +435,7 @@ export function NodeInspector({
               fontSize: 10,
               fontWeight: 600,
               color: "var(--text-muted)",
-              textTransform: "uppercase",
+              textTransform: "uppercase tracking-[0.12em]",
               letterSpacing: "0.05em",
               marginBottom: 8,
             }}
@@ -488,7 +488,7 @@ export function NodeInspector({
                 fontSize: 10,
                 fontWeight: 600,
                 color: "var(--text-muted)",
-                textTransform: "uppercase",
+                textTransform: "uppercase tracking-[0.12em]",
                 letterSpacing: "0.05em",
               }}
             >

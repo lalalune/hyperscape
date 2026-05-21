@@ -244,7 +244,7 @@ export const ShellGeneratorTab: React.FC<ShellGeneratorTabProps> = ({
             <select
               value={avatarUrl}
               onChange={(e) => setAvatarUrl(e.target.value)}
-              className="w-full bg-bg-secondary border border-border-primary rounded-lg px-3 py-2 text-sm text-text-primary"
+              className="w-full bg-bg-secondary border border-border-primary rounded-lg px-5 py-4 text-sm text-text-primary"
             >
               {AVATAR_OPTIONS.map((opt) => (
                 <option key={opt.url} value={opt.url}>
@@ -264,11 +264,11 @@ export const ShellGeneratorTab: React.FC<ShellGeneratorTabProps> = ({
                 <button
                   key={slot}
                   onClick={() => toggleSlot(slot)}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  className={`px-5 py-1.5 rounded-md text-xs font-medium transition-all ${
                     selectedSlots.has(slot)
                       ? "bg-primary/20 text-primary border border-primary/30"
                       : "bg-bg-secondary text-text-tertiary border border-border-primary hover:border-border-secondary"
-                  }`}
+                  } ease-out`}
                 >
                   {SLOT_LABELS[slot]}
                 </button>
@@ -286,22 +286,22 @@ export const ShellGeneratorTab: React.FC<ShellGeneratorTabProps> = ({
                 <button
                   key={bulk}
                   onClick={() => setSelectedBulk(bulk)}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  className={`px-5 py-1.5 rounded-md text-xs font-medium transition-all ${
                     selectedBulk === bulk
                       ? "bg-primary/20 text-primary border border-primary/30"
                       : "bg-bg-secondary text-text-tertiary border border-border-primary hover:border-border-secondary"
-                  }`}
+                  } ease-out`}
                 >
                   {bulk} ({BULK_OFFSETS[bulk] * 1000}mm)
                 </button>
               ))}
               <button
                 onClick={() => setSelectedBulk("custom")}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all col-span-2 ${
+                className={`px-5 py-1.5 rounded-md text-xs font-medium transition-all col-span-2 ${
                   selectedBulk === "custom"
                     ? "bg-primary/20 text-primary border border-primary/30"
                     : "bg-bg-secondary text-text-tertiary border border-border-primary hover:border-border-secondary"
-                }`}
+                } ease-out`}
               >
                 Custom ({customThicknessMm}mm)
               </button>
@@ -355,7 +355,7 @@ export const ShellGeneratorTab: React.FC<ShellGeneratorTabProps> = ({
                     viewMode === mode
                       ? "bg-primary/20 text-primary border border-primary/30"
                       : "bg-bg-secondary text-text-tertiary border border-border-primary"
-                  }`}
+                  } ease-out`}
                 >
                   {label}
                 </button>
@@ -394,7 +394,7 @@ export const ShellGeneratorTab: React.FC<ShellGeneratorTabProps> = ({
               onClick={handleExtract}
               disabled={isExtracting || selectedSlots.size === 0}
               className="w-full px-4 py-2.5 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2
- bg-primary text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+ bg-primary text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed ease-out"
             >
               {isExtracting ? (
                 <>
@@ -412,8 +412,8 @@ export const ShellGeneratorTab: React.FC<ShellGeneratorTabProps> = ({
             <div className="flex gap-2">
               <button
                 onClick={toggleWireframe}
-                className="flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
- bg-bg-secondary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary"
+                className="flex-1 px-5 py-4 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
+ bg-bg-secondary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary ease-out"
               >
                 {showWireframe ? <EyeOff size={14} /> : <Grid3x3 size={14} />}
                 Wireframe
@@ -422,9 +422,9 @@ export const ShellGeneratorTab: React.FC<ShellGeneratorTabProps> = ({
               <button
                 onClick={handleExportShell}
                 disabled={!result}
-                className="flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
+                className="flex-1 px-5 py-4 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
  bg-bg-secondary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary
- disabled:opacity-50 disabled:cursor-not-allowed"
+ disabled:opacity-50 disabled:cursor-not-allowed ease-out"
               >
                 <Download size={14} />
                 Export GLB
@@ -438,8 +438,8 @@ export const ShellGeneratorTab: React.FC<ShellGeneratorTabProps> = ({
                 setLogs([]);
                 setError(null);
               }}
-              className="w-full px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
- bg-bg-secondary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary"
+              className="w-full px-5 py-4 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
+ bg-bg-secondary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary ease-out"
             >
               <RotateCcw size={14} />
               Reset
@@ -455,7 +455,7 @@ export const ShellGeneratorTab: React.FC<ShellGeneratorTabProps> = ({
               </div>
               <div className="w-full h-1.5 bg-bg-tertiary rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-primary rounded-full transition-all duration-300"
+                  className="h-full bg-primary rounded-full transition-all duration-300 ease-out"
                   style={{ width: `${progress.progress * 100}%` }}
                 />
               </div>
@@ -467,7 +467,7 @@ export const ShellGeneratorTab: React.FC<ShellGeneratorTabProps> = ({
 
           {/* Results summary */}
           {result && (
-            <div className="p-3 bg-bg-secondary rounded-lg border border-border-primary space-y-1">
+            <div className="p-5 bg-bg-secondary rounded-lg border border-border-primary space-y-1">
               <h3 className="text-xs font-semibold text-text-primary">
                 Results
               </h3>

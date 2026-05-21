@@ -709,7 +709,7 @@ export const ProcgenPanel = React.memo(function ProcgenPanel() {
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border-primary">
         <Mountain size={14} className="text-primary" />
-        <span className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+        <span className="text-xs font-semibold text-text-secondary uppercase tracking-[0.12em]">
           Procgen
         </span>
         {hasLocalChanges && (
@@ -722,7 +722,7 @@ export const ProcgenPanel = React.memo(function ProcgenPanel() {
       {/* Seed Display */}
       <div className="px-3 py-2 bg-bg-tertiary/30 border-b border-border-primary">
         <div className="flex items-center justify-between">
-          <span className="text-[10px] text-text-tertiary uppercase tracking-wider">
+          <span className="text-[10px] text-text-tertiary uppercase tracking-[0.12em]">
             Current Seed
           </span>
           <span className="text-xs font-mono text-primary font-semibold">
@@ -735,7 +735,7 @@ export const ProcgenPanel = React.memo(function ProcgenPanel() {
               <div className="text-[10px] font-mono text-text-secondary">
                 {worldStats.tileCount.toLocaleString()}
               </div>
-              <div className="text-[8px] text-text-tertiary uppercase">
+              <div className="text-[8px] text-text-tertiary uppercase tracking-[0.12em]">
                 Tiles
               </div>
             </div>
@@ -743,7 +743,7 @@ export const ProcgenPanel = React.memo(function ProcgenPanel() {
               <div className="text-[10px] font-mono text-text-secondary">
                 {worldStats.biomeCount}
               </div>
-              <div className="text-[8px] text-text-tertiary uppercase">
+              <div className="text-[8px] text-text-tertiary uppercase tracking-[0.12em]">
                 Biomes
               </div>
             </div>
@@ -751,7 +751,7 @@ export const ProcgenPanel = React.memo(function ProcgenPanel() {
               <div className="text-[10px] font-mono text-text-secondary">
                 {worldStats.townCount}
               </div>
-              <div className="text-[8px] text-text-tertiary uppercase">
+              <div className="text-[8px] text-text-tertiary uppercase tracking-[0.12em]">
                 Towns
               </div>
             </div>
@@ -759,7 +759,7 @@ export const ProcgenPanel = React.memo(function ProcgenPanel() {
               <div className="text-[10px] font-mono text-text-secondary">
                 {worldStats.roadCount}
               </div>
-              <div className="text-[8px] text-text-tertiary uppercase">
+              <div className="text-[8px] text-text-tertiary uppercase tracking-[0.12em]">
                 Roads
               </div>
             </div>
@@ -789,7 +789,7 @@ export const ProcgenPanel = React.memo(function ProcgenPanel() {
                       isActive
                         ? "border-primary bg-primary/10 text-primary ring-1 ring-primary/30"
                         : "border-border-primary bg-bg-tertiary text-text-secondary hover:border-primary/40 hover:bg-primary/5"
-                    } ${busy ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                    } ${busy ? "opacity-50 cursor-not-allowed" : "cursor-pointer"} ease-out`}
                     onClick={() => !busy && handlePresetChange(id)}
                     disabled={busy}
                   >
@@ -824,7 +824,7 @@ export const ProcgenPanel = React.memo(function ProcgenPanel() {
                   config.useGamePipeline !== false
                     ? "bg-primary/20 text-primary border-r border-primary/30"
                     : "bg-bg-tertiary text-text-tertiary hover:text-text-secondary border-r border-border-primary"
-                }`}
+                } ease-out`}
                 onClick={() => handleConfigChange({ useGamePipeline: true })}
                 disabled={busy}
               >
@@ -835,7 +835,7 @@ export const ProcgenPanel = React.memo(function ProcgenPanel() {
                   config.useGamePipeline === false
                     ? "bg-amber-500/20 text-amber-400"
                     : "bg-bg-tertiary text-text-tertiary hover:text-text-secondary"
-                }`}
+                } ease-out`}
                 onClick={() => handleConfigChange({ useGamePipeline: false })}
                 disabled={busy}
               >
@@ -863,7 +863,7 @@ export const ProcgenPanel = React.memo(function ProcgenPanel() {
                 disabled={busy}
               />
               <button
-                className="px-2 py-1 text-xs bg-bg-tertiary border border-border-primary rounded text-text-secondary hover:text-primary hover:border-primary/50 transition-colors disabled:opacity-50"
+                className="px-2 py-1 text-xs bg-bg-tertiary border border-border-primary rounded text-text-secondary hover:text-primary hover:border-primary/50 transition-colors disabled:opacity-50 ease-out"
                 onClick={handleRandomizeSeed}
                 disabled={busy}
                 title="Randomize seed"
@@ -1036,7 +1036,7 @@ export const ProcgenPanel = React.memo(function ProcgenPanel() {
 
           {/* Advanced toggle */}
           <button
-            className="flex items-center gap-1 text-[10px] text-text-tertiary hover:text-text-secondary transition-colors mt-1"
+            className="flex items-center gap-1 text-[10px] text-text-tertiary hover:text-text-secondary transition-colors mt-1 ease-out"
             onClick={() => setShowAdvancedNoise((p) => !p)}
           >
             {showAdvancedNoise ? (
@@ -1110,7 +1110,7 @@ export const ProcgenPanel = React.memo(function ProcgenPanel() {
           {/* Active biome list */}
           {activeBiomes.length > 0 && (
             <div className="space-y-1 mt-2">
-              <div className="text-[10px] text-text-tertiary uppercase tracking-wider">
+              <div className="text-[10px] text-text-tertiary uppercase tracking-[0.12em]">
                 Active Biomes
               </div>
               <div className="space-y-0.5">
@@ -1170,7 +1170,7 @@ export const ProcgenPanel = React.memo(function ProcgenPanel() {
 
           {/* Size distribution */}
           <div className="space-y-1 mt-1">
-            <div className="text-[10px] text-text-tertiary uppercase tracking-wider">
+            <div className="text-[10px] text-text-tertiary uppercase tracking-[0.12em]">
               Size Distribution
             </div>
 
@@ -1284,21 +1284,21 @@ export const ProcgenPanel = React.memo(function ProcgenPanel() {
             {/* Visual distribution bar */}
             <div className="flex h-2 rounded overflow-hidden mt-1">
               <div
-                className="bg-green-600 transition-all"
+                className="bg-green-600 transition-all ease-out"
                 style={{
                   width: `${config.towns.sizeDistribution.hamlet * 100}%`,
                 }}
                 title={`Hamlet: ${Math.round(config.towns.sizeDistribution.hamlet * 100)}%`}
               />
               <div
-                className="bg-blue-500 transition-all"
+                className="bg-blue-500 transition-all ease-out"
                 style={{
                   width: `${config.towns.sizeDistribution.village * 100}%`,
                 }}
                 title={`Village: ${Math.round(config.towns.sizeDistribution.village * 100)}%`}
               />
               <div
-                className="bg-purple-500 transition-all"
+                className="bg-purple-500 transition-all ease-out"
                 style={{
                   width: `${config.towns.sizeDistribution.town * 100}%`,
                 }}
@@ -1314,7 +1314,7 @@ export const ProcgenPanel = React.memo(function ProcgenPanel() {
 
           {/* Regenerate towns only */}
           <button
-            className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 mt-2 text-[10px] font-medium rounded border border-border-primary bg-bg-tertiary text-text-secondary hover:text-text-primary hover:bg-bg-secondary transition-colors disabled:opacity-40"
+            className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 mt-2 text-[10px] font-medium rounded border border-border-primary bg-bg-tertiary text-text-secondary hover:text-text-primary hover:bg-bg-secondary transition-colors disabled:opacity-40 ease-out"
             onClick={handleRegenerateTowns}
             disabled={busy}
           >
@@ -1382,7 +1382,7 @@ export const ProcgenPanel = React.memo(function ProcgenPanel() {
 
           {/* Regenerate roads only */}
           <button
-            className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 mt-2 text-[10px] font-medium rounded border border-border-primary bg-bg-tertiary text-text-secondary hover:text-text-primary hover:bg-bg-secondary transition-colors disabled:opacity-40"
+            className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 mt-2 text-[10px] font-medium rounded border border-border-primary bg-bg-tertiary text-text-secondary hover:text-text-primary hover:bg-bg-secondary transition-colors disabled:opacity-40 ease-out"
             onClick={handleRegenerateRoads}
             disabled={busy}
           >
@@ -1487,7 +1487,7 @@ export const ProcgenPanel = React.memo(function ProcgenPanel() {
                       isActive
                         ? "bg-bg-secondary text-text-primary"
                         : "bg-bg-tertiary/30 text-text-tertiary hover:text-text-secondary hover:bg-bg-tertiary/60"
-                    }`}
+                    } ease-out`}
                     onClick={() => setActiveBiomeTab(biomeId)}
                   >
                     <div
@@ -1634,7 +1634,7 @@ export const ProcgenPanel = React.memo(function ProcgenPanel() {
 
                     {/* Species distribution */}
                     <div className="mt-2 space-y-1">
-                      <div className="text-[10px] text-text-tertiary uppercase tracking-wider">
+                      <div className="text-[10px] text-text-tertiary uppercase tracking-[0.12em]">
                         Species Distribution
                       </div>
 
@@ -1684,7 +1684,7 @@ export const ProcgenPanel = React.memo(function ProcgenPanel() {
                               return (
                                 <div
                                   key={treeId}
-                                  className="transition-all"
+                                  className="transition-all ease-out"
                                   style={{
                                     width: `${pct}%`,
                                     backgroundColor:
@@ -1706,7 +1706,7 @@ export const ProcgenPanel = React.memo(function ProcgenPanel() {
                         {biomeTileCount} tiles)
                       </span>
                       <button
-                        className="flex items-center gap-1 text-[10px] text-text-tertiary hover:text-text-secondary transition-colors"
+                        className="flex items-center gap-1 text-[10px] text-text-tertiary hover:text-text-secondary transition-colors ease-out"
                         onClick={() => handleResetBiomeVegetation(biomeId)}
                         title="Reset to defaults"
                       >
@@ -1723,7 +1723,7 @@ export const ProcgenPanel = React.memo(function ProcgenPanel() {
           {/* Regenerate Trees button — vegetation only, no terrain change */}
           <div className="mt-3 pt-2 border-t border-border-primary/50">
             <button
-              className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs font-medium rounded bg-green-600/90 text-white hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs font-medium rounded bg-green-600/90 text-white hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ease-out"
               onClick={handleRegenerateTrees}
               disabled={busy || isRegeneratingTrees}
             >
@@ -1758,7 +1758,7 @@ export const ProcgenPanel = React.memo(function ProcgenPanel() {
             </p>
 
             <button
-              className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 text-[10px] font-medium rounded border border-border-primary bg-bg-tertiary text-text-secondary hover:text-text-primary hover:bg-bg-secondary transition-colors disabled:opacity-40"
+              className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 text-[10px] font-medium rounded border border-border-primary bg-bg-tertiary text-text-secondary hover:text-text-primary hover:bg-bg-secondary transition-colors disabled:opacity-40 ease-out"
               onClick={handleExportHeightmap}
               disabled={busy || isExporting}
             >
@@ -1776,7 +1776,7 @@ export const ProcgenPanel = React.memo(function ProcgenPanel() {
             </button>
 
             <button
-              className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 text-[10px] font-medium rounded border border-border-primary bg-bg-tertiary text-text-secondary hover:text-text-primary hover:bg-bg-secondary transition-colors disabled:opacity-40"
+              className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 text-[10px] font-medium rounded border border-border-primary bg-bg-tertiary text-text-secondary hover:text-text-primary hover:bg-bg-secondary transition-colors disabled:opacity-40 ease-out"
               onClick={() => fileInputRef.current?.click()}
               disabled={busy}
             >
@@ -1847,7 +1847,7 @@ export const ProcgenPanel = React.memo(function ProcgenPanel() {
         <div className="px-3 py-3 border-t border-border-primary space-y-2">
           {/* Preview button */}
           <button
-            className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs font-medium rounded border border-border-primary bg-bg-tertiary text-text-secondary hover:text-text-primary hover:bg-bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full flex items-center justify-center gap-2 px-5 py-1.5 text-xs font-medium rounded border border-border-primary bg-bg-tertiary text-text-secondary hover:text-text-primary hover:bg-bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed ease-out"
             onClick={handlePreview}
             disabled={busy || !hasLocalChanges}
             title={
@@ -1869,7 +1869,7 @@ export const ProcgenPanel = React.memo(function ProcgenPanel() {
 
           {/* Apply button */}
           <button
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium rounded bg-primary text-white hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium rounded bg-primary text-white hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ease-out"
             onClick={handleRegenerate}
             disabled={busy}
           >

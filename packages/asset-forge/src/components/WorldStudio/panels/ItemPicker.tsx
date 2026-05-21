@@ -125,7 +125,7 @@ export function ItemPicker({
               activeType === "all"
                 ? "bg-primary/20 text-primary"
                 : "text-text-tertiary hover:text-text-secondary"
-            }`}
+            } ease-out`}
             onClick={() => setActiveType("all")}
           >
             All
@@ -137,7 +137,7 @@ export function ItemPicker({
                 activeType === type
                   ? "bg-primary/20 text-primary"
                   : "text-text-tertiary hover:text-text-secondary"
-              }`}
+              } ease-out`}
               onClick={() => setActiveType(type)}
             >
               {type}
@@ -160,7 +160,7 @@ export function ItemPicker({
                 value === item.id
                   ? "bg-primary/10 text-primary"
                   : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"
-              }`}
+              } ease-out`}
               onClick={() => handleSelect(item)}
             >
               <Package

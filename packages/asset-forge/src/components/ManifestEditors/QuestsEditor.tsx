@@ -440,7 +440,7 @@ export const QuestsEditor: React.FC<QuestsEditorProps> = ({
                 selectedQuestId === quest.id
                   ? "bg-primary bg-opacity-10 border-l-2 border-primary"
                   : ""
-              }`}
+              } ease-out`}
               onClick={() => setSelectedQuestId(quest.id)}
             >
               <Scroll className="w-4 h-4 text-primary" />
@@ -515,7 +515,7 @@ export const QuestsEditor: React.FC<QuestsEditorProps> = ({
                         description: e.target.value,
                       })
                     }
-                    className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary resize-none"
+                    className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary resize-none"
                     rows={2}
                   />
                 </FormField>
@@ -528,7 +528,7 @@ export const QuestsEditor: React.FC<QuestsEditorProps> = ({
                         difficulty: e.target.value as Quest["difficulty"],
                       })
                     }
-                    className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
+                    className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
                   >
                     {DIFFICULTIES.map((d) => (
                       <option key={d.value} value={d.value}>
@@ -548,7 +548,7 @@ export const QuestsEditor: React.FC<QuestsEditorProps> = ({
                         questPoints: parseInt(e.target.value, 10),
                       })
                     }
-                    className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
+                    className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
                   />
                 </FormField>
 
@@ -560,7 +560,7 @@ export const QuestsEditor: React.FC<QuestsEditorProps> = ({
                         startNpc: e.target.value,
                       })
                     }
-                    className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
+                    className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
                   >
                     {availableNpcs.map((npc) => (
                       <option key={npc} value={npc}>
@@ -1022,7 +1022,7 @@ const Section: React.FC<SectionProps> = ({
 }) => (
   <div className="border border-border-primary rounded-lg overflow-hidden">
     <button
-      className="w-full px-4 py-3 bg-bg-secondary flex items-center gap-2 hover:bg-bg-tertiary transition-colors"
+      className="w-full px-4 py-3 bg-bg-secondary flex items-center gap-2 hover:bg-bg-tertiary transition-colors ease-out"
       onClick={onToggle}
     >
       {expanded ? (

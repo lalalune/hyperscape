@@ -71,7 +71,7 @@ const Sidebar: React.FC<SidebarProps> = ({ selected, onSelect }) => {
         return (
           <div key={cat.id}>
             <button
-              className="w-full flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-text-secondary hover:bg-bg-tertiary transition-colors border-b border-border-primary/40"
+              className="w-full flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-text-secondary hover:bg-bg-tertiary transition-colors border-b border-border-primary/40 ease-out"
               onClick={() => toggle(cat.id)}
             >
               <Icon size={14} />
@@ -81,7 +81,7 @@ const Sidebar: React.FC<SidebarProps> = ({ selected, onSelect }) => {
               </span>
               <ChevronDown
                 size={12}
-                className={`text-text-tertiary transition-transform ${isCollapsed ? "-rotate-90" : ""}`}
+                className={`text-text-tertiary transition-transform ${isCollapsed ? "-rotate-90" : ""} ease-out`}
               />
             </button>
 
@@ -93,7 +93,7 @@ const Sidebar: React.FC<SidebarProps> = ({ selected, onSelect }) => {
                     selected?.id === fx.id
                       ? "bg-primary/10 text-primary font-medium"
                       : "text-text-secondary hover:text-text-primary hover:bg-bg-tertiary"
-                  }`}
+                  } ease-out`}
                   onClick={() => onSelect(fx)}
                 >
                   {fx.name}
@@ -126,7 +126,7 @@ const Section: React.FC<{
   icon?: React.ReactNode;
 }> = ({ title, children, icon }) => (
   <div>
-    <h3 className="flex items-center gap-1.5 text-xs font-semibold text-text-secondary uppercase tracking-wide mb-2">
+    <h3 className="flex items-center gap-1.5 text-xs font-semibold text-text-secondary uppercase tracking-[0.12em] mb-2">
       {icon}
       {title}
     </h3>

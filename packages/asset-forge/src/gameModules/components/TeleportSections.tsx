@@ -168,7 +168,7 @@ export function TeleportConnectionsSection({
                 {name}
               </button>
               <button
-                className="text-text-tertiary hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity p-0.5"
+                className="text-text-tertiary hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 ease-out"
                 onClick={() => removeConnection(id)}
                 title="Disconnect"
               >
@@ -185,14 +185,14 @@ export function TeleportConnectionsSection({
 
       {availableTeleports.length > 0 && (
         <div className="mt-1.5 pt-1.5 border-t border-border-primary">
-          <div className="text-[9px] text-text-tertiary uppercase tracking-wider mb-1">
+          <div className="text-[9px] text-text-tertiary uppercase tracking-[0.12em] mb-1">
             Link to...
           </div>
           <div className="space-y-0.5 max-h-32 overflow-y-auto">
             {availableTeleports.map((t: PlacedTeleport) => (
               <button
                 key={t.id}
-                className="w-full flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[10px] text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-colors"
+                className="w-full flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[10px] text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-colors ease-out"
                 onClick={() => addConnection(t.id)}
                 title={`Connect to "${t.name}"`}
               >

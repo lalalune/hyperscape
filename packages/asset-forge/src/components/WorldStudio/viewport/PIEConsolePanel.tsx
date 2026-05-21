@@ -39,10 +39,10 @@ const HEADER_BTN =
   "p-1 rounded text-white/40 hover:text-white hover:bg-bg-tertiary/60 transition-colors";
 
 const FILTER_BTN_OFF =
-  "flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider bg-[#141416] text-white/45 hover:text-white/80 hover:bg-[#1e1f28] border border-[#1C1E22] transition-colors";
+  "flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] uppercase tracking-[0.12em] bg-[#141416] text-white/45 hover:text-white/80 hover:bg-[#1e1f28] border border-[#1C1E22] transition-colors";
 
 const FILTER_BTN_ON =
-  "flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider bg-[rgba(99,102,241,0.18)] text-primary border border-primary/40 transition-colors";
+  "flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] uppercase tracking-[0.12em] bg-[rgba(99,102,241,0.18)] text-primary border border-primary/40 transition-colors";
 
 // ---------------------------------------------------------------------------
 // Per-level visual treatment
@@ -173,7 +173,7 @@ export function PIEConsolePanel() {
       {/* Header */}
       <div className="flex items-center gap-1.5 px-2 py-1 border-b border-border-primary">
         <Terminal size={11} className="text-primary" />
-        <span className="text-[10px] uppercase tracking-wider font-medium text-white/80">
+        <span className="text-[10px] uppercase tracking-[0.12em] font-medium text-white/80">
           PIE Console
         </span>
         <span className="text-white/30 text-[9px]">

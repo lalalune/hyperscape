@@ -246,7 +246,7 @@ export const HierarchyPanel: React.FC<HierarchyPanelProps> = ({
           <button
             onClick={handleAutoGenerateZones}
             disabled={isGenerating || world.layers.difficultyZones.length > 0}
-            className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-xs bg-purple-600/20 text-purple-300 hover:bg-purple-600/30 disabled:opacity-50 disabled:cursor-not-allowed rounded transition-colors"
+            className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-xs bg-purple-600/20 text-purple-300 hover:bg-purple-600/30 disabled:opacity-50 disabled:cursor-not-allowed rounded transition-colors ease-out"
             title={
               world.layers.difficultyZones.length > 0
                 ? "Clear existing zones first"
@@ -259,7 +259,7 @@ export const HierarchyPanel: React.FC<HierarchyPanelProps> = ({
           <button
             onClick={handleAutoGenerateBosses}
             disabled={isGenerating}
-            className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-xs bg-red-600/20 text-red-300 hover:bg-red-600/30 disabled:opacity-50 disabled:cursor-not-allowed rounded transition-colors"
+            className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-xs bg-red-600/20 text-red-300 hover:bg-red-600/30 disabled:opacity-50 disabled:cursor-not-allowed rounded transition-colors ease-out"
             title="Generate random bosses across the world"
           >
             <Skull className="w-3 h-3" />
@@ -292,7 +292,7 @@ export const HierarchyPanel: React.FC<HierarchyPanelProps> = ({
             <button
               key={type}
               onClick={handleAddLayer(type)}
-              className="flex items-center gap-1 px-2 py-1 text-xs text-text-secondary hover:text-text-primary hover:bg-bg-tertiary rounded transition-colors"
+              className="flex items-center gap-1 px-2 py-1 text-xs text-text-secondary hover:text-text-primary hover:bg-bg-tertiary rounded transition-colors ease-out"
             >
               <Plus className="w-3 h-3" />
               {label}

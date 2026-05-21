@@ -11,7 +11,7 @@ export const GenerationTypeSelector: React.FC<GenerationTypeSelectorProps> = ({
   return (
     <div className="h-screen flex items-center justify-center bg-gradient-to-br from-bg-primary to-bg-secondary overflow-hidden">
       <div className="bg-bg-primary bg-opacity-50 rounded-2xl p-8 shadow-2xl border border-border-primary max-w-2xl w-full animate-scale-in">
-        <h1 className="text-3xl font-bold text-text-primary text-center mb-2">
+        <h1 className="font-display text-3xl font-medium text-text-primary text-center mb-2 tracking-tight">
           What would you like to create?
         </h1>
         <p className="text-text-secondary text-center mb-8">
@@ -22,10 +22,10 @@ export const GenerationTypeSelector: React.FC<GenerationTypeSelectorProps> = ({
           {/* Items Card */}
           <button
             onClick={() => onSelectType("item")}
-            className="group relative bg-bg-secondary hover:bg-bg-tertiary border border-border-primary hover:border-primary rounded-xl p-8 transition-all duration-300 hover:shadow-xl"
+            className="group relative bg-bg-secondary hover:bg-bg-tertiary border border-border-primary hover:border-primary rounded-xl p-8 transition-all duration-300 hover:shadow-xl ease-out"
           >
             <div className="flex flex-col items-center space-y-4">
-              <div className="w-20 h-20 bg-primary bg-opacity-10 rounded-full flex items-center justify-center group-hover:bg-opacity-20 transition-all">
+              <div className="w-20 h-20 bg-primary bg-opacity-10 rounded-full flex items-center justify-center group-hover:bg-opacity-20 transition-all ease-out">
                 <Package size={40} className="text-primary" />
               </div>
               <h2 className="text-xl font-semibold text-text-primary">Items</h2>
@@ -47,16 +47,16 @@ export const GenerationTypeSelector: React.FC<GenerationTypeSelectorProps> = ({
                 </span>
               </div>
             </div>
-            <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-primary to-secondary opacity-0 group-hover:opacity-5 transition-opacity" />
+            <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-primary to-secondary opacity-0 group-hover:opacity-5 transition-opacity ease-out" />
           </button>
 
           {/* Avatars Card */}
           <button
             onClick={() => onSelectType("avatar")}
-            className="group relative bg-bg-secondary hover:bg-bg-tertiary border border-border-primary hover:border-secondary rounded-xl p-8 transition-all duration-300 hover:shadow-xl"
+            className="group relative bg-bg-secondary hover:bg-bg-tertiary border border-border-primary hover:border-secondary rounded-xl p-8 transition-all duration-300 hover:shadow-xl ease-out"
           >
             <div className="flex flex-col items-center space-y-4">
-              <div className="w-20 h-20 bg-secondary bg-opacity-10 rounded-full flex items-center justify-center group-hover:bg-opacity-20 transition-all">
+              <div className="w-20 h-20 bg-secondary bg-opacity-10 rounded-full flex items-center justify-center group-hover:bg-opacity-20 transition-all ease-out">
                 <User size={40} className="text-secondary" />
               </div>
               <h2 className="text-xl font-semibold text-text-primary">
@@ -77,7 +77,7 @@ export const GenerationTypeSelector: React.FC<GenerationTypeSelectorProps> = ({
                 </span>
               </div>
             </div>
-            <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-secondary to-primary opacity-0 group-hover:opacity-5 transition-opacity" />
+            <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-secondary to-primary opacity-0 group-hover:opacity-5 transition-opacity ease-out" />
           </button>
         </div>
 

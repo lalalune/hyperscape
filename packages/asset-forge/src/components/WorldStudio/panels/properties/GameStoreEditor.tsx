@@ -343,7 +343,7 @@ export function GameStoreEditor({ storeId }: Props) {
                 {item.name}
               </span>
               <button
-                className="p-0.5 rounded text-text-tertiary hover:text-red-400 transition-colors"
+                className="p-0.5 rounded text-text-tertiary hover:text-red-400 transition-colors ease-out"
                 onClick={() => removeAddedItem(item.itemId)}
                 title="Remove from store"
               >
@@ -397,7 +397,7 @@ export function GameStoreEditor({ storeId }: Props) {
         {/* Add Item button + picker */}
         <div className="relative pt-1.5">
           <button
-            className="w-full flex items-center justify-center gap-1 px-2 py-1.5 text-[10px] rounded border border-dashed border-border-primary text-text-tertiary hover:text-text-secondary hover:border-text-tertiary transition-colors"
+            className="w-full flex items-center justify-center gap-1 px-2 py-1.5 text-[10px] rounded border border-dashed border-border-primary text-text-tertiary hover:text-text-secondary hover:border-text-tertiary transition-colors ease-out"
             onClick={() => setShowItemPicker(!showItemPicker)}
           >
             <Plus size={10} />

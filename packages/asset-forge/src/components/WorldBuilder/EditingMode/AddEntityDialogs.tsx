@@ -64,7 +64,7 @@ const Modal: React.FC<ModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-1 text-text-muted hover:text-text-primary hover:bg-bg-tertiary rounded transition-colors"
+            className="p-1 text-text-muted hover:text-text-primary hover:bg-bg-tertiary rounded transition-colors ease-out"
           >
             <X className="w-5 h-5" />
           </button>
@@ -109,7 +109,7 @@ const TextInput: React.FC<{
     onChange={(e) => onChange(e.target.value)}
     placeholder={placeholder}
     required={required}
-    className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-text-primary text-sm focus:outline-none focus:ring-1 focus:ring-primary/40"
+    className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-text-primary text-sm focus:outline-none focus:ring-1 focus:ring-primary/40"
   />
 );
 
@@ -127,7 +127,7 @@ const NumberInput: React.FC<{
     min={min}
     max={max}
     step={step}
-    className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-text-primary text-sm focus:outline-none focus:ring-1 focus:ring-primary/40"
+    className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-text-primary text-sm focus:outline-none focus:ring-1 focus:ring-primary/40"
   />
 );
 
@@ -140,7 +140,7 @@ const SelectInput: React.FC<{
   <select
     value={value}
     onChange={(e) => onChange(e.target.value)}
-    className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-text-primary text-sm focus:outline-none focus:ring-1 focus:ring-primary/40"
+    className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-text-primary text-sm focus:outline-none focus:ring-1 focus:ring-primary/40"
   >
     {placeholder && (
       <option value="" disabled>
@@ -524,7 +524,7 @@ export const AddQuestDialog: React.FC<AddQuestDialogProps> = ({
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Quest description..."
             rows={3}
-            className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-text-primary text-sm resize-none focus:outline-none focus:ring-1 focus:ring-primary/40"
+            className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-text-primary text-sm resize-none focus:outline-none focus:ring-1 focus:ring-primary/40"
           />
         </Field>
 
@@ -1083,7 +1083,7 @@ export const AddLoreDialog: React.FC<AddLoreDialogProps> = ({
             onChange={(e) => setContent(e.target.value)}
             placeholder="Enter the lore content..."
             rows={5}
-            className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-primary/40 resize-none"
+            className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-primary/40 resize-none"
           />
         </Field>
 
@@ -1512,11 +1512,11 @@ export const SavedWorldsDialog: React.FC<SavedWorldsDialogProps> = ({
               <div
                 key={world.id}
                 onClick={() => setSelectedId(world.id)}
-                className={`p-3 rounded border cursor-pointer transition-colors ${
+                className={`p-5 rounded border cursor-pointer transition-colors ${
                   selectedId === world.id
                     ? "bg-accent-primary/20 border-accent-primary"
                     : "bg-bg-tertiary border-border-primary hover:border-border-secondary"
-                }`}
+                } ease-out`}
               >
                 <div className="flex items-center justify-between">
                   <div>
@@ -1556,7 +1556,7 @@ export const SavedWorldsDialog: React.FC<SavedWorldsDialogProps> = ({
                           e.stopPropagation();
                           handleDelete(world.id);
                         }}
-                        className="p-1 text-text-muted hover:text-red-400 transition-colors"
+                        className="p-1 text-text-muted hover:text-red-400 transition-colors ease-out"
                         title="Delete world"
                       >
                         <X className="w-4 h-4" />

@@ -159,7 +159,7 @@ export function QuestProperties({ quest }: Props) {
         defaultOpen={false}
       >
         <button
-          className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 text-[11px] bg-primary/10 text-primary hover:bg-primary/20 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 text-[11px] bg-primary/10 text-primary hover:bg-primary/20 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed ease-out"
           disabled={ai.isGenerating}
           onClick={() => ai.generateQuest(quest.questTemplateId)}
         >

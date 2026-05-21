@@ -91,7 +91,9 @@ function CombatSpellEditor({ spell }: { spell: ManifestCombatSpell }) {
     <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-border-primary space-y-1.5">
       <div className="flex items-center gap-1 text-[10px] text-text-tertiary mb-1">
         <Swords size={10} />
-        <span className="uppercase font-medium">Edit Spell</span>
+        <span className="uppercase font-medium tracking-[0.12em]">
+          Edit Spell
+        </span>
       </div>
       <TextInput
         label="Name"
@@ -148,7 +150,7 @@ function CombatSpellEditor({ spell }: { spell: ManifestCombatSpell }) {
 
       {/* Rune costs */}
       <div className="mt-1">
-        <div className="text-[9px] text-text-tertiary uppercase mb-0.5">
+        <div className="text-[9px] text-text-tertiary uppercase mb-0.5 tracking-[0.12em]">
           Rune Costs
         </div>
         {spell.runes.map((rune, idx) => (
@@ -215,7 +217,9 @@ function PrayerEditor({ prayer }: { prayer: ManifestPrayer }) {
     <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-border-primary space-y-1.5">
       <div className="flex items-center gap-1 text-[10px] text-text-tertiary mb-1">
         <Shield size={10} />
-        <span className="uppercase font-medium">Edit Prayer</span>
+        <span className="uppercase font-medium tracking-[0.12em]">
+          Edit Prayer
+        </span>
       </div>
       <TextInput
         label="Name"
@@ -250,7 +254,7 @@ function PrayerEditor({ prayer }: { prayer: ManifestPrayer }) {
       {/* Bonuses */}
       {Object.keys(prayer.bonuses).length > 0 && (
         <div className="mt-1">
-          <div className="text-[9px] text-text-tertiary uppercase mb-0.5">
+          <div className="text-[9px] text-text-tertiary uppercase mb-0.5 tracking-[0.12em]">
             Bonuses
           </div>
           {Object.entries(prayer.bonuses).map(([stat, value]) => (
@@ -272,7 +276,7 @@ function PrayerEditor({ prayer }: { prayer: ManifestPrayer }) {
       {/* Conflicts */}
       {prayer.conflicts.length > 0 && (
         <div className="mt-1">
-          <div className="text-[9px] text-text-tertiary uppercase mb-0.5">
+          <div className="text-[9px] text-text-tertiary uppercase mb-0.5 tracking-[0.12em]">
             Conflicts
           </div>
           <div className="text-[10px] text-text-secondary pl-1">
@@ -323,7 +327,9 @@ function RecipeEditor({ recipe }: { recipe: ManifestRecipe }) {
     <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-border-primary space-y-1.5">
       <div className="flex items-center gap-1 text-[10px] text-text-tertiary mb-1">
         <Flame size={10} />
-        <span className="uppercase font-medium">Edit Recipe</span>
+        <span className="uppercase font-medium tracking-[0.12em]">
+          Edit Recipe
+        </span>
       </div>
       <TextInput
         label="Skill"
@@ -369,7 +375,7 @@ function RecipeEditor({ recipe }: { recipe: ManifestRecipe }) {
 
       {/* Inputs */}
       <div className="mt-1">
-        <div className="text-[9px] text-text-tertiary uppercase mb-0.5">
+        <div className="text-[9px] text-text-tertiary uppercase mb-0.5 tracking-[0.12em]">
           Inputs
         </div>
         {recipe.inputs.map((input, idx) => (
@@ -429,7 +435,9 @@ function AmmunitionEditor({ ammo }: { ammo: ManifestAmmunition }) {
     <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-border-primary space-y-1.5">
       <div className="flex items-center gap-1 text-[10px] text-text-tertiary mb-1">
         <Sparkles size={10} />
-        <span className="uppercase font-medium">Edit Ammunition</span>
+        <span className="uppercase font-medium tracking-[0.12em]">
+          Edit Ammunition
+        </span>
       </div>
       <TextInput
         label="Name"
@@ -482,7 +490,9 @@ function RuneEditor({ rune }: { rune: ManifestRune }) {
     <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-border-primary space-y-1.5">
       <div className="flex items-center gap-1 text-[10px] text-text-tertiary mb-1">
         <BookOpen size={10} />
-        <span className="uppercase font-medium">Edit Rune</span>
+        <span className="uppercase font-medium tracking-[0.12em]">
+          Edit Rune
+        </span>
       </div>
       <TextInput
         label="Name"
@@ -697,7 +707,9 @@ function QuestManifestEditor({ quest }: { quest: ManifestQuest }) {
     <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-border-primary space-y-1.5">
       <div className="flex items-center gap-1 text-[10px] text-text-tertiary mb-1">
         <Scroll size={10} />
-        <span className="uppercase font-medium">Edit Quest</span>
+        <span className="uppercase font-medium tracking-[0.12em]">
+          Edit Quest
+        </span>
       </div>
       <TextInput
         label="Name"
@@ -758,7 +770,9 @@ function StoreManifestEditorWrapper({ store }: { store: ManifestStore }) {
     <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-border-primary space-y-1.5">
       <div className="flex items-center gap-1 text-[10px] text-text-tertiary mb-1">
         <BookOpen size={10} />
-        <span className="uppercase font-medium">Edit Store</span>
+        <span className="uppercase font-medium tracking-[0.12em]">
+          Edit Store
+        </span>
       </div>
       <StoreEditor store={store} />
     </div>
@@ -804,7 +818,9 @@ function TreeEditor({ tree }: { tree: ManifestTree }) {
     <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-border-primary space-y-1.5">
       <div className="flex items-center gap-1 text-[10px] text-text-tertiary mb-1">
         <Trees size={10} />
-        <span className="uppercase font-medium">Edit Tree</span>
+        <span className="uppercase font-medium tracking-[0.12em]">
+          Edit Tree
+        </span>
       </div>
       <TextInput
         label="Name"
@@ -832,7 +848,7 @@ function TreeEditor({ tree }: { tree: ManifestTree }) {
       {/* Model variants */}
       <div className="mt-1">
         <div className="flex items-center justify-between mb-0.5">
-          <span className="text-[9px] text-text-tertiary uppercase">
+          <span className="text-[9px] text-text-tertiary uppercase tracking-[0.12em]">
             Model Variants
           </span>
           <button
@@ -884,7 +900,9 @@ function FishingSpotEditor({ spot }: { spot: ManifestFishingSpot }) {
     <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-border-primary space-y-1.5">
       <div className="flex items-center gap-1 text-[10px] text-text-tertiary mb-1">
         <Fish size={10} />
-        <span className="uppercase font-medium">Edit Fishing Spot</span>
+        <span className="uppercase font-medium tracking-[0.12em]">
+          Edit Fishing Spot
+        </span>
       </div>
       <TextInput
         label="Name"
@@ -936,7 +954,9 @@ function MiningRockEditor({ rock }: { rock: ManifestMiningRock }) {
     <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-border-primary space-y-1.5">
       <div className="flex items-center gap-1 text-[10px] text-text-tertiary mb-1">
         <Pickaxe size={10} />
-        <span className="uppercase font-medium">Edit Mining Rock</span>
+        <span className="uppercase font-medium tracking-[0.12em]">
+          Edit Mining Rock
+        </span>
       </div>
       <TextInput
         label="Name"
@@ -988,7 +1008,9 @@ function StationEditor({ station }: { station: ManifestStation }) {
     <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-border-primary space-y-1.5">
       <div className="flex items-center gap-1 text-[10px] text-text-tertiary mb-1">
         <Hammer size={10} />
-        <span className="uppercase font-medium">Edit Station</span>
+        <span className="uppercase font-medium tracking-[0.12em]">
+          Edit Station
+        </span>
       </div>
       <TextInput
         label="Name"
@@ -1033,7 +1055,9 @@ function DuelArenaEditor({ arena }: { arena: ManifestDuelArena }) {
     <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-border-primary space-y-1.5">
       <div className="flex items-center gap-1 text-[10px] text-text-tertiary mb-1">
         <Crosshair size={10} />
-        <span className="uppercase font-medium">Edit Duel Arena</span>
+        <span className="uppercase font-medium tracking-[0.12em]">
+          Edit Duel Arena
+        </span>
       </div>
       <NumberInput
         label="Arena ID"
@@ -1094,7 +1118,9 @@ function SkillUnlockEditor({
     <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-border-primary space-y-1.5">
       <div className="flex items-center gap-1 text-[10px] text-text-tertiary mb-1">
         <Lock size={10} />
-        <span className="uppercase font-medium">Edit Skill Unlock</span>
+        <span className="uppercase font-medium tracking-[0.12em]">
+          Edit Skill Unlock
+        </span>
       </div>
       <TextInput
         label="Skill"
@@ -1182,7 +1208,9 @@ function TierRequirementEditor({
     <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-border-primary space-y-1.5">
       <div className="flex items-center gap-1 text-[10px] text-text-tertiary mb-1">
         <TrendingUp size={10} />
-        <span className="uppercase font-medium">Edit Tier Requirement</span>
+        <span className="uppercase font-medium tracking-[0.12em]">
+          Edit Tier Requirement
+        </span>
       </div>
       <TextInput
         label="Tier"
@@ -1196,7 +1224,7 @@ function TierRequirementEditor({
       />
       <div className="pt-1">
         <div className="flex items-center justify-between mb-1">
-          <span className="text-[10px] text-text-tertiary uppercase">
+          <span className="text-[10px] text-text-tertiary uppercase tracking-[0.12em]">
             Requirements
           </span>
           <button

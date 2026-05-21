@@ -230,7 +230,7 @@ export function GenerationPackTargetBanner() {
       </div>
       <Link
         to={ROUTES.ASSET_PACKS}
-        className="text-[11px] text-text-tertiary hover:text-text-primary transition-colors inline-flex items-center gap-1 flex-shrink-0"
+        className="text-[11px] text-text-tertiary hover:text-text-primary transition-colors inline-flex items-center gap-1 flex-shrink-0 ease-out"
       >
         <ArrowLeft size={11} />
         Back to packs
@@ -239,7 +239,7 @@ export function GenerationPackTargetBanner() {
         type="button"
         onClick={() => void handleAdd()}
         disabled={!canAdd || submitting}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0 ease-out"
         title={
           canAdd
             ? `Add ${selectedAsset?.name} to ${packName}`

@@ -30,7 +30,7 @@ export const ViewportControls: React.FC<ViewportControlsProps> = ({
       </button>
       <button
         onClick={onResetCamera}
-        className="p-2 rounded-lg bg-bg-tertiary text-text-secondary hover:text-text-primary transition-all"
+        className="p-2 rounded-lg bg-bg-tertiary text-text-secondary hover:text-text-primary transition-all ease-out"
         title="Reset camera"
       >
         <Camera size={18} />

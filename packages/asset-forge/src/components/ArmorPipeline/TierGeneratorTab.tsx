@@ -431,7 +431,7 @@ export const TierGeneratorTab: React.FC<TierGeneratorTabProps> = ({
                 setAvatarUrl(e.target.value);
                 setExtractionResult(null);
               }}
-              className="w-full bg-bg-secondary border border-border-primary rounded-lg px-3 py-2 text-sm text-text-primary"
+              className="w-full bg-bg-secondary border border-border-primary rounded-lg px-5 py-4 text-sm text-text-primary"
             >
               {AVATAR_OPTIONS.map((opt) => (
                 <option key={opt.url} value={opt.url}>
@@ -455,7 +455,7 @@ export const TierGeneratorTab: React.FC<TierGeneratorTabProps> = ({
                     selectedSlot === slot
                       ? "bg-primary/20 text-primary border border-primary/30"
                       : "bg-bg-secondary text-text-tertiary border border-border-primary hover:border-border-secondary"
-                  }`}
+                  } ease-out`}
                 >
                   {SLOT_LABELS[slot]}
                 </button>
@@ -476,7 +476,7 @@ export const TierGeneratorTab: React.FC<TierGeneratorTabProps> = ({
                     selectedBulk === bulk
                       ? "bg-primary/20 text-primary border border-primary/30"
                       : "bg-bg-secondary text-text-tertiary border border-border-primary hover:border-border-secondary"
-                  }`}
+                  } ease-out`}
                 >
                   {bulk} ({BULK_OFFSETS[bulk] * 1000}mm)
                 </button>
@@ -499,7 +499,7 @@ export const TierGeneratorTab: React.FC<TierGeneratorTabProps> = ({
                       isExpanded
                         ? "border-primary/30"
                         : "border-border-primary hover:border-border-secondary"
-                    }`}
+                    } ease-out`}
                   >
                     <div className="flex items-center gap-2 px-2 py-1.5">
                       <input
@@ -588,7 +588,7 @@ export const TierGeneratorTab: React.FC<TierGeneratorTabProps> = ({
                     detailLevel === level.id
                       ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
                       : "bg-bg-secondary text-text-tertiary border border-border-primary hover:border-border-secondary"
-                  }`}
+                  } ease-out`}
                 >
                   {level.label}
                 </button>
@@ -605,7 +605,7 @@ export const TierGeneratorTab: React.FC<TierGeneratorTabProps> = ({
               onClick={handleGenerate}
               disabled={isRunning || enabledTiers.size === 0}
               className="w-full px-4 py-2.5 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2
- bg-yellow-600 text-white hover:bg-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed"
+ bg-yellow-600 text-white hover:bg-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed ease-out"
             >
               {isRunning ? (
                 <>
@@ -628,17 +628,17 @@ export const TierGeneratorTab: React.FC<TierGeneratorTabProps> = ({
               <button
                 onClick={handleDownloadAll}
                 disabled={succeededCount === 0}
-                className="flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
+                className="flex-1 px-5 py-4 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
  bg-bg-secondary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary
- disabled:opacity-50 disabled:cursor-not-allowed"
+ disabled:opacity-50 disabled:cursor-not-allowed ease-out"
               >
                 <Download size={14} />
                 Download All
               </button>
               <button
                 onClick={handleReset}
-                className="flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
- bg-bg-secondary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary"
+                className="flex-1 px-5 py-4 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
+ bg-bg-secondary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary ease-out"
               >
                 <RotateCcw size={14} />
                 Reset
@@ -728,7 +728,7 @@ export const TierGeneratorTab: React.FC<TierGeneratorTabProps> = ({
           )}
 
           {/* Info */}
-          <div className="p-3 bg-bg-secondary rounded-lg border border-border-primary space-y-1.5">
+          <div className="p-5 bg-bg-secondary rounded-lg border border-border-primary space-y-1.5">
             <h3 className="text-xs font-semibold text-text-primary flex items-center gap-1.5">
               <Info size={12} />
               Tier Generator

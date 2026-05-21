@@ -716,7 +716,7 @@ export function ScriptEditorPanel({
                               style={{
                                 fontSize: 9,
                                 fontWeight: 600,
-                                textTransform: "uppercase",
+                                textTransform: "uppercase tracking-[0.12em]",
                                 letterSpacing: "0.05em",
                                 color: catColor,
                               }}
@@ -772,7 +772,7 @@ export function ScriptEditorPanel({
                   background: "transparent",
                   border: "none",
                   cursor: "pointer",
-                  textTransform: "uppercase",
+                  textTransform: "uppercase tracking-[0.12em]",
                   letterSpacing: "0.04em",
                 }}
               >

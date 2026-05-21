@@ -297,7 +297,7 @@ function QuestDetailPanel({
           </div>
         </div>
         <button
-          className="p-0.5 rounded text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors"
+          className="p-0.5 rounded text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors ease-out"
           onClick={onClose}
         >
           <X size={12} />
@@ -586,7 +586,7 @@ export const QuestGraphPanel = React.memo(function QuestGraphPanel() {
 
         {/* Filter toggle */}
         <button
-          className={`p-1 rounded text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors ${showFilters ? "bg-bg-tertiary text-text-primary" : ""}`}
+          className={`p-1 rounded text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors ${showFilters ? "bg-bg-tertiary text-text-primary" : ""} ease-out`}
           onClick={() => setShowFilters((v) => !v)}
           title="Filter by difficulty"
         >
@@ -597,7 +597,7 @@ export const QuestGraphPanel = React.memo(function QuestGraphPanel() {
 
         {/* Zoom controls */}
         <button
-          className="p-1 rounded text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors"
+          className="p-1 rounded text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors ease-out"
           onClick={handleZoomOut}
           title="Zoom out"
         >
@@ -607,14 +607,14 @@ export const QuestGraphPanel = React.memo(function QuestGraphPanel() {
           {Math.round(zoom * 100)}%
         </span>
         <button
-          className="p-1 rounded text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors"
+          className="p-1 rounded text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors ease-out"
           onClick={handleZoomIn}
           title="Zoom in"
         >
           <ZoomIn size={12} />
         </button>
         <button
-          className="p-1 rounded text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors"
+          className="p-1 rounded text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors ease-out"
           onClick={handleFitToView}
           title="Fit to view"
         >
@@ -655,7 +655,7 @@ export const QuestGraphPanel = React.memo(function QuestGraphPanel() {
                   active
                     ? "border-transparent"
                     : "border-border-primary opacity-40"
-                }`}
+                } ease-out`}
                 style={
                   active ? { backgroundColor: color + "20", color } : { color }
                 }

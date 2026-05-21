@@ -76,7 +76,7 @@ const AssetFilters: React.FC<AssetFiltersProps> = ({
             </div>
             <button
               onClick={() => setIsExpanded(!isExpanded)}
-              className="p-1 hover:bg-bg-secondary rounded transition-all"
+              className="p-1 hover:bg-bg-secondary rounded transition-all ease-out"
               title={isExpanded ? "Collapse filters" : "Expand filters"}
             >
               {isExpanded ? (
@@ -103,15 +103,15 @@ const AssetFilters: React.FC<AssetFiltersProps> = ({
               placeholder="Search assets..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg 
+              className="w-full pl-9 pr-3 py-4 text-sm bg-bg-primary border border-border-primary rounded-lg 
  text-text-primary placeholder-text-tertiary
  focus:outline-none focus:ring-1 focus:ring-primary/40 focus: focus:border-primary
- transition-all duration-200"
+ transition-all duration-300 ease-out"
             />
             {searchTerm && (
               <button
                 onClick={() => setSearchTerm("")}
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 hover:bg-bg-secondary rounded transition-colors"
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 hover:bg-bg-secondary rounded transition-colors ease-out"
               >
                 <X
                   size={14}
@@ -129,10 +129,10 @@ const AssetFilters: React.FC<AssetFiltersProps> = ({
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg
+              className="w-full px-5 py-4 text-sm bg-bg-primary border border-border-primary rounded-lg
  text-text-primary
  focus:outline-none focus:ring-1 focus:ring-primary/40 focus: focus:border-primary
- transition-all duration-200 cursor-pointer hover:border-border-secondary"
+ transition-all duration-300 cursor-pointer hover:border-border-secondary ease-out"
             >
               <option value="">All Types</option>
               <option value="weapon">Weapons</option>
@@ -154,10 +154,10 @@ const AssetFilters: React.FC<AssetFiltersProps> = ({
             <select
               value={materialFilter}
               onChange={(e) => setMaterialFilter(e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg
+              className="w-full px-5 py-4 text-sm bg-bg-primary border border-border-primary rounded-lg
  text-text-primary
  focus:outline-none focus:ring-1 focus:ring-primary/40 focus: focus:border-primary
- transition-all duration-200 cursor-pointer hover:border-border-secondary"
+ transition-all duration-300 cursor-pointer hover:border-border-secondary ease-out"
             >
               <option value="">All Materials</option>
               {materialPresets.map((preset) => (
@@ -176,10 +176,10 @@ const AssetFilters: React.FC<AssetFiltersProps> = ({
                 setTypeFilter("");
                 setMaterialFilter("");
               }}
-              className="w-full py-2 text-sm text-text-secondary hover:text-primary 
+              className="w-full py-4 text-sm text-text-secondary hover:text-primary 
  bg-bg-primary hover:bg-primary hover:bg-opacity-10 
  border border-border-primary hover:border-primary
- rounded-lg transition-all duration-200 font-medium"
+ rounded-lg transition-all duration-300 font-medium ease-out"
             >
               Clear Filters
             </button>

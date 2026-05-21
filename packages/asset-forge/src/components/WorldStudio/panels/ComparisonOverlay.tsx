@@ -62,7 +62,7 @@ export function ComparisonOverlay({
       <div className="absolute top-0 left-1/2 -translate-x-1/2 mt-2 pointer-events-auto">
         <div className="flex items-center gap-2 px-4 py-2 bg-black/80 border border-border-primary rounded-lg shadow-xl">
           <Eye size={14} className="text-primary flex-shrink-0" />
-          <span className="text-xs font-semibold text-white/80 uppercase tracking-wider whitespace-nowrap">
+          <span className="text-xs font-semibold text-white/80 uppercase tracking-[0.12em] whitespace-nowrap">
             Preview Active
           </span>
           {generationTimeMs != null && (
@@ -72,21 +72,21 @@ export function ComparisonOverlay({
           )}
           <div className="w-px h-4 bg-bg-tertiary mx-1" />
           <button
-            className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded bg-green-600 text-white hover:bg-green-500 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded bg-green-600 text-white hover:bg-green-500 transition-colors ease-out"
             onClick={onAccept}
           >
             <Check size={12} />
             Accept
           </button>
           <button
-            className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded border border-red-500/50 text-red-400 hover:bg-red-500/10 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded border border-red-500/50 text-red-400 hover:bg-red-500/10 transition-colors ease-out"
             onClick={onReject}
           >
             <Undo2 size={12} />
             Revert
           </button>
           <button
-            className="p-1 rounded text-white/40 hover:text-white/80 hover:bg-bg-tertiary transition-colors"
+            className="p-1 rounded text-white/40 hover:text-white/80 hover:bg-bg-tertiary transition-colors ease-out"
             onClick={onReject}
             title="Revert to original"
           >
@@ -98,12 +98,12 @@ export function ComparisonOverlay({
       {/* ============== STATS COMPARISON (bottom-left) ============== */}
       <div className="absolute bottom-4 left-4 pointer-events-auto">
         <div className="bg-black/80 border border-border-primary rounded-lg shadow-xl p-3 min-w-[240px]">
-          <div className="text-[10px] text-white/50 uppercase tracking-wider font-semibold mb-2">
+          <div className="text-[10px] text-white/50 uppercase tracking-[0.12em] font-semibold mb-2">
             Change Summary
           </div>
           <table className="w-full text-xs">
             <thead>
-              <tr className="text-[9px] text-white/40 uppercase">
+              <tr className="text-[9px] text-white/40 uppercase tracking-[0.12em]">
                 <th className="text-left pb-1 font-medium">Metric</th>
                 <th className="text-right pb-1 font-medium">Before</th>
                 <th className="text-right pb-1 font-medium">After</th>

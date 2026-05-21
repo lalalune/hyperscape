@@ -873,7 +873,7 @@ export const EntityPalette = React.memo(function EntityPalette() {
           <input
             type="text"
             placeholder="Search entities..."
-            className="w-full pl-6.5 pr-2 py-1.5 text-xs bg-bg-tertiary/40 border border-transparent rounded text-text-primary placeholder:text-text-tertiary/50 focus:outline-none focus:border-primary/30 focus:bg-bg-tertiary/50 transition-colors"
+            className="w-full pl-6.5 pr-2 py-1.5 text-xs bg-bg-tertiary/40 border border-transparent rounded text-text-primary placeholder:text-text-tertiary/50 focus:outline-none focus:border-primary/30 focus:bg-bg-tertiary/50 transition-colors ease-out"
             style={{ paddingLeft: "1.625rem" }}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -892,7 +892,7 @@ export const EntityPalette = React.memo(function EntityPalette() {
               </span>
             </div>
             <button
-              className="text-[10px] text-text-tertiary hover:text-text-primary px-1.5 py-0.5 rounded hover:bg-bg-tertiary/50 transition-colors"
+              className="text-[10px] text-text-tertiary hover:text-text-primary px-1.5 py-0.5 rounded hover:bg-bg-tertiary/50 transition-colors ease-out"
               onClick={actions.cancelPlacement}
             >
               ESC
@@ -913,7 +913,7 @@ export const EntityPalette = React.memo(function EntityPalette() {
               key={category.id}
               className={`rounded-md overflow-hidden transition-colors ${
                 isExpanded ? category.color.bg : ""
-              }`}
+              } ease-out`}
             >
               {/* Category header */}
               <button
@@ -928,7 +928,7 @@ export const EntityPalette = React.memo(function EntityPalette() {
                   size={11}
                   className={`text-text-tertiary transition-transform flex-shrink-0 ${
                     isExpanded ? "rotate-90" : ""
-                  }`}
+                  } ease-out`}
                 />
                 <span className={`flex-shrink-0 ${category.color.icon}`}>
                   {category.icon}
@@ -1004,19 +1004,19 @@ function PaletteHeader({
   return (
     <div className="flex items-center gap-2 px-3 py-2 border-b border-border-primary">
       <Shield size={13} className="text-primary/70" />
-      <span className="text-[11px] font-semibold text-text-tertiary uppercase tracking-wider flex-1">
+      <span className="text-[11px] font-semibold text-text-tertiary uppercase tracking-[0.12em] flex-1">
         Entity Palette
       </span>
       <div className="flex items-center gap-px rounded-md p-px bg-bg-tertiary/40">
         <button
-          className={`p-1 rounded transition-colors ${viewMode === "list" ? "text-primary bg-primary/15" : "text-text-tertiary hover:text-text-secondary"}`}
+          className={`p-1 rounded transition-colors ${viewMode === "list" ? "text-primary bg-primary/15" : "text-text-tertiary hover:text-text-secondary"} ease-out`}
           onClick={() => onViewModeChange("list")}
           title="List view"
         >
           <List size={12} />
         </button>
         <button
-          className={`p-1 rounded transition-colors ${viewMode === "grid" ? "text-primary bg-primary/15" : "text-text-tertiary hover:text-text-secondary"}`}
+          className={`p-1 rounded transition-colors ${viewMode === "grid" ? "text-primary bg-primary/15" : "text-text-tertiary hover:text-text-secondary"} ease-out`}
           onClick={() => onViewModeChange("grid")}
           title="Grid view"
         >
@@ -1049,7 +1049,7 @@ function PaletteItemRow({
         isActive
           ? "bg-primary/15 ring-1 ring-primary/30"
           : "hover:bg-bg-tertiary/40"
-      }`}
+      } ease-out`}
       onClick={onClick}
       draggable
       onDragStart={onDragStart}
@@ -1077,7 +1077,7 @@ function PaletteItemRow({
         )}
       </div>
       <button
-        className={`p-0.5 rounded transition-opacity ${isFavorite ? "text-amber-400 opacity-100" : "text-text-tertiary opacity-0 group-hover:opacity-100"}`}
+        className={`p-0.5 rounded transition-opacity ${isFavorite ? "text-amber-400 opacity-100" : "text-text-tertiary opacity-0 group-hover:opacity-100"} ease-out`}
         onClick={(e) => {
           e.stopPropagation();
           onToggleFavorite();
@@ -1108,7 +1108,7 @@ function PaletteItemCard({
         isActive
           ? "ring-1 ring-primary/40 bg-primary/10"
           : "hover:bg-bg-tertiary/40 ring-1 ring-transparent hover:ring-white/[0.06]"
-      }`}
+      } ease-out`}
       onClick={onClick}
       draggable
       onDragStart={onDragStart}

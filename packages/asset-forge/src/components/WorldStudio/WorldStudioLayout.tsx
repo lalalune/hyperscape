@@ -198,7 +198,7 @@ function RightPanelTabs({
             activeTab === id
               ? "text-primary bg-primary/[0.08]"
               : "text-text-tertiary hover:text-text-secondary hover:bg-bg-tertiary/50"
-          }`}
+          } ease-out`}
           onClick={() => onSetTab(id)}
         >
           <Icon size={12} />

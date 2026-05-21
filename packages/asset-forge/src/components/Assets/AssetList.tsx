@@ -333,7 +333,7 @@ const AssetList: React.FC<AssetListProps> = ({ assets }) => {
                 viewMode === "grouped"
                   ? "bg-primary text-white shadow-sm"
                   : "text-text-tertiary hover:text-text-secondary"
-              }`}
+              } ease-out`}
               title="Group by base models"
             >
               <Layers size={14} />
@@ -344,7 +344,7 @@ const AssetList: React.FC<AssetListProps> = ({ assets }) => {
                 viewMode === "flat"
                   ? "bg-primary text-white shadow-sm"
                   : "text-text-tertiary hover:text-text-secondary"
-              }`}
+              } ease-out`}
               title="Show all items"
             >
               <Package size={14} />
@@ -382,7 +382,7 @@ const AssetList: React.FC<AssetListProps> = ({ assets }) => {
                     <div key={type} className="mb-4">
                       {/* Type Header */}
                       <div className="flex items-center gap-2 mb-2 px-2">
-                        <h3 className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                        <h3 className="text-xs font-semibold text-text-secondary uppercase tracking-[0.12em]">
                           {typeLabel} ({totalCount})
                         </h3>
                         <div className="flex-1 h-px bg-border-secondary opacity-30" />
@@ -399,11 +399,11 @@ const AssetList: React.FC<AssetListProps> = ({ assets }) => {
                         >
                           {/* Base Item */}
                           <div
-                            className={`group relative rounded-lg transition-all duration-200 ${
+                            className={`group relative rounded-lg transition-all duration-300 ${
                               selectedAsset?.id === group.base.id
                                 ? "bg-primary bg-opacity-5"
                                 : "hover:bg-bg-primary hover:bg-opacity-50"
-                            }`}
+                            } ease-out`}
                           >
                             <div className="flex items-center p-3">
                               {/* Chevron for expand/collapse */}
@@ -413,15 +413,15 @@ const AssetList: React.FC<AssetListProps> = ({ assets }) => {
                                     e.stopPropagation();
                                     toggleGroup(group.base.id);
                                   }}
-                                  className="p-1.5 -ml-1 mr-2 hover:bg-bg-secondary rounded-md transition-all duration-200 "
+                                  className="p-1.5 -ml-1 mr-2 hover:bg-bg-secondary rounded-md transition-all duration-300 ease-out"
                                 >
                                   <ChevronRight
                                     size={16}
-                                    className={`text-text-tertiary transition-transform duration-200 ${
+                                    className={`text-text-tertiary transition-transform duration-300 ${
                                       expandedGroups.has(group.base.id)
                                         ? "rotate-90"
                                         : ""
-                                    }`}
+                                    } ease-out`}
                                   />
                                 </button>
                               ) : (
@@ -433,11 +433,11 @@ const AssetList: React.FC<AssetListProps> = ({ assets }) => {
                                 onClick={() => handleAssetSelect(group.base)}
                               >
                                 <div
-                                  className={`flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 ${
+                                  className={`flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-300 ${
                                     selectedAsset?.id === group.base.id
                                       ? "bg-primary bg-opacity-10 text-text-primary shadow-sm ring-1 ring-primary/40"
                                       : "bg-bg-secondary bg-opacity-70 text-text-tertiary group-hover:bg-bg-tertiary group-hover:text-text-secondary"
-                                  }`}
+                                  } ease-out`}
                                 >
                                   {React.cloneElement(
                                     getAssetIcon(
@@ -491,11 +491,11 @@ const AssetList: React.FC<AssetListProps> = ({ assets }) => {
                               {group.variants.map((variant, variantIndex) => (
                                 <div
                                   key={variant.id}
-                                  className={`group relative rounded-md cursor-pointer transition-all duration-200 ${
+                                  className={`group relative rounded-md cursor-pointer transition-all duration-300 ${
                                     selectedAsset?.id === variant.id
                                       ? "bg-primary bg-opacity-5"
                                       : "hover:bg-bg-primary hover:bg-opacity-30"
-                                  }`}
+                                  } ease-out`}
                                   onClick={() => handleAssetSelect(variant)}
                                   style={{
                                     animationDelay: `${typeIndex * 50 + groupIndex * 30 + variantIndex * 10}ms`,
@@ -503,11 +503,11 @@ const AssetList: React.FC<AssetListProps> = ({ assets }) => {
                                 >
                                   <div className="flex items-center gap-3 p-2 pl-3">
                                     <div
-                                      className={`flex-shrink-0 w-8 h-8 rounded-md flex items-center justify-center transition-all duration-200 ${
+                                      className={`flex-shrink-0 w-8 h-8 rounded-md flex items-center justify-center transition-all duration-300 ${
                                         selectedAsset?.id === variant.id
                                           ? "bg-primary bg-opacity-10 text-text-primary ring-1 ring-primary/40"
                                           : "bg-bg-secondary bg-opacity-50 text-text-tertiary group-hover:bg-bg-tertiary group-hover:text-text-secondary"
-                                      }`}
+                                      } ease-out`}
                                     >
                                       {React.cloneElement(
                                         getAssetIcon(
@@ -570,24 +570,24 @@ const AssetList: React.FC<AssetListProps> = ({ assets }) => {
                       {typeData.standalone.map((asset, index) => (
                         <div
                           key={asset.id}
-                          className={`group relative rounded-lg transition-all duration-200 animate-scale-in-top ${
+                          className={`group relative rounded-lg transition-all duration-300 animate-scale-in-top ${
                             selectedAsset?.id === asset.id
                               ? "bg-primary bg-opacity-5"
                               : "hover:bg-bg-primary hover:bg-opacity-50"
-                          }`}
+                          } ease-out`}
                           style={{
                             animationDelay: `${typeIndex * 50 + typeData.groups.length * 30 + index * 30}ms`,
                           }}
                           onClick={() => handleAssetSelect(asset)}
                         >
-                          <div className="flex items-center gap-3 p-2 hover:bg-bg-primary hover:bg-opacity-40 rounded-lg transition-colors">
+                          <div className="flex items-center gap-3 p-2 hover:bg-bg-primary hover:bg-opacity-40 rounded-lg transition-colors ease-out">
                             <div className="w-6" /> {/* Spacer for alignment */}
                             <div
-                              className={`flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 ${
+                              className={`flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-300 ${
                                 selectedAsset?.id === asset.id
                                   ? "bg-primary bg-opacity-10 text-text-primary shadow-sm ring-1 ring-primary/40"
                                   : "bg-bg-secondary bg-opacity-70 text-text-tertiary"
-                              }`}
+                              } ease-out`}
                             >
                               {React.cloneElement(
                                 getAssetIcon(
@@ -699,7 +699,7 @@ const AssetList: React.FC<AssetListProps> = ({ assets }) => {
                     <div key={type} className="mb-4">
                       {/* Type Header */}
                       <div className="flex items-center gap-2 mb-2 px-2">
-                        <h3 className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                        <h3 className="text-xs font-semibold text-text-secondary uppercase tracking-[0.12em]">
                           {typeLabel} ({typeAssets.length})
                         </h3>
                         <div className="flex-1 h-px bg-border-secondary opacity-30" />
@@ -717,23 +717,23 @@ const AssetList: React.FC<AssetListProps> = ({ assets }) => {
                         return (
                           <div
                             key={asset.id}
-                            className={`group relative rounded-lg transition-all duration-200 animate-scale-in-top ${
+                            className={`group relative rounded-lg transition-all duration-300 animate-scale-in-top ${
                               selectedAsset?.id === asset.id
                                 ? "bg-primary bg-opacity-5"
                                 : "hover:bg-bg-primary hover:bg-opacity-50"
-                            }`}
+                            } ease-out`}
                             style={{
                               animationDelay: `${typeIndex * 50 + index * 10}ms`,
                             }}
                             onClick={() => handleAssetSelect(asset)}
                           >
-                            <div className="flex items-center gap-3 p-2 hover:bg-bg-primary hover:bg-opacity-40 rounded-lg transition-colors">
+                            <div className="flex items-center gap-3 p-2 hover:bg-bg-primary hover:bg-opacity-40 rounded-lg transition-colors ease-out">
                               <div
-                                className={`flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 ${
+                                className={`flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-300 ${
                                   selectedAsset?.id === asset.id
                                     ? "bg-primary bg-opacity-10 text-text-primary shadow-sm ring-1 ring-primary/40"
                                     : "bg-bg-secondary bg-opacity-70 text-text-tertiary"
-                                }`}
+                                } ease-out`}
                               >
                                 {React.cloneElement(
                                   getAssetIcon(

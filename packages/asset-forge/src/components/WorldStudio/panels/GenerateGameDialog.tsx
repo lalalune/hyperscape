@@ -353,7 +353,7 @@ export function GenerateGameDialog({
                   {PROMPT_CHIPS.map((chip) => (
                     <button
                       key={chip}
-                      className="px-2 py-1 text-[10px] rounded-full border transition-colors text-text-tertiary hover:text-text-primary hover:border-primary/40"
+                      className="px-2 py-1 text-[10px] rounded-full border transition-colors text-text-tertiary hover:text-text-primary hover:border-primary/40 ease-out"
                       style={{ borderColor: "var(--border-secondary)" }}
                       onClick={() => setDescription(chip)}
                       disabled={isLoading}
@@ -395,7 +395,7 @@ export function GenerateGameDialog({
                 >
                   <ChevronDown
                     size={12}
-                    className={`transition-transform ${showAdvanced ? "rotate-180" : ""}`}
+                    className={`transition-transform ${showAdvanced ? "rotate-180" : ""} ease-out`}
                   />
                   Advanced Options
                 </button>
@@ -471,7 +471,7 @@ export function GenerateGameDialog({
             {/* Generate button */}
             <div className="px-4 py-3 border-t border-border-primary flex-shrink-0">
               <button
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-primary text-white hover:bg-primary-dark shadow-lg "
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-primary text-white hover:bg-primary-dark shadow-lg ease-out"
                 onClick={handleGenerate}
                 disabled={!description.trim() || isLoading}
               >
@@ -523,7 +523,7 @@ export function GenerateGameDialog({
                     {genState.error}
                   </p>
                   <button
-                    className="px-4 py-1.5 text-xs rounded-md bg-bg-tertiary text-text-secondary hover:text-text-primary transition-colors"
+                    className="px-4 py-1.5 text-xs rounded-md bg-bg-tertiary text-text-secondary hover:text-text-primary transition-colors ease-out"
                     onClick={handleGenerate}
                   >
                     Try Again
@@ -565,14 +565,14 @@ export function GenerateGameDialog({
                     </div>
                     <div className="flex items-center gap-1">
                       <button
-                        className="p-1.5 rounded-md text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors"
+                        className="p-1.5 rounded-md text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors ease-out"
                         onClick={handleCopyJson}
                         title="Copy JSON"
                       >
                         <Copy size={14} />
                       </button>
                       <button
-                        className="p-1.5 rounded-md text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors"
+                        className="p-1.5 rounded-md text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors ease-out"
                         onClick={handleDownloadJson}
                         title="Download JSON"
                       >
@@ -583,7 +583,7 @@ export function GenerateGameDialog({
                           showJson
                             ? "text-primary bg-primary/10"
                             : "text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary"
-                        }`}
+                        } ease-out`}
                         onClick={() => setShowJson((v) => !v)}
                         title="Toggle JSON Editor"
                       >
@@ -724,7 +724,7 @@ export function GenerateGameDialog({
                       disabled={isLoading}
                     />
                     <button
-                      className="px-3 py-1.5 text-xs rounded-md bg-bg-tertiary text-text-secondary hover:text-text-primary transition-colors disabled:opacity-40"
+                      className="px-3 py-1.5 text-xs rounded-md bg-bg-tertiary text-text-secondary hover:text-text-primary transition-colors disabled:opacity-40 ease-out"
                       onClick={handleRefine}
                       disabled={!refineInput.trim() || isLoading}
                     >
@@ -736,7 +736,7 @@ export function GenerateGameDialog({
                 {/* Actions footer */}
                 <div className="flex items-center justify-between px-4 py-3 border-t border-border-primary flex-shrink-0">
                   <button
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-colors border border-border-primary"
+                    className="flex items-center gap-1.5 px-5 py-1.5 rounded-md text-xs text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-colors border border-border-primary ease-out"
                     onClick={handleGenerate}
                     disabled={isLoading}
                   >
@@ -750,7 +750,7 @@ export function GenerateGameDialog({
                       </span>
                     )}
                     <button
-                      className="flex items-center gap-1.5 px-4 py-1.5 rounded-md text-xs font-medium bg-emerald-600 text-white hover:bg-emerald-500 transition-colors disabled:opacity-50"
+                      className="flex items-center gap-1.5 px-4 py-1.5 rounded-md text-xs font-medium bg-emerald-600 text-white hover:bg-emerald-500 transition-colors disabled:opacity-50 ease-out"
                       onClick={handleApply}
                       disabled={isLoading || applied}
                     >
@@ -782,7 +782,7 @@ function StatCard({
   value: string | number;
 }) {
   return (
-    <div className="px-3 py-2 rounded-md bg-bg-secondary border border-border-secondary">
+    <div className="px-5 py-4 rounded-md bg-bg-secondary border border-border-secondary">
       <div className="flex items-center gap-1.5 mb-0.5">
         <Icon size={12} className="text-text-tertiary" />
         <span className="text-[10px] text-text-tertiary">{label}</span>

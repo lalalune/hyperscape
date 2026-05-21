@@ -290,7 +290,7 @@ export const AssetSelectionPanel: React.FC<AssetSelectionPanelProps> = ({
                   <div key={group}>
                     <button
                       onClick={() => toggleSection(group)}
-                      className="flex items-center gap-2 w-full text-left text-sm font-medium text-text-secondary mb-2 hover:text-text-primary transition-colors"
+                      className="flex items-center gap-2 w-full text-left text-sm font-medium text-text-secondary mb-2 hover:text-text-primary transition-colors ease-out"
                     >
                       {isCollapsed ? (
                         <ChevronRight size={14} />
@@ -374,7 +374,7 @@ export const AssetSelectionPanel: React.FC<AssetSelectionPanelProps> = ({
       {/* Selected Assets Summary */}
       <div className="p-4 border-t border-border-primary bg-bg-primary bg-opacity-30">
         <div>
-          <h3 className="text-xs font-medium text-text-tertiary uppercase tracking-wider mb-3">
+          <h3 className="text-xs font-medium text-text-tertiary uppercase tracking-[0.12em] mb-3">
             Current Selection
           </h3>
           <div className="space-y-3">

@@ -67,7 +67,7 @@ export function GameSelector(): React.ReactElement {
 
   return (
     <label
-      className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-surface-raised/40 border border-border-subtle hover:bg-surface-raised/70 transition-all cursor-pointer"
+      className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-surface-raised/40 border border-border-subtle hover:bg-surface-raised/70 transition-all cursor-pointer ease-out"
       title="Game plugin set the next Play-In-Editor session will boot into. Stop + Play again to apply a change."
     >
       <Gamepad2 size={12} className="text-text-secondary" />

@@ -31,7 +31,7 @@ export function RightTabButton({
         active
           ? "text-text-primary"
           : "text-text-tertiary hover:text-text-secondary"
-      }`}
+      } ease-out`}
     >
       {label}
       {active && (

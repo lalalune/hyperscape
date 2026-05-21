@@ -213,7 +213,7 @@ export function NewWorldDialog({
         <div className="space-y-5">
           {/* ── Mode picker ────────────────────────────────── */}
           <div className="space-y-2">
-            <label className="text-xs font-medium text-text-secondary uppercase tracking-wider">
+            <label className="text-xs font-medium text-text-secondary uppercase tracking-[0.12em]">
               How would you like to start?
             </label>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
@@ -296,7 +296,7 @@ export function NewWorldDialog({
             </label>
             <input
               type="text"
-              className="w-full px-3 py-2 text-sm bg-bg-tertiary border border-border-primary rounded text-text-primary focus:outline-none focus:border-primary/50 placeholder:text-text-tertiary"
+              className="w-full px-5 py-4 text-sm bg-bg-tertiary border border-border-primary rounded text-text-primary focus:outline-none focus:border-primary/50 placeholder:text-text-tertiary"
               placeholder="My World"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -313,7 +313,7 @@ export function NewWorldDialog({
               Description
             </label>
             <textarea
-              className="w-full px-3 py-2 text-sm bg-bg-tertiary border border-border-primary rounded text-text-primary focus:outline-none focus:border-primary/50 placeholder:text-text-tertiary resize-none"
+              className="w-full px-5 py-4 text-sm bg-bg-tertiary border border-border-primary rounded text-text-primary focus:outline-none focus:border-primary/50 placeholder:text-text-tertiary resize-none"
               placeholder="A brief description of your world..."
               rows={2}
               value={description}
@@ -340,14 +340,14 @@ export function NewWorldDialog({
       <ModalFooter>
         <div className="flex items-center gap-2 w-full">
           <button
-            className="flex-1 px-3 py-2 text-xs font-medium rounded bg-bg-tertiary border border-border-primary text-text-primary hover:bg-bg-secondary transition-colors"
+            className="flex-1 px-5 py-4 text-xs font-medium rounded bg-bg-tertiary border border-border-primary text-text-primary hover:bg-bg-secondary transition-colors ease-out"
             onClick={onClose}
             disabled={isCreating}
           >
             Cancel
           </button>
           <button
-            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium rounded bg-primary text-white hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium rounded bg-primary text-white hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ease-out"
             onClick={handleCreate}
             disabled={!canCreate}
           >
@@ -410,7 +410,7 @@ function ModeCard({
       aria-checked={selected}
       onClick={onSelect}
       disabled={disabled}
-      className={`relative text-left p-3 rounded border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+      className={`relative text-left p-5 rounded border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
         selected
           ? isHero
             ? "border-primary bg-primary/15 ring-1 ring-primary/40"
@@ -418,10 +418,10 @@ function ModeCard({
           : isHero
             ? "border-primary/30 bg-bg-tertiary hover:border-primary/60 hover:bg-bg-secondary"
             : "border-border-primary bg-bg-tertiary hover:bg-bg-secondary"
-      }`}
+      } ease-out`}
     >
       {badge && (
-        <div className="absolute top-1.5 right-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-primary/20 text-primary uppercase tracking-wider">
+        <div className="absolute top-1.5 right-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-primary/20 text-primary uppercase tracking-[0.12em]">
           {badge}
         </div>
       )}
@@ -472,11 +472,11 @@ function ProjectPackOption({
       aria-checked={selected}
       onClick={onSelect}
       disabled={disabled}
-      className={`w-full text-left p-3 rounded border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+      className={`w-full text-left p-5 rounded border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
         selected
           ? "border-primary bg-primary/10"
           : "border-border-primary bg-bg-tertiary hover:bg-bg-secondary"
-      }`}
+      } ease-out`}
     >
       <div className="flex items-start gap-3">
         <div

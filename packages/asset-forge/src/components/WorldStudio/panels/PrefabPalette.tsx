@@ -114,7 +114,7 @@ export function PrefabPalette() {
       <div className="px-3 py-2 border-b border-gray-700/50">
         <div className="flex items-center gap-2 mb-2">
           <Package size={14} className="text-purple-400" />
-          <span className="text-xs font-semibold text-gray-200 uppercase tracking-wider">
+          <span className="text-xs font-semibold text-gray-200 uppercase tracking-[0.12em]">
             Prefabs
           </span>
           <span className="text-[10px] text-gray-500 ml-auto">
@@ -151,7 +151,7 @@ export function PrefabPalette() {
             {filtered.map((prefab) => (
               <div
                 key={prefab.id}
-                className="group bg-gray-800/60 hover:bg-gray-700/60 border border-gray-700/30 hover:border-purple-500/30 rounded p-2 cursor-pointer transition-colors"
+                className="group bg-gray-800/60 hover:bg-gray-700/60 border border-gray-700/30 hover:border-purple-500/30 rounded p-2 cursor-pointer transition-colors ease-out"
                 onContextMenu={(e) => handleContextMenu(e, prefab)}
                 onClick={() => handlePlace(prefab)}
                 title={`Click to place • Right-click for options\n${prefab.description ?? ""}`}
@@ -185,7 +185,7 @@ export function PrefabPalette() {
                   </span>
                   <MapPin
                     size={10}
-                    className="text-gray-600 group-hover:text-purple-400 transition-colors"
+                    className="text-gray-600 group-hover:text-purple-400 transition-colors ease-out"
                   />
                 </div>
               </div>

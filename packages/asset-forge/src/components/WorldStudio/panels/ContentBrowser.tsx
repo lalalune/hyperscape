@@ -1036,7 +1036,7 @@ export const ContentBrowser = React.memo(function ContentBrowser() {
               viewMode === "list"
                 ? "text-primary bg-primary/10"
                 : "text-text-tertiary hover:text-text-primary"
-            }`}
+            } ease-out`}
             onClick={() => setViewMode("list")}
             title="List view"
           >
@@ -1047,7 +1047,7 @@ export const ContentBrowser = React.memo(function ContentBrowser() {
               viewMode === "grid"
                 ? "text-primary bg-primary/10"
                 : "text-text-tertiary hover:text-text-primary"
-            }`}
+            } ease-out`}
             onClick={() => setViewMode("grid")}
             title="Grid view"
           >
@@ -1216,7 +1216,7 @@ function BrowserHeader({
       {onBack ? (
         <button
           onClick={onBack}
-          className="p-0.5 -ml-0.5 rounded text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary/50 transition-colors"
+          className="p-0.5 -ml-0.5 rounded text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary/50 transition-colors ease-out"
           title="Back to browse"
         >
           <ArrowLeft size={14} />
@@ -1275,7 +1275,7 @@ function BrowserHeader({
               viewMode === "list"
                 ? "text-primary bg-primary/10"
                 : "text-text-tertiary hover:text-text-primary"
-            }`}
+            } ease-out`}
             onClick={() => onViewModeChange("list")}
             title="List view"
           >
@@ -1286,7 +1286,7 @@ function BrowserHeader({
               viewMode === "grid"
                 ? "text-primary bg-primary/10"
                 : "text-text-tertiary hover:text-text-primary"
-            }`}
+            } ease-out`}
             onClick={() => onViewModeChange("grid")}
             title="Grid view"
           >
@@ -1329,7 +1329,7 @@ function CategoryTreeNode({
           isSelected
             ? "bg-primary/15 text-primary"
             : "text-text-secondary hover:bg-bg-tertiary/50 hover:text-text-primary"
-        }`}
+        } ease-out`}
         style={{ paddingLeft: `${depth * 10 + 6}px` }}
         onClick={() => {
           if (node.leaf) {
@@ -1342,7 +1342,7 @@ function CategoryTreeNode({
         {hasChildren ? (
           <ChevronRight
             size={10}
-            className={`flex-shrink-0 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+            className={`flex-shrink-0 transition-transform ${isExpanded ? "rotate-90" : ""} ease-out`}
           />
         ) : (
           <span className="w-[10px] flex-shrink-0" />
@@ -1391,7 +1391,7 @@ function ContentGridCard({
 }) {
   return (
     <div
-      className="group flex flex-col justify-center gap-0.5 px-2 py-1.5 rounded-md bg-black/10 border border-transparent cursor-pointer transition-colors hover:bg-bg-tertiary/50 hover:border-primary/30"
+      className="group flex flex-col justify-center gap-0.5 px-2 py-1.5 rounded-md bg-black/10 border border-transparent cursor-pointer transition-colors hover:bg-bg-tertiary/50 hover:border-primary/30 ease-out"
       onClick={onClick}
       draggable
       onDragStart={onDragStart}
@@ -1432,7 +1432,7 @@ function ContentListRow({
   const bandClass = index % 2 === 1 ? "bg-bg-tertiary/30" : "";
   return (
     <div
-      className={`group flex items-center gap-2 px-3 h-[26px] cursor-pointer transition-colors hover:bg-bg-tertiary/50 ${bandClass}`}
+      className={`group flex items-center gap-2 px-3 h-[26px] cursor-pointer transition-colors hover:bg-bg-tertiary/50 ${bandClass} ease-out`}
       onClick={onClick}
       draggable
       onDragStart={onDragStart}
@@ -1455,7 +1455,7 @@ function ContentListRow({
             e.stopPropagation();
             onPlace();
           }}
-          className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] rounded bg-primary/15 border border-primary/30 text-primary hover:bg-primary/25 flex-shrink-0"
+          className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] rounded bg-primary/15 border border-primary/30 text-primary hover:bg-primary/25 flex-shrink-0 ease-out"
           title="Place in world"
         >
           <Crosshair size={9} />
@@ -1508,7 +1508,7 @@ function ContentDetailPane({
         {isPlaceable && (
           <button
             onClick={onPlaceInWorld}
-            className="flex items-center gap-1 px-2 py-1 text-[10px] bg-primary/15 border border-primary/30 rounded text-primary hover:bg-primary/25 transition-colors flex-shrink-0"
+            className="flex items-center gap-1 px-2 py-1 text-[10px] bg-primary/15 border border-primary/30 rounded text-primary hover:bg-primary/25 transition-colors flex-shrink-0 ease-out"
             title="Start placement in viewport"
           >
             <Crosshair size={10} />

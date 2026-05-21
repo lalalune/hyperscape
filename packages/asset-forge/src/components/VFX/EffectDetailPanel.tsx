@@ -73,7 +73,7 @@ const LayerCard: React.FC<{ layer: GlowLayer }> = ({ layer }) => {
   return (
     <div className="border border-border-primary/50 rounded">
       <button
-        className="w-full flex items-center justify-between px-3 py-2 text-xs hover:bg-bg-tertiary transition-colors"
+        className="w-full flex items-center justify-between px-3 py-2 text-xs hover:bg-bg-tertiary transition-colors ease-out"
         onClick={() => setOpen(!open)}
       >
         <span className="font-medium text-text-primary">
@@ -82,7 +82,7 @@ const LayerCard: React.FC<{ layer: GlowLayer }> = ({ layer }) => {
         </span>
         <ChevronDown
           size={12}
-          className={`text-text-tertiary transition-transform ${open ? "rotate-180" : ""}`}
+          className={`text-text-tertiary transition-transform ${open ? "rotate-180" : ""} ease-out`}
         />
       </button>
       {open && (

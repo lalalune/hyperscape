@@ -12,7 +12,7 @@ export const EmptyAssetState: React.FC = () => {
             className="text-text-muted mb-6 mx-auto relative z-10 animate-float"
           />
         </div>
-        <h3 className="text-2xl font-semibold text-text-primary mb-2">
+        <h3 className="font-display text-2xl font-medium text-text-primary mb-2 tracking-tight">
           No model loaded
         </h3>
         <p className="text-text-tertiary text-lg max-w-md mx-auto">

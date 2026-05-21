@@ -236,7 +236,7 @@ export function PluginBrowserPanel() {
             activeTab === "browse"
               ? "text-text-primary border-primary"
               : "text-text-tertiary border-transparent hover:text-text-secondary"
-          }`}
+          } ease-out`}
         >
           Browse
         </button>
@@ -246,7 +246,7 @@ export function PluginBrowserPanel() {
             activeTab === "installed"
               ? "text-text-primary border-primary"
               : "text-text-tertiary border-transparent hover:text-text-secondary"
-          }`}
+          } ease-out`}
         >
           Installed{" "}
           <span className="text-text-tertiary">
@@ -286,7 +286,7 @@ export function PluginBrowserPanel() {
             <button
               onClick={() => void reload()}
               disabled={status.kind === "loading"}
-              className="flex items-center gap-1 px-2 py-1 text-[11px] rounded text-text-secondary hover:text-text-primary hover:bg-bg-tertiary disabled:opacity-50 transition-colors"
+              className="flex items-center gap-1 px-2 py-1 text-[11px] rounded text-text-secondary hover:text-text-primary hover:bg-bg-tertiary disabled:opacity-50 transition-colors ease-out"
               title="Reload registry"
             >
               {status.kind === "loading" ? (
@@ -349,7 +349,7 @@ export function PluginBrowserPanel() {
                       <li key={entry.registryId} className="text-[11px]">
                         <button
                           onClick={() => void toggleExpanded(entry)}
-                          className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-bg-tertiary transition-colors"
+                          className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-bg-tertiary transition-colors ease-out"
                         >
                           {isOpen ? (
                             <ChevronDown
@@ -530,7 +530,7 @@ function PluginDetailView({
 
       {manifest.dependencies.length > 0 ? (
         <div>
-          <div className="text-text-tertiary text-[10px] uppercase tracking-wide mb-0.5">
+          <div className="text-text-tertiary text-[10px] uppercase tracking-[0.12em] mb-0.5">
             dependencies
           </div>
           <ul className="space-y-0.5">
@@ -548,7 +548,7 @@ function PluginDetailView({
       ) : null}
 
       <div>
-        <div className="text-text-tertiary text-[10px] uppercase tracking-wide mb-0.5">
+        <div className="text-text-tertiary text-[10px] uppercase tracking-[0.12em] mb-0.5">
           contributions
         </div>
         <ul className="space-y-0.5">
@@ -593,7 +593,7 @@ function PluginDetailView({
         }
         return (
           <div>
-            <div className="text-text-tertiary text-[10px] uppercase tracking-wide mb-0.5">
+            <div className="text-text-tertiary text-[10px] uppercase tracking-[0.12em] mb-0.5">
               entity types ({entityTypes.length})
             </div>
             <div className="space-y-1.5">
@@ -653,7 +653,7 @@ function PluginDetailView({
             </span>
             <button
               onClick={onUninstall}
-              className="flex items-center gap-1 px-2 py-1 text-[11px] rounded text-text-secondary hover:text-red-400 hover:bg-bg-tertiary transition-colors"
+              className="flex items-center gap-1 px-2 py-1 text-[11px] rounded text-text-secondary hover:text-red-400 hover:bg-bg-tertiary transition-colors ease-out"
             >
               <Trash2 size={11} />
               Uninstall
@@ -675,7 +675,7 @@ function PluginDetailView({
         ) : (
           <button
             onClick={onInstall}
-            className="flex items-center gap-1 px-2 py-1 text-[11px] rounded bg-primary text-white hover:opacity-90 transition-opacity"
+            className="flex items-center gap-1 px-2 py-1 text-[11px] rounded bg-primary text-white hover:opacity-90 transition-opacity ease-out"
           >
             <Download size={11} />
             Install
@@ -755,7 +755,7 @@ function InstalledTab({
                 </span>
                 <button
                   onClick={() => onUninstall(p.id, p.version)}
-                  className="flex items-center gap-1 px-1.5 py-0.5 text-[11px] rounded text-text-secondary hover:text-red-400 hover:bg-bg-tertiary transition-colors"
+                  className="flex items-center gap-1 px-1.5 py-0.5 text-[11px] rounded text-text-secondary hover:text-red-400 hover:bg-bg-tertiary transition-colors ease-out"
                   title="Uninstall"
                 >
                   <Trash2 size={11} />

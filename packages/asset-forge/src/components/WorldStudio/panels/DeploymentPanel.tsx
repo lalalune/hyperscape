@@ -74,7 +74,7 @@ function DiffCategoryGroup({
   return (
     <div className="border-b border-border-primary/30 last:border-0">
       <button
-        className="w-full flex items-center gap-1.5 px-3 py-1.5 text-xs hover:bg-bg-tertiary transition-colors"
+        className="w-full flex items-center gap-1.5 px-3 py-1.5 text-xs hover:bg-bg-tertiary transition-colors ease-out"
         onClick={() => setExpanded(!expanded)}
       >
         {expanded ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
@@ -180,7 +180,7 @@ function DeploymentHistoryEntry({ record }: { record: DeploymentRecord }) {
   return (
     <div className="border-b border-border-primary/30 last:border-0">
       <button
-        className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-bg-tertiary transition-colors"
+        className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-bg-tertiary transition-colors ease-out"
         onClick={() => setExpanded(!expanded)}
       >
         {STATUS_ICONS[record.status] ?? <Clock size={12} />}
@@ -210,7 +210,7 @@ function DeploymentHistoryEntry({ record }: { record: DeploymentRecord }) {
           )}
           {record.status === "success" && record.target === "production" && (
             <button
-              className="flex items-center gap-1 px-2 py-1 text-[10px] text-amber-400 hover:bg-amber-400/10 rounded transition-colors disabled:opacity-40"
+              className="flex items-center gap-1 px-2 py-1 text-[10px] text-amber-400 hover:bg-amber-400/10 rounded transition-colors disabled:opacity-40 ease-out"
               disabled={isRollingBack}
               onClick={handleRollback}
             >
@@ -618,7 +618,7 @@ export function DeploymentPanel() {
     <div className="flex flex-col h-full">
       {/* Panel header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-border-primary">
-        <span className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+        <span className="text-xs font-semibold text-text-secondary uppercase tracking-[0.12em]">
           Deployment
         </span>
       </div>
@@ -630,7 +630,7 @@ export function DeploymentPanel() {
             activeTab === "deploy"
               ? "text-primary border-b-2 border-primary"
               : "text-text-tertiary hover:text-text-primary"
-          }`}
+          } ease-out`}
           onClick={() => setActiveTab("deploy")}
         >
           Deploy
@@ -640,7 +640,7 @@ export function DeploymentPanel() {
             activeTab === "history"
               ? "text-primary border-b-2 border-primary"
               : "text-text-tertiary hover:text-text-primary"
-          }`}
+          } ease-out`}
           onClick={() => setActiveTab("history")}
         >
           History ({deployment.history.length})
@@ -657,7 +657,7 @@ export function DeploymentPanel() {
                 Staging
               </div>
               <button
-                className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed ease-out"
                 disabled={!canPushStaging || isStagingBusy}
                 onClick={handlePushStaging}
               >
@@ -689,7 +689,7 @@ export function DeploymentPanel() {
                     href="http://localhost:3333?staging=true"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-[11px] bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 rounded transition-colors"
+                    className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-[11px] bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 rounded transition-colors ease-out"
                   >
                     <ExternalLink size={10} />
                     Preview in Game Client
@@ -796,7 +796,7 @@ export function DeploymentPanel() {
                   </div>
                   <div className="flex gap-2">
                     <button
-                      className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-[11px] bg-green-500/10 text-green-400 hover:bg-green-500/20 rounded transition-colors"
+                      className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-[11px] bg-green-500/10 text-green-400 hover:bg-green-500/20 rounded transition-colors ease-out"
                       onClick={() =>
                         handleApprovePromotion(
                           state.project.currentTeamId ?? "local",
@@ -807,7 +807,7 @@ export function DeploymentPanel() {
                       Approve
                     </button>
                     <button
-                      className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-[11px] bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded transition-colors"
+                      className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-[11px] bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded transition-colors ease-out"
                       onClick={() => actions.deployPromotionReject()}
                     >
                       <XCircle size={10} />
@@ -818,7 +818,7 @@ export function DeploymentPanel() {
               ) : (
                 <>
                   <button
-                    className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs bg-green-500/10 text-green-400 hover:bg-green-500/20 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs bg-green-500/10 text-green-400 hover:bg-green-500/20 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed ease-out"
                     disabled={
                       !deployment.currentDiff ||
                       deployment.productionStatus === "deploying"

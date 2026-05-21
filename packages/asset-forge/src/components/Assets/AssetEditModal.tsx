@@ -137,7 +137,7 @@ export function AssetEditModal({
         <h2 className="text-lg font-semibold text-text-primary">Edit Asset</h2>
         <button
           onClick={onClose}
-          className="p-1.5 hover:bg-bg-tertiary rounded-lg transition-colors"
+          className="p-1.5 hover:bg-bg-tertiary rounded-lg transition-colors ease-out"
         >
           <X size={18} className="text-text-secondary" />
         </button>
@@ -166,7 +166,7 @@ export function AssetEditModal({
           <select
             value={editedData.type}
             onChange={(e) => handleChange("type", e.target.value)}
-            className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded-lg text-text-primary focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-transparent"
+            className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded-lg text-text-primary focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-transparent"
           >
             <option value="armor">Armor</option>
             <option value="weapon">Weapon</option>
@@ -185,7 +185,7 @@ export function AssetEditModal({
             <select
               value={editedData.metadata.tier}
               onChange={(e) => handleChange("metadata.tier", e.target.value)}
-              className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded-lg text-text-primary focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-transparent"
+              className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded-lg text-text-primary focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-transparent"
             >
               <option value="base">Base</option>
               <option value="bronze">Bronze</option>

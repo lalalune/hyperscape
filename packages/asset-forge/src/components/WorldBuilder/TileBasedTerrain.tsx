@@ -4497,7 +4497,7 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
 
           {/* Hover tooltip */}
           {hoveredObject && !rmbFlyActiveRef.current && (
-            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-bg-primary/95 border border-border-primary rounded-lg px-3 py-2 text-sm text-text-primary pointer-events-none shadow-lg">
+            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-bg-primary/95 border border-border-primary rounded-lg px-5 py-4 text-sm text-text-primary pointer-events-none shadow-lg">
               {hoveredObject}
               <span className="text-text-muted ml-2">(click to select)</span>
             </div>

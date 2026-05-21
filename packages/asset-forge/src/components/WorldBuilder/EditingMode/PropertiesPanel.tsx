@@ -75,12 +75,12 @@ const Section: React.FC<SectionProps> = ({
     <div className="border-b border-border-primary last:border-b-0">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-4 py-2 flex items-center gap-2 hover:bg-bg-tertiary transition-colors"
+        className="w-full px-4 py-2 flex items-center gap-2 hover:bg-bg-tertiary transition-colors ease-out"
       >
         <ChevronRight
           className={`w-4 h-4 text-text-muted transition-transform ${
             isOpen ? "rotate-90" : ""
-          }`}
+          } ease-out`}
         />
         {icon && <span className="text-text-secondary">{icon}</span>}
         <span className="font-medium text-sm text-text-primary">{title}</span>
@@ -351,14 +351,14 @@ const BiomeEditor: React.FC<BiomeEditorProps> = ({ biome, override }) => {
       <div className="border-t border-border-primary">
         <button
           onClick={() => toggleSection("type")}
-          className="w-full p-3 flex items-center justify-between hover:bg-bg-tertiary transition-colors"
+          className="w-full p-3 flex items-center justify-between hover:bg-bg-tertiary transition-colors ease-out"
         >
           <span className="flex items-center gap-2 text-sm font-medium text-text-primary">
             <TreePine className="w-4 h-4 text-green-400" />
             Biome Type
           </span>
           <ChevronDown
-            className={`w-4 h-4 text-text-muted transition-transform ${expandedSections.has("type") ? "" : "-rotate-90"}`}
+            className={`w-4 h-4 text-text-muted transition-transform ${expandedSections.has("type") ? "" : "-rotate-90"} ease-out`}
           />
         </button>
         {expandedSections.has("type") && (
@@ -367,7 +367,7 @@ const BiomeEditor: React.FC<BiomeEditorProps> = ({ biome, override }) => {
               <select
                 value={effectiveType}
                 onChange={(e) => handleTypeChange(e.target.value)}
-                className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
+                className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
               >
                 {BIOME_TYPES.map((type) => (
                   <option key={type} value={type}>
@@ -389,14 +389,14 @@ const BiomeEditor: React.FC<BiomeEditorProps> = ({ biome, override }) => {
       <div className="border-t border-border-primary">
         <button
           onClick={() => toggleSection("material")}
-          className="w-full p-3 flex items-center justify-between hover:bg-bg-tertiary transition-colors"
+          className="w-full p-3 flex items-center justify-between hover:bg-bg-tertiary transition-colors ease-out"
         >
           <span className="flex items-center gap-2 text-sm font-medium text-text-primary">
             <Settings className="w-4 h-4 text-purple-400" />
             Material & Texture
           </span>
           <ChevronDown
-            className={`w-4 h-4 text-text-muted transition-transform ${expandedSections.has("material") ? "" : "-rotate-90"}`}
+            className={`w-4 h-4 text-text-muted transition-transform ${expandedSections.has("material") ? "" : "-rotate-90"} ease-out`}
           />
         </button>
         {expandedSections.has("material") && (
@@ -407,7 +407,7 @@ const BiomeEditor: React.FC<BiomeEditorProps> = ({ biome, override }) => {
                 onChange={(e) =>
                   handleMaterialChange({ baseTextureId: e.target.value })
                 }
-                className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
+                className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
               >
                 {TEXTURE_OPTIONS.map((tex) => (
                   <option key={tex.id} value={tex.id}>
@@ -424,7 +424,7 @@ const BiomeEditor: React.FC<BiomeEditorProps> = ({ biome, override }) => {
                     secondaryTextureId: e.target.value || undefined,
                   })
                 }
-                className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
+                className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
               >
                 <option value="">None</option>
                 {TEXTURE_OPTIONS.map((tex) => (
@@ -442,7 +442,7 @@ const BiomeEditor: React.FC<BiomeEditorProps> = ({ biome, override }) => {
                     blendMode: e.target.value as "height" | "slope" | "noise",
                   })
                 }
-                className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
+                className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
               >
                 <option value="height">Height-based</option>
                 <option value="slope">Slope-based</option>
@@ -480,7 +480,7 @@ const BiomeEditor: React.FC<BiomeEditorProps> = ({ biome, override }) => {
                   onChange={(e) =>
                     handleMaterialChange({ colorTint: e.target.value })
                   }
-                  className="flex-1 px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary font-mono"
+                  className="flex-1 px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary font-mono"
                 />
               </div>
             </Field>
@@ -507,14 +507,14 @@ const BiomeEditor: React.FC<BiomeEditorProps> = ({ biome, override }) => {
       <div className="border-t border-border-primary">
         <button
           onClick={() => toggleSection("height")}
-          className="w-full p-3 flex items-center justify-between hover:bg-bg-tertiary transition-colors"
+          className="w-full p-3 flex items-center justify-between hover:bg-bg-tertiary transition-colors ease-out"
         >
           <span className="flex items-center gap-2 text-sm font-medium text-text-primary">
             <Mountain className="w-4 h-4 text-amber-400" />
             Height & Terrain
           </span>
           <ChevronDown
-            className={`w-4 h-4 text-text-muted transition-transform ${expandedSections.has("height") ? "" : "-rotate-90"}`}
+            className={`w-4 h-4 text-text-muted transition-transform ${expandedSections.has("height") ? "" : "-rotate-90"} ease-out`}
           />
         </button>
         {expandedSections.has("height") && (
@@ -527,7 +527,7 @@ const BiomeEditor: React.FC<BiomeEditorProps> = ({ biome, override }) => {
                   onChange={(e) =>
                     handleHeightChange({ minHeight: Number(e.target.value) })
                   }
-                  className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
+                  className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
                 />
               </Field>
               <Field label="Max Height (m)">
@@ -537,7 +537,7 @@ const BiomeEditor: React.FC<BiomeEditorProps> = ({ biome, override }) => {
                   onChange={(e) =>
                     handleHeightChange({ maxHeight: Number(e.target.value) })
                   }
-                  className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
+                  className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
                 />
               </Field>
             </div>
@@ -579,14 +579,14 @@ const BiomeEditor: React.FC<BiomeEditorProps> = ({ biome, override }) => {
       <div className="border-t border-border-primary">
         <button
           onClick={() => toggleSection("difficulty")}
-          className="w-full p-3 flex items-center justify-between hover:bg-bg-tertiary transition-colors"
+          className="w-full p-3 flex items-center justify-between hover:bg-bg-tertiary transition-colors ease-out"
         >
           <span className="flex items-center gap-2 text-sm font-medium text-text-primary">
             <Skull className="w-4 h-4 text-red-400" />
             Difficulty
           </span>
           <ChevronDown
-            className={`w-4 h-4 text-text-muted transition-transform ${expandedSections.has("difficulty") ? "" : "-rotate-90"}`}
+            className={`w-4 h-4 text-text-muted transition-transform ${expandedSections.has("difficulty") ? "" : "-rotate-90"} ease-out`}
           />
         </button>
         {expandedSections.has("difficulty") && (
@@ -621,14 +621,14 @@ const BiomeEditor: React.FC<BiomeEditorProps> = ({ biome, override }) => {
       <div className="border-t border-border-primary">
         <button
           onClick={() => toggleSection("mobs")}
-          className="w-full p-3 flex items-center justify-between hover:bg-bg-tertiary transition-colors"
+          className="w-full p-3 flex items-center justify-between hover:bg-bg-tertiary transition-colors ease-out"
         >
           <span className="flex items-center gap-2 text-sm font-medium text-text-primary">
             <Swords className="w-4 h-4 text-orange-400" />
             Mob Spawns
           </span>
           <ChevronDown
-            className={`w-4 h-4 text-text-muted transition-transform ${expandedSections.has("mobs") ? "" : "-rotate-90"}`}
+            className={`w-4 h-4 text-text-muted transition-transform ${expandedSections.has("mobs") ? "" : "-rotate-90"} ease-out`}
           />
         </button>
         {expandedSections.has("mobs") && (
@@ -647,14 +647,14 @@ const BiomeEditor: React.FC<BiomeEditorProps> = ({ biome, override }) => {
                   (effectiveMobSpawn?.enabled ?? true)
                     ? "bg-green-500"
                     : "bg-bg-tertiary"
-                }`}
+                } ease-out`}
               >
                 <span
                   className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
                     (effectiveMobSpawn?.enabled ?? true)
                       ? "translate-x-5"
                       : "translate-x-0"
-                  }`}
+                  } ease-out`}
                 />
               </button>
             </div>
@@ -849,14 +849,14 @@ const BiomeEditor: React.FC<BiomeEditorProps> = ({ biome, override }) => {
       <div className="border-t border-border-primary">
         <button
           onClick={() => toggleSection("atmosphere")}
-          className="w-full p-3 flex items-center justify-between hover:bg-bg-tertiary transition-colors"
+          className="w-full p-3 flex items-center justify-between hover:bg-bg-tertiary transition-colors ease-out"
         >
           <span className="flex items-center gap-2 text-sm font-medium text-text-primary">
             <Volume2 className="w-4 h-4 text-cyan-400" />
             Atmosphere
           </span>
           <ChevronDown
-            className={`w-4 h-4 text-text-muted transition-transform ${expandedSections.has("atmosphere") ? "" : "-rotate-90"}`}
+            className={`w-4 h-4 text-text-muted transition-transform ${expandedSections.has("atmosphere") ? "" : "-rotate-90"} ease-out`}
           />
         </button>
         {expandedSections.has("atmosphere") && (
@@ -878,7 +878,7 @@ const BiomeEditor: React.FC<BiomeEditorProps> = ({ biome, override }) => {
                     });
                   }
                 }}
-                className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
+                className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
               >
                 <option value="default">Default for biome type</option>
                 <option value="wind_gentle">Wind (Gentle)</option>
@@ -897,7 +897,7 @@ const BiomeEditor: React.FC<BiomeEditorProps> = ({ biome, override }) => {
         <div className="px-4 py-4 border-t border-border-primary">
           <button
             onClick={handleRemoveOverride}
-            className="w-full py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded transition-colors"
+            className="w-full py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded transition-colors ease-out"
           >
             Remove All Overrides
           </button>
@@ -952,7 +952,7 @@ const TownEditor: React.FC<TownEditorProps> = ({ town, override }) => {
             type="text"
             value={effectiveName}
             onChange={(e) => handleNameChange(e.target.value)}
-            className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
+            className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
           />
         </Field>
         {override?.nameOverride && (
@@ -1042,7 +1042,7 @@ const BuildingEditor: React.FC<BuildingEditorProps> = ({ building }) => {
           {/* Impostor Preview Toggle */}
           <button
             onClick={() => setShowImpostorAtlas(!showImpostorAtlas)}
-            className="w-full px-3 py-2 bg-bg-tertiary hover:bg-bg-quaternary border border-border-primary rounded text-sm text-text-primary transition-colors"
+            className="w-full px-5 py-4 bg-bg-tertiary hover:bg-bg-quaternary border border-border-primary rounded text-sm text-text-primary transition-colors ease-out"
           >
             {showImpostorAtlas ? "Hide Impostor Atlas" : "Show Impostor Atlas"}
           </button>
@@ -1054,7 +1054,9 @@ const BuildingEditor: React.FC<BuildingEditorProps> = ({ building }) => {
               </div>
               <div className="aspect-square bg-black/50 rounded border border-border-primary flex items-center justify-center">
                 <div className="text-center text-text-muted text-xs">
-                  <div className="text-4xl mb-2">🖼️</div>
+                  <div className="font-display text-4xl mb-2 tracking-tight">
+                    🖼️
+                  </div>
                   <div>Atlas texture</div>
                   <div className="text-text-secondary mt-1">2048 × 2048</div>
                   <div className="text-text-secondary">31 × 31 views</div>
@@ -1067,7 +1069,7 @@ const BuildingEditor: React.FC<BuildingEditorProps> = ({ building }) => {
           )}
 
           {/* Bake Button */}
-          <button className="w-full px-3 py-2 bg-accent-primary hover:bg-accent-primary/80 rounded text-sm text-white font-medium transition-colors">
+          <button className="w-full px-3 py-2 bg-accent-primary hover:bg-accent-primary/80 rounded text-sm text-white font-medium transition-colors ease-out">
             Bake Impostor
           </button>
         </div>
@@ -1106,7 +1108,7 @@ const NPCEditor: React.FC<NPCEditorProps> = ({ npc }) => {
             type="text"
             value={npc.name}
             onChange={(e) => handleNameChange(e.target.value)}
-            className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
+            className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary"
           />
         </Field>
       </Section>
@@ -1169,7 +1171,7 @@ const NPCEditor: React.FC<NPCEditorProps> = ({ npc }) => {
       <div className="px-4 pb-4">
         <button
           onClick={() => actions.removeNPC(npc.id)}
-          className="w-full py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded transition-colors"
+          className="w-full py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded transition-colors ease-out"
         >
           Delete NPC
         </button>

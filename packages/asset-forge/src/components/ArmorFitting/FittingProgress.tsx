@@ -21,7 +21,7 @@ export const FittingProgress: React.FC<FittingProgressProps> = ({
               <p className="text-sm font-medium text-text-primary">{message}</p>
               <div className="mt-2 h-2 bg-bg-secondary rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-primary transition-all duration-300"
+                  className="h-full bg-primary transition-all duration-300 ease-out"
                   style={{ width: `${progress}%` }}
                 />
               </div>

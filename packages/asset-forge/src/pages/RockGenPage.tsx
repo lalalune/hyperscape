@@ -812,7 +812,7 @@ export const RockGenPage: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary flex items-center gap-3">
+          <h1 className="font-display text-2xl font-medium text-text-primary flex items-center gap-3 tracking-tight">
             <Mountain size={28} />
             Rock Generator
           </h1>
@@ -829,7 +829,7 @@ export const RockGenPage: React.FC = () => {
               batchMode
                 ? "bg-accent text-white"
                 : "bg-bg-tertiary text-text-secondary hover:text-text-primary"
-            }`}
+            } ease-out`}
           >
             <Grid3x3 size={18} />
             Batch
@@ -838,7 +838,7 @@ export const RockGenPage: React.FC = () => {
           {/* Save Preset */}
           <button
             onClick={() => setShowSaveDialog(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-bg-tertiary text-text-secondary hover:text-text-primary rounded-lg transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-bg-tertiary text-text-secondary hover:text-text-primary rounded-lg transition-all ease-out"
           >
             <Save size={18} />
             Save
@@ -848,7 +848,7 @@ export const RockGenPage: React.FC = () => {
           <button
             onClick={() => saveToAssets()}
             disabled={!currentRockRef.current}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600/20 text-green-500 hover:bg-green-600/30 rounded-lg transition-all disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-green-600/20 text-green-500 hover:bg-green-600/30 rounded-lg transition-all disabled:opacity-50 ease-out"
             title="Save to Assets for LOD/Impostor processing"
           >
             <Database size={18} />
@@ -859,7 +859,7 @@ export const RockGenPage: React.FC = () => {
           <button
             onClick={() => (batchMode ? exportBatchToGLB() : exportToGLB())}
             disabled={!currentRockRef.current && batchResults.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-bg-tertiary text-text-secondary hover:text-text-primary rounded-lg transition-all disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-bg-tertiary text-text-secondary hover:text-text-primary rounded-lg transition-all disabled:opacity-50 ease-out"
           >
             <Download size={18} />
             Export
@@ -869,7 +869,7 @@ export const RockGenPage: React.FC = () => {
           <button
             onClick={batchMode ? generateBatch : generateRock}
             disabled={isGenerating}
-            className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition-all disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition-all disabled:opacity-50 ease-out"
           >
             <RefreshCw
               size={18}
@@ -883,7 +883,7 @@ export const RockGenPage: React.FC = () => {
       <div className="flex-1 flex gap-6">
         {/* Controls Panel */}
         <div className="w-72 flex-shrink-0 space-y-4 overflow-y-auto">
-          <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
+          <div className="bg-bg-secondary rounded-lg p-5 border border-border-primary">
             <h3 className="font-semibold text-text-primary mb-4 flex items-center gap-2">
               <Settings2 size={18} />
               Generation Settings
@@ -897,7 +897,7 @@ export const RockGenPage: React.FC = () => {
                 <select
                   value={preset}
                   onChange={(e) => setPreset(e.target.value)}
-                  className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded-md text-text-primary"
+                  className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded-md text-text-primary"
                 >
                   <optgroup label="Shapes">
                     {shapePresets.map((name) => (
@@ -925,13 +925,13 @@ export const RockGenPage: React.FC = () => {
                     type="text"
                     value={seed}
                     onChange={(e) => setSeed(e.target.value)}
-                    className="flex-1 px-3 py-2 bg-bg-tertiary border border-border-primary rounded-md text-text-primary"
+                    className="flex-1 px-5 py-4 bg-bg-tertiary border border-border-primary rounded-md text-text-primary"
                   />
                   <button
                     onClick={() =>
                       setSeed(`rock-${Math.floor(Math.random() * 10000)}`)
                     }
-                    className="px-3 py-2 bg-bg-tertiary border border-border-primary rounded-md text-text-secondary hover:text-text-primary transition-colors"
+                    className="px-5 py-4 bg-bg-tertiary border border-border-primary rounded-md text-text-secondary hover:text-text-primary transition-colors ease-out"
                     title="Random seed"
                   >
                     🎲
@@ -1006,7 +1006,7 @@ export const RockGenPage: React.FC = () => {
               <button
                 onClick={batchMode ? generateBatch : generateRock}
                 disabled={isGenerating}
-                className="w-full py-2 bg-primary hover:bg-primary-dark text-white rounded-md transition-all disabled:opacity-50"
+                className="w-full py-2 bg-primary hover:bg-primary-dark text-white rounded-md transition-all disabled:opacity-50 ease-out"
               >
                 {isGenerating
                   ? "Generating..."
@@ -1018,7 +1018,7 @@ export const RockGenPage: React.FC = () => {
           </div>
 
           {/* Saved Presets */}
-          <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
+          <div className="bg-bg-secondary rounded-lg p-5 border border-border-primary">
             <h3 className="font-semibold text-text-primary mb-3 flex items-center gap-2">
               <FolderOpen size={18} />
               Saved Presets
@@ -1043,7 +1043,7 @@ export const RockGenPage: React.FC = () => {
                     </button>
                     <button
                       onClick={() => deleteSavedPreset(savedPreset.id)}
-                      className="p-1 text-text-secondary hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="p-1 text-text-secondary hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity ease-out"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -1055,7 +1055,7 @@ export const RockGenPage: React.FC = () => {
 
           {/* Stats Panel */}
           {stats && (
-            <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
+            <div className="bg-bg-secondary rounded-lg p-5 border border-border-primary">
               <h3 className="font-semibold text-text-primary mb-3">
                 {batchMode ? "Batch Stats" : "Generation Stats"}
               </h3>
@@ -1089,7 +1089,7 @@ export const RockGenPage: React.FC = () => {
           )}
 
           {/* Impostor Settings */}
-          <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
+          <div className="bg-bg-secondary rounded-lg p-5 border border-border-primary">
             <h3 className="font-semibold text-text-primary mb-3 flex items-center gap-2">
               <Image size={18} />
               Impostor Settings
@@ -1108,7 +1108,7 @@ export const RockGenPage: React.FC = () => {
                       atlasSize: parseInt(e.target.value),
                     }))
                   }
-                  className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded-md text-text-primary text-sm"
+                  className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded-md text-text-primary text-sm"
                 >
                   <option value={512}>512px</option>
                   <option value={1024}>1024px</option>
@@ -1156,7 +1156,7 @@ export const RockGenPage: React.FC = () => {
               <button
                 onClick={generateImpostor}
                 disabled={isGeneratingImpostor || !currentRockRef.current}
-                className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-all disabled:opacity-50 flex items-center justify-center gap-2 ease-out"
               >
                 <Eye size={16} />
                 {isGeneratingImpostor ? "Generating..." : "Generate Impostor"}
@@ -1191,7 +1191,7 @@ export const RockGenPage: React.FC = () => {
                     clearImpostorPreview();
                     setShowImpostor(false);
                   }}
-                  className="w-full py-1.5 text-xs bg-bg-tertiary hover:bg-bg-primary text-text-secondary rounded transition-colors"
+                  className="w-full py-1.5 text-xs bg-bg-tertiary hover:bg-bg-primary text-text-secondary rounded transition-colors ease-out"
                 >
                   Hide Impostor
                 </button>
@@ -1201,7 +1201,7 @@ export const RockGenPage: React.FC = () => {
 
           {/* Batch Results Grid */}
           {batchMode && batchResults.length > 0 && (
-            <div className="bg-bg-secondary rounded-lg p-4 border border-border-primary">
+            <div className="bg-bg-secondary rounded-lg p-5 border border-border-primary">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold text-text-primary">Results</h3>
                 <button
@@ -1239,7 +1239,7 @@ export const RockGenPage: React.FC = () => {
                         `${preset}_${seed}-${selectedBatchIndex}.glb`,
                       )
                     }
-                    className="w-full py-1.5 text-xs bg-bg-tertiary hover:bg-bg-primary text-text-primary rounded transition-colors flex items-center justify-center gap-1"
+                    className="w-full py-1.5 text-xs bg-bg-tertiary hover:bg-bg-primary text-text-primary rounded transition-colors flex items-center justify-center gap-1 ease-out"
                   >
                     <Download size={12} />
                     Export Selected
@@ -1272,7 +1272,7 @@ export const RockGenPage: React.FC = () => {
               placeholder="Preset name..."
               value={newPresetName}
               onChange={(e) => setNewPresetName(e.target.value)}
-              className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded-md text-text-primary mb-4"
+              className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded-md text-text-primary mb-4"
               autoFocus
             />
             <div className="flex justify-end gap-2">

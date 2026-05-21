@@ -44,7 +44,7 @@ export function ValidationIssues() {
             ) : (
               <span className="font-medium text-amber-100">(manifest)</span>
             )}
-            <span className="ml-2 rounded bg-amber-700/30 px-1 py-0.5 text-[9px] uppercase tracking-wider">
+            <span className="ml-2 rounded bg-amber-700/30 px-1 py-0.5 text-[9px] uppercase tracking-[0.12em]">
               {issue.code}
             </span>
             <p className="mt-0.5 text-amber-200/90">{issue.message}</p>

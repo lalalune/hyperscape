@@ -202,8 +202,8 @@ const MaterialPresetItem: React.FC<{
         </div>
 
         {/* Enhanced Tooltip on Hover */}
-        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none z-50">
-          <div className="bg-bg-primary/95 border border-border-primary rounded-lg shadow-xl p-3 min-w-[200px] max-w-[300px]">
+        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 pointer-events-none z-50 ease-out">
+          <div className="bg-bg-primary/95 border border-border-primary rounded-lg shadow-xl p-5 min-w-[200px] max-w-[300px]">
             <p className="text-sm font-medium text-text-primary">
               {preset.displayName}
             </p>
@@ -220,13 +220,13 @@ const MaterialPresetItem: React.FC<{
 
       {/* Edit and Delete buttons */}
       {showEditDelete && (
-        <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+        <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 ease-out">
           <button
             onClick={(e) => {
               e.stopPropagation();
               onEdit();
             }}
-            className="p-1.5 hover:bg-bg-primary rounded-lg transition-colors"
+            className="p-1.5 hover:bg-bg-primary rounded-lg transition-colors ease-out"
             title="Edit preset"
           >
             <Edit2 className="w-3 h-3 text-text-secondary hover:text-primary" />
@@ -236,7 +236,7 @@ const MaterialPresetItem: React.FC<{
               e.stopPropagation();
               onDelete();
             }}
-            className="p-1.5 hover:bg-error/20 rounded-lg transition-colors"
+            className="p-1.5 hover:bg-error/20 rounded-lg transition-colors ease-out"
             title="Delete preset"
           >
             <Trash2 className="w-3 h-3 text-text-secondary hover:text-error" />

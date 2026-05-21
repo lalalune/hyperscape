@@ -649,7 +649,7 @@ export const RetargetAnimatePage: React.FC = () => {
           {vrmConverted && vrmUrl && (
             <button
               onClick={() => setShowVRMTestViewer(!showVRMTestViewer)}
-              className="px-3 py-2 rounded-md bg-bg-primary border border-border-primary text-text-primary hover:bg-bg-tertiary transition-colors text-sm"
+              className="px-5 py-4 rounded-md bg-bg-primary border border-border-primary text-text-primary hover:bg-bg-tertiary transition-colors text-sm ease-out"
             >
               {showVRMTestViewer ? "🎨 GLB Viewer" : "🎭 VRM Tester"}
             </button>
@@ -659,7 +659,7 @@ export const RetargetAnimatePage: React.FC = () => {
               setShowBones(!showBones);
               viewerRef.current?.toggleSkeleton();
             }}
-            className="px-3 py-2 rounded-md bg-bg-primary border border-border-primary text-text-primary hover:bg-bg-tertiary transition-colors text-sm"
+            className="px-5 py-4 rounded-md bg-bg-primary border border-border-primary text-text-primary hover:bg-bg-tertiary transition-colors text-sm ease-out"
           >
             {showBones ? "🦴 Hide Bones" : "🦴 Show Bones"}
           </button>

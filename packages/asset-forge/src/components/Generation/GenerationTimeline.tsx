@@ -29,13 +29,13 @@ export const GenerationTimeline: React.FC = () => {
       </CardHeader>
       <CardContent className="p-6">
         <div className="space-y-3">
-          <div className="flex justify-between items-center p-3 bg-bg-secondary/50 rounded-lg border border-border-primary/50">
+          <div className="flex justify-between items-center p-5 bg-bg-secondary/50 rounded-lg border border-border-primary/50">
             <span className="text-sm text-text-secondary">Started</span>
             <span className="text-sm font-medium text-text-primary">
               {new Date().toLocaleTimeString()}
             </span>
           </div>
-          <div className="flex justify-between items-center p-3 bg-bg-secondary/50 rounded-lg border border-border-primary/50">
+          <div className="flex justify-between items-center p-5 bg-bg-secondary/50 rounded-lg border border-border-primary/50">
             <span className="text-sm text-text-secondary">
               Estimated completion
             </span>

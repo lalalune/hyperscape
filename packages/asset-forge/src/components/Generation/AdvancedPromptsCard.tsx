@@ -112,7 +112,7 @@ export const AdvancedPromptsCard: React.FC<AdvancedPromptsCardProps> = ({
   return (
     <Card className="overflow-hidden bg-gradient-to-br from-bg-primary via-bg-primary to-primary/5 border-border-primary shadow-lg">
       <CardHeader
-        className="cursor-pointer select-none hover:bg-bg-secondary/30 transition-all duration-200"
+        className="cursor-pointer select-none hover:bg-bg-secondary/30 transition-all duration-300 ease-out"
         onClick={onToggleAdvancedPrompts}
       >
         <div className="flex items-center justify-between">
@@ -362,7 +362,7 @@ const InfoCard: React.FC<{
         {icon}
       </div>
       <div className="flex-1">
-        <p className="text-xs font-medium text-text-secondary uppercase tracking-wider">
+        <p className="text-xs font-medium text-text-secondary uppercase tracking-[0.12em]">
           {title}
         </p>
         <p className="text-sm text-text-primary mt-1">{content}</p>

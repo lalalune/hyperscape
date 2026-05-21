@@ -219,7 +219,7 @@ export function AgentBuilderForm({
   );
 
   return (
-    <div className="flex flex-col gap-2 p-3 border border-bg-tertiary rounded bg-bg-secondary">
+    <div className="flex flex-col gap-2 p-5 border border-bg-tertiary rounded bg-bg-secondary">
       <div className="text-sm font-semibold text-text-primary">
         Agent builder
       </div>

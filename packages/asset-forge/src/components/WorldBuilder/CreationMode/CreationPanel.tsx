@@ -54,7 +54,7 @@ const Section: React.FC<SectionProps> = ({
 }) => (
   <div className="border border-border-primary rounded-lg overflow-hidden">
     <button
-      className="w-full px-4 py-3 bg-bg-secondary flex items-center gap-2 hover:bg-bg-tertiary transition-colors"
+      className="w-full px-4 py-3 bg-bg-secondary flex items-center gap-2 hover:bg-bg-tertiary transition-colors ease-out"
       onClick={onToggle}
     >
       {expanded ? (
@@ -142,12 +142,12 @@ const ToggleInput: React.FC<ToggleInputProps> = ({
       onClick={() => onChange(!checked)}
       className={`relative w-11 h-6 rounded-full transition-colors ${
         checked ? "bg-primary" : "bg-bg-tertiary"
-      }`}
+      } ease-out`}
     >
       <span
         className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${
           checked ? "translate-x-5" : ""
-        }`}
+        } ease-out`}
       />
     </button>
   </div>
@@ -200,7 +200,7 @@ const ConfirmLockModal: React.FC<ConfirmLockModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="text-text-muted hover:text-text-primary transition-colors"
+            className="text-text-muted hover:text-text-primary transition-colors ease-out"
           >
             <X className="w-5 h-5" />
           </button>
@@ -422,7 +422,7 @@ export const CreationPanel: React.FC<CreationPanelProps> = ({
             <select
               value={selectedPreset || ""}
               onChange={(e) => handlePresetChange(e.target.value)}
-              className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-text-primary text-sm"
+              className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-text-primary text-sm"
             >
               <option value="">Custom Configuration</option>
               {presetOptions.map((preset) => (
@@ -452,7 +452,7 @@ export const CreationPanel: React.FC<CreationPanelProps> = ({
               type="number"
               value={config.seed}
               onChange={(e) => actions.setSeed(Number(e.target.value))}
-              className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-text-primary text-sm"
+              className="w-full px-5 py-4 bg-bg-tertiary border border-border-primary rounded text-text-primary text-sm"
             />
             <Button
               variant="secondary"
@@ -909,7 +909,7 @@ export const CreationPanel: React.FC<CreationPanelProps> = ({
                 !flyModeEnabled
                   ? "bg-primary text-white"
                   : "text-text-secondary hover:text-text-primary"
-              }`}
+              } ease-out`}
             >
               Select
             </button>
@@ -919,7 +919,7 @@ export const CreationPanel: React.FC<CreationPanelProps> = ({
                 flyModeEnabled
                   ? "bg-blue-500 text-white"
                   : "text-text-secondary hover:text-text-primary"
-              }`}
+              } ease-out`}
             >
               Fly
             </button>
@@ -938,12 +938,12 @@ export const CreationPanel: React.FC<CreationPanelProps> = ({
             onClick={() => onToggleVegetation?.(!showVegetation)}
             className={`relative w-10 h-5 rounded-full transition-colors ${
               showVegetation ? "bg-green-500" : "bg-bg-tertiary"
-            }`}
+            } ease-out`}
           >
             <span
               className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
                 showVegetation ? "translate-x-5" : "translate-x-0"
-              }`}
+              } ease-out`}
             />
           </button>
         </div>

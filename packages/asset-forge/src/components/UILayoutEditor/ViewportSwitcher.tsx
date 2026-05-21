@@ -56,7 +56,7 @@ export function ViewportSwitcher() {
             title={TITLES[v]}
             onClick={() => setActiveVariant(v)}
             className={
-              "rounded px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider transition-colors " +
+              "rounded px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.12em] transition-colors " +
               (active
                 ? "bg-primary/20 text-primary"
                 : "text-text-tertiary hover:bg-bg-tertiary hover:text-text-secondary")

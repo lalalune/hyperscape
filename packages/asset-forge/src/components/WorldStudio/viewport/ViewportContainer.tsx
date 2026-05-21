@@ -2128,7 +2128,7 @@ export function ViewportContainer() {
               playerMode
                 ? "bg-[rgba(212, 175, 55, 0.15)] text-primary border-primary/40 "
                 : "bg-[#141416] text-white/60 hover:text-white/80 border-[#1C1E22] hover:bg-[#1e1f28]"
-            }`}
+            } ease-out`}
             onClick={handleTogglePlayerMode}
             title="Player Preview (walk the world at eye height)"
           >

@@ -296,7 +296,7 @@ export function RegionProperties({ region }: Props) {
               {tag}
               <button
                 onClick={() => removeTag(tag)}
-                className="ml-0.5 text-text-tertiary hover:text-red-400 transition-colors"
+                className="ml-0.5 text-text-tertiary hover:text-red-400 transition-colors ease-out"
               >
                 <X size={8} />
               </button>
@@ -321,7 +321,7 @@ export function RegionProperties({ region }: Props) {
           />
           <button
             onClick={addTag}
-            className="px-1.5 py-0.5 text-[10px] rounded bg-primary/20 text-primary hover:bg-primary/30 transition-colors"
+            className="px-1.5 py-0.5 text-[10px] rounded bg-primary/20 text-primary hover:bg-primary/30 transition-colors ease-out"
           >
             <Plus size={10} />
           </button>
@@ -338,7 +338,7 @@ export function RegionProperties({ region }: Props) {
         <InfoRow label="Tile Size" value={`${tileSize}m`} />
         <div className="mt-1.5">
           <button
-            className="w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded text-[10px] font-medium bg-primary/20 text-primary hover:bg-primary/30 transition-colors"
+            className="w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded text-[10px] font-medium bg-primary/20 text-primary hover:bg-primary/30 transition-colors ease-out"
             onClick={() => {
               actions.startZonePaint(region.id);
               actions.setTool("zonePaint");
@@ -450,7 +450,7 @@ export function RegionProperties({ region }: Props) {
                   </div>
                   <button
                     onClick={() => removeMobEntry(entry.mobId)}
-                    className="p-0.5 text-text-tertiary hover:text-red-400 transition-colors flex-shrink-0"
+                    className="p-0.5 text-text-tertiary hover:text-red-400 transition-colors flex-shrink-0 ease-out"
                     title="Remove"
                   >
                     <Trash2 size={10} />
@@ -600,7 +600,7 @@ export function RegionProperties({ region }: Props) {
                   </div>
                   <button
                     onClick={() => removeResourceEntry(entry.resourceId)}
-                    className="p-0.5 text-text-tertiary hover:text-red-400 transition-colors flex-shrink-0"
+                    className="p-0.5 text-text-tertiary hover:text-red-400 transition-colors flex-shrink-0 ease-out"
                     title="Remove"
                   >
                     <Trash2 size={10} />
@@ -662,7 +662,7 @@ export function RegionProperties({ region }: Props) {
               </div>
               <button
                 onClick={() => removeStationEntry(entry.stationType)}
-                className="p-0.5 text-text-tertiary hover:text-red-400 transition-colors flex-shrink-0"
+                className="p-0.5 text-text-tertiary hover:text-red-400 transition-colors flex-shrink-0 ease-out"
                 title="Remove"
               >
                 <Trash2 size={10} />
@@ -728,7 +728,7 @@ export function RegionProperties({ region }: Props) {
 
           <div className="flex gap-1">
             <button
-              className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded text-[10px] font-medium bg-primary/20 text-primary hover:bg-primary/30 transition-colors"
+              className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded text-[10px] font-medium bg-primary/20 text-primary hover:bg-primary/30 transition-colors ease-out"
               onClick={() => {
                 const stats = generateAndCommit(region.id, procgenSeed);
                 setLastStats(stats);
@@ -745,7 +745,7 @@ export function RegionProperties({ region }: Props) {
             </button>
 
             <button
-              className="flex items-center justify-center gap-1 px-2 py-1.5 rounded text-[10px] font-medium bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+              className="flex items-center justify-center gap-1 px-2 py-1.5 rounded text-[10px] font-medium bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors ease-out"
               onClick={() => {
                 clearRegion(region.id);
                 setLastStats(null);
@@ -759,7 +759,7 @@ export function RegionProperties({ region }: Props) {
 
           {/* Validation */}
           <button
-            className="w-full flex items-center justify-center gap-1 px-2 py-1 rounded text-[10px] text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-colors"
+            className="w-full flex items-center justify-center gap-1 px-2 py-1 rounded text-[10px] text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-colors ease-out"
             onClick={() => setValidationWarnings(validate())}
           >
             <CheckCircle2 size={10} />
