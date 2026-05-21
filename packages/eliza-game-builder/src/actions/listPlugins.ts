@@ -60,6 +60,14 @@ const KNOWN_PLUGINS: ReadonlyArray<InstallablePlugin> = [
       "Minimal non-Hyperscape game plugin. Proves the engine can compose a different game than Hyperia. Contributes one ranged ability ('shoot') and a crosshair widget.",
     tags: ["demo", "acceptance-test", "shooter"],
   },
+  {
+    id: "com.hyperforge.plugin-arctic-survival",
+    npmName: "@hyperforge/plugin-arctic-survival",
+    name: "Arctic Survival",
+    description:
+      "Arctic-themed survival gameplay. Contributes a 'frost-blast' magic ability + a TemperatureGauge HUD widget + entityTypes for cold-weather content (heat_source, ice_block, frozen_cache, expedition_guide). Pairs naturally with the @hyperforge/content-pack-arctic-v1 content pack for a frozen-tundra exploration game.",
+    tags: ["demo", "survival", "arctic", "cold-weather"],
+  },
 ];
 
 export const listPluginsAction: Action = {
@@ -130,7 +138,7 @@ export const listPluginsAction: Action = {
       {
         name: "agent",
         content: {
-          text: "2 plugins available:\n  - com.hyperforge.hyperscape (Hyperia) — full RPG.\n  - com.hyperforge.plugin-shooter-demo (Shooter Demo) — minimal shooter.",
+          text: "3 plugins available:\n  - com.hyperforge.hyperscape (Hyperia) — full RPG.\n  - com.hyperforge.plugin-shooter-demo (Shooter Demo) — minimal shooter.\n  - com.hyperforge.plugin-arctic-survival (Arctic Survival) — cold-weather survival.",
           action: "LIST_PLUGINS",
         },
       },

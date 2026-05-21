@@ -51,6 +51,7 @@ describe("LIST_PLUGINS action", () => {
     const ids = data?.plugins.map((p) => p.id) ?? [];
     expect(ids).toContain("com.hyperforge.hyperscape");
     expect(ids).toContain("com.hyperforge.plugin-shooter-demo");
+    expect(ids).toContain("com.hyperforge.plugin-arctic-survival");
     expect(calls[0]?.action).toBe("LIST_PLUGINS");
     expect(r?.values?.count).toBe(data?.plugins.length);
   });
