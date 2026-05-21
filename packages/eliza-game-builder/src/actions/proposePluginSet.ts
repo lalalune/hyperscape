@@ -22,7 +22,8 @@
  *   3. Agent calls `PROPOSE_PLUGIN_SET` with the chosen ids
  *
  * Today's validation: each id must match the static known-plugins
- * list shipped in `listPlugins.ts` (Hyperia + shooter-demo).
+ * list shipped in `listPlugins.ts` (Hyperia + shooter-demo +
+ * arctic-survival).
  * Follow-up wires to `GET /api/plugins/installed` for dynamic
  * discovery once the agent server's deployment story is firm.
  */

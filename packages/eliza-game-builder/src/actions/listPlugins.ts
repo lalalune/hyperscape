@@ -7,7 +7,7 @@
  * surfaces for the user.
  *
  * Today's implementation surfaces a static list of known
- * first-party plugins (Hyperia + shooter-demo). The
+ * first-party plugins (Hyperia + shooter-demo + arctic-survival). The
  * `asset-forge` server already exposes a discovery endpoint
  * (`GET /api/plugins/installed`) backed by `PluginRegistryService`
  * that walks workspace + node_modules. A follow-up cut wires
