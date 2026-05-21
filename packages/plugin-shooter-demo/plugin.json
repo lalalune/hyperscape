@@ -2,7 +2,7 @@
   "id": "com.hyperforge.plugin-shooter-demo",
   "name": "Shooter Demo",
   "version": "0.1.0",
-  "description": "Minimal non-Hyperia game plugin. Proves the engine-layer infrastructure (gameplay-framework + combat plugin + server/client plugin boot) can compose a different game than Hyperia without any @hyperforge/shared modifications. Depends on @hyperforge/combat and contributes one ranged ability ('shoot'), arena-style biomes, and shooter-flavored entity types — symmetric to how @hyperforge/hyperscape depends on combat and contributes its tile-based MMORPG abilities.",
+  "description": "Minimal non-Hyperia game plugin. Proves the engine-layer infrastructure (gameplay-framework + combat plugin + server/client plugin boot) can compose a different game than Hyperia without any @hyperforge/shared modifications. Depends on @hyperforge/combat and contributes one ranged ability ('shoot'), arena-style biomes, and shooter-flavored entity types \u2014 symmetric to how @hyperforge/hyperscape depends on combat and contributes its tile-based MMORPG abilities.",
   "entry": "./dist/index.js",
   "author": {
     "name": "Hyperforge"
@@ -10,60 +10,84 @@
   "license": "GPL-3.0",
   "hyperforgeApi": "0.1.0",
   "dependencies": [
-    { "id": "com.hyperforge.combat", "versionRange": "^0.1.0" }
+    {
+      "id": "com.hyperforge.combat",
+      "versionRange": "^0.1.0"
+    }
   ],
-  "loadAfter": ["com.hyperforge.combat"],
+  "loadAfter": [
+    "com.hyperforge.combat"
+  ],
   "enabledByDefault": false,
   "contributions": {
     "systems": [],
     "entities": [],
-    "widgets": [],
+    "widgets": [
+      "com.hyperforge.shooter-demo.crosshair"
+    ],
     "manifestSchemas": [],
     "paletteCategories": [],
     "toolbarTools": [],
-    "commands": [],
+    "commands": [
+      "com.hyperforge.shooter-demo.commands.shoot"
+    ],
     "entityTypes": [
       {
         "kind": "npc",
         "type": "ammo_vendor",
         "description": "Sells ammo, weapons, and shooter consumables. Reads `storeId`.",
-        "requiredFields": ["storeId"],
-        "acceptedAssetTypes": ["character"]
+        "requiredFields": [
+          "storeId"
+        ],
+        "acceptedAssetTypes": [
+          "character"
+        ]
       },
       {
         "kind": "npc",
         "type": "match_host",
         "description": "Match-making NPC. Click to enter the queue for a deathmatch / arena round.",
         "requiredFields": [],
-        "acceptedAssetTypes": ["character"]
+        "acceptedAssetTypes": [
+          "character"
+        ]
       },
       {
         "kind": "mobSpawn",
         "type": "training_dummy",
         "description": "Stationary target for ranged practice. No retaliation; respawns on hit.",
         "requiredFields": [],
-        "acceptedAssetTypes": ["creature", "prop"]
+        "acceptedAssetTypes": [
+          "creature",
+          "prop"
+        ]
       },
       {
         "kind": "mobSpawn",
         "type": "drone",
         "description": "Mobile aerial target. Patrols a small radius; takes ranged damage.",
         "requiredFields": [],
-        "acceptedAssetTypes": ["creature"]
+        "acceptedAssetTypes": [
+          "creature"
+        ]
       },
       {
         "kind": "station",
         "type": "ammo_box",
         "description": "Pickup-station. Refills the player's primary-weapon ammo on interact.",
         "requiredFields": [],
-        "acceptedAssetTypes": ["prop"]
+        "acceptedAssetTypes": [
+          "prop"
+        ]
       },
       {
         "kind": "resource",
         "type": "scrap",
         "description": "Small interactive lootable that drops crafting scrap on hit.",
         "requiredFields": [],
-        "acceptedAssetTypes": ["prop"]
+        "acceptedAssetTypes": [
+          "prop"
+        ]
       }
     ],
     "biomes": [
@@ -73,7 +97,10 @@
         "color": 7368816,
         "terrainMultiplier": 0.4,
         "difficultyLevel": 0,
-        "heightRange": [0, 0.2],
+        "heightRange": [
+          0,
+          0.2
+        ],
         "maxSlope": 0.3,
         "resourceDensity": 0.2
       },
@@ -83,7 +110,10 @@
         "color": 10126450,
         "terrainMultiplier": 0.7,
         "difficultyLevel": 1,
-        "heightRange": [0, 0.5],
+        "heightRange": [
+          0,
+          0.5
+        ],
         "maxSlope": 0.8,
         "resourceDensity": 0.5
       },
@@ -93,11 +123,18 @@
         "color": 13154454,
         "terrainMultiplier": 0.6,
         "difficultyLevel": 2,
-        "heightRange": [0.1, 0.6],
+        "heightRange": [
+          0.1,
+          0.6
+        ],
         "maxSlope": 1,
         "resourceDensity": 0.3
       }
     ]
   },
-  "tags": ["demo", "acceptance-test", "shooter"]
+  "tags": [
+    "demo",
+    "acceptance-test",
+    "shooter"
+  ]
 }
