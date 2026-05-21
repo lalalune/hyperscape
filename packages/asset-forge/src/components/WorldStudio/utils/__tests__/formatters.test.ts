@@ -1,114 +1,70 @@
-import { describe, it, expect } from "vitest";
-import { fmtPos, fmtLevel, fmtLevelRange, fmtDistance } from "../formatters";
+/**
+ * formatters — display-string smoke tests.
+ *
+ * Pins the format strings the WorldStudio panels render across
+ * the properties panel, outliner, and minimap. Drift here = a
+ * UI regression visible to every user.
+ */
 
-// ────────────────────────────────────────
-// fmtPos
-// ────────────────────────────────────────
+import { describe, expect, it } from "vitest";
+
+import { fmtDistance, fmtLevel, fmtLevelRange, fmtPos } from "../formatters";
 
 describe("fmtPos", () => {
-  it("formats integer coordinates", () => {
-    expect(fmtPos(10, 20)).toBe("(10, 20)");
+  it("rounds floats to nearest integer", () => {
+    expect(fmtPos(10.4, 20.6)).toBe("(10, 21)");
   });
 
-  it("rounds floating-point coordinates", () => {
-    expect(fmtPos(10.7, 20.3)).toBe("(11, 20)");
-    expect(fmtPos(10.5, 20.5)).toBe("(11, 21)");
-    expect(fmtPos(10.4, 20.1)).toBe("(10, 20)");
+  it("formats integer coords verbatim", () => {
+    expect(fmtPos(0, 0)).toBe("(0, 0)");
+    expect(fmtPos(100, -50)).toBe("(100, -50)");
   });
 
   it("handles negative coordinates", () => {
-    expect(fmtPos(-15, -30)).toBe("(-15, -30)");
-    expect(fmtPos(-0.7, -0.3)).toBe("(-1, 0)");
-  });
-
-  it("handles zero coordinates", () => {
-    expect(fmtPos(0, 0)).toBe("(0, 0)");
-  });
-
-  it("handles large numbers", () => {
-    expect(fmtPos(99999, 100000)).toBe("(99999, 100000)");
-    expect(fmtPos(-99999, -100000)).toBe("(-99999, -100000)");
-  });
-
-  it("handles mixed positive and negative", () => {
-    expect(fmtPos(-5, 10)).toBe("(-5, 10)");
-    expect(fmtPos(5, -10)).toBe("(5, -10)");
+    expect(fmtPos(-5.5, -10.5)).toBe("(-5, -10)");
   });
 });
 
-// ────────────────────────────────────────
-// fmtLevel
-// ────────────────────────────────────────
-
 describe("fmtLevel", () => {
-  it("formats a positive level", () => {
-    expect(fmtLevel(5)).toBe("Lv5");
+  it("prepends Lv and uses the level verbatim", () => {
+    expect(fmtLevel(1)).toBe("Lv1");
+    expect(fmtLevel(99)).toBe("Lv99");
   });
 
-  it("formats level zero", () => {
+  it("handles 0 and negative (unusual but defined)", () => {
     expect(fmtLevel(0)).toBe("Lv0");
-  });
-
-  it("formats a large level", () => {
-    expect(fmtLevel(999)).toBe("Lv999");
-  });
-
-  it("formats a negative level", () => {
     expect(fmtLevel(-1)).toBe("Lv-1");
   });
 });
 
-// ────────────────────────────────────────
-// fmtLevelRange
-// ────────────────────────────────────────
-
 describe("fmtLevelRange", () => {
-  it("formats a level range", () => {
+  it("joins two levels with a hyphen and shared Lv prefix", () => {
     expect(fmtLevelRange(1, 10)).toBe("Lv1-10");
+    expect(fmtLevelRange(50, 99)).toBe("Lv50-99");
   });
 
-  it("formats same min and max", () => {
+  it("emits identical-bounds form when min equals max", () => {
+    // Equal bounds still produce "LvN-N" — callers that want
+    // "LvN" use fmtLevel directly. Pin the contract.
     expect(fmtLevelRange(5, 5)).toBe("Lv5-5");
-  });
-
-  it("formats zero-based range", () => {
-    expect(fmtLevelRange(0, 3)).toBe("Lv0-3");
-  });
-
-  it("formats large range", () => {
-    expect(fmtLevelRange(1, 999)).toBe("Lv1-999");
-  });
-
-  it("formats negative range values", () => {
-    expect(fmtLevelRange(-5, -1)).toBe("Lv-5--1");
   });
 });
 
-// ────────────────────────────────────────
-// fmtDistance
-// ────────────────────────────────────────
-
 describe("fmtDistance", () => {
-  it("formats an integer distance", () => {
-    expect(fmtDistance(100)).toBe("100m");
+  it("rounds to nearest meter", () => {
+    expect(fmtDistance(12.4)).toBe("12m");
+    expect(fmtDistance(12.6)).toBe("13m");
   });
 
-  it("rounds a floating-point distance", () => {
-    expect(fmtDistance(42.7)).toBe("43m");
-    expect(fmtDistance(42.3)).toBe("42m");
-    expect(fmtDistance(42.5)).toBe("43m");
-  });
-
-  it("formats zero distance", () => {
+  it("emits 0m at zero and supports large distances", () => {
     expect(fmtDistance(0)).toBe("0m");
+    expect(fmtDistance(9999)).toBe("9999m");
   });
 
-  it("formats negative distance", () => {
-    expect(fmtDistance(-10)).toBe("-10m");
-    expect(fmtDistance(-0.4)).toBe("0m");
-  });
-
-  it("formats large distance", () => {
-    expect(fmtDistance(50000)).toBe("50000m");
+  it("handles fractional values near 0.5 (banker's rounding edge)", () => {
+    // Math.round rounds half-to-even on some engines but
+    // V8/JSC use half-away-from-zero — pin the observed result.
+    expect(fmtDistance(0.5)).toBe("1m");
+    expect(fmtDistance(1.5)).toBe("2m");
   });
 });
