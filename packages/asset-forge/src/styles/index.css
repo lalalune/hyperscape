@@ -1,11 +1,16 @@
-/* Main CSS entry point - Design System + App Styles */
+/* Main CSS entry point — FORGE / HyperForge Design System + app styles.
+ *
+ * Applies the brand guide at
+ * `.claude/skills/forge-design-system/SKILL.md` — "the engine beneath
+ * infinite worlds". Obsidian black dominates, Forge Gold is the
+ * earned accent, secondary accents (orange/blue/violet/verdant) appear
+ * only at environmental moments. Token-level values mirror
+ * `src/styles/tokens.ts`; both files are the canonical source. */
 
-/* Web fonts — Inter for UI, JetBrains Mono for data */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
-
-/* Design System Base Styles
-   Foundation layer that applies design tokens as CSS variables
-   This file should be imported at the root of the application */
+/* Web fonts — Manrope (premium sans), Fraunces (editorial serif display),
+ * JetBrains Mono (computational data). Replaces Inter (on the brand-guide
+ * "avoid" list as a generic tech default). */
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -14,73 +19,91 @@
 /* CSS Variables from Design Tokens */
 @layer base {
   :root {
-    /* Brand Colors */
-    --color-primary: #6366f1;
-    --color-primary-dark: #4f46e5;
-    --color-primary-light: #818cf8;
-    --color-secondary: #8b5cf6;
-    --color-secondary-dark: #7c3aed;
-    --color-secondary-light: #a78bfa;
-    
-    /* Semantic Colors */
-    --color-success: #10b981;
-    --color-success-light: #34d399;
-    --color-success-dark: #059669;
-    --color-warning: #f59e0b;
-    --color-warning-light: #fbbf24;
-    --color-warning-dark: #d97706;
-    --color-error: #ef4444;
-    --color-error-light: #f87171;
-    --color-error-dark: #dc2626;
-    --color-info: #3b82f6;
-    --color-info-light: #60a5fa;
-    --color-info-dark: #2563eb;
-    
-    /* Typography */
-    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    /* Brand — Forge Gold (the earned accent). Used SPARINGLY. */
+    --color-primary: #D4AF37;
+    --color-primary-dark: #B8941F;
+    --color-primary-light: #E8C760;
+    --color-primary-rgb: 212, 175, 55;
+    /* Secondary — Aether Blue (rendering / compute / AI / network).
+     * Not a "secondary brand" — an environmental accent. */
+    --color-secondary: #2D8CFF;
+    --color-secondary-dark: #1E6BCC;
+    --color-secondary-light: #5BA6FF;
+    --color-secondary-rgb: 45, 140, 255;
+
+    /* Secondary accent system — environmental tones, very sparing. */
+    --color-accent-ember: #FF7A00;
+    --color-accent-ember-rgb: 255, 122, 0;
+    --color-accent-void: #6D3AFF;
+    --color-accent-void-rgb: 109, 58, 255;
+    --color-accent-verdant: #28D47A;
+    --color-accent-verdant-rgb: 40, 212, 122;
+
+    /* Semantic Colors — tuned to the brand palette (Verdant for
+     * success, Ember for warning, Aether for info). */
+    --color-success: #28D47A;
+    --color-success-light: #4FDD96;
+    --color-success-dark: #1FA862;
+    --color-warning: #FF7A00;
+    --color-warning-light: #FF9933;
+    --color-warning-dark: #CC6200;
+    --color-error: #E84A4A;
+    --color-error-light: #F06B6B;
+    --color-error-dark: #C13434;
+    --color-info: #2D8CFF;
+    --color-info-light: #5BA6FF;
+    --color-info-dark: #1E6BCC;
+
+    /* Typography — Manrope (sans) + Fraunces (display) + JetBrains
+     * Mono (data). Inter retired per brand-guide avoid list. */
+    --font-sans: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    --font-display: 'Fraunces', 'Newsreader', 'Iowan Old Style', Georgia, serif;
     --font-mono: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
-    
-    /* Animation */
-    --duration-fast: 150ms;
-    --duration-base: 200ms;
-    --duration-slow: 300ms;
-    --easing-out: cubic-bezier(0, 0, 0.2, 1);
-    --easing-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* Animation — slightly heavier than typical SaaS to read as
+     * deliberate / infrastructural per the motion-system mandate. */
+    --duration-fast: 180ms;
+    --duration-base: 240ms;
+    --duration-slow: 360ms;
+    --easing-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --easing-in-out: cubic-bezier(0.65, 0, 0.35, 1);
   }
-  
-  /* Dark Theme (Default) — cool undertone for layered depth */
+
+  /* Dark Theme (Default) — Obsidian Black dominates, Graphite for
+   * surfaces, Ember White for typography. */
   :root {
-    --bg-primary: #0c0d10;
-    --bg-secondary: #141518;
-    --bg-tertiary: #1c1d22;
-    --bg-card: #141518;
-    --bg-hover: #22232a;
-    --bg-elevated: #1e1f26;
+    --bg-primary: #0B0B0D;   /* Obsidian Black — app shell */
+    --bg-secondary: #141416; /* between Obsidian and Graphite — cards */
+    --bg-tertiary: #1C1E22;  /* Graphite — panels / sidebars */
+    --bg-card: #141416;
+    --bg-hover: #25272C;     /* one step above Graphite */
+    --bg-elevated: #1C1E22;
 
-    --text-primary: #e8e9ed;
-    --text-secondary: #9a9caa;
-    --text-tertiary: #636577;
-    --text-muted: #464860;
+    --text-primary: #F5F5F5; /* Ember White — never harsh white */
+    --text-secondary: #B0B0B5;
+    --text-tertiary: #7A7A82;
+    --text-muted: #54545C;
 
-    --border-primary: #1e2028;
-    --border-secondary: #2a2d38;
-    --border-hover: #3a3d4a;
+    /* Borders barely visible by design — soft Graphite edges. */
+    --border-primary: #1C1E22;
+    --border-secondary: #2A2D34;
+    --border-hover: #3A3D45;
 
-    /* Surface highlight (subtle 1px top edge on panels) */
-    --surface-highlight: rgba(255, 255, 255, 0.04);
-    --surface-highlight-strong: rgba(255, 255, 255, 0.07);
+    /* Surface highlight (subtle 1px top edge on panels) — Ember-tinted */
+    --surface-highlight: rgba(245, 245, 245, 0.04);
+    --surface-highlight-strong: rgba(245, 245, 245, 0.07);
 
-    /* Dark theme shadows — cooler, deeper */
-    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.2);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.3);
-    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+    /* Dark theme shadows — Obsidian-tinted, heavier (machined feel). */
+    --shadow-sm: 0 1px 2px 0 rgba(11, 11, 13, 0.6);
+    --shadow-md: 0 4px 6px -1px rgba(11, 11, 13, 0.6), 0 2px 4px -2px rgba(11, 11, 13, 0.35);
+    --shadow-lg: 0 10px 20px -3px rgba(11, 11, 13, 0.7), 0 4px 6px -4px rgba(11, 11, 13, 0.4);
+    --shadow-xl: 0 20px 30px -5px rgba(11, 11, 13, 0.75), 0 8px 12px -6px rgba(11, 11, 13, 0.45);
 
-    /* Input recess depth */
-    --input-bg: #0e0f13;
-    --input-border: #1a1b22;
-    --input-border-hover: #282a35;
-    --input-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+    /* Input recess depth — Obsidian-tinted */
+    --input-bg: #0D0E10;
+    --input-border: #1C1E22;
+    --input-border-hover: #2A2D34;
+    --input-shadow: inset 0 1px 2px rgba(11, 11, 13, 0.45);
   }
   
   /* Light Theme */

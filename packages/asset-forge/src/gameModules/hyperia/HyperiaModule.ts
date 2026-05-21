@@ -1201,7 +1201,10 @@ export const HyperiaModule: GameModule = {
       id: "musicZone",
       name: "Music Zone",
       icon: "Music",
-      color: "#6366f1",
+      // Void Violet — procedural / dimensional / abstract systems.
+      // Music zones are dimensional / atmospheric overlays, so the
+      // void-violet environmental accent reads correctly here.
+      color: "#6D3AFF",
       paletteCategory: "audio",
       outlinerLayer: "audio",
       selectionType: "musicZone",

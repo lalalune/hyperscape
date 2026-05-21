@@ -1,41 +1,104 @@
-// Design Tokens - Single Source of Truth for Design System
-// These tokens ensure consistency across all components and replace scattered CSS variables
+// Design Tokens — Single Source of Truth for the FORGE / HyperForge UI.
+//
+// Applies the brand guide at `.claude/skills/forge-design-system/SKILL.md`:
+//   "the engine beneath infinite worlds" — cinematic, infrastructural,
+//   restrained. Obsidian + graphite dominate (70%); ember white carries
+//   typography (20%); Forge Gold is the earned-feel accent (8%); the
+//   secondary accent system (orange / blue / violet / verdant) is used
+//   very sparingly (2%) for environmental moments.
+//
+// Every component reads these tokens (directly or via the CSS-variable
+// theme layer). A single edit here flows through 2,000+ consumer sites.
 
 export const colors = {
-  // Primary colors
+  // Forge Gold — the earned-feel brand accent.
+  // Used SPARINGLY for active states, selected nav, premium moments,
+  // identity moments. Too much gold destroys the brand.
   primary: {
-    DEFAULT: "#6366f1",
-    light: "#818cf8",
-    dark: "#4f46e5",
-    rgb: "99, 102, 241", // For opacity usage
+    DEFAULT: "#D4AF37",
+    light: "#E8C760",
+    dark: "#B8941F",
+    rgb: "212, 175, 55", // For opacity usage
   },
+  // Aether Blue — rendering / compute / infrastructure accent.
+  // Used for data-visualization highlights, AI/compute system
+  // indicators, network layers. Not a "secondary brand" — it's an
+  // environmental accent in the brand-guide secondary system.
   secondary: {
-    DEFAULT: "#8b5cf6",
-    light: "#a78bfa",
-    dark: "#7c3aed",
-    rgb: "139, 92, 246",
+    DEFAULT: "#2D8CFF",
+    light: "#5BA6FF",
+    dark: "#1E6BCC",
+    rgb: "45, 140, 255",
   },
 
-  // Dark Theme Colors (Default) — subtle cool undertone for depth
+  // The full secondary accent system, exported as a named group so
+  // components can request a specific environmental tone without
+  // collapsing onto the generic `primary` / `secondary` slots.
+  accent: {
+    // Ember Orange — runtime energy / active forging / ignition /
+    // generation. Only for engine-active moments; never dominant.
+    ember: {
+      DEFAULT: "#FF7A00",
+      light: "#FF9933",
+      dark: "#CC6200",
+      rgb: "255, 122, 0",
+    },
+    // Void Violet — procedural systems / infinite simulation /
+    // dimensional environments / abstract intelligence.
+    void: {
+      DEFAULT: "#6D3AFF",
+      light: "#8B5FFF",
+      dark: "#5527CC",
+      rgb: "109, 58, 255",
+    },
+    // Verdant — ecosystems / emergence / living systems / world
+    // simulation. Environmental systems only.
+    verdant: {
+      DEFAULT: "#28D47A",
+      light: "#4FDD96",
+      dark: "#1FA862",
+      rgb: "40, 212, 122",
+    },
+  },
+
+  // Dark Theme — Obsidian Black dominating, Graphite for surfaces.
+  // The brand-guide 70% comes from these two values + the natural
+  // negative space between them.
   dark: {
-    "bg-primary": "#0c0d10",
-    "bg-secondary": "#141518",
-    "bg-tertiary": "#1c1d22",
-    "bg-card": "#141518",
-    "bg-hover": "#22232a",
-    "bg-elevated": "#1e1f26",
+    // Obsidian Black — primary background. Dominates the app shell,
+    // dashboards, fullscreen environments, navigation backgrounds.
+    "bg-primary": "#0B0B0D",
+    // Between Obsidian and Graphite — used for cards / containers
+    // that need to read as "elevated above the shell" but not yet
+    // at full Graphite weight.
+    "bg-secondary": "#141416",
+    // Graphite — cards / panels / sidebars / elevated surfaces.
+    "bg-tertiary": "#1C1E22",
+    "bg-card": "#141416",
+    // Subtle hover lift — one step above Graphite. Keeps the
+    // architectural-depth feel without flashing on hover.
+    "bg-hover": "#25272C",
+    "bg-elevated": "#1C1E22",
 
-    "text-primary": "#e8e9ed",
-    "text-secondary": "#9a9caa",
-    "text-tertiary": "#636577",
-    "text-muted": "#464860",
+    // Ember White — typography. Never harsh white. Reads as soft
+    // and premium across every panel surface.
+    "text-primary": "#F5F5F5",
+    // Warm-tilted neutrals so secondary copy reads as restrained
+    // and editorial, not cool/clinical.
+    "text-secondary": "#B0B0B5",
+    "text-tertiary": "#7A7A82",
+    "text-muted": "#54545C",
 
-    "border-primary": "#1e2028",
-    "border-secondary": "#2a2d38",
-    "border-hover": "#3a3d4a",
+    // Borders are barely visible by design — Graphite reading as a
+    // soft edge against Obsidian. The "subtle borders / faint edge
+    // lighting" mandate from the guide.
+    "border-primary": "#1C1E22",
+    "border-secondary": "#2A2D34",
+    "border-hover": "#3A3D45",
   },
 
-  // Light Theme Colors (Future)
+  // Light Theme — preserved for future. NOT the canonical FORGE look;
+  // brand identity lives in the dark theme.
   light: {
     "bg-primary": "#ffffff",
     "bg-secondary": "#f9fafb",
@@ -54,27 +117,30 @@ export const colors = {
     "border-hover": "#9ca3af",
   },
 
-  // Semantic Colors
+  // Semantic Colors — outcome tone (success / warning / error / info).
+  // Tuned to read with the same restrained, cinematic feel as the
+  // primary palette: deeper saturations than typical SaaS green/red,
+  // not the bright trading-UI saturations the guide warns against.
   semantic: {
-    success: "#10b981",
-    "success-light": "#34d399",
-    "success-dark": "#059669",
-    "success-bg": "rgba(16, 185, 129, 0.1)",
+    success: "#28D47A", // Aligned with Verdant
+    "success-light": "#4FDD96",
+    "success-dark": "#1FA862",
+    "success-bg": "rgba(40, 212, 122, 0.1)",
 
-    warning: "#f59e0b",
-    "warning-light": "#fbbf24",
-    "warning-dark": "#d97706",
-    "warning-bg": "rgba(245, 158, 11, 0.1)",
+    warning: "#FF7A00", // Aligned with Ember Orange
+    "warning-light": "#FF9933",
+    "warning-dark": "#CC6200",
+    "warning-bg": "rgba(255, 122, 0, 0.1)",
 
-    error: "#ef4444",
-    "error-light": "#f87171",
-    "error-dark": "#dc2626",
-    "error-bg": "rgba(239, 68, 68, 0.1)",
+    error: "#E84A4A",
+    "error-light": "#F06B6B",
+    "error-dark": "#C13434",
+    "error-bg": "rgba(232, 74, 74, 0.1)",
 
-    info: "#3b82f6",
-    "info-light": "#60a5fa",
-    "info-dark": "#2563eb",
-    "info-bg": "rgba(59, 130, 246, 0.1)",
+    info: "#2D8CFF", // Aligned with Aether Blue
+    "info-light": "#5BA6FF",
+    "info-dark": "#1E6BCC",
+    "info-bg": "rgba(45, 140, 255, 0.1)",
   },
 
   // Utility Colors
@@ -82,16 +148,16 @@ export const colors = {
     white: "#ffffff",
     black: "#000000",
     transparent: "transparent",
-    "overlay-dark": "rgba(0, 0, 0, 0.5)",
-    "overlay-light": "rgba(255, 255, 255, 0.5)",
+    "overlay-dark": "rgba(11, 11, 13, 0.78)", // Obsidian-tinted overlay
+    "overlay-light": "rgba(245, 245, 245, 0.5)",
   },
 
   // UI Colors (alias for semantic colors for compatibility)
   ui: {
-    success: "#10b981",
-    warning: "#f59e0b",
-    error: "#ef4444",
-    info: "#3b82f6",
+    success: "#28D47A",
+    warning: "#FF7A00",
+    error: "#E84A4A",
+    info: "#2D8CFF",
   },
 } as const;
 
@@ -141,7 +207,18 @@ export const borderRadius = {
 
 export const typography = {
   fontFamily: {
-    sans: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", sans-serif',
+    // Manrope — refined geometric sans with editorial weight.
+    // Replaces Inter (on the brand-guide "avoid" list as a generic
+    // tech default). Manrope reads as premium engineering tooling —
+    // closer to Apple Pro / Linear / Notion editorial sensibility.
+    sans: '"Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
+    // Fraunces — variable serif with editorial / cinematic energy.
+    // Used for display-scale headings, hero copy, premium moments.
+    // Combines the "elegant serif hybrid" mandate with restraint
+    // (it has subtle modulation, not aggressive sci-fi).
+    display: '"Fraunces", "Newsreader", "Iowan Old Style", Georgia, serif',
+    // JetBrains Mono — kept for code / data / numeric display.
+    // Aligns with the "computational / engineered" feel.
     mono: '"JetBrains Mono", "SF Mono", "Cascadia Code", "Fira Code", monospace',
   },
 
@@ -189,23 +266,30 @@ export const typography = {
 
 export const effects = {
   boxShadow: {
-    sm: "0 1px 2px 0 rgba(0, 0, 0, 0.4)",
-    md: "0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.2)",
-    lg: "0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.3)",
-    xl: "0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 8px 10px -6px rgba(0, 0, 0, 0.3)",
-    "2xl": "0 25px 50px -12px rgba(0, 0, 0, 0.7)",
-    inner: "inset 0 1px 3px 0 rgba(0, 0, 0, 0.4)",
+    // Heavier, more infrastructural shadows — Obsidian-tinted instead
+    // of pure black. Per the brand guide, surfaces should feel
+    // "machined" / "premium" rather than glowing or floating.
+    sm: "0 1px 2px 0 rgba(11, 11, 13, 0.6)",
+    md: "0 4px 6px -1px rgba(11, 11, 13, 0.6), 0 2px 4px -2px rgba(11, 11, 13, 0.35)",
+    lg: "0 10px 20px -3px rgba(11, 11, 13, 0.7), 0 4px 6px -4px rgba(11, 11, 13, 0.4)",
+    xl: "0 20px 30px -5px rgba(11, 11, 13, 0.75), 0 8px 12px -6px rgba(11, 11, 13, 0.45)",
+    "2xl": "0 25px 50px -12px rgba(11, 11, 13, 0.85)",
+    inner: "inset 0 1px 3px 0 rgba(11, 11, 13, 0.5)",
     none: "none",
 
-    // Special shadows
-    "glow-primary": `0 0 20px ${colors.primary.DEFAULT}30, 0 0 6px ${colors.primary.DEFAULT}20`,
-    "glow-secondary": `0 0 20px ${colors.secondary.DEFAULT}30, 0 0 6px ${colors.secondary.DEFAULT}20`,
+    // Forge Gold glow — used VERY sparingly for the "earned moment"
+    // (selected nav item, active CTA). Toned down from the prior
+    // indigo glow so it reads as edge-lighting, not a halo.
+    "glow-primary": `0 0 18px ${colors.primary.DEFAULT}28, 0 0 4px ${colors.primary.DEFAULT}18`,
+    "glow-secondary": `0 0 18px ${colors.secondary.DEFAULT}28, 0 0 4px ${colors.secondary.DEFAULT}18`,
+    // Architectural elevation — each step pairs a deeper drop shadow
+    // with a fainter 1px Ember-White ring to read as machined edge.
     "elevation-1":
-      "0 2px 4px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.03)",
+      "0 2px 4px rgba(11, 11, 13, 0.55), 0 0 0 1px rgba(245, 245, 245, 0.04)",
     "elevation-2":
-      "0 4px 12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.04)",
+      "0 4px 12px rgba(11, 11, 13, 0.65), 0 0 0 1px rgba(245, 245, 245, 0.05)",
     "elevation-3":
-      "0 8px 24px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05)",
+      "0 8px 24px rgba(11, 11, 13, 0.75), 0 0 0 1px rgba(245, 245, 245, 0.06)",
   },
 
   opacity: {
@@ -230,18 +314,24 @@ export const effects = {
 export const animation = {
   duration: {
     instant: "0ms",
-    fast: "150ms",
-    base: "200ms",
-    slow: "300ms",
-    slower: "500ms",
-    slowest: "1000ms",
+    // Slightly longer base than typical SaaS to read as "deliberate /
+    // heavy / infrastructural" per the brand-guide motion direction.
+    fast: "180ms",
+    base: "240ms",
+    slow: "360ms",
+    slower: "560ms",
+    slowest: "1100ms",
   },
 
   easing: {
     linear: "linear",
     in: "cubic-bezier(0.4, 0, 1, 1)",
-    out: "cubic-bezier(0, 0, 0.2, 1)",
-    inOut: "cubic-bezier(0.4, 0, 0.2, 1)",
+    // Slow, weighty ease-out for cinematic reveals (panels sliding
+    // in, modals opening). Heavier than the default ease-out.
+    out: "cubic-bezier(0.16, 1, 0.3, 1)",
+    inOut: "cubic-bezier(0.65, 0, 0.35, 1)",
+    // Kept as a token for legacy callers but the brand guide
+    // explicitly discourages bouncy motion. Prefer `out` / `inOut`.
     bounce: "cubic-bezier(0.68, -0.55, 0.265, 1.55)",
   },
 
@@ -250,11 +340,11 @@ export const animation = {
     spin: "spin 1s linear infinite",
     pulse: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
     bounce: "bounce 1s infinite",
-    fadeIn: "fadeIn 0.2s ease-out",
-    fadeOut: "fadeOut 0.2s ease-in",
-    slideUp: "slideUp 0.3s ease-out",
-    slideDown: "slideDown 0.3s ease-out",
-    scaleIn: "scaleIn 0.2s ease-out",
+    fadeIn: "fadeIn 0.24s cubic-bezier(0.16, 1, 0.3, 1)",
+    fadeOut: "fadeOut 0.18s cubic-bezier(0.4, 0, 1, 1)",
+    slideUp: "slideUp 0.36s cubic-bezier(0.16, 1, 0.3, 1)",
+    slideDown: "slideDown 0.36s cubic-bezier(0.16, 1, 0.3, 1)",
+    scaleIn: "scaleIn 0.24s cubic-bezier(0.16, 1, 0.3, 1)",
     shimmer: "shimmer 2s linear infinite",
   },
 } as const;
@@ -320,6 +410,14 @@ export function generateCSSVariables(darkMode = true) {
     "--color-secondary-light": colors.secondary.light,
     "--color-secondary-rgb": colors.secondary.rgb,
 
+    // Accent system — sparingly used environmental tones
+    "--color-accent-ember": colors.accent.ember.DEFAULT,
+    "--color-accent-ember-rgb": colors.accent.ember.rgb,
+    "--color-accent-void": colors.accent.void.DEFAULT,
+    "--color-accent-void-rgb": colors.accent.void.rgb,
+    "--color-accent-verdant": colors.accent.verdant.DEFAULT,
+    "--color-accent-verdant-rgb": colors.accent.verdant.rgb,
+
     // Theme colors
     "--bg-primary": themeColors["bg-primary"],
     "--bg-secondary": themeColors["bg-secondary"],
@@ -351,6 +449,7 @@ export function generateCSSVariables(darkMode = true) {
 
     // Typography
     "--font-sans": typography.fontFamily.sans,
+    "--font-display": typography.fontFamily.display,
     "--font-mono": typography.fontFamily.mono,
 
     // Effects

@@ -181,7 +181,9 @@ export function ForgeAuthProvider({ children }: { children: React.ReactNode }) {
         loginMethods: ["email", "google", "wallet"],
         appearance: {
           theme: "dark",
-          accentColor: "#6366f1",
+          // Forge Gold — the brand-identity accent (primary in tokens.ts).
+          // Authentication is a brand-identity moment.
+          accentColor: "#D4AF37",
           walletChainType: "ethereum-only",
           walletList: [
             "metamask",
