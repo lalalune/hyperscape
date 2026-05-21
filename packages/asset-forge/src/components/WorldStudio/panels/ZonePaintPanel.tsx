@@ -170,13 +170,13 @@ export function ZonePaintPanel() {
                     className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer transition-colors group ${
                       isActive
                         ? "bg-primary/15 ring-1 ring-primary/30"
-                        : "hover:bg-white/[0.04]"
+                        : "hover:bg-bg-tertiary/40"
                     }`}
                     onClick={() => selectZone(region.id)}
                   >
                     {/* Color indicator */}
                     <div
-                      className="w-3 h-3 rounded-sm flex-shrink-0 border border-white/20"
+                      className="w-3 h-3 rounded-sm flex-shrink-0 border border-border-secondary"
                       style={{ backgroundColor: color }}
                     />
 
@@ -258,7 +258,7 @@ export function ZonePaintPanel() {
                       className={`px-2 py-1.5 rounded text-[10px] font-medium transition-colors ${
                         zonePaint.brushSize === size
                           ? "bg-primary/20 text-primary ring-1 ring-primary/30"
-                          : "bg-bg-tertiary text-text-secondary hover:text-text-primary hover:bg-white/[0.06]"
+                          : "bg-bg-tertiary text-text-secondary hover:text-text-primary hover:bg-bg-tertiary/60"
                       }`}
                       onClick={() => actions.setZoneBrushSize(size)}
                       title={`${size}\u00D7${size} tiles = ${meters}m \u00D7 ${meters}m`}
@@ -285,7 +285,7 @@ export function ZonePaintPanel() {
                   className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded text-[11px] font-medium transition-colors ${
                     zonePaint.mode === "paint"
                       ? "bg-primary/20 text-primary ring-1 ring-primary/30"
-                      : "bg-bg-tertiary text-text-secondary hover:text-text-primary hover:bg-white/[0.06]"
+                      : "bg-bg-tertiary text-text-secondary hover:text-text-primary hover:bg-bg-tertiary/60"
                   }`}
                   onClick={() => actions.setZonePaintMode("paint")}
                   title="Paint tiles (E to toggle)"
@@ -297,7 +297,7 @@ export function ZonePaintPanel() {
                   className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded text-[11px] font-medium transition-colors ${
                     zonePaint.mode === "erase"
                       ? "bg-red-500/20 text-red-400 ring-1 ring-red-500/30"
-                      : "bg-bg-tertiary text-text-secondary hover:text-text-primary hover:bg-white/[0.06]"
+                      : "bg-bg-tertiary text-text-secondary hover:text-text-primary hover:bg-bg-tertiary/60"
                   }`}
                   onClick={() => actions.setZonePaintMode("erase")}
                   title="Erase tiles (E to toggle)"

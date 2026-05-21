@@ -394,7 +394,7 @@ export const ShellGeneratorTab: React.FC<ShellGeneratorTabProps> = ({
               onClick={handleExtract}
               disabled={isExtracting || selectedSlots.size === 0}
               className="w-full px-4 py-2.5 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2
-                bg-primary text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+ bg-primary text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isExtracting ? (
                 <>
@@ -413,7 +413,7 @@ export const ShellGeneratorTab: React.FC<ShellGeneratorTabProps> = ({
               <button
                 onClick={toggleWireframe}
                 className="flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
-                  bg-bg-secondary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary"
+ bg-bg-secondary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary"
               >
                 {showWireframe ? <EyeOff size={14} /> : <Grid3x3 size={14} />}
                 Wireframe
@@ -423,8 +423,8 @@ export const ShellGeneratorTab: React.FC<ShellGeneratorTabProps> = ({
                 onClick={handleExportShell}
                 disabled={!result}
                 className="flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
-                  bg-bg-secondary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary
-                  disabled:opacity-50 disabled:cursor-not-allowed"
+ bg-bg-secondary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary
+ disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Download size={14} />
                 Export GLB
@@ -439,7 +439,7 @@ export const ShellGeneratorTab: React.FC<ShellGeneratorTabProps> = ({
                 setError(null);
               }}
               className="w-full px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
-                bg-bg-secondary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary"
+ bg-bg-secondary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary"
             >
               <RotateCcw size={14} />
               Reset

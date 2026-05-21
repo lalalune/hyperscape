@@ -106,7 +106,7 @@ export function GameSettingsDialog({ open, onClose }: GameSettingsDialogProps) {
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-border-primary">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-sky-500/20 to-indigo-500/20 border border-sky-500/30 flex items-center justify-center">
+            <div className="w-7 h-7 rounded-lg bg-bg-tertiary border border-border-primary flex items-center justify-center">
               <Gamepad2 size={14} className="text-sky-400" />
             </div>
             <div>

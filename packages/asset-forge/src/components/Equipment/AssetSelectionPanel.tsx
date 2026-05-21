@@ -149,7 +149,7 @@ export const AssetSelectionPanel: React.FC<AssetSelectionPanelProps> = ({
             className={cn(
               "flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
               assetTypeFilter === "avatar"
-                ? "bg-primary/80 text-white shadow-lg shadow-primary/20"
+                ? "bg-primary/80 text-white"
                 : "text-text-secondary hover:text-text-primary hover:bg-bg-tertiary/20",
             )}
           >
@@ -161,7 +161,7 @@ export const AssetSelectionPanel: React.FC<AssetSelectionPanelProps> = ({
             className={cn(
               "flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
               assetTypeFilter === "equipment"
-                ? "bg-primary/80 text-white shadow-lg shadow-primary/20"
+                ? "bg-primary/80 text-white"
                 : "text-text-secondary hover:text-text-primary hover:bg-bg-tertiary/20",
             )}
           >
@@ -174,7 +174,7 @@ export const AssetSelectionPanel: React.FC<AssetSelectionPanelProps> = ({
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
         {/* Search */}
-        <div className="p-4 sticky top-0 bg-bg-primary bg-opacity-95 z-10 backdrop-blur-sm">
+        <div className="p-4 sticky top-0 bg-bg-primary bg-opacity-95 z-10 ">
           <div className="relative">
             <Search
               className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary"
@@ -227,8 +227,8 @@ export const AssetSelectionPanel: React.FC<AssetSelectionPanelProps> = ({
                     className={cn(
                       "w-full p-4 rounded-xl border transition-all duration-200 text-left group",
                       selectedAvatar?.id === asset.id
-                        ? "bg-primary/20 border-primary shadow-md shadow-primary/20"
-                        : "bg-bg-tertiary/20 border-white/10 hover:border-white/20 hover:bg-bg-tertiary/30",
+                        ? "bg-primary/20 border-primary "
+                        : "bg-bg-tertiary/20 border-border-primary hover:border-border-secondary hover:bg-bg-tertiary/30",
                     )}
                   >
                     <div className="flex items-center justify-between">
@@ -244,7 +244,7 @@ export const AssetSelectionPanel: React.FC<AssetSelectionPanelProps> = ({
                             <Badge
                               variant="secondary"
                               size="sm"
-                              className="capitalize bg-bg-tertiary/50 text-text-secondary border border-white/10"
+                              className="capitalize bg-bg-tertiary/50 text-text-secondary border border-border-primary"
                             >
                               {asset.type}
                             </Badge>
@@ -310,8 +310,8 @@ export const AssetSelectionPanel: React.FC<AssetSelectionPanelProps> = ({
                               className={cn(
                                 "w-full p-4 rounded-xl border transition-all duration-200 text-left group",
                                 selectedEquipment?.id === asset.id
-                                  ? "bg-primary/20 border-primary shadow-md shadow-primary/20"
-                                  : "bg-bg-tertiary/20 border-white/10 hover:border-white/20 hover:bg-bg-tertiary/30",
+                                  ? "bg-primary/20 border-primary "
+                                  : "bg-bg-tertiary/20 border-border-primary hover:border-border-secondary hover:bg-bg-tertiary/30",
                               )}
                             >
                               <div className="flex items-center justify-between">
@@ -327,7 +327,7 @@ export const AssetSelectionPanel: React.FC<AssetSelectionPanelProps> = ({
                                       <Badge
                                         variant="secondary"
                                         size="sm"
-                                        className="capitalize bg-bg-tertiary/50 text-text-secondary border border-white/10"
+                                        className="capitalize bg-bg-tertiary/50 text-text-secondary border border-border-primary"
                                       >
                                         {asset.type}
                                       </Badge>

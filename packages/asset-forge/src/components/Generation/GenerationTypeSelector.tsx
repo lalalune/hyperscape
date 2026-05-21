@@ -10,7 +10,7 @@ export const GenerationTypeSelector: React.FC<GenerationTypeSelectorProps> = ({
 }) => {
   return (
     <div className="h-screen flex items-center justify-center bg-gradient-to-br from-bg-primary to-bg-secondary overflow-hidden">
-      <div className="bg-bg-primary bg-opacity-50 backdrop-blur-xl rounded-2xl p-8 shadow-2xl border border-border-primary max-w-2xl w-full animate-scale-in">
+      <div className="bg-bg-primary bg-opacity-50 rounded-2xl p-8 shadow-2xl border border-border-primary max-w-2xl w-full animate-scale-in">
         <h1 className="text-3xl font-bold text-text-primary text-center mb-2">
           What would you like to create?
         </h1>
@@ -22,7 +22,7 @@ export const GenerationTypeSelector: React.FC<GenerationTypeSelectorProps> = ({
           {/* Items Card */}
           <button
             onClick={() => onSelectType("item")}
-            className="group relative bg-bg-secondary hover:bg-bg-tertiary border border-border-primary hover:border-primary rounded-xl p-8 transition-all duration-300 hover:scale-105 hover:shadow-xl"
+            className="group relative bg-bg-secondary hover:bg-bg-tertiary border border-border-primary hover:border-primary rounded-xl p-8 transition-all duration-300 hover:shadow-xl"
           >
             <div className="flex flex-col items-center space-y-4">
               <div className="w-20 h-20 bg-primary bg-opacity-10 rounded-full flex items-center justify-center group-hover:bg-opacity-20 transition-all">
@@ -53,7 +53,7 @@ export const GenerationTypeSelector: React.FC<GenerationTypeSelectorProps> = ({
           {/* Avatars Card */}
           <button
             onClick={() => onSelectType("avatar")}
-            className="group relative bg-bg-secondary hover:bg-bg-tertiary border border-border-primary hover:border-secondary rounded-xl p-8 transition-all duration-300 hover:scale-105 hover:shadow-xl"
+            className="group relative bg-bg-secondary hover:bg-bg-tertiary border border-border-primary hover:border-secondary rounded-xl p-8 transition-all duration-300 hover:shadow-xl"
           >
             <div className="flex flex-col items-center space-y-4">
               <div className="w-20 h-20 bg-secondary bg-opacity-10 rounded-full flex items-center justify-center group-hover:bg-opacity-20 transition-all">

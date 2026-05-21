@@ -36,8 +36,8 @@ export const CreatureSizeControls: React.FC<CreatureSizeControlsProps> = ({
   onReset,
 }) => {
   return (
-    <div className="bg-bg-primary/40 backdrop-blur-sm rounded-xl border border-white/10 overflow-hidden">
-      <div className="p-4 border-b border-white/5">
+    <div className="bg-bg-primary/40 rounded-xl border border-border-primary overflow-hidden">
+      <div className="p-4 border-b border-border-primary">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-primary/20 rounded-lg">
             <Ruler className="w-5 h-5 text-primary" />
@@ -72,8 +72,8 @@ export const CreatureSizeControls: React.FC<CreatureSizeControlsProps> = ({
                 className={cn(
                   "px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center",
                   creatureCategory === preset.category
-                    ? "bg-primary/80 text-white shadow-lg shadow-primary/20"
-                    : "bg-bg-tertiary/20 text-text-secondary hover:text-text-primary hover:bg-bg-tertiary/30 border border-white/10",
+                    ? "bg-primary/80 text-white"
+                    : "bg-bg-tertiary/20 text-text-secondary hover:text-text-primary hover:bg-bg-tertiary/30 border border-border-primary",
                 )}
               >
                 <span className="text-xs font-medium">{preset.name}</span>
@@ -143,7 +143,7 @@ export const CreatureSizeControls: React.FC<CreatureSizeControlsProps> = ({
           )}
 
           {autoScaleWeapon && selectedEquipment && (
-            <div className="p-3 bg-bg-tertiary/20 rounded-lg border border-white/10 space-y-2">
+            <div className="p-3 bg-bg-tertiary/20 rounded-lg border border-border-primary space-y-2">
               <p className="text-xs text-text-tertiary flex items-center gap-1">
                 <Info size={12} />
                 Recommended weapons for{" "}

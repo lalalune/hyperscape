@@ -31,8 +31,8 @@ export const BatchProgressOverlay: React.FC<BatchProgressOverlayProps> = ({
   const percentage = Math.round((progress.current / progress.total) * 100);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-bg-primary border border-white/10 rounded-2xl shadow-2xl p-6 w-96 space-y-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 ">
+      <div className="bg-bg-primary border border-border-primary rounded-2xl shadow-2xl p-6 w-96 space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-text-primary">
             Applying Fitting Config
@@ -103,14 +103,14 @@ export const BatchReviewBar: React.FC<BatchReviewBarProps> = ({
   const allExported = exportedCount === total;
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 z-20 bg-bg-primary/90 backdrop-blur-md border-t border-white/10">
+    <div className="absolute bottom-0 left-0 right-0 z-20 bg-bg-primary/90 border-t border-border-primary">
       <div className="px-4 py-3 flex items-center gap-3">
         {/* Navigation */}
         <button
           onClick={onPrev}
           disabled={review.currentIndex === 0 || review.isExporting}
           className={cn(
-            "p-2 rounded-lg border border-white/10 text-text-secondary hover:text-text-primary hover:bg-bg-tertiary/30 transition-colors",
+            "p-2 rounded-lg border border-border-primary text-text-secondary hover:text-text-primary hover:bg-bg-tertiary/30 transition-colors",
             (review.currentIndex === 0 || review.isExporting) &&
               "opacity-40 cursor-not-allowed",
           )}
@@ -157,7 +157,7 @@ export const BatchReviewBar: React.FC<BatchReviewBarProps> = ({
           onClick={onNext}
           disabled={review.currentIndex === total - 1 || review.isExporting}
           className={cn(
-            "p-2 rounded-lg border border-white/10 text-text-secondary hover:text-text-primary hover:bg-bg-tertiary/30 transition-colors",
+            "p-2 rounded-lg border border-border-primary text-text-secondary hover:text-text-primary hover:bg-bg-tertiary/30 transition-colors",
             (review.currentIndex === total - 1 || review.isExporting) &&
               "opacity-40 cursor-not-allowed",
           )}
@@ -166,7 +166,7 @@ export const BatchReviewBar: React.FC<BatchReviewBarProps> = ({
         </button>
 
         {/* Divider */}
-        <div className="w-px h-8 bg-white/10" />
+        <div className="w-px h-8 bg-bg-tertiary" />
 
         {/* Actions */}
         {review.isExporting ? (
@@ -202,7 +202,7 @@ export const BatchReviewBar: React.FC<BatchReviewBarProps> = ({
                 "px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-all",
                 allExported
                   ? "bg-primary/80 text-white hover:bg-primary"
-                  : "bg-bg-secondary/50 border border-white/10 text-text-primary hover:bg-bg-secondary/70",
+                  : "bg-bg-secondary/50 border border-border-primary text-text-primary hover:bg-bg-secondary/70",
               )}
             >
               {allExported ? (

@@ -14,7 +14,7 @@ export const ErrorNotification: React.FC<ErrorNotificationProps> = ({
 }) => {
   return (
     <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 animate-slide-down">
-      <Card className="bg-red-500/10 border-red-500/20 backdrop-blur-md">
+      <Card className="bg-red-500/10 border-red-500/20 ">
         <CardContent className="py-3 px-4">
           <div className="flex items-center gap-3">
             <AlertCircle size={20} className="text-red-400" />

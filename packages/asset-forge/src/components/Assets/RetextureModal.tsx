@@ -381,8 +381,7 @@ const RetextureModal: React.FC<RetextureModalProps> = ({
                 className={cn(
                   "cursor-pointer text-center relative",
                   patterns.clickable,
-                  selectedPresets.includes(preset) &&
-                    "ring-2 ring-primary ring-offset-2",
+                  selectedPresets.includes(preset) && "ring-1 ring-primary/40 ",
                 )}
                 onClick={() => {
                   setSelectedPresets((prev) =>

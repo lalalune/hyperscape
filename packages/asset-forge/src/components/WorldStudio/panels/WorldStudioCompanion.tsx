@@ -956,7 +956,7 @@ function CompanionInner({ projectId }: { projectId: string }) {
                         key={ci}
                         type="button"
                         onClick={() => void sendPrompt(c.prompt)}
-                        className="group inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-full bg-gradient-to-br from-primary/20 to-primary/10 ring-1 ring-primary/40 text-text-primary hover:ring-primary/60 hover:shadow-sm hover:shadow-primary/10 transition-all"
+                        className="group inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-full bg-gradient-to-br from-primary/20 to-primary/10 ring-1 ring-primary/40 text-text-primary hover:ring-primary/60 transition-all"
                       >
                         <span>{c.label}</span>
                         <ArrowRight
@@ -1002,7 +1002,7 @@ function CompanionInner({ projectId }: { projectId: string }) {
         onSubmit={sendMessage}
         className="px-3 py-2.5 bg-gradient-to-t from-bg-secondary/60 to-transparent"
       >
-        <div className="relative flex items-end gap-2 rounded-lg bg-bg-tertiary ring-1 ring-white/[0.06] focus-within:ring-2 focus-within:ring-primary/40 focus-within:bg-bg-primary/40 transition-all shadow-sm">
+        <div className="relative flex items-end gap-2 rounded-lg bg-bg-tertiary ring-1 ring-white/[0.06] focus-within:ring-1 focus-within:ring-primary/40 focus-within:bg-bg-primary/40 transition-all shadow-sm">
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -1048,7 +1048,7 @@ function ChatBubble({ message }: { message: ChatMessage }) {
   if (isUser) {
     return (
       <div className="flex justify-end pl-8">
-        <div className="max-w-[88%] px-3 py-2 rounded-2xl rounded-tr-md bg-gradient-to-br from-primary/25 to-primary/15 text-text-primary text-[12px] leading-relaxed whitespace-pre-wrap border border-primary/25 shadow-sm shadow-primary/10">
+        <div className="max-w-[88%] px-3 py-2 rounded-2xl rounded-tr-md bg-gradient-to-br from-primary/25 to-primary/15 text-text-primary text-[12px] leading-relaxed whitespace-pre-wrap border border-primary/25 ">
           {message.text}
         </div>
       </div>
@@ -1066,11 +1066,8 @@ function ChatBubble({ message }: { message: ChatMessage }) {
 
 function CompanionAgentAvatar({ pulsing = false }: { pulsing?: boolean }) {
   return (
-    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-gradient-to-br from-primary/40 to-primary/10 flex items-center justify-center mt-0.5 ring-1 ring-primary/30 shadow-sm shadow-primary/20">
-      <Sparkles
-        size={10}
-        className={`text-primary ${pulsing ? "animate-pulse" : ""}`}
-      />
+    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-gradient-to-br from-primary/40 to-primary/10 flex items-center justify-center mt-0.5 ring-1 ring-primary/30 ">
+      <Sparkles size={10} className={`text-primary ${pulsing ? "" : ""}`} />
     </div>
   );
 }
@@ -1083,15 +1080,15 @@ function TypingIndicator({ status }: { status: string | null }) {
         <div className="flex items-center gap-2">
           <span className="flex items-center gap-1">
             <span
-              className="w-1.5 h-1.5 rounded-full bg-primary/70 animate-bounce"
+              className="w-1.5 h-1.5 rounded-full bg-primary/70 "
               style={{ animationDelay: "0ms" }}
             />
             <span
-              className="w-1.5 h-1.5 rounded-full bg-primary/70 animate-bounce"
+              className="w-1.5 h-1.5 rounded-full bg-primary/70 "
               style={{ animationDelay: "150ms" }}
             />
             <span
-              className="w-1.5 h-1.5 rounded-full bg-primary/70 animate-bounce"
+              className="w-1.5 h-1.5 rounded-full bg-primary/70 "
               style={{ animationDelay: "300ms" }}
             />
           </span>

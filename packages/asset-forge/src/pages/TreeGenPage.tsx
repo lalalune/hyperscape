@@ -2661,7 +2661,7 @@ export const TreeGenPage: React.FC = () => {
               {!showLODPreview && !batchMode && (
                 <div className="mb-3 p-2 bg-green-900/30 border border-green-600/50 rounded-md">
                   <div className="text-xs font-semibold text-green-400 flex items-center gap-1">
-                    <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                    <span className="w-2 h-2 bg-green-400 rounded-full "></span>
                     WebGPU Instanced Rendering
                   </div>
                   <p className="text-xs text-green-300/80 mt-1">

@@ -124,7 +124,7 @@ export const ViewportSection: React.FC<ViewportSectionProps> = ({
                 variant={showSkeleton ? "primary" : "secondary"}
                 onClick={() => setShowSkeleton(!showSkeleton)}
                 title="Toggle skeleton"
-                className="backdrop-blur-sm"
+                className=""
               >
                 <Grid3X3 size={18} />
               </Button>
@@ -133,7 +133,7 @@ export const ViewportSection: React.FC<ViewportSectionProps> = ({
                 variant="secondary"
                 onClick={() => viewerRef.current?.resetCamera?.()}
                 title="Reset camera"
-                className="backdrop-blur-sm"
+                className=""
               >
                 <Camera size={18} />
               </Button>
@@ -143,7 +143,7 @@ export const ViewportSection: React.FC<ViewportSectionProps> = ({
             {selectedAvatar &&
               hasAnimations(selectedAvatar) &&
               selectedAvatar.metadata.animations?.basic && (
-                <Card className="absolute bottom-4 left-4 right-4 bg-bg-tertiary/80 backdrop-blur-md border border-white/10">
+                <Card className="absolute bottom-4 left-4 right-4 bg-bg-tertiary/80 border border-border-primary">
                   <CardContent className="py-3">
                     <div className="flex items-center justify-between gap-4">
                       <div className="flex items-center gap-3">

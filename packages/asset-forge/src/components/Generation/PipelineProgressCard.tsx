@@ -97,7 +97,7 @@ export const PipelineProgressCard: React.FC<PipelineProgressCardProps> = ({
             onClick={onBackToConfig}
             disabled={isGenerating}
             size="lg"
-            className="shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
+            className="shadow-lg hover:shadow-xl transition-all"
           >
             Back to Configuration
           </Button>
@@ -162,7 +162,7 @@ const PipelineStageItem: React.FC<{
           <div
             className={cn(
               "p-2.5 rounded-xl transition-all",
-              isActive && "bg-primary/10 animate-pulse",
+              isActive && "bg-primary/10 ",
               isComplete && "bg-success/10",
               isFailed && "bg-error/10",
               isSkipped && "bg-bg-tertiary/50",
@@ -201,7 +201,7 @@ const PipelineStageItem: React.FC<{
         {isActive && (
           <div className="flex items-center gap-2">
             <Progress value={50} className="w-24 h-1.5" />
-            <span className="text-xs font-medium text-primary animate-pulse">
+            <span className="text-xs font-medium text-primary ">
               Processing...
             </span>
           </div>

@@ -101,7 +101,7 @@ export function AnchorPicker({
               onClick={() => onChange(anchor)}
               onKeyDown={(e) => onKeyDown(e, i)}
               className={
-                "flex h-6 w-6 items-center justify-center rounded-sm outline-none transition-colors focus:ring-1 focus:ring-primary " +
+                "flex h-6 w-6 items-center justify-center rounded-sm outline-none transition-colors focus:ring-1 focus:ring-primary/40 " +
                 (isActive
                   ? "bg-primary/20 hover:bg-primary/30"
                   : "hover:bg-bg-tertiary")

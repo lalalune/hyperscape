@@ -115,8 +115,8 @@ export function HandAvatarSelector() {
                 className={cn(
                   "w-full p-4 rounded-xl border transition-all duration-200 text-left group",
                   selectedAvatar?.id === avatar.id
-                    ? "bg-primary/20 border-primary shadow-md shadow-primary/20"
-                    : "bg-bg-tertiary/20 border-white/10 hover:border-white/20 hover:bg-bg-tertiary/30",
+                    ? "bg-primary/20 border-primary "
+                    : "bg-bg-tertiary/20 border-border-primary hover:border-border-secondary hover:bg-bg-tertiary/30",
                 )}
               >
                 <div className="flex items-center justify-between">
@@ -128,7 +128,7 @@ export function HandAvatarSelector() {
                       <Badge
                         variant="secondary"
                         size="sm"
-                        className="capitalize bg-bg-tertiary/50 text-text-secondary border border-white/10"
+                        className="capitalize bg-bg-tertiary/50 text-text-secondary border border-border-primary"
                       >
                         {avatar.type}
                       </Badge>

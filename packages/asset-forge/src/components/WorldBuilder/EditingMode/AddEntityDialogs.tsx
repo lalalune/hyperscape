@@ -52,10 +52,7 @@ const Modal: React.FC<ModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black/60 " onClick={onClose} />
 
       {/* Modal */}
       <div className="relative bg-bg-secondary border border-border-primary rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
@@ -112,7 +109,7 @@ const TextInput: React.FC<{
     onChange={(e) => onChange(e.target.value)}
     placeholder={placeholder}
     required={required}
-    className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-text-primary text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+    className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-text-primary text-sm focus:outline-none focus:ring-1 focus:ring-primary/40"
   />
 );
 
@@ -130,7 +127,7 @@ const NumberInput: React.FC<{
     min={min}
     max={max}
     step={step}
-    className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-text-primary text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+    className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-text-primary text-sm focus:outline-none focus:ring-1 focus:ring-primary/40"
   />
 );
 
@@ -143,7 +140,7 @@ const SelectInput: React.FC<{
   <select
     value={value}
     onChange={(e) => onChange(e.target.value)}
-    className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-text-primary text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+    className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-text-primary text-sm focus:outline-none focus:ring-1 focus:ring-primary/40"
   >
     {placeholder && (
       <option value="" disabled>
@@ -527,7 +524,7 @@ export const AddQuestDialog: React.FC<AddQuestDialogProps> = ({
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Quest description..."
             rows={3}
-            className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-text-primary text-sm resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-text-primary text-sm resize-none focus:outline-none focus:ring-1 focus:ring-primary/40"
           />
         </Field>
 
@@ -1086,7 +1083,7 @@ export const AddLoreDialog: React.FC<AddLoreDialogProps> = ({
             onChange={(e) => setContent(e.target.value)}
             placeholder="Enter the lore content..."
             rows={5}
-            className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+            className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-primary/40 resize-none"
           />
         </Field>
 

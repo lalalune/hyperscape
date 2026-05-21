@@ -180,7 +180,7 @@ export const ArmorFittingControls: React.FC<ArmorFittingControlsProps> = ({
                   "p-3 rounded-lg border transition-all duration-200 flex flex-col items-center gap-1.5",
                   equipmentSlot === slot.id
                     ? "bg-primary/10 border-primary"
-                    : "bg-bg-secondary/40 border-white/10 hover:border-white/20",
+                    : "bg-bg-secondary/40 border-border-primary hover:border-border-secondary",
                 )}
               >
                 <div
@@ -703,7 +703,7 @@ export const ArmorFittingControls: React.FC<ArmorFittingControlsProps> = ({
                 "px-2 py-1.5 rounded text-xs font-medium transition-all",
                 currentAnimation === "tpose"
                   ? "bg-primary text-white"
-                  : "bg-bg-tertiary text-text-secondary hover:bg-white/10",
+                  : "bg-bg-tertiary text-text-secondary hover:bg-bg-tertiary",
               )}
             >
               T-Pose
@@ -714,7 +714,7 @@ export const ArmorFittingControls: React.FC<ArmorFittingControlsProps> = ({
                 "px-2 py-1.5 rounded text-xs font-medium transition-all",
                 currentAnimation === "walking"
                   ? "bg-primary text-white"
-                  : "bg-bg-tertiary text-text-secondary hover:bg-white/10",
+                  : "bg-bg-tertiary text-text-secondary hover:bg-bg-tertiary",
               )}
             >
               Walk
@@ -725,7 +725,7 @@ export const ArmorFittingControls: React.FC<ArmorFittingControlsProps> = ({
                 "px-2 py-1.5 rounded text-xs font-medium transition-all",
                 currentAnimation === "running"
                   ? "bg-primary text-white"
-                  : "bg-bg-tertiary text-text-secondary hover:bg-white/10",
+                  : "bg-bg-tertiary text-text-secondary hover:bg-bg-tertiary",
               )}
             >
               Run

@@ -864,7 +864,7 @@ export const EntityPalette = React.memo(function EntityPalette() {
       <PaletteHeader viewMode={viewMode} onViewModeChange={setViewMode} />
 
       {/* Search */}
-      <div className="px-2 py-1.5 border-b border-white/[0.06]">
+      <div className="px-2 py-1.5 border-b border-border-primary">
         <div className="relative">
           <Search
             size={11}
@@ -873,7 +873,7 @@ export const EntityPalette = React.memo(function EntityPalette() {
           <input
             type="text"
             placeholder="Search entities..."
-            className="w-full pl-6.5 pr-2 py-1.5 text-xs bg-white/[0.03] border border-transparent rounded text-text-primary placeholder:text-text-tertiary/50 focus:outline-none focus:border-primary/30 focus:bg-white/[0.05] transition-colors"
+            className="w-full pl-6.5 pr-2 py-1.5 text-xs bg-bg-tertiary/40 border border-transparent rounded text-text-primary placeholder:text-text-tertiary/50 focus:outline-none focus:border-primary/30 focus:bg-bg-tertiary/50 transition-colors"
             style={{ paddingLeft: "1.625rem" }}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -886,13 +886,13 @@ export const EntityPalette = React.memo(function EntityPalette() {
         <div className="mx-2.5 mt-2 mb-0 px-2.5 py-2 bg-primary/10 border border-primary/20 rounded-md">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+              <div className="w-1.5 h-1.5 rounded-full bg-primary " />
               <span className="text-[11px] text-primary font-medium">
                 Placing: {activePlacement.templateName}
               </span>
             </div>
             <button
-              className="text-[10px] text-text-tertiary hover:text-text-primary px-1.5 py-0.5 rounded hover:bg-white/[0.05] transition-colors"
+              className="text-[10px] text-text-tertiary hover:text-text-primary px-1.5 py-0.5 rounded hover:bg-bg-tertiary/50 transition-colors"
               onClick={actions.cancelPlacement}
             >
               ESC
@@ -1002,12 +1002,12 @@ function PaletteHeader({
   onViewModeChange: (mode: "list" | "grid") => void;
 }) {
   return (
-    <div className="flex items-center gap-2 px-3 py-2 border-b border-white/[0.06]">
+    <div className="flex items-center gap-2 px-3 py-2 border-b border-border-primary">
       <Shield size={13} className="text-primary/70" />
       <span className="text-[11px] font-semibold text-text-tertiary uppercase tracking-wider flex-1">
         Entity Palette
       </span>
-      <div className="flex items-center gap-px rounded-md p-px bg-white/[0.04]">
+      <div className="flex items-center gap-px rounded-md p-px bg-bg-tertiary/40">
         <button
           className={`p-1 rounded transition-colors ${viewMode === "list" ? "text-primary bg-primary/15" : "text-text-tertiary hover:text-text-secondary"}`}
           onClick={() => onViewModeChange("list")}
@@ -1048,7 +1048,7 @@ function PaletteItemRow({
       className={`group w-full flex items-center gap-2.5 px-2 py-1 text-left transition-all cursor-pointer rounded-md ${
         isActive
           ? "bg-primary/15 ring-1 ring-primary/30"
-          : "hover:bg-white/[0.03]"
+          : "hover:bg-bg-tertiary/40"
       }`}
       onClick={onClick}
       draggable
@@ -1107,7 +1107,7 @@ function PaletteItemCard({
       className={`group flex flex-col items-center p-1.5 rounded-lg cursor-pointer transition-all ${
         isActive
           ? "ring-1 ring-primary/40 bg-primary/10"
-          : "hover:bg-white/[0.04] ring-1 ring-transparent hover:ring-white/[0.06]"
+          : "hover:bg-bg-tertiary/40 ring-1 ring-transparent hover:ring-white/[0.06]"
       }`}
       onClick={onClick}
       draggable

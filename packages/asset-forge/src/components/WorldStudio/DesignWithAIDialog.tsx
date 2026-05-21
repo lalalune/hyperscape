@@ -1380,7 +1380,7 @@ export function DesignWithAIDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-stretch justify-center bg-black/70 backdrop-blur-md design-ai-backdrop-in"
+      className="fixed inset-0 z-[100] flex items-stretch justify-center bg-black/70 design-ai-backdrop-in"
       role="dialog"
       aria-modal="true"
     >
@@ -1417,12 +1417,12 @@ export function DesignWithAIDialog({
           background-clip: padding-box;
         }
       `}</style>
-      <div className="w-full max-w-6xl flex flex-col bg-bg-primary border-x border-white/[0.06] shadow-2xl design-ai-panel-in">
+      <div className="w-full max-w-6xl flex flex-col bg-bg-primary border-x border-border-primary shadow-2xl design-ai-panel-in">
         {/* ── Header ─────────────────────────────────────── */}
         <div className="bg-gradient-to-b from-bg-secondary/60 to-transparent">
           <div className="flex items-center justify-between px-6 pt-5 pb-3">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center ring-1 ring-primary/30 shadow-sm shadow-primary/20">
+              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center ring-1 ring-primary/30 ">
                 <Sparkles size={16} className="text-primary" />
               </div>
               <div>
@@ -1482,7 +1482,7 @@ export function DesignWithAIDialog({
                   <div
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium ring-1 transition-all duration-300 ${
                       set
-                        ? "bg-primary/15 text-text-primary ring-primary/40 shadow-sm shadow-primary/10"
+                        ? "bg-primary/15 text-text-primary ring-primary/40 "
                         : "bg-bg-tertiary/60 text-text-tertiary ring-white/[0.05]"
                     }`}
                   >
@@ -1595,7 +1595,7 @@ export function DesignWithAIDialog({
                             type="button"
                             onClick={() => void sendPrompt(c.prompt)}
                             disabled={pending || isCreatingProject}
-                            className="group inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium rounded-full bg-gradient-to-br from-primary/20 to-primary/10 ring-1 ring-primary/40 text-text-primary hover:from-primary/30 hover:to-primary/20 hover:ring-primary/60 hover:shadow-md hover:shadow-primary/15 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                            className="group inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium rounded-full bg-gradient-to-br from-primary/20 to-primary/10 ring-1 ring-primary/40 text-text-primary hover:from-primary/30 hover:to-primary/20 hover:ring-primary/60 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                           >
                             <span>{c.label}</span>
                             <ArrowRight
@@ -1636,8 +1636,8 @@ export function DesignWithAIDialog({
                               className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 text-[12px] font-semibold rounded-lg text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all ${
                                 countSetSlots(effectivePlan) ===
                                 PLAN_SLOTS.length
-                                  ? "bg-gradient-to-br from-primary via-primary to-primary/90 shadow-lg shadow-primary/40 hover:shadow-xl hover:shadow-primary/50 ring-1 ring-primary/40"
-                                  : "bg-gradient-to-br from-primary to-primary/85 shadow-md shadow-primary/25 hover:shadow-lg hover:shadow-primary/40"
+                                  ? "bg-primary ring-1 ring-primary/40"
+                                  : "bg-primary "
                               }`}
                             >
                               <Sparkles size={12} />
@@ -1722,7 +1722,7 @@ export function DesignWithAIDialog({
               onSubmit={sendMessage}
               className="px-6 py-4 bg-gradient-to-t from-bg-secondary/40 to-transparent"
             >
-              <div className="relative flex items-end gap-2 rounded-xl bg-bg-tertiary ring-1 ring-white/[0.06] focus-within:ring-2 focus-within:ring-primary/40 focus-within:bg-bg-secondary transition-all shadow-sm">
+              <div className="relative flex items-end gap-2 rounded-xl bg-bg-tertiary ring-1 ring-white/[0.06] focus-within:ring-1 focus-within:ring-primary/40 focus-within:bg-bg-secondary transition-all shadow-sm">
                 <textarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
@@ -1753,7 +1753,7 @@ export function DesignWithAIDialog({
                       type="submit"
                       disabled={!input.trim() || isCreatingProject}
                       aria-label="Send"
-                      className="w-8 h-8 flex items-center justify-center rounded-lg bg-primary text-white hover:bg-primary/90 hover:shadow-md hover:shadow-primary/30 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:shadow-none transition-all"
+                      className="w-8 h-8 flex items-center justify-center rounded-lg bg-primary text-white hover:bg-primary/90 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:shadow-none transition-all"
                     >
                       <Send size={14} />
                     </button>

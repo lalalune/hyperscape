@@ -104,9 +104,9 @@ const AssetFilters: React.FC<AssetFiltersProps> = ({
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg 
-                       text-text-primary placeholder-text-tertiary
-                       focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50 focus:border-primary
-                       transition-all duration-200"
+ text-text-primary placeholder-text-tertiary
+ focus:outline-none focus:ring-1 focus:ring-primary/40 focus: focus:border-primary
+ transition-all duration-200"
             />
             {searchTerm && (
               <button
@@ -130,9 +130,9 @@ const AssetFilters: React.FC<AssetFiltersProps> = ({
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
               className="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg
-                       text-text-primary
-                       focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50 focus:border-primary
-                       transition-all duration-200 cursor-pointer hover:border-border-secondary"
+ text-text-primary
+ focus:outline-none focus:ring-1 focus:ring-primary/40 focus: focus:border-primary
+ transition-all duration-200 cursor-pointer hover:border-border-secondary"
             >
               <option value="">All Types</option>
               <option value="weapon">Weapons</option>
@@ -155,9 +155,9 @@ const AssetFilters: React.FC<AssetFiltersProps> = ({
               value={materialFilter}
               onChange={(e) => setMaterialFilter(e.target.value)}
               className="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg
-                       text-text-primary
-                       focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50 focus:border-primary
-                       transition-all duration-200 cursor-pointer hover:border-border-secondary"
+ text-text-primary
+ focus:outline-none focus:ring-1 focus:ring-primary/40 focus: focus:border-primary
+ transition-all duration-200 cursor-pointer hover:border-border-secondary"
             >
               <option value="">All Materials</option>
               {materialPresets.map((preset) => (
@@ -177,9 +177,9 @@ const AssetFilters: React.FC<AssetFiltersProps> = ({
                 setMaterialFilter("");
               }}
               className="w-full py-2 text-sm text-text-secondary hover:text-primary 
-                       bg-bg-primary hover:bg-primary hover:bg-opacity-10 
-                       border border-border-primary hover:border-primary
-                       rounded-lg transition-all duration-200 font-medium"
+ bg-bg-primary hover:bg-primary hover:bg-opacity-10 
+ border border-border-primary hover:border-primary
+ rounded-lg transition-all duration-200 font-medium"
             >
               Clear Filters
             </button>

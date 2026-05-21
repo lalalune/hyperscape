@@ -57,7 +57,7 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
                 className={cn(
                   "ml-1.5 px-2 py-0.5 text-xs rounded-full font-semibold transition-all",
                   activeView === tab.id
-                    ? "bg-white/20 text-white"
+                    ? "bg-bg-secondary text-white"
                     : "bg-primary/10 text-primary",
                 )}
               >

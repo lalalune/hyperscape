@@ -282,7 +282,7 @@ export const AnimationPlayer: React.FC<AnimationPlayerProps> = ({
 
       {/* Top Left Controls - Additional animation-specific buttons */}
       <div className="absolute top-4 left-4 flex gap-2 z-10">
-        <div className="flex bg-bg-secondary bg-opacity-90 backdrop-blur-sm rounded-lg shadow-lg p-1 border border-border-primary gap-1">
+        <div className="flex bg-bg-secondary bg-opacity-90 rounded-lg shadow-lg p-1 border border-border-primary gap-1">
           <button
             onClick={handleToggleSkeleton}
             className={`p-2 rounded transition-all duration-200 ${
@@ -314,7 +314,7 @@ export const AnimationPlayer: React.FC<AnimationPlayerProps> = ({
       </div>
 
       {/* Animation Controls Overlay */}
-      <div className="absolute bottom-4 left-4 right-4 bg-bg-primary bg-opacity-90 backdrop-blur-sm rounded-lg p-3 border border-border-primary z-10">
+      <div className="absolute bottom-4 left-4 right-4 bg-bg-primary bg-opacity-90 rounded-lg p-3 border border-border-primary z-10">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Activity className="w-4 h-4 text-primary" />

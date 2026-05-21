@@ -674,7 +674,7 @@ export const GenerationPage: React.FC = () => {
   }
 
   return (
-    <div className="fixed inset-0 pt-[44px] bg-bg-primary bg-opacity-95 backdrop-blur-xl z-40 overflow-y-auto animate-fade-in scrollbar-hide">
+    <div className="fixed inset-0 pt-[44px] bg-bg-primary bg-opacity-95 z-40 overflow-y-auto animate-fade-in scrollbar-hide">
       {/* Pack-target banner — only renders when launched from the
           Asset Packs page with `?targetPack=…`. Sticks above content. */}
       <GenerationPackTargetBanner />
@@ -846,7 +846,7 @@ export const GenerationPage: React.FC = () => {
                       <Button
                         onClick={handleStartGeneration}
                         disabled={!assetName || !description || isGenerating}
-                        className="w-full h-14 text-base font-semibold bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-lg hover:shadow-xl transform transition-all duration-200 hover:scale-[1.01]"
+                        className="w-full h-14 text-base font-semibold bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-lg hover:shadow-xl transform transition-all duration-200 "
                         size="lg"
                       >
                         {isGenerating ? (
@@ -856,7 +856,7 @@ export const GenerationPage: React.FC = () => {
                           </>
                         ) : (
                           <>
-                            <Sparkles className="w-5 h-5 mr-2 animate-pulse" />
+                            <Sparkles className="w-5 h-5 mr-2 " />
                             Start Generation
                           </>
                         )}

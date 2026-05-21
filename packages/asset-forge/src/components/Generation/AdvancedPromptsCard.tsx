@@ -141,7 +141,7 @@ export const AdvancedPromptsCard: React.FC<AdvancedPromptsCardProps> = ({
       {showAdvancedPrompts && (
         <CardContent className="p-0">
           {/* Sleek Tab Navigation */}
-          <div className="flex bg-bg-secondary/20 backdrop-blur-sm">
+          <div className="flex bg-bg-secondary/20 ">
             <TabButton
               active={activeTab === "quick"}
               onClick={() => setActiveTab("quick")}
@@ -346,7 +346,7 @@ const InfoCard: React.FC<{
 }> = ({ icon, title, content, variant = "primary" }) => (
   <div
     className={cn(
-      "p-4 rounded-xl border backdrop-blur-sm",
+      "p-4 rounded-xl border ",
       variant === "primary"
         ? "bg-primary/5 border-primary/20"
         : "bg-secondary/5 border-secondary/20",
@@ -413,7 +413,7 @@ const PromptSection: React.FC<{
       rows={rows}
       className={cn(
         "w-full resize-none bg-bg-secondary/50 border-border-primary",
-        "focus:ring-2 transition-all",
+        "focus:ring-1 transition-all",
         variant === "primary"
           ? "focus:border-primary focus:ring-primary/20"
           : "focus:border-secondary focus:ring-secondary/20",
@@ -532,7 +532,7 @@ const StyleCreator: React.FC<{
       >
         {isSaving ? (
           <>
-            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            <div className="w-4 h-4 border-2 border-border-secondary border-t-white rounded-full animate-spin" />
             Saving...
           </>
         ) : (

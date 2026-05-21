@@ -183,7 +183,7 @@ export function GenerationPackTargetBanner() {
     // Loading the pack — render a thin placeholder so layout
     // doesn't shift when it resolves.
     return (
-      <div className="border-b border-white/[0.06] bg-white/[0.02] px-4 py-2 flex items-center gap-2">
+      <div className="border-b border-border-primary bg-bg-tertiary/30 px-4 py-2 flex items-center gap-2">
         <Loader2 size={11} className="animate-spin text-text-tertiary" />
         <p className="text-[11px] text-text-tertiary">Loading target pack…</p>
       </div>

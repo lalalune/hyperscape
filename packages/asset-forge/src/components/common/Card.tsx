@@ -24,7 +24,7 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(
         className={cn(
           variants[variant],
           selected &&
-            "border-primary ring-2 ring-primary ring-opacity-20 bg-primary bg-opacity-5",
+            "border-primary ring-1 ring-primary/40 bg-primary bg-opacity-5",
           className,
         )}
         {...props}

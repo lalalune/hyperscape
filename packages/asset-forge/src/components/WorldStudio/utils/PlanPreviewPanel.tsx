@@ -491,15 +491,15 @@ export function PlanPreviewPanel({
             !canBuild
               ? "bg-bg-tertiary text-text-tertiary ring-1 ring-white/[0.06]"
               : allPrimarySet
-                ? "bg-gradient-to-br from-primary via-primary to-primary/90 text-white shadow-lg shadow-primary/40 hover:shadow-xl hover:shadow-primary/50 ring-1 ring-primary/40"
-                : "bg-gradient-to-br from-primary to-primary/85 text-white shadow-md shadow-primary/25 hover:shadow-lg hover:shadow-primary/40"
+                ? "bg-primary text-white ring-1 ring-primary/40"
+                : "bg-primary text-white "
           }`}
         >
           {canBuild && !isCreating && (
             <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
           )}
           {allPrimarySet && canBuild && !isCreating && (
-            <span className="absolute inset-0 bg-primary/30 animate-pulse rounded-lg opacity-30 pointer-events-none" />
+            <span className="absolute inset-0 bg-primary/30 rounded-lg opacity-30 pointer-events-none" />
           )}
           {isCreating ? (
             <>

@@ -5167,7 +5167,7 @@ const ThreeViewer = forwardRef(
 
         {/* Loading overlay with smooth transition */}
         {loading && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-75 backdrop-blur-sm transition-opacity duration-300">
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-75 transition-opacity duration-300">
             <div className="bg-bg-secondary p-8 rounded-lg shadow-xl">
               <div className="text-text-primary mb-4 text-center">
                 Loading 3D Model...
@@ -5189,15 +5189,15 @@ const ThreeViewer = forwardRef(
         <div className="absolute top-4 left-1/2 -translate-x-1/2 flex gap-2">
           {/* Wireframe indicator */}
           {isWireframe && (
-            <div className="px-3 py-1.5 bg-primary bg-opacity-20 text-primary rounded-md text-xs font-medium backdrop-blur-sm flex items-center gap-2 animate-fade-in">
-              <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+            <div className="px-3 py-1.5 bg-primary bg-opacity-20 text-primary rounded-md text-xs font-medium flex items-center gap-2 animate-fade-in">
+              <div className="w-2 h-2 bg-primary rounded-full " />
               Wireframe Mode
             </div>
           )}
 
           {/* Ground plane indicator */}
           {showGroundPlane && (
-            <div className="px-3 py-1.5 bg-green-600 bg-opacity-20 text-green-400 rounded-md text-xs font-medium backdrop-blur-sm animate-fade-in">
+            <div className="px-3 py-1.5 bg-green-600 bg-opacity-20 text-green-400 rounded-md text-xs font-medium animate-fade-in">
               Shadows Enabled
             </div>
           )}
@@ -5205,7 +5205,7 @@ const ThreeViewer = forwardRef(
 
         {/* Debug info for rigged model - positioned below top-right buttons */}
         {hasRiggedModel && !isAnimationPlayer && (
-          <div className="absolute top-20 right-4 px-3 py-1.5 bg-green-600 bg-opacity-20 text-green-400 rounded-md text-xs font-medium backdrop-blur-sm animate-fade-in">
+          <div className="absolute top-20 right-4 px-3 py-1.5 bg-green-600 bg-opacity-20 text-green-400 rounded-md text-xs font-medium animate-fade-in">
             Rigged Model Detected
           </div>
         )}
@@ -5213,7 +5213,7 @@ const ThreeViewer = forwardRef(
         {/* Stats display - moved below buttons */}
         <div className="absolute top-20 left-4">
           {showStats && modelInfo.vertices > 0 && (
-            <div className="card p-3 bg-bg-secondary bg-opacity-90 backdrop-blur-sm text-xs space-y-2 animate-scale-in shadow-lg min-w-[180px]">
+            <div className="card p-3 bg-bg-secondary bg-opacity-90 text-xs space-y-2 animate-scale-in shadow-lg min-w-[180px]">
               {/* Asset Info */}
               {assetInfo?.name && (
                 <div className="pb-2 border-b border-border-primary">
@@ -5293,7 +5293,7 @@ const ThreeViewer = forwardRef(
                     e.target.value as keyof typeof ENVIRONMENTS,
                   )
                 }
-                className="px-3 py-1.5 bg-bg-secondary bg-opacity-90 backdrop-blur-sm rounded-md text-xs border border-border-primary text-text-primary hover:bg-bg-tertiary transition-colors cursor-pointer"
+                className="px-3 py-1.5 bg-bg-secondary bg-opacity-90 rounded-md text-xs border border-border-primary text-text-primary hover:bg-bg-tertiary transition-colors cursor-pointer"
               >
                 {Object.entries(ENVIRONMENTS).map(([key, env]) => (
                   <option key={key} value={key}>
@@ -5314,7 +5314,7 @@ const ThreeViewer = forwardRef(
             {hasRiggedModel && (
               <button
                 onClick={exportTPoseModel}
-                className="p-2 rounded-md bg-bg-secondary bg-opacity-90 text-text-secondary hover:text-text-primary border border-transparent backdrop-blur-sm hover:scale-105 active:scale-95 transition-all duration-200"
+                className="p-2 rounded-md bg-bg-secondary bg-opacity-90 text-text-secondary hover:text-text-primary border border-transparent transition-all duration-200"
                 title="Export T-pose Model"
               >
                 <Download size={16} />
@@ -5327,7 +5327,7 @@ const ThreeViewer = forwardRef(
                 autoRotate
                   ? "bg-primary bg-opacity-20 text-primary border border-primary border-opacity-50"
                   : "bg-bg-secondary bg-opacity-90 text-text-secondary hover:text-text-primary border border-transparent"
-              } backdrop-blur-sm hover:scale-105 active:scale-95`}
+              } `}
               title="Auto Rotate (A)"
             >
               <RotateCw
@@ -5342,7 +5342,7 @@ const ThreeViewer = forwardRef(
                 showGrid
                   ? "bg-primary bg-opacity-20 text-primary border border-primary border-opacity-50"
                   : "bg-bg-secondary bg-opacity-90 text-text-secondary hover:text-text-primary border border-transparent"
-              } backdrop-blur-sm hover:scale-105 active:scale-95`}
+              } `}
               title="Toggle Grid (G)"
             >
               <Grid3X3 size={16} />
@@ -5354,7 +5354,7 @@ const ThreeViewer = forwardRef(
                 showBounds
                   ? "bg-primary bg-opacity-20 text-primary border border-primary border-opacity-50"
                   : "bg-bg-secondary bg-opacity-90 text-text-secondary hover:text-text-primary border border-transparent"
-              } backdrop-blur-sm hover:scale-105 active:scale-95`}
+              } `}
               title="Toggle Bounds (B)"
             >
               <Box size={16} />
@@ -5366,7 +5366,7 @@ const ThreeViewer = forwardRef(
                 showStats
                   ? "bg-primary bg-opacity-20 text-primary border border-primary border-opacity-50"
                   : "bg-bg-secondary bg-opacity-90 text-text-secondary hover:text-text-primary border border-transparent"
-              } backdrop-blur-sm hover:scale-105 active:scale-95`}
+              } `}
               title="Toggle Stats (S)"
             >
               <Info size={16} />
@@ -5380,7 +5380,7 @@ const ThreeViewer = forwardRef(
                   showHandControls
                     ? "bg-primary bg-opacity-20 text-primary border border-primary border-opacity-50"
                     : "bg-bg-secondary bg-opacity-90 text-text-secondary hover:text-text-primary border border-transparent"
-                } backdrop-blur-sm hover:scale-105 active:scale-95`}
+                } `}
                 title="Toggle Hand Controls (H)"
               >
                 <Hand size={16} />
@@ -5391,7 +5391,7 @@ const ThreeViewer = forwardRef(
 
         {/* Hand Bone Test Controls */}
         {showHandControls && !isAnimationPlayer && (
-          <div className="absolute top-20 left-4 bg-bg-secondary bg-opacity-95 backdrop-blur-md rounded-lg border border-border-primary p-4 z-20 min-w-[280px] animate-scale-in">
+          <div className="absolute top-20 left-4 bg-bg-secondary bg-opacity-95 rounded-lg border border-border-primary p-4 z-20 min-w-[280px] animate-scale-in">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-text-primary text-sm font-semibold">
                 Hand Bone Testing
@@ -5709,7 +5709,7 @@ const ThreeViewer = forwardRef(
                   controlsRef.current.update();
                 }
               }}
-              className="p-1.5 bg-bg-secondary bg-opacity-90 backdrop-blur-sm rounded-md text-text-tertiary hover:text-text-primary text-xs"
+              className="p-1.5 bg-bg-secondary bg-opacity-90 rounded-md text-text-tertiary hover:text-text-primary text-xs"
               title="Front View (1)"
             >
               F
@@ -5757,7 +5757,7 @@ const ThreeViewer = forwardRef(
                   controlsRef.current.update();
                 }
               }}
-              className="p-1.5 bg-bg-secondary bg-opacity-90 backdrop-blur-sm rounded-md text-text-tertiary hover:text-text-primary text-xs"
+              className="p-1.5 bg-bg-secondary bg-opacity-90 rounded-md text-text-tertiary hover:text-text-primary text-xs"
               title="Side View (2)"
             >
               S
@@ -5783,7 +5783,7 @@ const ThreeViewer = forwardRef(
                   controlsRef.current.update();
                 }
               }}
-              className="p-1.5 bg-bg-secondary bg-opacity-90 backdrop-blur-sm rounded-md text-text-tertiary hover:text-text-primary text-xs"
+              className="p-1.5 bg-bg-secondary bg-opacity-90 rounded-md text-text-tertiary hover:text-text-primary text-xs"
               title="Top View (3)"
             >
               T
@@ -5796,7 +5796,7 @@ const ThreeViewer = forwardRef(
           <>
             <button
               onClick={() => setShowShortcuts(!showShortcuts)}
-              className={`absolute bottom-4 left-4 px-3 py-1.5 backdrop-blur-sm rounded-md text-xs transition-all duration-200 flex items-center gap-1.5 z-20 ${
+              className={`absolute bottom-4 left-4 px-3 py-1.5 rounded-md text-xs transition-all duration-200 flex items-center gap-1.5 z-20 ${
                 showShortcuts
                   ? "bg-primary bg-opacity-20 text-primary border border-primary border-opacity-50"
                   : "bg-bg-secondary bg-opacity-90 text-text-secondary hover:text-text-primary border border-transparent hover:border-border-primary"
@@ -5808,7 +5808,7 @@ const ThreeViewer = forwardRef(
 
             {/* Shortcuts display */}
             {showShortcuts && (
-              <div className="absolute bottom-16 left-4 bg-bg-secondary bg-opacity-95 backdrop-blur-md rounded-lg border border-border-primary p-4 z-20 min-w-[240px] animate-scale-in">
+              <div className="absolute bottom-16 left-4 bg-bg-secondary bg-opacity-95 rounded-lg border border-border-primary p-4 z-20 min-w-[240px] animate-scale-in">
                 <div className="space-y-2 text-xs">
                   <div className="flex items-center justify-between">
                     <kbd className="px-2 py-1 bg-bg-primary rounded border border-border-primary text-text-secondary font-mono text-[11px]">

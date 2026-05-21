@@ -40,7 +40,7 @@ export const SpritesDisplay: React.FC<SpritesDisplayProps> = ({
           <div className="grid grid-cols-4 gap-3">
             {sprites.map((sprite, i) => (
               <div key={i} className="group relative aspect-square">
-                <div className="w-full h-full bg-bg-tertiary rounded-lg p-2 overflow-hidden hover:shadow-lg transition-all hover:scale-105">
+                <div className="w-full h-full bg-bg-tertiary rounded-lg p-2 overflow-hidden hover:shadow-lg transition-all ">
                   <img
                     src={sprite.imageUrl}
                     alt={`${sprite.angle}°`}
@@ -75,7 +75,7 @@ export const SpritesDisplay: React.FC<SpritesDisplayProps> = ({
               <Button
                 onClick={() => onGenerateSprites(selectedAsset.id)}
                 disabled={isGeneratingSprites}
-                className="shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
+                className="shadow-lg hover:shadow-xl transition-all"
               >
                 {isGeneratingSprites ? (
                   <>

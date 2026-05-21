@@ -58,7 +58,7 @@ const ViewerControls: React.FC<ViewerControlsProps> = ({
         {canRetexture && (
           <button
             onClick={() => setShowRetextureModal(true)}
-            className="px-4 py-2 bg-primary bg-opacity-90 hover:bg-opacity-100 text-white rounded-lg shadow-lg backdrop-blur-sm transition-all duration-200 hover:scale-105 active:scale-95 flex items-center gap-2"
+            className="px-4 py-2 bg-primary bg-opacity-90 hover:bg-opacity-100 text-white rounded-lg shadow-lg transition-all duration-200 flex items-center gap-2"
             title="Create texture variants"
           >
             <Palette size={16} />
@@ -68,7 +68,7 @@ const ViewerControls: React.FC<ViewerControlsProps> = ({
 
         <button
           onClick={() => setShowRegenerateModal(true)}
-          className="px-4 py-2 bg-bg-secondary bg-opacity-90 hover:bg-bg-tertiary text-text-primary rounded-lg shadow-lg backdrop-blur-sm transition-all duration-200 hover:scale-105 active:scale-95 flex items-center gap-2 border border-border-primary"
+          className="px-4 py-2 bg-bg-secondary bg-opacity-90 hover:bg-bg-tertiary text-text-primary rounded-lg shadow-lg transition-all duration-200 flex items-center gap-2 border border-border-primary"
           title="Regenerate model"
         >
           <RefreshCw size={16} />
@@ -77,7 +77,7 @@ const ViewerControls: React.FC<ViewerControlsProps> = ({
 
         <button
           onClick={() => setShowSpriteModal(true)}
-          className="px-4 py-2 bg-bg-secondary bg-opacity-90 hover:bg-bg-tertiary text-text-primary rounded-lg shadow-lg backdrop-blur-sm transition-all duration-200 hover:scale-105 active:scale-95 flex items-center gap-2 border border-border-primary"
+          className="px-4 py-2 bg-bg-secondary bg-opacity-90 hover:bg-bg-tertiary text-text-primary rounded-lg shadow-lg transition-all duration-200 flex items-center gap-2 border border-border-primary"
           title="Generate sprite sheet"
         >
           <Grid3x3 size={16} />
@@ -91,8 +91,8 @@ const ViewerControls: React.FC<ViewerControlsProps> = ({
         {assetType === "character" && hasRigging && (
           <button
             onClick={toggleAnimationView}
-            className={`group p-3 bg-bg-secondary bg-opacity-90 backdrop-blur-sm rounded-xl transition-all duration-200 hover:bg-bg-tertiary hover:scale-105 shadow-lg ${
-              showAnimationView ? "ring-2 ring-primary" : ""
+            className={`group p-3 bg-bg-secondary bg-opacity-90 rounded-xl transition-all duration-200 hover:bg-bg-tertiary shadow-lg ${
+              showAnimationView ? "ring-1 ring-primary/40" : ""
             }`}
             title={showAnimationView ? "View 3D Model" : "View Animations"}
           >
@@ -110,7 +110,7 @@ const ViewerControls: React.FC<ViewerControlsProps> = ({
         {/* Edit Button */}
         <button
           onClick={() => setShowEditModal(true)}
-          className="group p-3 bg-bg-secondary bg-opacity-90 backdrop-blur-sm rounded-xl transition-all duration-200 hover:bg-bg-tertiary hover:scale-105 shadow-lg"
+          className="group p-3 bg-bg-secondary bg-opacity-90 rounded-xl transition-all duration-200 hover:bg-bg-tertiary shadow-lg"
           title="Edit Asset"
         >
           <Edit3
@@ -119,7 +119,7 @@ const ViewerControls: React.FC<ViewerControlsProps> = ({
           />
         </button>
 
-        <div className="flex bg-bg-secondary bg-opacity-90 backdrop-blur-sm rounded-lg shadow-lg p-1 border border-border-primary">
+        <div className="flex bg-bg-secondary bg-opacity-90 rounded-lg shadow-lg p-1 border border-border-primary">
           <button
             onClick={toggleWireframe}
             className={`p-2 rounded transition-all duration-200 ${
@@ -157,7 +157,7 @@ const ViewerControls: React.FC<ViewerControlsProps> = ({
           </button>
         </div>
 
-        <div className="flex bg-bg-secondary bg-opacity-90 backdrop-blur-sm rounded-lg shadow-lg p-1 border border-border-primary">
+        <div className="flex bg-bg-secondary bg-opacity-90 rounded-lg shadow-lg p-1 border border-border-primary">
           <button
             onClick={onViewerReset}
             className="p-2 rounded text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-all duration-200"

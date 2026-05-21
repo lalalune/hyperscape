@@ -129,7 +129,7 @@ export function HandRiggingControls({
                 disabled={isProcessing()}
                 className={cn(
                   "relative p-4 rounded-lg border-2 transition-all duration-200",
-                  "hover:scale-[1.02] hover:shadow-md",
+                  " hover:shadow-md",
                   useSimpleMode
                     ? "border-primary bg-primary/10 shadow-lg"
                     : "border-border-primary hover:border-primary/50",
@@ -157,7 +157,7 @@ export function HandRiggingControls({
                 disabled={isProcessing()}
                 className={cn(
                   "relative p-4 rounded-lg border-2 transition-all duration-200",
-                  "hover:scale-[1.02] hover:shadow-md",
+                  " hover:shadow-md",
                   !useSimpleMode
                     ? "border-primary bg-primary/10 shadow-lg"
                     : "border-border-primary hover:border-primary/50",

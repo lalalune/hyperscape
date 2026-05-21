@@ -106,7 +106,7 @@ export const ModelViewer: React.FC<ModelViewerProps> = ({
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-bg-primary to-bg-secondary">
             <div className="text-center p-8 animate-fade-in">
               <div className="relative">
-                <div className="absolute inset-0 bg-primary opacity-20 blur-3xl animate-pulse" />
+                <div className="absolute inset-0 bg-primary opacity-20 blur-3xl " />
                 <Package
                   size={80}
                   className="text-text-muted mb-6 mx-auto relative z-10 animate-float"

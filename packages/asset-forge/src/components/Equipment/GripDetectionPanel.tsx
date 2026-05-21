@@ -27,10 +27,10 @@ export const GripDetectionPanel: React.FC<GripDetectionPanelProps> = ({
   if (!selectedEquipment?.hasModel) return null;
 
   return (
-    <div className="bg-bg-primary/40 backdrop-blur-sm rounded-xl border border-white/10 overflow-hidden">
-      <div className="p-4 border-b border-white/5">
+    <div className="bg-bg-primary/40 rounded-xl border border-border-primary overflow-hidden">
+      <div className="p-4 border-b border-border-primary">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-primary/20 rounded-lg animate-pulse">
+          <div className="p-2 bg-primary/20 rounded-lg ">
             <Sparkles className="w-5 h-5 text-primary" />
           </div>
           <div>
@@ -50,7 +50,7 @@ export const GripDetectionPanel: React.FC<GripDetectionPanelProps> = ({
           className={cn(
             "w-full px-4 py-3 rounded-lg font-medium transition-all duration-300 flex items-center justify-center gap-2",
             "bg-gradient-to-r from-primary to-primary/80 text-white shadow-lg hover:shadow-xl",
-            "hover:scale-[1.02] active:scale-[0.98]",
+            " ",
             isDetectingHandle && "opacity-70 cursor-not-allowed",
           )}
         >
@@ -76,7 +76,7 @@ export const GripDetectionPanel: React.FC<GripDetectionPanelProps> = ({
               </span>
             </div>
 
-            <div className="space-y-3 p-3 bg-bg-secondary/40 rounded-lg border border-white/10">
+            <div className="space-y-3 p-3 bg-bg-secondary/40 rounded-lg border border-border-primary">
               <div className="flex justify-between text-xs">
                 <span className="text-text-tertiary">Confidence</span>
                 <span className="text-text-primary font-medium">
@@ -115,7 +115,7 @@ export const GripDetectionPanel: React.FC<GripDetectionPanelProps> = ({
                 <img
                   src={handleDetectionResult.annotatedImage}
                   alt="Detected grip area"
-                  className="w-full rounded-lg border border-white/10"
+                  className="w-full rounded-lg border border-border-primary"
                 />
                 <p className="text-xs text-text-tertiary text-center">
                   Red box indicates detected grip area

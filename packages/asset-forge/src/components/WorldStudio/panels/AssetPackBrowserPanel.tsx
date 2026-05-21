@@ -510,8 +510,8 @@ export function AssetPackBrowserPanel({
   return (
     <div className="flex flex-col h-full">
       {/* Sub-tab strip — pill style */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-white/[0.06]">
-        <div className="inline-flex items-center gap-0.5 p-0.5 rounded-lg bg-white/[0.03] border border-white/[0.06]">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-border-primary">
+        <div className="inline-flex items-center gap-0.5 p-0.5 rounded-lg bg-bg-tertiary/40 border border-border-primary">
           {[
             {
               id: "marketplace" as const,
@@ -593,7 +593,7 @@ export function AssetPackBrowserPanel({
       )}
 
       {/* Search */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-white/[0.06]">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-border-primary">
         <div className="relative flex-1">
           <Search
             size={11}
@@ -608,7 +608,7 @@ export function AssetPackBrowserPanel({
             }
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            className="w-full pl-6.5 pr-2 py-1.5 text-xs bg-white/[0.03] border border-transparent rounded text-text-primary placeholder:text-text-tertiary/50 focus:outline-none focus:border-primary/30 focus:bg-white/[0.05] transition-colors"
+            className="w-full pl-6.5 pr-2 py-1.5 text-xs bg-bg-tertiary/40 border border-transparent rounded text-text-primary placeholder:text-text-tertiary/50 focus:outline-none focus:border-primary/30 focus:bg-bg-tertiary/50 transition-colors"
             style={{ paddingLeft: "1.625rem" }}
           />
         </div>
@@ -940,14 +940,14 @@ function CreatePackModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 "
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md mx-4 bg-bg-primary border border-white/[0.08] rounded-lg shadow-2xl"
+        className="w-full max-w-md mx-4 bg-bg-primary border border-border-primary rounded-lg shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border-primary">
           <div className="flex items-center gap-2">
             <Package size={14} className="text-primary" />
             <h3 className="text-sm font-medium text-text-primary">
@@ -975,7 +975,7 @@ function CreatePackModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Medieval Weapons"
-              className="w-full px-2 py-1.5 text-sm bg-white/[0.03] border border-white/[0.08] rounded text-text-primary focus:outline-none focus:border-primary/40"
+              className="w-full px-2 py-1.5 text-sm bg-bg-tertiary/40 border border-border-primary rounded text-text-primary focus:outline-none focus:border-primary/40"
             />
             {name.trim().length > 0 && (
               <p className="text-[10px] text-text-tertiary/70 mt-1 font-mono truncate">
@@ -993,7 +993,7 @@ function CreatePackModal({
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
               placeholder="Swords, shields, bows, and arrows for medieval fantasy worlds."
-              className="w-full px-2 py-1.5 text-xs bg-white/[0.03] border border-white/[0.08] rounded text-text-primary resize-none focus:outline-none focus:border-primary/40"
+              className="w-full px-2 py-1.5 text-xs bg-bg-tertiary/40 border border-border-primary rounded text-text-primary resize-none focus:outline-none focus:border-primary/40"
             />
           </Field>
 
@@ -1003,7 +1003,7 @@ function CreatePackModal({
               value={tagsInput}
               onChange={(e) => setTagsInput(e.target.value)}
               placeholder="medieval, fantasy, weapons"
-              className="w-full px-2 py-1.5 text-xs bg-white/[0.03] border border-white/[0.08] rounded text-text-primary focus:outline-none focus:border-primary/40"
+              className="w-full px-2 py-1.5 text-xs bg-bg-tertiary/40 border border-border-primary rounded text-text-primary focus:outline-none focus:border-primary/40"
             />
           </Field>
 
@@ -1016,7 +1016,7 @@ function CreatePackModal({
           </button>
 
           {showAdvanced && (
-            <div className="space-y-3 pt-1 pl-2 border-l border-white/[0.06]">
+            <div className="space-y-3 pt-1 pl-2 border-l border-border-primary">
               <Field
                 label="Pack ID"
                 hint="npm-style. Auto-generated from team + pack name. Override only if you need a specific id."
@@ -1025,7 +1025,7 @@ function CreatePackModal({
                   type="text"
                   value={effectiveManifestId}
                   onChange={(e) => setManifestIdOverride(e.target.value)}
-                  className="w-full px-2 py-1.5 text-xs bg-white/[0.03] border border-white/[0.08] rounded text-text-primary font-mono focus:outline-none focus:border-primary/40"
+                  className="w-full px-2 py-1.5 text-xs bg-bg-tertiary/40 border border-border-primary rounded text-text-primary font-mono focus:outline-none focus:border-primary/40"
                 />
               </Field>
 
@@ -1037,7 +1037,7 @@ function CreatePackModal({
                     value={packVersion}
                     onChange={(e) => setPackVersion(e.target.value)}
                     placeholder="1.0.0"
-                    className="w-full px-2 py-1.5 text-xs bg-white/[0.03] border border-white/[0.08] rounded text-text-primary font-mono focus:outline-none focus:border-primary/40"
+                    className="w-full px-2 py-1.5 text-xs bg-bg-tertiary/40 border border-border-primary rounded text-text-primary font-mono focus:outline-none focus:border-primary/40"
                   />
                 </Field>
                 <Field label="License">
@@ -1046,7 +1046,7 @@ function CreatePackModal({
                     value={license}
                     onChange={(e) => setLicense(e.target.value)}
                     placeholder="UNLICENSED"
-                    className="w-full px-2 py-1.5 text-xs bg-white/[0.03] border border-white/[0.08] rounded text-text-primary focus:outline-none focus:border-primary/40"
+                    className="w-full px-2 py-1.5 text-xs bg-bg-tertiary/40 border border-border-primary rounded text-text-primary focus:outline-none focus:border-primary/40"
                   />
                 </Field>
               </div>
@@ -1280,14 +1280,14 @@ function AddEntryModal({ pack, onClose, onAdded }: AddEntryModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 "
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg mx-4 bg-bg-primary border border-white/[0.08] rounded-lg shadow-2xl flex flex-col max-h-[90vh]"
+        className="w-full max-w-lg mx-4 bg-bg-primary border border-border-primary rounded-lg shadow-2xl flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] flex-shrink-0">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border-primary flex-shrink-0">
           <div className="flex items-center gap-2 min-w-0">
             <FilePlus size={14} className="text-primary flex-shrink-0" />
             <h3 className="text-sm font-medium text-text-primary truncate">
@@ -1304,7 +1304,7 @@ function AddEntryModal({ pack, onClose, onAdded }: AddEntryModalProps) {
         </div>
 
         {/* Source tab strip — Library is the primary path. */}
-        <div className="flex items-center gap-0 px-2 pt-1.5 pb-0 border-b border-white/[0.06] flex-shrink-0">
+        <div className="flex items-center gap-0 px-2 pt-1.5 pb-0 border-b border-border-primary flex-shrink-0">
           {[
             { id: "library" as const, label: "From Library", icon: Library },
             {
@@ -1323,7 +1323,7 @@ function AddEntryModal({ pack, onClose, onAdded }: AddEntryModalProps) {
                 onClick={() => setSource(t.id)}
                 className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-t border-b-2 transition-colors ${
                   isActive
-                    ? "text-text-primary border-primary bg-white/[0.03]"
+                    ? "text-text-primary border-primary bg-bg-tertiary/40"
                     : "text-text-tertiary border-transparent hover:text-text-secondary"
                 }`}
               >
@@ -1345,7 +1345,7 @@ function AddEntryModal({ pack, onClose, onAdded }: AddEntryModalProps) {
               ← Back to library
             </button>
 
-            <div className="flex items-start gap-3 p-3 bg-white/[0.02] border border-white/[0.06] rounded-lg">
+            <div className="flex items-start gap-3 p-3 bg-bg-tertiary/30 border border-border-primary rounded-lg">
               <SelectedAssetThumbnail asset={selectedAsset} />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-text-primary truncate">
@@ -1370,7 +1370,7 @@ function AddEntryModal({ pack, onClose, onAdded }: AddEntryModalProps) {
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-2 py-1.5 text-sm bg-white/[0.03] border border-white/[0.08] rounded text-text-primary focus:outline-none focus:border-primary/40"
+                  className="w-full px-2 py-1.5 text-sm bg-bg-tertiary/40 border border-border-primary rounded text-text-primary focus:outline-none focus:border-primary/40"
                 />
                 {name.trim().length > 0 && (
                   <p className="text-[10px] text-text-tertiary/70 mt-1 font-mono truncate">
@@ -1386,7 +1386,7 @@ function AddEntryModal({ pack, onClose, onAdded }: AddEntryModalProps) {
                     onChange={(e) =>
                       setType(e.target.value as AssetPackEntryInput["type"])
                     }
-                    className="w-full px-2 py-1.5 text-xs bg-white/[0.03] border border-white/[0.08] rounded text-text-primary focus:outline-none focus:border-primary/40"
+                    className="w-full px-2 py-1.5 text-xs bg-bg-tertiary/40 border border-border-primary rounded text-text-primary focus:outline-none focus:border-primary/40"
                   >
                     {ASSET_TYPES.map((t) => (
                       <option key={t} value={t}>
@@ -1401,7 +1401,7 @@ function AddEntryModal({ pack, onClose, onAdded }: AddEntryModalProps) {
                     required
                     value={subtype}
                     onChange={(e) => setSubtype(e.target.value)}
-                    className="w-full px-2 py-1.5 text-xs bg-white/[0.03] border border-white/[0.08] rounded text-text-primary focus:outline-none focus:border-primary/40"
+                    className="w-full px-2 py-1.5 text-xs bg-bg-tertiary/40 border border-border-primary rounded text-text-primary focus:outline-none focus:border-primary/40"
                   />
                 </Field>
               </div>
@@ -1412,7 +1412,7 @@ function AddEntryModal({ pack, onClose, onAdded }: AddEntryModalProps) {
                   value={tagsInput}
                   onChange={(e) => setTagsInput(e.target.value)}
                   placeholder="hero, sword"
-                  className="w-full px-2 py-1.5 text-xs bg-white/[0.03] border border-white/[0.08] rounded text-text-primary focus:outline-none focus:border-primary/40"
+                  className="w-full px-2 py-1.5 text-xs bg-bg-tertiary/40 border border-border-primary rounded text-text-primary focus:outline-none focus:border-primary/40"
                 />
               </Field>
             </div>
@@ -1458,7 +1458,7 @@ function AddEntryModal({ pack, onClose, onAdded }: AddEntryModalProps) {
 
         {source === "library" && !selectedAsset && (
           <div className="flex-1 overflow-hidden flex flex-col">
-            <div className="px-4 py-2 border-b border-white/[0.06] flex items-center gap-2">
+            <div className="px-4 py-2 border-b border-border-primary flex items-center gap-2">
               <div className="relative flex-1">
                 <Search
                   size={11}
@@ -1469,7 +1469,7 @@ function AddEntryModal({ pack, onClose, onAdded }: AddEntryModalProps) {
                   value={libraryFilter}
                   onChange={(e) => setLibraryFilter(e.target.value)}
                   placeholder="Search your team's assets…"
-                  className="w-full pl-6.5 pr-2 py-1.5 text-xs bg-white/[0.03] border border-transparent rounded text-text-primary placeholder:text-text-tertiary/50 focus:outline-none focus:border-primary/30 focus:bg-white/[0.05] transition-colors"
+                  className="w-full pl-6.5 pr-2 py-1.5 text-xs bg-bg-tertiary/40 border border-transparent rounded text-text-primary placeholder:text-text-tertiary/50 focus:outline-none focus:border-primary/30 focus:bg-bg-tertiary/50 transition-colors"
                   style={{ paddingLeft: "1.625rem" }}
                 />
               </div>
@@ -1596,7 +1596,7 @@ function AddEntryModal({ pack, onClose, onAdded }: AddEntryModalProps) {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Oak Tree"
-                className="w-full px-2 py-1.5 text-sm bg-white/[0.03] border border-white/[0.08] rounded text-text-primary focus:outline-none focus:border-primary/40"
+                className="w-full px-2 py-1.5 text-sm bg-bg-tertiary/40 border border-border-primary rounded text-text-primary focus:outline-none focus:border-primary/40"
               />
               {name.trim().length > 0 && (
                 <p className="text-[10px] text-text-tertiary/70 mt-1 font-mono truncate">
@@ -1612,7 +1612,7 @@ function AddEntryModal({ pack, onClose, onAdded }: AddEntryModalProps) {
                   onChange={(e) =>
                     setType(e.target.value as AssetPackEntryInput["type"])
                   }
-                  className="w-full px-2 py-1.5 text-xs bg-white/[0.03] border border-white/[0.08] rounded text-text-primary focus:outline-none focus:border-primary/40"
+                  className="w-full px-2 py-1.5 text-xs bg-bg-tertiary/40 border border-border-primary rounded text-text-primary focus:outline-none focus:border-primary/40"
                 >
                   {ASSET_TYPES.map((t) => (
                     <option key={t} value={t}>
@@ -1628,7 +1628,7 @@ function AddEntryModal({ pack, onClose, onAdded }: AddEntryModalProps) {
                   value={subtype}
                   onChange={(e) => setSubtype(e.target.value)}
                   placeholder="tree"
-                  className="w-full px-2 py-1.5 text-xs bg-white/[0.03] border border-white/[0.08] rounded text-text-primary focus:outline-none focus:border-primary/40"
+                  className="w-full px-2 py-1.5 text-xs bg-bg-tertiary/40 border border-border-primary rounded text-text-primary focus:outline-none focus:border-primary/40"
                 />
               </Field>
             </div>
@@ -1643,7 +1643,7 @@ function AddEntryModal({ pack, onClose, onAdded }: AddEntryModalProps) {
                 value={modelUrl}
                 onChange={(e) => setModelUrl(e.target.value)}
                 placeholder="asset://models/trees/oak/oak_01.glb"
-                className="w-full px-2 py-1.5 text-xs bg-white/[0.03] border border-white/[0.08] rounded text-text-primary font-mono focus:outline-none focus:border-primary/40"
+                className="w-full px-2 py-1.5 text-xs bg-bg-tertiary/40 border border-border-primary rounded text-text-primary font-mono focus:outline-none focus:border-primary/40"
               />
             </Field>
 
@@ -1653,7 +1653,7 @@ function AddEntryModal({ pack, onClose, onAdded }: AddEntryModalProps) {
                 value={tagsInput}
                 onChange={(e) => setTagsInput(e.target.value)}
                 placeholder="tree, woodcutting"
-                className="w-full px-2 py-1.5 text-xs bg-white/[0.03] border border-white/[0.08] rounded text-text-primary focus:outline-none focus:border-primary/40"
+                className="w-full px-2 py-1.5 text-xs bg-bg-tertiary/40 border border-border-primary rounded text-text-primary focus:outline-none focus:border-primary/40"
               />
             </Field>
 
@@ -1666,7 +1666,7 @@ function AddEntryModal({ pack, onClose, onAdded }: AddEntryModalProps) {
             </button>
 
             {showAdvanced && (
-              <div className="space-y-3 pt-1 pl-2 border-l border-white/[0.06]">
+              <div className="space-y-3 pt-1 pl-2 border-l border-border-primary">
                 <Field
                   label="Asset ID"
                   hint="Pack-scoped, auto-generated from name. Override if you need a specific id."
@@ -1675,7 +1675,7 @@ function AddEntryModal({ pack, onClose, onAdded }: AddEntryModalProps) {
                     type="text"
                     value={effectiveEntryId}
                     onChange={(e) => setEntryIdOverride(e.target.value)}
-                    className="w-full px-2 py-1.5 text-xs bg-white/[0.03] border border-white/[0.08] rounded text-text-primary font-mono focus:outline-none focus:border-primary/40"
+                    className="w-full px-2 py-1.5 text-xs bg-bg-tertiary/40 border border-border-primary rounded text-text-primary font-mono focus:outline-none focus:border-primary/40"
                   />
                 </Field>
 
@@ -1685,7 +1685,7 @@ function AddEntryModal({ pack, onClose, onAdded }: AddEntryModalProps) {
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="Oak tree — gather wood here."
-                    className="w-full px-2 py-1.5 text-xs bg-white/[0.03] border border-white/[0.08] rounded text-text-primary focus:outline-none focus:border-primary/40"
+                    className="w-full px-2 py-1.5 text-xs bg-bg-tertiary/40 border border-border-primary rounded text-text-primary focus:outline-none focus:border-primary/40"
                   />
                 </Field>
 
@@ -1695,7 +1695,7 @@ function AddEntryModal({ pack, onClose, onAdded }: AddEntryModalProps) {
                     value={thumbnailUrl}
                     onChange={(e) => setThumbnailUrl(e.target.value)}
                     placeholder="https://…/thumb.png"
-                    className="w-full px-2 py-1.5 text-xs bg-white/[0.03] border border-white/[0.08] rounded text-text-primary font-mono focus:outline-none focus:border-primary/40"
+                    className="w-full px-2 py-1.5 text-xs bg-bg-tertiary/40 border border-border-primary rounded text-text-primary font-mono focus:outline-none focus:border-primary/40"
                   />
                 </Field>
               </div>
@@ -1769,14 +1769,14 @@ function PublishConfirmModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 "
       onClick={onCancel}
     >
       <div
-        className="w-full max-w-md mx-4 bg-bg-primary border border-white/[0.08] rounded-lg shadow-2xl"
+        className="w-full max-w-md mx-4 bg-bg-primary border border-border-primary rounded-lg shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border-primary">
           <div className="flex items-center gap-2 min-w-0">
             <Upload size={14} className="text-primary flex-shrink-0" />
             <h3 className="text-sm font-medium text-text-primary truncate">
@@ -1793,7 +1793,7 @@ function PublishConfirmModal({
         </div>
 
         <div className="px-4 py-4 space-y-3">
-          <div className="flex items-start gap-3 p-3 bg-white/[0.02] border border-white/[0.06] rounded-lg">
+          <div className="flex items-start gap-3 p-3 bg-bg-tertiary/30 border border-border-primary rounded-lg">
             <Package size={20} className="text-primary mt-0.5 flex-shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-text-primary truncate">
@@ -1832,7 +1832,7 @@ function PublishConfirmModal({
           </p>
         </div>
 
-        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-white/[0.06]">
+        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border-primary">
           <button
             type="button"
             onClick={onCancel}
@@ -1912,11 +1912,11 @@ function PackCard({
   // Single click target for the whole body. Footer button clicks
   // call stopPropagation so they don't accidentally open the modal.
   return (
-    <div className="group flex flex-col rounded-lg border border-white/[0.06] bg-white/[0.015] hover:border-primary/30 hover:bg-white/[0.03] hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/30 transition-all duration-200 overflow-hidden">
+    <div className="group flex flex-col rounded-lg border border-border-primary bg-bg-tertiary/30 hover:border-primary/30 hover:bg-bg-tertiary/40 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/30 transition-all duration-200 overflow-hidden">
       <button
         type="button"
         onClick={onView}
-        className="text-left flex flex-col flex-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/40 rounded-t-lg"
+        className="text-left flex flex-col flex-1 cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary/40 rounded-t-lg"
         title={`View details for ${packName}`}
       >
         {/* Cover image */}
@@ -1946,7 +1946,7 @@ function PackCard({
                     ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                     : v.tone === "team"
                       ? "bg-amber-500/10 text-amber-300 border-amber-500/20"
-                      : "bg-white/[0.04] text-text-tertiary border-white/[0.08]";
+                      : "bg-bg-tertiary/40 text-text-tertiary border-border-primary";
                 return (
                   <span
                     className={`text-[10px] px-1.5 py-0.5 rounded border ${cls}`}
@@ -2013,7 +2013,7 @@ function PackCard({
       {/* Action footer — outside the click-to-view button so action
           buttons capture their own clicks without bubbling. */}
       {(projectMode || (isMyTeam && !!pack.teamId)) && (
-        <div className="border-t border-white/[0.06] bg-black/20 px-3 py-2 flex items-center gap-2 flex-wrap">
+        <div className="border-t border-border-primary bg-black/20 px-3 py-2 flex items-center gap-2 flex-wrap">
           {projectMode &&
             (isInstalled ? (
               <span className="inline-flex items-center gap-1 px-2 py-1 text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded">
@@ -2059,7 +2059,7 @@ function PackCard({
                 onClick={onPublishToggle}
                 className={`inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-medium rounded border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   isPublic
-                    ? "bg-white/[0.03] hover:bg-white/[0.06] text-text-secondary border-white/[0.08]"
+                    ? "bg-bg-tertiary/40 hover:bg-bg-tertiary/60 text-text-secondary border-border-primary"
                     : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
                 }`}
                 title={
@@ -2135,15 +2135,15 @@ function PackDetailModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 md:p-8"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 md:p-8"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-3xl max-h-[92vh] flex flex-col bg-bg-primary border border-white/[0.08] rounded-xl shadow-2xl overflow-hidden"
+        className="w-full max-w-3xl max-h-[92vh] flex flex-col bg-bg-primary border border-border-primary rounded-xl shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-white/[0.06] flex-shrink-0">
+        <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-border-primary flex-shrink-0">
           <div className="flex items-center gap-2 min-w-0">
             <Package size={14} className="text-primary flex-shrink-0" />
             <h2 className="text-sm font-semibold text-text-primary truncate">
@@ -2184,7 +2184,7 @@ function PackDetailModal({
                       ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                       : v.tone === "team"
                         ? "bg-amber-500/10 text-amber-300 border-amber-500/20"
-                        : "bg-white/[0.04] text-text-tertiary border-white/[0.08]";
+                        : "bg-bg-tertiary/40 text-text-tertiary border-border-primary";
                   return (
                     <span
                       className={`text-[10px] px-1.5 py-0.5 rounded border ${cls}`}
@@ -2196,7 +2196,7 @@ function PackDetailModal({
               {summary.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="text-[10px] px-1.5 py-0.5 rounded bg-white/[0.04] text-text-tertiary border border-white/[0.06]"
+                  className="text-[10px] px-1.5 py-0.5 rounded bg-bg-tertiary/40 text-text-tertiary border border-border-primary"
                 >
                   {tag}
                 </span>
@@ -2239,7 +2239,7 @@ function PackDetailModal({
                 Assets in this pack
               </h3>
               {manifestAssets.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-white/[0.08] bg-black/10 p-8 text-center space-y-2">
+                <div className="rounded-lg border border-dashed border-border-primary bg-black/10 p-8 text-center space-y-2">
                   <ImageIcon
                     size={20}
                     className="mx-auto text-text-tertiary/50"
@@ -2271,7 +2271,7 @@ function PackDetailModal({
 
         {/* Sticky footer */}
         {hasFooterActions && (
-          <div className="border-t border-white/[0.06] bg-black/20 px-5 py-3 flex items-center gap-2 flex-wrap flex-shrink-0">
+          <div className="border-t border-border-primary bg-black/20 px-5 py-3 flex items-center gap-2 flex-wrap flex-shrink-0">
             {projectMode &&
               (isInstalled ? (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded">
@@ -2311,7 +2311,7 @@ function PackDetailModal({
                   onClick={onPublishToggle}
                   className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                     isPublic
-                      ? "bg-white/[0.03] hover:bg-white/[0.06] text-text-secondary border-white/[0.08]"
+                      ? "bg-bg-tertiary/40 hover:bg-bg-tertiary/60 text-text-secondary border-border-primary"
                       : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
                   }`}
                 >
@@ -2362,7 +2362,7 @@ function PackHeroCover({ pack }: { pack: AssetPackResponse }) {
 
   if (isEmpty) {
     return (
-      <div className="aspect-[16/9] bg-gradient-to-br from-white/[0.03] to-black/20 border-b border-white/[0.06] flex flex-col items-center justify-center gap-2">
+      <div className="aspect-[16/9] bg-gradient-to-br from-white/[0.03] to-black/20 border-b border-border-primary flex flex-col items-center justify-center gap-2">
         <Package size={32} className="text-text-tertiary/40" />
         <span className="text-xs text-text-tertiary/60">
           Empty pack — ready for assets
@@ -2403,7 +2403,7 @@ function PackEntryTile({ entry }: { entry: Record<string, unknown> }) {
   const Icon = style.Icon;
 
   return (
-    <div className="rounded-lg overflow-hidden border border-white/[0.06] bg-white/[0.02] hover:border-white/[0.12] transition-colors">
+    <div className="rounded-lg overflow-hidden border border-border-primary bg-bg-tertiary/30 hover:border-border-secondary transition-colors">
       <ModelThumbnail
         modelUrl={modelUrl}
         alt={name}
@@ -2450,7 +2450,7 @@ function PackCoverImage({ pack }: { pack: AssetPackResponse }) {
   if (isEmpty) {
     return (
       <div
-        className="aspect-[16/10] bg-gradient-to-br from-white/[0.02] to-black/20 border-b border-dashed border-white/[0.08] flex flex-col items-center justify-center gap-1.5"
+        className="aspect-[16/10] bg-gradient-to-br from-white/[0.02] to-black/20 border-b border-dashed border-border-primary flex flex-col items-center justify-center gap-1.5"
         aria-label="Empty pack — ready for content"
       >
         <Package size={22} className="text-text-tertiary/40" />
@@ -2515,14 +2515,14 @@ function PackThumbnail({ pack }: PackThumbnailProps) {
 
   if (isEmpty) {
     return (
-      <div className="w-10 h-10 rounded border border-dashed border-white/[0.08] bg-black/10 flex items-center justify-center flex-shrink-0">
+      <div className="w-10 h-10 rounded border border-dashed border-border-primary bg-black/10 flex items-center justify-center flex-shrink-0">
         <Package size={14} className="text-text-tertiary/40" />
       </div>
     );
   }
 
   return (
-    <div className="w-10 h-10 rounded bg-black/40 flex items-center justify-center flex-shrink-0 overflow-hidden border border-white/[0.06]">
+    <div className="w-10 h-10 rounded bg-black/40 flex items-center justify-center flex-shrink-0 overflow-hidden border border-border-primary">
       {firstAssetId && imageOk ? (
         <img
           src={getAssetConceptArtUrl(firstAssetId)}
@@ -2716,12 +2716,12 @@ function LibraryCard({ asset, onPick }: LibraryCardProps) {
     <button
       type="button"
       onClick={onPick}
-      className="text-left group rounded-lg overflow-hidden border border-white/[0.06] hover:border-primary/40 bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
+      className="text-left group rounded-lg overflow-hidden border border-border-primary hover:border-primary/40 bg-bg-tertiary/30 hover:bg-bg-tertiary/40 transition-colors"
     >
       <ModelThumbnail
         modelUrl={modelUrl}
         alt={asset.name}
-        className={`aspect-square bg-gradient-to-br ${style.bgGradient} flex items-center justify-center overflow-hidden transition-transform group-hover:scale-[1.02]`}
+        className={`aspect-square bg-gradient-to-br ${style.bgGradient} flex items-center justify-center overflow-hidden transition-transform `}
         fallback={<Icon size={28} className={style.fg} strokeWidth={1.5} />}
       />
       <div className="p-1.5">

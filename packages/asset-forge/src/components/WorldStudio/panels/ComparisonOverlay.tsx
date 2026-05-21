@@ -60,7 +60,7 @@ export function ComparisonOverlay({
     <div className="fixed inset-0 z-[100] pointer-events-none">
       {/* ============== HEADER BAR ============== */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 mt-2 pointer-events-auto">
-        <div className="flex items-center gap-2 px-4 py-2 bg-black/80 backdrop-blur-md border border-white/10 rounded-lg shadow-xl">
+        <div className="flex items-center gap-2 px-4 py-2 bg-black/80 border border-border-primary rounded-lg shadow-xl">
           <Eye size={14} className="text-primary flex-shrink-0" />
           <span className="text-xs font-semibold text-white/80 uppercase tracking-wider whitespace-nowrap">
             Preview Active
@@ -70,7 +70,7 @@ export function ComparisonOverlay({
               {generationTimeMs}ms
             </span>
           )}
-          <div className="w-px h-4 bg-white/10 mx-1" />
+          <div className="w-px h-4 bg-bg-tertiary mx-1" />
           <button
             className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded bg-green-600 text-white hover:bg-green-500 transition-colors"
             onClick={onAccept}
@@ -86,7 +86,7 @@ export function ComparisonOverlay({
             Revert
           </button>
           <button
-            className="p-1 rounded text-white/40 hover:text-white/80 hover:bg-white/10 transition-colors"
+            className="p-1 rounded text-white/40 hover:text-white/80 hover:bg-bg-tertiary transition-colors"
             onClick={onReject}
             title="Revert to original"
           >
@@ -97,7 +97,7 @@ export function ComparisonOverlay({
 
       {/* ============== STATS COMPARISON (bottom-left) ============== */}
       <div className="absolute bottom-4 left-4 pointer-events-auto">
-        <div className="bg-black/80 backdrop-blur-md border border-white/10 rounded-lg shadow-xl p-3 min-w-[240px]">
+        <div className="bg-black/80 border border-border-primary rounded-lg shadow-xl p-3 min-w-[240px]">
           <div className="text-[10px] text-white/50 uppercase tracking-wider font-semibold mb-2">
             Change Summary
           </div>
@@ -117,7 +117,7 @@ export function ComparisonOverlay({
                   afterStats[row.key],
                 );
                 return (
-                  <tr key={row.key} className="border-t border-white/[0.06]">
+                  <tr key={row.key} className="border-t border-border-primary">
                     <td className="py-1 text-white/70">{row.label}</td>
                     <td className="py-1 text-right font-mono text-white/40">
                       {beforeStats[row.key].toLocaleString()}

@@ -63,7 +63,7 @@ export const MaterialVariantsDisplay: React.FC<
 
             return (
               <div key={i} className="group cursor-pointer">
-                <div className="aspect-square bg-gradient-to-br from-bg-secondary to-bg-tertiary rounded-xl p-6 relative overflow-hidden transition-all hover:shadow-xl hover:scale-105">
+                <div className="aspect-square bg-gradient-to-br from-bg-secondary to-bg-tertiary rounded-xl p-6 relative overflow-hidden transition-all hover:shadow-xl ">
                   <div
                     className="absolute inset-0 opacity-30"
                     style={{ backgroundColor: color }}

@@ -152,7 +152,7 @@ const Navigation: React.FC = () => {
       {/* Backdrop */}
       {open && (
         <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] transition-opacity duration-200"
+          className="fixed inset-0 bg-black/50 z-[200] transition-opacity duration-200"
           onClick={() => setOpen(false)}
         />
       )}

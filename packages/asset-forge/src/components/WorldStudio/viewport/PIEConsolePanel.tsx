@@ -33,10 +33,10 @@ import { usePIEDebugStore } from "../../../editor/stores/usePIEDebugStore";
 // ---------------------------------------------------------------------------
 
 const PANEL =
-  "bg-[rgba(8,9,14,0.92)] backdrop-blur-xl border border-white/[0.08] rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.6)]";
+  "bg-[rgba(8,9,14,0.92)] border border-border-primary rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.6)]";
 
 const HEADER_BTN =
-  "p-1 rounded text-white/40 hover:text-white hover:bg-white/[0.06] transition-colors";
+  "p-1 rounded text-white/40 hover:text-white hover:bg-bg-tertiary/60 transition-colors";
 
 const FILTER_BTN_OFF =
   "flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider bg-[#141416] text-white/45 hover:text-white/80 hover:bg-[#1e1f28] border border-[#1C1E22] transition-colors";
@@ -72,7 +72,7 @@ const LEVEL_META: Record<
   },
   info: {
     color: "text-white/70",
-    bg: "bg-white/[0.03]",
+    bg: "bg-bg-tertiary/40",
     icon: Info,
     label: "INFO",
   },
@@ -171,7 +171,7 @@ export function PIEConsolePanel() {
       }`}
     >
       {/* Header */}
-      <div className="flex items-center gap-1.5 px-2 py-1 border-b border-white/[0.06]">
+      <div className="flex items-center gap-1.5 px-2 py-1 border-b border-border-primary">
         <Terminal size={11} className="text-primary" />
         <span className="text-[10px] uppercase tracking-wider font-medium text-white/80">
           PIE Console

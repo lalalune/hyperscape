@@ -978,7 +978,7 @@ export const ContentBrowser = React.memo(function ContentBrowser() {
       {/* Unified compact toolbar — search pill spans width, count/sort/view
           inline at right. No more "Content" title row (the tab label
           already says "Content"). */}
-      <div className="flex items-center gap-2 px-2 py-1 border-b border-white/5">
+      <div className="flex items-center gap-2 px-2 py-1 border-b border-border-primary">
         <div className="relative flex-1 min-w-0">
           <Search
             size={12}
@@ -1212,11 +1212,11 @@ function BrowserHeader({
   showSort: boolean;
 }) {
   return (
-    <div className="flex items-center gap-2 px-3 py-2 border-b border-white/5">
+    <div className="flex items-center gap-2 px-3 py-2 border-b border-border-primary">
       {onBack ? (
         <button
           onClick={onBack}
-          className="p-0.5 -ml-0.5 rounded text-text-tertiary hover:text-text-primary hover:bg-white/5 transition-colors"
+          className="p-0.5 -ml-0.5 rounded text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary/50 transition-colors"
           title="Back to browse"
         >
           <ArrowLeft size={14} />
@@ -1328,7 +1328,7 @@ function CategoryTreeNode({
         className={`w-full flex items-center gap-1 py-1 pr-2 text-left transition-colors ${
           isSelected
             ? "bg-primary/15 text-primary"
-            : "text-text-secondary hover:bg-white/5 hover:text-text-primary"
+            : "text-text-secondary hover:bg-bg-tertiary/50 hover:text-text-primary"
         }`}
         style={{ paddingLeft: `${depth * 10 + 6}px` }}
         onClick={() => {
@@ -1391,7 +1391,7 @@ function ContentGridCard({
 }) {
   return (
     <div
-      className="group flex flex-col justify-center gap-0.5 px-2 py-1.5 rounded-md bg-black/10 border border-transparent cursor-pointer transition-colors hover:bg-white/5 hover:border-primary/30"
+      className="group flex flex-col justify-center gap-0.5 px-2 py-1.5 rounded-md bg-black/10 border border-transparent cursor-pointer transition-colors hover:bg-bg-tertiary/50 hover:border-primary/30"
       onClick={onClick}
       draggable
       onDragStart={onDragStart}
@@ -1429,10 +1429,10 @@ function ContentListRow({
   onPlace: (() => void) | null;
 }) {
   // UE5-style alternating row shading (no hard dividers).
-  const bandClass = index % 2 === 1 ? "bg-white/[0.015]" : "";
+  const bandClass = index % 2 === 1 ? "bg-bg-tertiary/30" : "";
   return (
     <div
-      className={`group flex items-center gap-2 px-3 h-[26px] cursor-pointer transition-colors hover:bg-white/5 ${bandClass}`}
+      className={`group flex items-center gap-2 px-3 h-[26px] cursor-pointer transition-colors hover:bg-bg-tertiary/50 ${bandClass}`}
       onClick={onClick}
       draggable
       onDragStart={onDragStart}

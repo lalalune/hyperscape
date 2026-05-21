@@ -298,7 +298,7 @@ const AssetList: React.FC<AssetListProps> = ({ assets }) => {
 
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="text-center">
-            <div className="w-20 h-20 bg-bg-primary bg-opacity-40 rounded-2xl flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">
+            <div className="w-20 h-20 bg-bg-primary bg-opacity-40 rounded-2xl flex items-center justify-center mx-auto mb-4 ">
               <Package size={32} className="text-text-muted opacity-50" />
             </div>
             <p className="text-text-secondary text-sm font-medium">
@@ -315,7 +315,7 @@ const AssetList: React.FC<AssetListProps> = ({ assets }) => {
 
   return (
     <div className="card overflow-hidden flex flex-col h-full bg-gradient-to-br from-bg-primary to-bg-secondary animate-scale-in">
-      <div className="p-4 border-b border-border-primary bg-bg-primary bg-opacity-30 sticky top-0 z-10 backdrop-blur-sm">
+      <div className="p-4 border-b border-border-primary bg-bg-primary bg-opacity-30 sticky top-0 z-10 ">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold text-text-primary flex items-center gap-2">
             <Package size={18} className="text-primary" />
@@ -413,7 +413,7 @@ const AssetList: React.FC<AssetListProps> = ({ assets }) => {
                                     e.stopPropagation();
                                     toggleGroup(group.base.id);
                                   }}
-                                  className="p-1.5 -ml-1 mr-2 hover:bg-bg-secondary rounded-md transition-all duration-200 hover:scale-110"
+                                  className="p-1.5 -ml-1 mr-2 hover:bg-bg-secondary rounded-md transition-all duration-200 "
                                 >
                                   <ChevronRight
                                     size={16}
@@ -433,9 +433,9 @@ const AssetList: React.FC<AssetListProps> = ({ assets }) => {
                                 onClick={() => handleAssetSelect(group.base)}
                               >
                                 <div
-                                  className={`flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 group-hover:scale-105 ${
+                                  className={`flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 ${
                                     selectedAsset?.id === group.base.id
-                                      ? "bg-primary bg-opacity-10 text-text-primary shadow-sm ring-2 ring-primary"
+                                      ? "bg-primary bg-opacity-10 text-text-primary shadow-sm ring-1 ring-primary/40"
                                       : "bg-bg-secondary bg-opacity-70 text-text-tertiary group-hover:bg-bg-tertiary group-hover:text-text-secondary"
                                   }`}
                                 >
@@ -503,9 +503,9 @@ const AssetList: React.FC<AssetListProps> = ({ assets }) => {
                                 >
                                   <div className="flex items-center gap-3 p-2 pl-3">
                                     <div
-                                      className={`flex-shrink-0 w-8 h-8 rounded-md flex items-center justify-center transition-all duration-200 group-hover:scale-105 ${
+                                      className={`flex-shrink-0 w-8 h-8 rounded-md flex items-center justify-center transition-all duration-200 ${
                                         selectedAsset?.id === variant.id
-                                          ? "bg-primary bg-opacity-10 text-text-primary ring-2 ring-primary"
+                                          ? "bg-primary bg-opacity-10 text-text-primary ring-1 ring-primary/40"
                                           : "bg-bg-secondary bg-opacity-50 text-text-tertiary group-hover:bg-bg-tertiary group-hover:text-text-secondary"
                                       }`}
                                     >
@@ -585,7 +585,7 @@ const AssetList: React.FC<AssetListProps> = ({ assets }) => {
                             <div
                               className={`flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 ${
                                 selectedAsset?.id === asset.id
-                                  ? "bg-primary bg-opacity-10 text-text-primary shadow-sm ring-2 ring-primary"
+                                  ? "bg-primary bg-opacity-10 text-text-primary shadow-sm ring-1 ring-primary/40"
                                   : "bg-bg-secondary bg-opacity-70 text-text-tertiary"
                               }`}
                             >
@@ -731,7 +731,7 @@ const AssetList: React.FC<AssetListProps> = ({ assets }) => {
                               <div
                                 className={`flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 ${
                                   selectedAsset?.id === asset.id
-                                    ? "bg-primary bg-opacity-10 text-text-primary shadow-sm ring-2 ring-primary"
+                                    ? "bg-primary bg-opacity-10 text-text-primary shadow-sm ring-1 ring-primary/40"
                                     : "bg-bg-secondary bg-opacity-70 text-text-tertiary"
                                 }`}
                               >

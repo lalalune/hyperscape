@@ -114,7 +114,7 @@ export function ViewportOverlayBar() {
   return (
     <div className="absolute top-[44px] right-2 z-10 flex flex-col gap-1.5">
       {/* Overlay toggles */}
-      <div className="bg-[rgba(8,9,14,0.78)] backdrop-blur-xl border border-white/[0.06] rounded-[5px] p-1 flex flex-col gap-0.5 shadow-[0_2px_8px_rgba(0,0,0,0.5)]">
+      <div className="bg-[rgba(8,9,14,0.78)] border border-border-primary rounded-[5px] p-1 flex flex-col gap-0.5 shadow-[0_2px_8px_rgba(0,0,0,0.5)]">
         {OVERLAY_TOGGLES.map(({ key, icon: Icon, label, color }) => {
           const active = overlays[key] === true;
           return (
@@ -122,8 +122,8 @@ export function ViewportOverlayBar() {
               key={key}
               className={`flex items-center gap-1.5 px-2 py-1 rounded-[3px] text-[10px] transition-all duration-120 ${
                 active
-                  ? `${color} bg-white/[0.06]`
-                  : "text-white/40 hover:text-white/70 hover:bg-white/[0.04]"
+                  ? `${color} bg-bg-tertiary/60`
+                  : "text-white/40 hover:text-white/70 hover:bg-bg-tertiary/40"
               }`}
               onClick={() => toggleOverlay(key)}
               title={label}
@@ -136,7 +136,7 @@ export function ViewportOverlayBar() {
       </div>
 
       {/* Visual parity toggles (Phase 6) */}
-      <div className="bg-[rgba(8,9,14,0.78)] backdrop-blur-xl border border-white/[0.06] rounded-[5px] p-1 flex flex-col gap-0.5 shadow-[0_2px_8px_rgba(0,0,0,0.5)]">
+      <div className="bg-[rgba(8,9,14,0.78)] border border-border-primary rounded-[5px] p-1 flex flex-col gap-0.5 shadow-[0_2px_8px_rgba(0,0,0,0.5)]">
         {VISUAL_TOGGLES.map(({ key, icon: Icon, label, color }) => {
           const active = overlays[key] === true;
           return (
@@ -144,8 +144,8 @@ export function ViewportOverlayBar() {
               key={key}
               className={`flex items-center gap-1.5 px-2 py-1 rounded-[3px] text-[10px] transition-all duration-120 ${
                 active
-                  ? `${color} bg-white/[0.06]`
-                  : "text-white/40 hover:text-white/70 hover:bg-white/[0.04]"
+                  ? `${color} bg-bg-tertiary/60`
+                  : "text-white/40 hover:text-white/70 hover:bg-bg-tertiary/40"
               }`}
               onClick={() => toggleOverlay(key)}
               title={label}
@@ -158,7 +158,7 @@ export function ViewportOverlayBar() {
       </div>
 
       {/* Day/Night slider */}
-      <div className="bg-[rgba(8,9,14,0.78)] backdrop-blur-xl border border-white/[0.06] rounded-[5px] p-2 shadow-[0_2px_8px_rgba(0,0,0,0.5)]">
+      <div className="bg-[rgba(8,9,14,0.78)] border border-border-primary rounded-[5px] p-2 shadow-[0_2px_8px_rgba(0,0,0,0.5)]">
         <div className="flex items-center justify-between mb-1">
           <span className="text-[10px] text-white/40 flex items-center gap-1">
             {overlays.timeOfDay != null ? (

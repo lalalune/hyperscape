@@ -111,7 +111,7 @@ export function BuildingBlocksPanel({
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder="Search plugins…"
-          className="w-full px-3 py-2 text-[12px] bg-bg-tertiary rounded-md ring-1 ring-white/[0.06] text-text-primary placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary/40 focus:bg-bg-secondary transition-all"
+          className="w-full px-3 py-2 text-[12px] bg-bg-tertiary rounded-md ring-1 ring-white/[0.06] text-text-primary placeholder-text-tertiary focus:outline-none focus:ring-1 focus:ring-primary/40 focus:bg-bg-secondary transition-all"
         />
       </div>
 
@@ -180,9 +180,7 @@ export function PluginCard({
   return (
     <div
       className={`bg-bg-tertiary rounded-lg ring-1 ${
-        expanded
-          ? "ring-primary/40 shadow-md shadow-primary/10"
-          : "ring-white/[0.06] hover:ring-primary/30"
+        expanded ? "ring-primary/40" : "ring-white/[0.06] hover:ring-primary/30"
       } transition-all`}
     >
       <button
@@ -254,7 +252,7 @@ export function PluginCard({
             type="button"
             onClick={onUse}
             disabled={disabled}
-            className="w-full mt-2 px-3 py-2 text-[11px] font-semibold rounded-md bg-gradient-to-br from-primary to-primary/85 text-white shadow-sm shadow-primary/20 hover:shadow-md hover:shadow-primary/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5"
+            className="w-full mt-2 px-3 py-2 text-[11px] font-semibold rounded-md bg-primary text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5"
           >
             <Sparkles size={11} />
             Use in my world

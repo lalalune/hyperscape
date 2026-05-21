@@ -5624,7 +5624,7 @@ export const WorldBuilderPage: React.FC = () => {
                       Terrain Config
                     </h2>
                     {isLoadingManifest && (
-                      <span className="text-xs text-text-muted animate-pulse">
+                      <span className="text-xs text-text-muted ">
                         Loading...
                       </span>
                     )}
@@ -6416,7 +6416,7 @@ export const WorldBuilderPage: React.FC = () => {
           {/* Camera Controls Overlay */}
           <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">
             {/* Camera Mode Toggle */}
-            <div className="bg-bg-secondary bg-opacity-90 backdrop-blur-sm rounded-lg p-2 shadow-lg">
+            <div className="bg-bg-secondary bg-opacity-90 rounded-lg p-2 shadow-lg">
               <div className="flex gap-1">
                 <button
                   onClick={() => {
@@ -6457,7 +6457,7 @@ export const WorldBuilderPage: React.FC = () => {
 
             {/* Flythrough Help */}
             {(cameraMode === "flythrough" || cameraMode === "player") && (
-              <div className="bg-bg-secondary bg-opacity-90 backdrop-blur-sm rounded-lg p-3 shadow-lg text-xs">
+              <div className="bg-bg-secondary bg-opacity-90 rounded-lg p-3 shadow-lg text-xs">
                 <div className="text-text-primary font-medium mb-2">
                   Controls
                 </div>
@@ -6474,7 +6474,7 @@ export const WorldBuilderPage: React.FC = () => {
 
             {/* Speed Control (when in flythrough) */}
             {(cameraMode === "flythrough" || cameraMode === "player") && (
-              <div className="bg-bg-secondary bg-opacity-90 backdrop-blur-sm rounded-lg p-3 shadow-lg">
+              <div className="bg-bg-secondary bg-opacity-90 rounded-lg p-3 shadow-lg">
                 <label className="text-xs text-text-secondary block mb-1">
                   Speed: {moveSpeed} m/s
                 </label>

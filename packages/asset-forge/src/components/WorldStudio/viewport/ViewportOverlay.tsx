@@ -166,7 +166,7 @@ const BIOME_COLORS: Record<string, string> = {
 
 /** Shared chip style — deep frosted glass for passive HUD */
 const CHIP =
-  "inline-flex items-center gap-1.5 bg-[rgba(8,9,14,0.78)] rounded-[5px] px-2.5 py-1 border border-white/[0.06] shadow-[0_2px_8px_rgba(0,0,0,0.5)]";
+  "inline-flex items-center gap-1.5 bg-[rgba(8,9,14,0.78)] rounded-[5px] px-2.5 py-1 border border-border-primary shadow-[0_2px_8px_rgba(0,0,0,0.5)]";
 
 /** Button — opaque surface for interactive controls */
 const CHIP_BTN_OFF =
@@ -435,7 +435,7 @@ function ControlsTooltip() {
       </button>
 
       {open && (
-        <div className="absolute bottom-full right-0 mb-1.5 bg-[rgba(8,9,14,0.92)] rounded-lg border border-white/[0.06] shadow-[0_4px_16px_rgba(0,0,0,0.4)] p-3 w-56 pointer-events-auto">
+        <div className="absolute bottom-full right-0 mb-1.5 bg-[rgba(8,9,14,0.92)] rounded-lg border border-border-primary shadow-[0_4px_16px_rgba(0,0,0,0.4)] p-3 w-56 pointer-events-auto">
           <div className="text-[9px] text-white/50 uppercase tracking-wider font-medium mb-1.5">
             Controls
           </div>

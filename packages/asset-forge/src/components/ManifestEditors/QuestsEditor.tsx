@@ -474,7 +474,7 @@ export const QuestsEditor: React.FC<QuestsEditorProps> = ({
                 onChange={(e) =>
                   updateQuest(selectedQuest.id, { name: e.target.value })
                 }
-                className="text-lg font-semibold text-text-primary bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-primary rounded px-1"
+                className="text-lg font-semibold text-text-primary bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-primary/40 rounded px-1"
               />
               <div className="text-xs text-text-muted">
                 ID: {selectedQuest.id}

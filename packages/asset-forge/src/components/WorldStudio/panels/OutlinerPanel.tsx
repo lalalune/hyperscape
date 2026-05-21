@@ -655,7 +655,7 @@ function OutlinerNode({
             ? "bg-primary/15 text-primary"
             : isMultiSelected
               ? "bg-primary/8 text-primary/80"
-              : "text-text-secondary hover:text-text-primary hover:bg-white/[0.04]"
+              : "text-text-secondary hover:text-text-primary hover:bg-bg-tertiary/40"
         }`}
         style={{ paddingLeft: depth * 16 + 4 }}
         onClick={(e) => {

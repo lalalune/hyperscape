@@ -160,8 +160,8 @@ export const AssetsPage: React.FC = () => {
                     {selectedAsset.type === "character" && (
                       <button
                         onClick={toggleAnimationView}
-                        className={`group p-3 bg-bg-secondary bg-opacity-90 backdrop-blur-sm rounded-xl transition-all duration-200 hover:bg-bg-tertiary hover:scale-105 shadow-lg ${
-                          showAnimationView ? "ring-2 ring-primary" : ""
+                        className={`group p-3 bg-bg-secondary bg-opacity-90 rounded-xl transition-all duration-200 hover:bg-bg-tertiary shadow-lg ${
+                          showAnimationView ? "ring-1 ring-primary/40" : ""
                         }`}
                         title={
                           showAnimationView
@@ -183,7 +183,7 @@ export const AssetsPage: React.FC = () => {
                     {/* Edit Button - middle */}
                     <button
                       onClick={() => setShowEditModal(true)}
-                      className="group p-3 bg-bg-secondary bg-opacity-90 backdrop-blur-sm rounded-xl transition-all duration-200 hover:bg-bg-tertiary hover:scale-105 shadow-lg"
+                      className="group p-3 bg-bg-secondary bg-opacity-90 rounded-xl transition-all duration-200 hover:bg-bg-tertiary shadow-lg"
                       title="Edit Asset"
                     >
                       <Edit3
@@ -195,8 +195,8 @@ export const AssetsPage: React.FC = () => {
                     {/* Details Button - furthest right with Layers icon */}
                     <button
                       onClick={toggleDetailsPanel}
-                      className={`p-3 bg-bg-secondary bg-opacity-90 backdrop-blur-sm rounded-xl transition-all duration-200 hover:bg-bg-tertiary hover:scale-105 shadow-lg ${
-                        showDetailsPanel ? "ring-2 ring-primary" : ""
+                      className={`p-3 bg-bg-secondary bg-opacity-90 rounded-xl transition-all duration-200 hover:bg-bg-tertiary shadow-lg ${
+                        showDetailsPanel ? "ring-1 ring-primary/40" : ""
                       }`}
                       title="Toggle Details (D)"
                     >

@@ -413,7 +413,7 @@ function ModeCard({
       className={`relative text-left p-3 rounded border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
         selected
           ? isHero
-            ? "border-primary bg-primary/15 ring-1 ring-primary"
+            ? "border-primary bg-primary/15 ring-1 ring-primary/40"
             : "border-primary bg-primary/10"
           : isHero
             ? "border-primary/30 bg-bg-tertiary hover:border-primary/60 hover:bg-bg-secondary"

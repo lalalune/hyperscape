@@ -19,8 +19,8 @@ export const EquipmentSlotSelector: React.FC<EquipmentSlotSelectorProps> = ({
   );
 
   return (
-    <div className="bg-bg-primary/40 backdrop-blur-sm rounded-xl border border-white/10 overflow-hidden">
-      <div className="p-4 border-b border-white/5">
+    <div className="bg-bg-primary/40 rounded-xl border border-border-primary overflow-hidden">
+      <div className="p-4 border-b border-border-primary">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-primary/20 rounded-lg">
             <Target className="w-5 h-5 text-primary" />
@@ -47,7 +47,7 @@ export const EquipmentSlotSelector: React.FC<EquipmentSlotSelectorProps> = ({
                   "p-3 rounded-lg border transition-all duration-200 flex flex-col items-center gap-1.5",
                   equipmentSlot === slot.id
                     ? "bg-primary/10 border-primary"
-                    : "bg-bg-secondary/40 border-white/10 hover:border-white/20",
+                    : "bg-bg-secondary/40 border-border-primary hover:border-border-secondary",
                 )}
               >
                 <div

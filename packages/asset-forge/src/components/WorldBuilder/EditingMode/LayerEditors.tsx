@@ -108,7 +108,7 @@ const TextInput: React.FC<TextInputProps> = ({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         rows={rows}
-        className="w-full px-2 py-1.5 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+        className="w-full px-2 py-1.5 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-primary/40 resize-none"
       />
     );
   }
@@ -118,7 +118,7 @@ const TextInput: React.FC<TextInputProps> = ({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      className="w-full px-2 py-1.5 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-primary"
+      className="w-full px-2 py-1.5 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-primary/40"
     />
   );
 };
@@ -145,7 +145,7 @@ const NumberInput: React.FC<NumberInputProps> = ({
     min={min}
     max={max}
     step={step}
-    className="w-full px-2 py-1.5 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-primary"
+    className="w-full px-2 py-1.5 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
   />
 );
 
@@ -163,7 +163,7 @@ const SelectInput: React.FC<SelectInputProps> = ({
   <select
     value={value}
     onChange={(e) => onChange(e.target.value)}
-    className="w-full px-2 py-1.5 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-primary"
+    className="w-full px-2 py-1.5 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-primary/40"
   >
     {options.map((opt) => (
       <option key={opt.value} value={opt.value}>

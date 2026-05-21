@@ -79,7 +79,7 @@ export const TooltipOverlay: React.FC<TooltipOverlayProps> = ({
   return (
     <div
       style={tooltipStyle}
-      className="bg-bg-secondary/95 border border-border-primary rounded-lg shadow-lg px-3 py-2 min-w-[160px] max-w-[240px] backdrop-blur-sm"
+      className="bg-bg-secondary/95 border border-border-primary rounded-lg shadow-lg px-3 py-2 min-w-[160px] max-w-[240px] "
     >
       {/* Header */}
       <div className="flex items-center gap-2 mb-1">
@@ -154,7 +154,7 @@ export const SelectionInfoPanel: React.FC<SelectionInfoPanelProps> = ({
   const typeLabel = TYPE_LABELS[type] || type;
 
   return (
-    <div className="absolute bottom-4 left-4 bg-bg-secondary/95 border border-border-primary rounded-lg shadow-lg px-4 py-3 min-w-[200px] backdrop-blur-sm z-50">
+    <div className="absolute bottom-4 left-4 bg-bg-secondary/95 border border-border-primary rounded-lg shadow-lg px-4 py-3 min-w-[200px] z-50">
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">

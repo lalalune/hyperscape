@@ -149,7 +149,7 @@ export function ContextMenu({ items, position, onClose }: ContextMenuProps) {
                 ? "text-text-tertiary/50 cursor-not-allowed"
                 : item.danger
                   ? "text-red-400 hover:bg-red-400/10"
-                  : "text-text-primary hover:bg-white/[0.04]",
+                  : "text-text-primary hover:bg-bg-tertiary/40",
             ].join(" ")}
             style={{
               height: ITEM_HEIGHT,

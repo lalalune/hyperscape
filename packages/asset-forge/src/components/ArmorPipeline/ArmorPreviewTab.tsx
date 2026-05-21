@@ -522,7 +522,7 @@ export const ArmorPreviewTab: React.FC<ArmorPreviewTabProps> = ({
               onClick={handleRigAll}
               disabled={isRigging || !hasKit || enabledPieces.size === 0}
               className="w-full px-4 py-2.5 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2
-                bg-primary text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+ bg-primary text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isRigging ? (
                 <>
@@ -576,8 +576,8 @@ export const ArmorPreviewTab: React.FC<ArmorPreviewTabProps> = ({
                 onClick={handleLoadGLB}
                 disabled={isRigging}
                 className="w-full px-3 py-1.5 rounded text-xs font-medium transition-all flex items-center justify-center gap-1.5
-                  bg-bg-primary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary
-                  disabled:opacity-50 disabled:cursor-not-allowed"
+ bg-bg-primary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary
+ disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Upload size={12} />
                 Choose GLB File
@@ -631,7 +631,7 @@ export const ArmorPreviewTab: React.FC<ArmorPreviewTabProps> = ({
               <button
                 onClick={handleDownloadAll}
                 className="flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
-                  bg-bg-secondary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary"
+ bg-bg-secondary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary"
               >
                 <Download size={14} />
                 Download All
@@ -640,7 +640,7 @@ export const ArmorPreviewTab: React.FC<ArmorPreviewTabProps> = ({
               <button
                 onClick={handleReset}
                 className="flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
-                  bg-bg-secondary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary"
+ bg-bg-secondary border border-border-primary text-text-secondary hover:text-text-primary hover:border-border-secondary"
               >
                 <RotateCcw size={14} />
                 Reset
@@ -689,7 +689,7 @@ export const ArmorPreviewTab: React.FC<ArmorPreviewTabProps> = ({
                 onClick={handlePublishToGame}
                 disabled={isPublishing || riggedPieces.size === 0}
                 className="w-full px-4 py-2.5 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2
-                  bg-green-600 text-white hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+ bg-green-600 text-white hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isPublishing ? (
                   <>

@@ -185,7 +185,7 @@ const MaterialPresetItem: React.FC<{
       >
         <div className="flex items-center gap-2">
           <div
-            className="w-5 h-5 rounded-md flex-shrink-0 shadow-sm border border-white/20"
+            className="w-5 h-5 rounded-md flex-shrink-0 shadow-sm border border-border-secondary"
             style={{ backgroundColor: preset.color }}
           />
           <div className="flex-1 min-w-0">
@@ -203,7 +203,7 @@ const MaterialPresetItem: React.FC<{
 
         {/* Enhanced Tooltip on Hover */}
         <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none z-50">
-          <div className="bg-bg-primary/95 backdrop-blur-sm border border-border-primary rounded-lg shadow-xl p-3 min-w-[200px] max-w-[300px]">
+          <div className="bg-bg-primary/95 border border-border-primary rounded-lg shadow-xl p-3 min-w-[200px] max-w-[300px]">
             <p className="text-sm font-medium text-text-primary">
               {preset.displayName}
             </p>

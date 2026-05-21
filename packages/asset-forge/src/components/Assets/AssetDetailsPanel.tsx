@@ -464,7 +464,7 @@ const AssetDetailsPanel: React.FC<AssetDetailsPanelProps> = ({
 
   return (
     <div
-      className={`absolute top-0 right-0 h-full w-80 bg-bg-primary bg-opacity-95 backdrop-blur-md shadow-2xl transform transition-all duration-300 ease-out z-20 ${
+      className={`absolute top-0 right-0 h-full w-80 bg-bg-primary bg-opacity-95 shadow-2xl transform transition-all duration-300 ease-out z-20 ${
         isOpen ? "translate-x-0 opacity-100" : "translate-x-full opacity-0"
       }`}
     >

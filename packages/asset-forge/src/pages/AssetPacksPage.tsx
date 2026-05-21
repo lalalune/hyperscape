@@ -108,7 +108,7 @@ export function AssetPacksPage() {
   return (
     <div className="flex flex-col h-full bg-bg-primary">
       {/* Page header — friendlier title + subtitle */}
-      <div className="px-6 py-5 border-b border-white/[0.06]">
+      <div className="px-6 py-5 border-b border-border-primary">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3 min-w-0">
             <div className="rounded-lg bg-primary/10 border border-primary/20 p-2 flex-shrink-0">
@@ -132,7 +132,7 @@ export function AssetPacksPage() {
               <select
                 value={activeTeamId ?? ""}
                 onChange={(e) => setActiveTeamId(e.target.value)}
-                className="px-2 py-1 text-xs bg-white/[0.03] border border-white/[0.08] rounded text-text-primary focus:outline-none focus:border-primary/40"
+                className="px-2 py-1 text-xs bg-bg-tertiary/40 border border-border-primary rounded text-text-primary focus:outline-none focus:border-primary/40"
               >
                 {fetchState.teams.map((t) => (
                   <option key={t.teamId} value={t.teamId}>

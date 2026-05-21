@@ -18,8 +18,8 @@ export const PositionControls: React.FC<PositionControlsProps> = ({
   if (!selectedEquipment?.hasModel) return null;
 
   return (
-    <div className="bg-bg-primary/40 backdrop-blur-sm rounded-xl border border-white/10 overflow-hidden">
-      <div className="p-4 border-b border-white/5">
+    <div className="bg-bg-primary/40 rounded-xl border border-border-primary overflow-hidden">
+      <div className="p-4 border-b border-border-primary">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-primary/20 rounded-lg">
             <Move className="w-5 h-5 text-primary" />

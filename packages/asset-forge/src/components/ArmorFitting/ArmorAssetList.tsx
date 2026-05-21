@@ -211,7 +211,7 @@ export const ArmorAssetList: React.FC<ArmorAssetListProps> = ({
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
         {/* Search */}
-        <div className="p-4 sticky top-0 bg-bg-primary  z-10">
+        <div className="p-4 sticky top-0 bg-bg-primary z-10">
           <div className="relative">
             <Search
               className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary"
@@ -264,7 +264,7 @@ export const ArmorAssetList: React.FC<ArmorAssetListProps> = ({
                     className={cn(
                       "w-full p-4 rounded-xl border transition-all duration-200 text-left group",
                       selectedAsset?.id === asset.id
-                        ? "bg-primary/20 border-primary shadow-md shadow-primary/20"
+                        ? "bg-primary/20 border-primary "
                         : "bg-bg-tertiary border-border-primary hover:border-border-secondary hover:bg-bg-tertiary",
                     )}
                   >
@@ -330,7 +330,7 @@ export const ArmorAssetList: React.FC<ArmorAssetListProps> = ({
                             className={cn(
                               "w-full p-4 rounded-xl border transition-all duration-200 text-left group",
                               selectedAsset?.id === asset.id
-                                ? "bg-primary/20 border-primary shadow-md shadow-primary/20"
+                                ? "bg-primary/20 border-primary "
                                 : "bg-bg-tertiary border-border-primary hover:border-border-secondary hover:bg-bg-tertiary",
                             )}
                           >

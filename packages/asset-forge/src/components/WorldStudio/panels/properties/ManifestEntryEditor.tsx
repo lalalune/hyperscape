@@ -88,7 +88,7 @@ function CombatSpellEditor({ spell }: { spell: ManifestCombatSpell }) {
   }, [spell.runes, update]);
 
   return (
-    <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-white/5 space-y-1.5">
+    <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-border-primary space-y-1.5">
       <div className="flex items-center gap-1 text-[10px] text-text-tertiary mb-1">
         <Swords size={10} />
         <span className="uppercase font-medium">Edit Spell</span>
@@ -212,7 +212,7 @@ function PrayerEditor({ prayer }: { prayer: ManifestPrayer }) {
   );
 
   return (
-    <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-white/5 space-y-1.5">
+    <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-border-primary space-y-1.5">
       <div className="flex items-center gap-1 text-[10px] text-text-tertiary mb-1">
         <Shield size={10} />
         <span className="uppercase font-medium">Edit Prayer</span>
@@ -320,7 +320,7 @@ function RecipeEditor({ recipe }: { recipe: ManifestRecipe }) {
   }, [recipe.inputs, update]);
 
   return (
-    <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-white/5 space-y-1.5">
+    <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-border-primary space-y-1.5">
       <div className="flex items-center gap-1 text-[10px] text-text-tertiary mb-1">
         <Flame size={10} />
         <span className="uppercase font-medium">Edit Recipe</span>
@@ -426,7 +426,7 @@ function AmmunitionEditor({ ammo }: { ammo: ManifestAmmunition }) {
   );
 
   return (
-    <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-white/5 space-y-1.5">
+    <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-border-primary space-y-1.5">
       <div className="flex items-center gap-1 text-[10px] text-text-tertiary mb-1">
         <Sparkles size={10} />
         <span className="uppercase font-medium">Edit Ammunition</span>
@@ -479,7 +479,7 @@ function RuneEditor({ rune }: { rune: ManifestRune }) {
   );
 
   return (
-    <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-white/5 space-y-1.5">
+    <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-border-primary space-y-1.5">
       <div className="flex items-center gap-1 text-[10px] text-text-tertiary mb-1">
         <BookOpen size={10} />
         <span className="uppercase font-medium">Edit Rune</span>
@@ -528,7 +528,7 @@ function ItemEditor({ item }: { item: ManifestItem }) {
   );
 
   return (
-    <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-white/5 space-y-1.5">
+    <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-border-primary space-y-1.5">
       <TextInput
         label="Name"
         value={item.name}
@@ -616,7 +616,7 @@ function NPCManifestEditor({ npc }: { npc: ManifestNPC }) {
   );
 
   return (
-    <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-white/5 space-y-1.5">
+    <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-border-primary space-y-1.5">
       <TextInput
         label="Name"
         value={npc.name}
@@ -694,7 +694,7 @@ function QuestManifestEditor({ quest }: { quest: ManifestQuest }) {
   );
 
   return (
-    <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-white/5 space-y-1.5">
+    <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-border-primary space-y-1.5">
       <div className="flex items-center gap-1 text-[10px] text-text-tertiary mb-1">
         <Scroll size={10} />
         <span className="uppercase font-medium">Edit Quest</span>
@@ -755,7 +755,7 @@ function QuestManifestEditor({ quest }: { quest: ManifestQuest }) {
  */
 function StoreManifestEditorWrapper({ store }: { store: ManifestStore }) {
   return (
-    <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-white/5 space-y-1.5">
+    <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-border-primary space-y-1.5">
       <div className="flex items-center gap-1 text-[10px] text-text-tertiary mb-1">
         <BookOpen size={10} />
         <span className="uppercase font-medium">Edit Store</span>
@@ -801,7 +801,7 @@ function TreeEditor({ tree }: { tree: ManifestTree }) {
   }, [tree.modelVariants, update]);
 
   return (
-    <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-white/5 space-y-1.5">
+    <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-border-primary space-y-1.5">
       <div className="flex items-center gap-1 text-[10px] text-text-tertiary mb-1">
         <Trees size={10} />
         <span className="uppercase font-medium">Edit Tree</span>
@@ -881,7 +881,7 @@ function FishingSpotEditor({ spot }: { spot: ManifestFishingSpot }) {
   );
 
   return (
-    <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-white/5 space-y-1.5">
+    <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-border-primary space-y-1.5">
       <div className="flex items-center gap-1 text-[10px] text-text-tertiary mb-1">
         <Fish size={10} />
         <span className="uppercase font-medium">Edit Fishing Spot</span>
@@ -933,7 +933,7 @@ function MiningRockEditor({ rock }: { rock: ManifestMiningRock }) {
   );
 
   return (
-    <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-white/5 space-y-1.5">
+    <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-border-primary space-y-1.5">
       <div className="flex items-center gap-1 text-[10px] text-text-tertiary mb-1">
         <Pickaxe size={10} />
         <span className="uppercase font-medium">Edit Mining Rock</span>
@@ -985,7 +985,7 @@ function StationEditor({ station }: { station: ManifestStation }) {
   );
 
   return (
-    <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-white/5 space-y-1.5">
+    <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-border-primary space-y-1.5">
       <div className="flex items-center gap-1 text-[10px] text-text-tertiary mb-1">
         <Hammer size={10} />
         <span className="uppercase font-medium">Edit Station</span>
@@ -1030,7 +1030,7 @@ function DuelArenaEditor({ arena }: { arena: ManifestDuelArena }) {
   );
 
   return (
-    <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-white/5 space-y-1.5">
+    <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-border-primary space-y-1.5">
       <div className="flex items-center gap-1 text-[10px] text-text-tertiary mb-1">
         <Crosshair size={10} />
         <span className="uppercase font-medium">Edit Duel Arena</span>
@@ -1091,7 +1091,7 @@ function SkillUnlockEditor({
   );
 
   return (
-    <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-white/5 space-y-1.5">
+    <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-border-primary space-y-1.5">
       <div className="flex items-center gap-1 text-[10px] text-text-tertiary mb-1">
         <Lock size={10} />
         <span className="uppercase font-medium">Edit Skill Unlock</span>
@@ -1179,7 +1179,7 @@ function TierRequirementEditor({
   }, [req.requirements, update]);
 
   return (
-    <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-white/5 space-y-1.5">
+    <div className="px-3 py-2 bg-bg-tertiary/20 border-t border-border-primary space-y-1.5">
       <div className="flex items-center gap-1 text-[10px] text-text-tertiary mb-1">
         <TrendingUp size={10} />
         <span className="uppercase font-medium">Edit Tier Requirement</span>

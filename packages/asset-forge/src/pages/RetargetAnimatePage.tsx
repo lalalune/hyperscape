@@ -278,9 +278,7 @@ export const RetargetAnimatePage: React.FC = () => {
           </p>
           {loadingState && (
             <div className="px-3 py-2 bg-primary/10 border border-primary/30 rounded-md">
-              <p className="text-xs text-primary animate-pulse">
-                {loadingState}
-              </p>
+              <p className="text-xs text-primary ">{loadingState}</p>
             </div>
           )}
         </div>

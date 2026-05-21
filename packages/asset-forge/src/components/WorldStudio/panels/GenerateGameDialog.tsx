@@ -301,7 +301,7 @@ export function GenerateGameDialog({
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-border-primary flex-shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 border border-violet-500/30 flex items-center justify-center">
+            <div className="w-7 h-7 rounded-lg bg-bg-tertiary border border-border-primary flex items-center justify-center">
               <Sparkles size={14} className="text-violet-400" />
             </div>
             <div>
@@ -471,7 +471,7 @@ export function GenerateGameDialog({
             {/* Generate button */}
             <div className="px-4 py-3 border-t border-border-primary flex-shrink-0">
               <button
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-500 hover:to-fuchsia-500 shadow-lg shadow-violet-500/20"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-primary text-white hover:bg-primary-dark shadow-lg "
                 onClick={handleGenerate}
                 disabled={!description.trim() || isLoading}
               >
@@ -535,7 +535,7 @@ export function GenerateGameDialog({
             {!isLoading && genState.status === "idle" && (
               <div className="flex-1 flex items-center justify-center p-6">
                 <div className="text-center max-w-sm">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500/10 to-fuchsia-500/10 border border-violet-500/20 flex items-center justify-center mx-auto mb-4">
+                  <div className="w-16 h-16 rounded-2xl bg-bg-tertiary border border-border-primary flex items-center justify-center mx-auto mb-4">
                     <Sparkles size={28} className="text-violet-400/60" />
                   </div>
                   <p className="text-sm text-text-secondary mb-1">

@@ -19,7 +19,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   return (
     <div className={`text-center p-8 ${className}`}>
       <div className="relative">
-        <div className="absolute inset-0 bg-primary opacity-20 blur-3xl animate-pulse" />
+        <div className="absolute inset-0 bg-primary opacity-20 blur-3xl " />
         <Icon
           size={iconSize}
           className="text-text-muted mb-6 mx-auto relative z-10 animate-float"

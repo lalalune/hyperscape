@@ -99,7 +99,7 @@ export function ViewModeDropdown({
 
       {open && (
         <div
-          className="absolute right-0 top-full mt-1.5 z-50 bg-[rgba(10,11,16,0.95)] backdrop-blur-xl border border-[#1C1E22] rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.6)] py-1 min-w-[180px] ws-dropdown"
+          className="absolute right-0 top-full mt-1.5 z-50 bg-[rgba(10,11,16,0.95)] border border-[#1C1E22] rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.6)] py-1 min-w-[180px] ws-dropdown"
           style={{ borderTop: "1px solid var(--surface-highlight-strong)" }}
         >
           {VIEW_MODES.map((option) => {
@@ -111,7 +111,7 @@ export function ViewModeDropdown({
                 className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-all duration-120 ${
                   isActive
                     ? "text-primary bg-primary/[0.12]"
-                    : "text-white/60 hover:text-white/90 hover:bg-white/[0.04]"
+                    : "text-white/60 hover:text-white/90 hover:bg-bg-tertiary/40"
                 }`}
                 onClick={() => handleSelect(option.mode)}
               >

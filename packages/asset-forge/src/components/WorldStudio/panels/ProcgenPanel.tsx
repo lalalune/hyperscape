@@ -1124,7 +1124,7 @@ export const ProcgenPanel = React.memo(function ProcgenPanel() {
                       className="flex items-center gap-2 px-1.5 py-0.5 rounded bg-bg-tertiary/30"
                     >
                       <div
-                        className="w-3 h-3 rounded-sm flex-shrink-0 border border-white/10"
+                        className="w-3 h-3 rounded-sm flex-shrink-0 border border-border-primary"
                         style={{ backgroundColor: hexColor }}
                       />
                       <span className="text-xs text-text-secondary capitalize flex-1">

@@ -37,11 +37,8 @@ export function AgentAvatar({
   pulsing?: boolean;
 }): React.ReactElement {
   return (
-    <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gradient-to-br from-primary/40 to-primary/10 flex items-center justify-center mt-0.5 ring-1 ring-primary/30 shadow-sm shadow-primary/20">
-      <Sparkles
-        size={12}
-        className={`text-primary ${pulsing ? "animate-pulse" : ""}`}
-      />
+    <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gradient-to-br from-primary/40 to-primary/10 flex items-center justify-center mt-0.5 ring-1 ring-primary/30 ">
+      <Sparkles size={12} className={`text-primary ${pulsing ? "" : ""}`} />
     </div>
   );
 }
@@ -60,7 +57,7 @@ export function ChatBubble({
   if (isUser) {
     return (
       <div className="flex justify-end pl-10">
-        <div className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-tr-md bg-gradient-to-br from-primary/25 to-primary/15 text-text-primary text-[13px] leading-relaxed whitespace-pre-wrap border border-primary/25 shadow-sm shadow-primary/10">
+        <div className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-tr-md bg-gradient-to-br from-primary/25 to-primary/15 text-text-primary text-[13px] leading-relaxed whitespace-pre-wrap border border-primary/25 ">
           {message.text}
         </div>
       </div>
@@ -69,7 +66,7 @@ export function ChatBubble({
   return (
     <div className="flex justify-start gap-2.5 pr-10">
       <AgentAvatar />
-      <div className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-tl-md bg-bg-secondary text-text-primary text-[13px] leading-relaxed whitespace-pre-wrap border border-white/[0.06] shadow-sm">
+      <div className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-tl-md bg-bg-secondary text-text-primary text-[13px] leading-relaxed whitespace-pre-wrap border border-border-primary shadow-sm">
         {message.text}
       </div>
     </div>
@@ -89,19 +86,19 @@ export function TypingIndicator({
   return (
     <div className="flex justify-start gap-2.5 pr-10">
       <AgentAvatar pulsing />
-      <div className="px-4 py-3 rounded-2xl rounded-tl-md bg-bg-secondary border border-white/[0.06] shadow-sm">
+      <div className="px-4 py-3 rounded-2xl rounded-tl-md bg-bg-secondary border border-border-primary shadow-sm">
         <div className="flex items-center gap-2">
           <span className="flex items-center gap-1">
             <span
-              className="w-1.5 h-1.5 rounded-full bg-primary/70 animate-bounce"
+              className="w-1.5 h-1.5 rounded-full bg-primary/70 "
               style={{ animationDelay: "0ms" }}
             />
             <span
-              className="w-1.5 h-1.5 rounded-full bg-primary/70 animate-bounce"
+              className="w-1.5 h-1.5 rounded-full bg-primary/70 "
               style={{ animationDelay: "150ms" }}
             />
             <span
-              className="w-1.5 h-1.5 rounded-full bg-primary/70 animate-bounce"
+              className="w-1.5 h-1.5 rounded-full bg-primary/70 "
               style={{ animationDelay: "300ms" }}
             />
           </span>

@@ -166,7 +166,7 @@ export function AssetEditModal({
           <select
             value={editedData.type}
             onChange={(e) => handleChange("type", e.target.value)}
-            className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded-lg text-text-primary focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-transparent"
           >
             <option value="armor">Armor</option>
             <option value="weapon">Weapon</option>
@@ -185,7 +185,7 @@ export function AssetEditModal({
             <select
               value={editedData.metadata.tier}
               onChange={(e) => handleChange("metadata.tier", e.target.value)}
-              className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              className="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded-lg text-text-primary focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-transparent"
             >
               <option value="base">Base</option>
               <option value="bronze">Bronze</option>

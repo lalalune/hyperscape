@@ -627,7 +627,7 @@ export const LeafClusterPage: React.FC = () => {
 
         {/* Overlay Controls */}
         <div className="absolute top-4 left-4 flex flex-col gap-2">
-          <div className="bg-gray-900/90 rounded-lg p-3 backdrop-blur-sm">
+          <div className="bg-gray-900/90 rounded-lg p-3 ">
             <h2 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
               <TreePine className="w-5 h-5 text-green-400" />
               Branch Cluster Viewer
@@ -672,7 +672,7 @@ export const LeafClusterPage: React.FC = () => {
           </div>
 
           {/* View Mode Toggles */}
-          <div className="bg-gray-900/90 rounded-lg p-3 backdrop-blur-sm">
+          <div className="bg-gray-900/90 rounded-lg p-3 ">
             <h3 className="text-sm font-semibold text-white mb-2">View Mode</h3>
             <div className="flex flex-col gap-1">
               <button
@@ -754,7 +754,7 @@ export const LeafClusterPage: React.FC = () => {
           </div>
 
           {/* Camera Controls */}
-          <div className="bg-gray-900/90 rounded-lg p-3 backdrop-blur-sm">
+          <div className="bg-gray-900/90 rounded-lg p-3 ">
             <button
               onClick={resetCamera}
               className="flex items-center gap-2 px-2 py-1 bg-gray-700 text-white rounded text-sm hover:bg-gray-600"
@@ -767,7 +767,7 @@ export const LeafClusterPage: React.FC = () => {
 
         {/* Stats Overlay */}
         {stats && (
-          <div className="absolute top-4 right-4 bg-gray-900/90 rounded-lg p-3 backdrop-blur-sm">
+          <div className="absolute top-4 right-4 bg-gray-900/90 rounded-lg p-3 ">
             <h3 className="text-sm font-semibold text-white mb-2">
               Statistics
             </h3>
@@ -807,7 +807,7 @@ export const LeafClusterPage: React.FC = () => {
         )}
 
         {/* Legend */}
-        <div className="absolute bottom-4 left-4 bg-gray-900/90 rounded-lg p-3 backdrop-blur-sm">
+        <div className="absolute bottom-4 left-4 bg-gray-900/90 rounded-lg p-3 ">
           <h3 className="text-xs font-semibold text-white mb-2">
             Cluster Colors by Depth
           </h3>
