@@ -1,91 +1,159 @@
-import { Package, User } from "lucide-react";
-import React from "react";
+import { ArrowRight, Package, User } from "lucide-react";
+
+import { AtmosphericScene, StatusDot } from "../shared/page";
 
 interface GenerationTypeSelectorProps {
   onSelectType: (type: "item" | "avatar") => void;
 }
 
-export const GenerationTypeSelector: React.FC<GenerationTypeSelectorProps> = ({
-  onSelectType,
-}) => {
+interface TypeCardProps {
+  onClick: () => void;
+  number: string;
+  eyebrow: string;
+  icon: typeof Package;
+  title: string;
+  description: string;
+  tags: string[];
+}
+
+function TypeCard({
+  onClick,
+  number,
+  eyebrow,
+  icon: Icon,
+  title,
+  description,
+  tags,
+}: TypeCardProps) {
   return (
-    <div className="h-screen flex items-center justify-center bg-gradient-to-br from-bg-primary to-bg-secondary overflow-hidden">
-      <div className="bg-bg-primary bg-opacity-50 rounded-xl p-8 shadow-2xl border border-border-primary max-w-2xl w-full animate-scale-in">
-        <h1 className="font-display text-3xl font-medium text-text-primary text-center mb-2 tracking-tight">
-          What would you like to create?
-        </h1>
-        <p className="text-text-secondary text-center mb-8">
-          Choose your generation type to get started
+    <button
+      type="button"
+      onClick={onClick}
+      className="group relative flex flex-col rounded-lg bg-bg-tertiary border border-border-primary hover:border-primary/40 transition-colors duration-500 ease-out overflow-hidden h-full p-7 text-left"
+    >
+      {/* Forge Gold left-edge on hover — "earned" affordance */}
+      <span className="pointer-events-none absolute left-0 top-6 bottom-6 w-px bg-primary opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-out" />
+
+      {/* Subtle radial atmosphere on hover */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -inset-px opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-out"
+        style={{
+          background:
+            "radial-gradient(ellipse 80% 60% at 50% 100%, rgba(212,175,55,0.05) 0%, transparent 70%)",
+        }}
+      />
+
+      {/* Numbered eyebrow */}
+      <div className="relative flex items-baseline gap-3 mb-5">
+        <span className="font-mono text-[11px] text-text-tertiary tabular-nums tracking-[0.05em]">
+          {number}
+        </span>
+        <span className="text-[11px] text-text-tertiary uppercase tracking-[0.14em]">
+          {eyebrow}
+        </span>
+      </div>
+
+      {/* Icon */}
+      <div className="relative mb-5">
+        <Icon
+          size={28}
+          strokeWidth={1.25}
+          className="text-text-secondary group-hover:text-primary transition-colors duration-500 ease-out"
+        />
+      </div>
+
+      {/* Title + description */}
+      <div className="relative flex-1">
+        <h2 className="font-display text-xl font-medium text-text-primary tracking-tight mb-3">
+          {title}
+        </h2>
+        <p className="text-sm text-text-tertiary leading-relaxed">
+          {description}
         </p>
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Items Card */}
-          <button
+      {/* Tag chips */}
+      <div className="relative mt-5 pt-4 border-t border-border-primary flex flex-wrap gap-1.5">
+        {tags.map((t) => (
+          <span
+            key={t}
+            className="text-[10px] font-mono text-text-tertiary tabular-nums px-2 py-0.5 rounded bg-bg-primary/60 border border-border-primary"
+          >
+            {t}
+          </span>
+        ))}
+      </div>
+
+      {/* CTA arrow on hover */}
+      <ArrowRight
+        size={14}
+        strokeWidth={1.5}
+        className="absolute top-7 right-7 text-text-tertiary opacity-0 group-hover:opacity-100 group-hover:text-primary transition-all duration-500 ease-out"
+      />
+    </button>
+  );
+}
+
+export function GenerationTypeSelector({
+  onSelectType,
+}: GenerationTypeSelectorProps) {
+  return (
+    <div className="relative w-full h-full bg-bg-primary overflow-y-auto">
+      <AtmosphericScene topEllipseHeight={520} horizonY={360} />
+
+      <div className="relative max-w-4xl mx-auto px-10 py-16">
+        {/* Editorial hero */}
+        <header className="mb-12 text-center">
+          <div className="inline-flex items-baseline gap-3 mb-5">
+            <span className="font-mono text-[11px] text-text-tertiary tabular-nums tracking-[0.05em]">
+              00
+            </span>
+            <span className="font-display text-base font-medium text-text-primary tracking-tight">
+              Generation
+            </span>
+            <span className="flex items-center gap-2 text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
+              <StatusDot tone="ready" />
+              Ready
+            </span>
+          </div>
+          <h1 className="font-display text-4xl md:text-5xl font-medium text-text-primary tracking-tight leading-[1.05] mb-4">
+            What would you like to <span className="text-primary">create</span>?
+          </h1>
+          <p className="text-base text-text-tertiary leading-relaxed max-w-xl mx-auto">
+            Choose a generation type to start the pipeline. Items run through
+            the model → texture flow; avatars add automatic rigging.
+          </p>
+        </header>
+
+        {/* Two-card chooser */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <TypeCard
             onClick={() => onSelectType("item")}
-            className="group relative bg-bg-secondary hover:bg-bg-tertiary border border-border-primary hover:border-primary rounded-xl p-8 transition-all duration-300 hover:shadow-xl ease-out"
-          >
-            <div className="flex flex-col items-center space-y-4">
-              <div className="w-20 h-20 bg-primary bg-opacity-10 rounded-full flex items-center justify-center group-hover:bg-opacity-20 transition-all ease-out">
-                <Package size={40} className="text-primary" />
-              </div>
-              <h2 className="text-xl font-semibold text-text-primary">Items</h2>
-              <p className="text-sm text-text-secondary text-center">
-                Weapons, armor, tools, consumables, and other game objects
-              </p>
-              <div className="flex flex-wrap gap-2 justify-center mt-4">
-                <span className="text-xs bg-bg-tertiary px-2 py-1 rounded text-text-tertiary">
-                  Weapons
-                </span>
-                <span className="text-xs bg-bg-tertiary px-2 py-1 rounded text-text-tertiary">
-                  Armor
-                </span>
-                <span className="text-xs bg-bg-tertiary px-2 py-1 rounded text-text-tertiary">
-                  Tools
-                </span>
-                <span className="text-xs bg-bg-tertiary px-2 py-1 rounded text-text-tertiary">
-                  More
-                </span>
-              </div>
-            </div>
-            <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-primary to-secondary opacity-0 group-hover:opacity-5 transition-opacity ease-out" />
-          </button>
-
-          {/* Avatars Card */}
-          <button
+            number="01"
+            eyebrow="Items"
+            icon={Package}
+            title="Weapons, armor, props"
+            description="Weapons, armor, tools, consumables, and other game objects ready to drop into your world."
+            tags={["Weapons", "Armor", "Tools", "Props"]}
+          />
+          <TypeCard
             onClick={() => onSelectType("avatar")}
-            className="group relative bg-bg-secondary hover:bg-bg-tertiary border border-border-primary hover:border-secondary rounded-xl p-8 transition-all duration-300 hover:shadow-xl ease-out"
-          >
-            <div className="flex flex-col items-center space-y-4">
-              <div className="w-20 h-20 bg-secondary bg-opacity-10 rounded-full flex items-center justify-center group-hover:bg-opacity-20 transition-all ease-out">
-                <User size={40} className="text-secondary" />
-              </div>
-              <h2 className="text-xl font-semibold text-text-primary">
-                Avatars
-              </h2>
-              <p className="text-sm text-text-secondary text-center">
-                Characters, NPCs, and humanoid creatures with rigging support
-              </p>
-              <div className="flex flex-wrap gap-2 justify-center mt-4">
-                <span className="text-xs bg-bg-tertiary px-2 py-1 rounded text-text-tertiary">
-                  Auto-Rigging
-                </span>
-                <span className="text-xs bg-bg-tertiary px-2 py-1 rounded text-text-tertiary">
-                  Animations
-                </span>
-                <span className="text-xs bg-bg-tertiary px-2 py-1 rounded text-text-tertiary">
-                  Humanoid
-                </span>
-              </div>
-            </div>
-            <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-secondary to-primary opacity-0 group-hover:opacity-5 transition-opacity ease-out" />
-          </button>
+            number="02"
+            eyebrow="Avatars"
+            icon={User}
+            title="Characters and NPCs"
+            description="Humanoid characters, NPCs, and creatures with automatic rigging and animation support baked in."
+            tags={["Auto-rig", "Animations", "Humanoid"]}
+          />
         </div>
 
-        <p className="text-xs text-text-tertiary text-center mt-8">
-          Note: Avatar rigging currently supports humanoid/bipedal characters
-          only
+        <p className="text-[11px] text-text-tertiary uppercase tracking-[0.12em] text-center mt-10">
+          Avatar rigging currently supports humanoid / bipedal characters
         </p>
       </div>
     </div>
   );
-};
+}
+
+export default GenerationTypeSelector;

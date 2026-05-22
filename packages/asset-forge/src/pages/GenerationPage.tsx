@@ -682,15 +682,41 @@ export const GenerationPage: React.FC = () => {
       {/* Main Content Area */}
       <div className="bg-bg-primary">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24">
-          {/* Header with tabs */}
-          <div className="mb-6">
-            {/* Tab Navigation */}
-            <TabNavigation
-              activeView={activeView}
-              generatedAssetsCount={generatedAssets.length}
-              onTabChange={setActiveView}
-            />
-          </div>
+          {/* Editorial header — brand identity above the tab strip */}
+          <header className="mb-8 pb-6 border-b border-border-primary">
+            <div className="flex items-end justify-between gap-6 flex-wrap">
+              <div>
+                <div className="flex items-baseline gap-3 mb-3">
+                  <span className="font-mono text-[11px] text-text-tertiary tabular-nums tracking-[0.05em]">
+                    00
+                  </span>
+                  <span className="font-display text-base font-medium text-text-primary tracking-tight">
+                    Generation
+                  </span>
+                  <span className="flex items-center gap-2 text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
+                    <span
+                      className="inline-block w-1.5 h-1.5 rounded-full bg-primary"
+                      style={{
+                        animation: "status-pulse 2.4s ease-in-out infinite",
+                      }}
+                    />
+                    {generationType === "avatar"
+                      ? "Avatar pipeline"
+                      : "Item pipeline"}
+                  </span>
+                </div>
+                <h1 className="font-display text-2xl md:text-3xl font-medium text-text-primary tracking-tight leading-[1.05]">
+                  {generationType === "avatar" ? "Avatar" : "Item"}{" "}
+                  <span className="text-primary">generation</span>
+                </h1>
+              </div>
+              <TabNavigation
+                activeView={activeView}
+                generatedAssetsCount={generatedAssets.length}
+                onTabChange={setActiveView}
+              />
+            </div>
+          </header>
           {/* Configuration Form View */}
           {activeView === "config" && (
             <div className="animate-fade-in space-y-8">
