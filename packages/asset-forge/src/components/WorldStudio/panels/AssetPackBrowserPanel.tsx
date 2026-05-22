@@ -43,7 +43,6 @@ import {
   Package,
   Plus,
   RefreshCw,
-  Search,
   Shield,
   Sparkles,
   Sword,
@@ -83,6 +82,7 @@ import { Link } from "react-router-dom";
 import { ROUTES } from "../../../constants";
 import { getAssetConceptArtUrl } from "../../../utils/api";
 import { slugify } from "../../../utils/slugify";
+import { FilterInput } from "../../shared/page";
 import { ModelThumbnail } from "../../shared/ModelThumbnail";
 import { isContentPackId } from "../utils/contentPackConstants";
 
@@ -594,23 +594,16 @@ export function AssetPackBrowserPanel({
       )}
 
       {/* Search */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-border-primary">
-        <div className="relative flex-1">
-          <Search
-            size={11}
-            className="absolute left-2 top-1/2 -translate-y-1/2 text-text-tertiary/60"
-          />
-          <input
-            type="text"
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-border-primary">
+        <div className="flex-1">
+          <FilterInput
+            value={filter}
+            onChange={setFilter}
             placeholder={
               subTab === "marketplace"
                 ? "Search marketplace…"
                 : "Search your team's packs…"
             }
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="w-full pl-6.5 pr-2 py-1.5 text-xs bg-bg-tertiary/40 border border-transparent rounded text-text-primary placeholder:text-text-tertiary/50 focus:outline-none focus:border-primary/30 focus:bg-bg-tertiary/50 transition-colors ease-out"
-            style={{ paddingLeft: "1.625rem" }}
           />
         </div>
         {(() => {
@@ -1444,30 +1437,24 @@ function AddEntryModal({ pack, onClose, onAdded }: AddEntryModalProps) {
 
         {source === "library" && !selectedAsset && (
           <div className="flex-1 overflow-hidden flex flex-col">
-            <div className="px-4 py-2 border-b border-border-primary flex items-center gap-2">
-              <div className="relative flex-1">
-                <Search
-                  size={11}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 text-text-tertiary/60"
-                />
-                <input
-                  type="text"
+            <div className="px-4 py-3 border-b border-border-primary flex items-center gap-3">
+              <div className="flex-1">
+                <FilterInput
                   value={libraryFilter}
-                  onChange={(e) => setLibraryFilter(e.target.value)}
+                  onChange={setLibraryFilter}
                   placeholder="Search your team's assets…"
-                  className="w-full pl-6.5 pr-2 py-1.5 text-xs bg-bg-tertiary/40 border border-transparent rounded text-text-primary placeholder:text-text-tertiary/50 focus:outline-none focus:border-primary/30 focus:bg-bg-tertiary/50 transition-colors ease-out"
-                  style={{ paddingLeft: "1.625rem" }}
                 />
               </div>
               <button
                 type="button"
                 onClick={() => void reloadLibrary()}
                 disabled={libraryState.kind === "loading"}
-                className="p-1.5 rounded text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors disabled:opacity-40 ease-out"
+                className="p-2 rounded-md text-text-tertiary hover:text-primary hover:bg-bg-tertiary border border-border-primary hover:border-primary/40 transition-colors duration-300 ease-out disabled:opacity-40 disabled:hover:text-text-tertiary disabled:hover:border-border-primary"
                 title="Refresh"
               >
                 <RefreshCw
                   size={12}
+                  strokeWidth={1.5}
                   className={
                     libraryState.kind === "loading" ? "animate-spin" : ""
                   }
