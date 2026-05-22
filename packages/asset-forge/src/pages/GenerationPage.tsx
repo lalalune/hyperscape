@@ -770,234 +770,293 @@ export const GenerationPage: React.FC = () => {
             </div>
           </header>
           {/* ====================================================
-              CONFIGURE VIEW — two numbered sections: 01 BRIEF + 02 SPECS
+              CONFIGURE VIEW — vertical "studio station" composition:
+              01 Brief → 02 Pipeline → 03 Reference → 04 Forge
+              Each station gets full width to breathe. The Forge CTA
+              is anchored at the bottom as the page's earned moment.
               ==================================================== */}
           {activeView === "config" && (
-            <div className="animate-fade-in">
-              <div className="grid grid-cols-1 lg:grid-cols-5 gap-10">
-                {/* ── 01 / BRIEF — what you're making ─────────────── */}
-                <section className="lg:col-span-3 space-y-6">
-                  <header className="flex items-baseline gap-3 pb-4 border-b border-border-primary">
-                    <span className="font-mono text-[11px] text-text-tertiary tabular-nums tracking-[0.05em]">
-                      01
+            <div className="animate-fade-in space-y-14">
+              {/* ── 01 / BRIEF — what you're making ─────────────── */}
+              <section className="space-y-6">
+                <header className="flex items-baseline gap-3 pb-4 border-b border-border-primary">
+                  <span className="font-mono text-[11px] text-text-tertiary tabular-nums tracking-[0.05em]">
+                    01
+                  </span>
+                  <h2 className="font-display text-base font-medium text-text-primary tracking-tight">
+                    Brief
+                  </h2>
+                  <span className="text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
+                    What you&apos;re making
+                  </span>
+                  {assetName && (
+                    <span className="ml-auto text-[11px] text-text-tertiary uppercase tracking-[0.12em] font-mono normal-case tracking-normal truncate max-w-xs">
+                      {assetName}
                     </span>
-                    <h2 className="font-display text-base font-medium text-text-primary tracking-tight">
-                      Brief
-                    </h2>
-                    <span className="text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
-                      What you&apos;re making
-                    </span>
-                  </header>
+                  )}
+                </header>
 
-                  {/* Asset Details Card */}
-                  <AssetDetailsCard
-                    generationType={generationType}
-                    assetName={assetName}
-                    assetType={assetType}
-                    description={description}
-                    gameStyle={gameStyle}
-                    customStyle={customStyle}
-                    customAssetTypes={allCustomAssetTypes}
-                    customGameStyles={customGameStyles}
-                    onAssetNameChange={setAssetName}
-                    onAssetTypeChange={setAssetType}
-                    onDescriptionChange={setDescription}
-                    onGameStyleChange={setGameStyle}
-                    onCustomStyleChange={setCustomStyle}
-                    onBack={() => {
-                      setGenerationType(undefined);
-                      setActiveView("config");
-                      resetForm();
-                      resetPipeline();
-                    }}
-                    onSaveCustomGameStyle={saveCustomGameStyle}
-                  />
+                {/* Asset Details Card */}
+                <AssetDetailsCard
+                  generationType={generationType}
+                  assetName={assetName}
+                  assetType={assetType}
+                  description={description}
+                  gameStyle={gameStyle}
+                  customStyle={customStyle}
+                  customAssetTypes={allCustomAssetTypes}
+                  customGameStyles={customGameStyles}
+                  onAssetNameChange={setAssetName}
+                  onAssetTypeChange={setAssetType}
+                  onDescriptionChange={setDescription}
+                  onGameStyleChange={setGameStyle}
+                  onCustomStyleChange={setCustomStyle}
+                  onBack={() => {
+                    setGenerationType(undefined);
+                    setActiveView("config");
+                    resetForm();
+                    resetPipeline();
+                  }}
+                  onSaveCustomGameStyle={saveCustomGameStyle}
+                />
 
-                  {/* Advanced Prompts Card */}
-                  <AdvancedPromptsCard
-                    showAdvancedPrompts={showAdvancedPrompts}
-                    showAssetTypeEditor={showAssetTypeEditor}
-                    generationType={generationType}
-                    gameStyle={gameStyle}
-                    customStyle={customStyle}
-                    customGamePrompt={customGamePrompt}
-                    customAssetTypePrompt={customAssetTypePrompt}
-                    assetTypePrompts={currentTypePrompts}
-                    customAssetTypes={customAssetTypes}
-                    currentStylePrompt={currentStylePrompt}
-                    gameStylePrompts={gameStylePrompts}
-                    loadedPrompts={{
-                      avatar:
-                        loadedAssetTypePrompts?.avatar?.default?.character
-                          ?.placeholder,
-                      item: loadedAssetTypePrompts?.item?.default?.weapon
+                {/* Advanced Prompts Card */}
+                <AdvancedPromptsCard
+                  showAdvancedPrompts={showAdvancedPrompts}
+                  showAssetTypeEditor={showAssetTypeEditor}
+                  generationType={generationType}
+                  gameStyle={gameStyle}
+                  customStyle={customStyle}
+                  customGamePrompt={customGamePrompt}
+                  customAssetTypePrompt={customAssetTypePrompt}
+                  assetTypePrompts={currentTypePrompts}
+                  customAssetTypes={customAssetTypes}
+                  currentStylePrompt={currentStylePrompt}
+                  gameStylePrompts={gameStylePrompts}
+                  loadedPrompts={{
+                    avatar:
+                      loadedAssetTypePrompts?.avatar?.default?.character
                         ?.placeholder,
-                    }}
-                    onToggleAdvancedPrompts={() =>
-                      setShowAdvancedPrompts(!showAdvancedPrompts)
-                    }
-                    onToggleAssetTypeEditor={() =>
-                      setShowAssetTypeEditor(!showAssetTypeEditor)
-                    }
-                    onCustomGamePromptChange={setCustomGamePrompt}
-                    onCustomAssetTypePromptChange={setCustomAssetTypePrompt}
-                    onAssetTypePromptsChange={(updatedPrompts) => {
-                      // Merge the updated prompts with the existing store prompts
-                      setAssetTypePrompts({
-                        ...assetTypePrompts,
-                        ...updatedPrompts,
-                      });
-                    }}
-                    onCustomAssetTypesChange={setCustomAssetTypes}
-                    onAddCustomAssetType={addCustomAssetType}
-                    onSaveCustomAssetTypes={handleSaveCustomAssetTypes}
-                    onSaveCustomGameStyle={saveCustomGameStyle}
-                    onDeleteCustomGameStyle={deleteCustomGameStyle}
-                    onDeleteCustomAssetType={deleteCustomAssetType}
-                  />
-                </section>
+                    item: loadedAssetTypePrompts?.item?.default?.weapon
+                      ?.placeholder,
+                  }}
+                  onToggleAdvancedPrompts={() =>
+                    setShowAdvancedPrompts(!showAdvancedPrompts)
+                  }
+                  onToggleAssetTypeEditor={() =>
+                    setShowAssetTypeEditor(!showAssetTypeEditor)
+                  }
+                  onCustomGamePromptChange={setCustomGamePrompt}
+                  onCustomAssetTypePromptChange={setCustomAssetTypePrompt}
+                  onAssetTypePromptsChange={(updatedPrompts) => {
+                    // Merge the updated prompts with the existing store prompts
+                    setAssetTypePrompts({
+                      ...assetTypePrompts,
+                      ...updatedPrompts,
+                    });
+                  }}
+                  onCustomAssetTypesChange={setCustomAssetTypes}
+                  onAddCustomAssetType={addCustomAssetType}
+                  onSaveCustomAssetTypes={handleSaveCustomAssetTypes}
+                  onSaveCustomGameStyle={saveCustomGameStyle}
+                  onDeleteCustomGameStyle={deleteCustomGameStyle}
+                  onDeleteCustomAssetType={deleteCustomAssetType}
+                />
+              </section>
 
-                {/* ── 02 / SPECS — how the pipeline runs ─────────── */}
-                <section className="lg:col-span-2 space-y-6">
-                  <header className="flex items-baseline gap-3 pb-4 border-b border-border-primary">
-                    <span className="font-mono text-[11px] text-text-tertiary tabular-nums tracking-[0.05em]">
-                      02
-                    </span>
-                    <h2 className="font-display text-base font-medium text-text-primary tracking-tight">
-                      Specs
-                    </h2>
-                    <span className="text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
-                      How it&apos;s built
-                    </span>
-                  </header>
+              {/* ── 02 / PIPELINE — how it's built ─────────────── */}
+              <section className="space-y-6">
+                <header className="flex items-baseline gap-3 pb-4 border-b border-border-primary">
+                  <span className="font-mono text-[11px] text-text-tertiary tabular-nums tracking-[0.05em]">
+                    02
+                  </span>
+                  <h2 className="font-display text-base font-medium text-text-primary tracking-tight">
+                    Pipeline
+                  </h2>
+                  <span className="text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
+                    How it&apos;s built
+                  </span>
+                </header>
 
-                  {/* Pipeline Options */}
-                  <PipelineOptionsCard
-                    generationType={generationType}
-                    useGPT5Enhancement={useGPT5Enhancement}
-                    enableRetexturing={enableRetexturing}
-                    enableSprites={enableSprites}
-                    enableRigging={enableRigging}
-                    quality={quality}
-                    onUseGPT5EnhancementChange={setUseGPT5Enhancement}
-                    onEnableRetexturingChange={setEnableRetexturing}
-                    onEnableSpritesChange={setEnableSprites}
-                    onEnableRiggingChange={setEnableRigging}
-                    onQualityChange={setQuality}
-                  />
-
-                  {/* Material Variants */}
-                  {enableRetexturing && generationType === "item" && (
-                    <MaterialVariantsCard
-                      gameStyle={gameStyle}
-                      isLoadingMaterials={isLoadingMaterials}
-                      materialPresets={materialPresets}
-                      selectedMaterials={selectedMaterials}
-                      customMaterials={customMaterials}
-                      materialPromptOverrides={materialPromptOverrides}
-                      editMaterialPrompts={editMaterialPrompts}
-                      onToggleMaterialSelection={toggleMaterialSelection}
-                      onEditMaterialPromptsToggle={() =>
-                        setEditMaterialPrompts(!editMaterialPrompts)
-                      }
-                      onMaterialPromptOverride={(materialId, prompt) => {
-                        setMaterialPromptOverrides({
-                          ...materialPromptOverrides,
-                          [materialId]: prompt,
-                        });
-                      }}
-                      onAddCustomMaterial={addCustomMaterial}
-                      onUpdateCustomMaterial={(index, material) => {
-                        const updated = [...customMaterials];
-                        updated[index] = material;
-                        setCustomMaterials(updated);
-                      }}
-                      onRemoveCustomMaterial={(index) => {
-                        setCustomMaterials(
-                          customMaterials.filter((_, i) => i !== index),
-                        );
-                      }}
-                      onSaveCustomMaterials={handleSaveCustomMaterials}
-                      onEditPreset={setEditingPreset}
-                      onDeletePreset={setShowDeleteConfirm}
+                {/* Pipeline + conditional siblings sit side-by-side
+                    on wide screens so this station doesn't collapse
+                    into a tall mono-column. */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                  <div className="lg:col-span-2">
+                    {/* Pipeline Options */}
+                    <PipelineOptionsCard
+                      generationType={generationType}
+                      useGPT5Enhancement={useGPT5Enhancement}
+                      enableRetexturing={enableRetexturing}
+                      enableSprites={enableSprites}
+                      enableRigging={enableRigging}
+                      quality={quality}
+                      onUseGPT5EnhancementChange={setUseGPT5Enhancement}
+                      onEnableRetexturingChange={setEnableRetexturing}
+                      onEnableSpritesChange={setEnableSprites}
+                      onEnableRiggingChange={setEnableRigging}
+                      onQualityChange={setQuality}
                     />
-                  )}
+                  </div>
 
-                  {/* Avatar Rigging Options */}
-                  {generationType === "avatar" && enableRigging && (
-                    <AvatarRiggingOptionsCard
-                      characterHeight={characterHeight}
-                      onCharacterHeightChange={setCharacterHeight}
-                    />
-                  )}
-
-                  {/* Reference Image Selection */}
-                  <ReferenceImageCard
-                    generationType={generationType}
-                    mode={referenceImageMode}
-                    source={referenceImageSource}
-                    url={referenceImageUrl}
-                    dataUrl={referenceImageDataUrl}
-                    onModeChange={setReferenceImageMode}
-                    onSourceChange={setReferenceImageSource}
-                    onUrlChange={setReferenceImageUrl}
-                    onDataUrlChange={setReferenceImageDataUrl}
-                  />
-
-                  {/* Start Generation — earned-moment composition */}
-                  <div className="rounded-lg bg-bg-tertiary border border-primary/30 p-6 space-y-4 relative overflow-hidden">
-                    {/* Forge Gold left edge */}
-                    <span
-                      aria-hidden
-                      className="pointer-events-none absolute left-0 top-5 bottom-5 w-px bg-primary"
-                    />
-                    {/* Subtle Gold radial — atmospheric */}
-                    <span
-                      aria-hidden
-                      className="pointer-events-none absolute inset-0"
-                      style={{
-                        background:
-                          "radial-gradient(ellipse 80% 80% at 50% 100%, rgba(212,175,55,0.06) 0%, transparent 70%)",
-                      }}
-                    />
-                    <div className="relative flex items-baseline gap-3">
-                      <span className="font-mono text-[11px] text-primary tabular-nums tracking-[0.05em]">
-                        →
-                      </span>
-                      <span className="font-display text-base font-medium text-text-primary tracking-tight">
-                        Ready to forge
-                      </span>
-                    </div>
-                    {/* Live "intent" line — composes what the pipeline will run */}
-                    <p className="relative text-xs text-text-tertiary leading-relaxed">
-                      {(() => {
-                        const features: string[] = ["model + texture"];
-                        if (useGPT5Enhancement)
-                          features.unshift("GPT-5 prompt enhancement");
-                        if (
-                          generationType === "item" &&
-                          enableRetexturing &&
-                          selectedMaterials.length > 0
-                        )
-                          features.push(
-                            `${selectedMaterials.length} material variant${selectedMaterials.length === 1 ? "" : "s"}`,
+                  {/* Right column of station 02 — conditional sub-options */}
+                  <div className="space-y-6">
+                    {/* Material Variants */}
+                    {enableRetexturing && generationType === "item" && (
+                      <MaterialVariantsCard
+                        gameStyle={gameStyle}
+                        isLoadingMaterials={isLoadingMaterials}
+                        materialPresets={materialPresets}
+                        selectedMaterials={selectedMaterials}
+                        customMaterials={customMaterials}
+                        materialPromptOverrides={materialPromptOverrides}
+                        editMaterialPrompts={editMaterialPrompts}
+                        onToggleMaterialSelection={toggleMaterialSelection}
+                        onEditMaterialPromptsToggle={() =>
+                          setEditMaterialPrompts(!editMaterialPrompts)
+                        }
+                        onMaterialPromptOverride={(materialId, prompt) => {
+                          setMaterialPromptOverrides({
+                            ...materialPromptOverrides,
+                            [materialId]: prompt,
+                          });
+                        }}
+                        onAddCustomMaterial={addCustomMaterial}
+                        onUpdateCustomMaterial={(index, material) => {
+                          const updated = [...customMaterials];
+                          updated[index] = material;
+                          setCustomMaterials(updated);
+                        }}
+                        onRemoveCustomMaterial={(index) => {
+                          setCustomMaterials(
+                            customMaterials.filter((_, i) => i !== index),
                           );
-                        if (generationType === "item" && enableSprites)
-                          features.push("sprite renders");
-                        if (generationType === "avatar" && enableRigging)
-                          features.push("auto-rigging");
-                        const target =
-                          generationType === "avatar"
-                            ? assetType || "character"
-                            : assetType || "item";
-                        return `Pipeline will run on a ${target} with ${features.join(", ")}.`;
-                      })()}
-                    </p>
+                        }}
+                        onSaveCustomMaterials={handleSaveCustomMaterials}
+                        onEditPreset={setEditingPreset}
+                        onDeletePreset={setShowDeleteConfirm}
+                      />
+                    )}
+
+                    {/* Avatar Rigging Options */}
+                    {generationType === "avatar" && enableRigging && (
+                      <AvatarRiggingOptionsCard
+                        characterHeight={characterHeight}
+                        onCharacterHeightChange={setCharacterHeight}
+                      />
+                    )}
+                  </div>
+                </div>
+              </section>
+
+              {/* ── 03 / REFERENCE — optional style anchor ─────── */}
+              <section className="space-y-6">
+                <header className="flex items-baseline gap-3 pb-4 border-b border-border-primary">
+                  <span className="font-mono text-[11px] text-text-tertiary tabular-nums tracking-[0.05em]">
+                    03
+                  </span>
+                  <h2 className="font-display text-base font-medium text-text-primary tracking-tight">
+                    Reference
+                  </h2>
+                  <span className="text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
+                    Optional style anchor
+                  </span>
+                </header>
+
+                <ReferenceImageCard
+                  generationType={generationType}
+                  mode={referenceImageMode}
+                  source={referenceImageSource}
+                  url={referenceImageUrl}
+                  dataUrl={referenceImageDataUrl}
+                  onModeChange={setReferenceImageMode}
+                  onSourceChange={setReferenceImageSource}
+                  onUrlChange={setReferenceImageUrl}
+                  onDataUrlChange={setReferenceImageDataUrl}
+                />
+              </section>
+
+              {/* ── 04 / FORGE — anchored earned-moment CTA bar ── */}
+              <section className="space-y-6">
+                <header className="flex items-baseline gap-3 pb-4 border-b border-border-primary">
+                  <span className="font-mono text-[11px] text-primary tabular-nums tracking-[0.05em]">
+                    04
+                  </span>
+                  <h2 className="font-display text-base font-medium text-text-primary tracking-tight">
+                    Forge
+                  </h2>
+                  <span className="text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
+                    Run the pipeline
+                  </span>
+                </header>
+
+                {/* Start Generation — full-width earned-moment bar */}
+                <div className="rounded-lg bg-bg-tertiary border border-primary/30 p-6 relative overflow-hidden">
+                  {/* Forge Gold left edge */}
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute left-0 top-5 bottom-5 w-px bg-primary"
+                  />
+                  {/* Subtle Gold radial */}
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0"
+                    style={{
+                      background:
+                        "radial-gradient(ellipse 80% 100% at 50% 100%, rgba(212,175,55,0.06) 0%, transparent 70%)",
+                    }}
+                  />
+                  <div className="relative flex items-end justify-between gap-6 flex-wrap">
+                    {/* Left: live intent — what the pipeline will do */}
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <div className="flex items-baseline gap-3 flex-wrap">
+                        <span className="font-mono text-[11px] text-primary tabular-nums tracking-[0.05em]">
+                          →
+                        </span>
+                        <span className="font-display text-base font-medium text-text-primary tracking-tight">
+                          Ready to forge
+                        </span>
+                        {(!assetName || !description) && (
+                          <span className="text-[10px] text-warning uppercase tracking-[0.12em] font-medium">
+                            {!assetName && !description
+                              ? "Name + description needed"
+                              : !assetName
+                                ? "Name needed"
+                                : "Description needed"}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-text-tertiary leading-relaxed max-w-2xl">
+                        {(() => {
+                          const features: string[] = ["model + texture"];
+                          if (useGPT5Enhancement)
+                            features.unshift("GPT-5 prompt enhancement");
+                          if (
+                            generationType === "item" &&
+                            enableRetexturing &&
+                            selectedMaterials.length > 0
+                          )
+                            features.push(
+                              `${selectedMaterials.length} material variant${selectedMaterials.length === 1 ? "" : "s"}`,
+                            );
+                          if (generationType === "item" && enableSprites)
+                            features.push("sprite renders");
+                          if (generationType === "avatar" && enableRigging)
+                            features.push("auto-rigging");
+                          const target =
+                            generationType === "avatar"
+                              ? assetType || "character"
+                              : assetType || "item";
+                          return `Pipeline will run on a ${target} with ${features.join(", ")}.`;
+                        })()}
+                      </p>
+                    </div>
+                    {/* Right: Start button — anchored climax */}
                     <button
                       type="button"
                       onClick={handleStartGeneration}
                       disabled={!assetName || !description || isGenerating}
-                      className="btn-primary w-full relative"
+                      className="btn-primary flex-shrink-0 px-6 py-3 text-sm"
                     >
                       {isGenerating ? (
                         <>
@@ -1015,18 +1074,9 @@ export const GenerationPage: React.FC = () => {
                         </>
                       )}
                     </button>
-                    {(!assetName || !description) && (
-                      <p className="relative text-[10px] text-text-tertiary uppercase tracking-[0.12em] font-mono normal-case tracking-normal">
-                        {!assetName && !description
-                          ? "Add a name + description to continue."
-                          : !assetName
-                            ? "Add a name to continue."
-                            : "Add a description to continue."}
-                      </p>
-                    )}
                   </div>
-                </section>
-              </div>
+                </div>
+              </section>
             </div>
           )}
 
