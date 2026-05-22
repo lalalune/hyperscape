@@ -49,6 +49,12 @@ import {
   Plus,
   ChevronRight,
   Box,
+  BookOpen,
+  MessageCircle,
+  Compass,
+  Layers,
+  Zap,
+  ScrollText,
   type LucideIcon,
 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
@@ -1190,34 +1196,228 @@ export function DashboardPage() {
         <ToolIndex />
 
         {/* ====================================================================
-            FOOTER
+            FOOTER — film-credits closing
             ==================================================================== */}
-        <footer className="pt-10 border-t border-border-primary">
-          <div className="flex flex-wrap items-baseline justify-between gap-6">
-            <div className="flex items-center gap-3">
-              <ForgeLogo size={18} />
-              <span className="font-display text-sm font-medium text-text-secondary tracking-tight">
-                HyperForge
-              </span>
-              <span className="text-text-tertiary/40">·</span>
-              <span className="text-[11px] text-text-tertiary uppercase tracking-[0.14em]">
-                The engine beneath infinite worlds
-              </span>
-            </div>
-            <div className="flex items-center gap-4 text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
-              <span className="flex items-center gap-1.5">
-                <Cpu size={11} strokeWidth={1.5} />
-                WebGPU
-              </span>
-              <span className="text-text-tertiary/40">·</span>
-              <span className="flex items-center gap-1.5">
-                <StatusDot tone="online" />
-                Operational
-              </span>
-            </div>
-          </div>
-        </footer>
+        <DashboardFooter />
       </div>
     </div>
+  );
+}
+
+// =============================================================================
+// Footer
+// =============================================================================
+
+/** Engine subsystems + the underlying technologies they're built on. */
+const ENGINE_STACK: { label: string; value: string; icon: LucideIcon }[] = [
+  { label: "Renderer", value: "WebGPU · TSL", icon: Cpu },
+  { label: "3D", value: "Three.js", icon: Box },
+  { label: "Physics", value: "PhysX WASM", icon: Zap },
+  { label: "Generation", value: "GPT-4 · Meshy", icon: Sparkles },
+];
+
+const FOOTER_LINKS: {
+  title: string;
+  icon: LucideIcon;
+  items: { label: string; href: string; external?: boolean }[];
+}[] = [
+  {
+    title: "Product",
+    icon: Compass,
+    items: [
+      { label: "World Studio", href: ROUTES.WORLD_STUDIO },
+      { label: "Asset Generation", href: ROUTES.GENERATION },
+      { label: "Asset Library", href: ROUTES.ASSETS },
+      { label: "Manifests", href: ROUTES.MANIFESTS },
+      { label: "Asset Packs", href: ROUTES.ASSET_PACKS },
+    ],
+  },
+  {
+    title: "Resources",
+    icon: BookOpen,
+    items: [
+      { label: "Documentation", href: "#docs" },
+      { label: "API Reference", href: "#api" },
+      { label: "Changelog", href: "#changelog" },
+      { label: "Roadmap", href: "#roadmap" },
+      { label: "Brand", href: "#brand" },
+    ],
+  },
+  {
+    title: "Engine",
+    icon: Layers,
+    items: [
+      { label: "Architecture", href: "#architecture" },
+      { label: "Plugin System", href: "#plugins" },
+      { label: "ECS", href: "#ecs" },
+      { label: "Networking", href: "#networking" },
+      { label: "Status", href: "#status" },
+    ],
+  },
+  {
+    title: "Community",
+    icon: MessageCircle,
+    items: [
+      {
+        label: "GitHub",
+        href: "https://github.com/hyperforge",
+        external: true,
+      },
+      { label: "Discord", href: "#discord", external: true },
+      { label: "Twitter", href: "#twitter", external: true },
+      { label: "Blog", href: "#blog", external: true },
+      { label: "Support", href: "#support" },
+    ],
+  },
+];
+
+function DashboardFooter() {
+  const buildId = "feat/world-studio";
+  const buildDate = new Date().toLocaleDateString([], {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+
+  return (
+    <footer className="relative mt-12">
+      {/* Cap horizon — a final Gold line that closes the page like a frame */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 -top-12 h-px"
+        style={{
+          background:
+            "linear-gradient(90deg, transparent 5%, rgba(212,175,55,0.28) 50%, transparent 95%)",
+          animation: "celestial-pulse 10s ease-in-out infinite",
+        }}
+      />
+
+      {/* ============== Top band: brand statement + engine credits ============== */}
+      <div className="pt-12 pb-10 border-t border-border-primary grid grid-cols-1 lg:grid-cols-[1.5fr_2fr] gap-12">
+        {/* Brand block */}
+        <div className="flex flex-col gap-5 max-w-md">
+          <div className="flex items-center gap-3">
+            <ForgeLogo size={32} />
+            <span className="font-display text-xl font-medium text-text-primary tracking-tight">
+              HyperForge
+            </span>
+          </div>
+          <p className="font-display text-2xl font-medium text-text-secondary tracking-tight leading-[1.15]">
+            The engine beneath{" "}
+            <span className="text-primary">infinite worlds.</span>
+          </p>
+          <p className="text-sm text-text-tertiary leading-relaxed">
+            A WebGPU metaverse engine with AI-driven authoring, procedural
+            worldbuilding, and a unified asset pipeline.
+          </p>
+          <div className="flex items-center gap-3 pt-2">
+            <span className="inline-flex items-center gap-2 text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
+              <StatusDot tone="online" />
+              All systems operational
+            </span>
+          </div>
+        </div>
+
+        {/* Engine stack credits — like a film "made with" sequence */}
+        <div>
+          <h4 className="text-[11px] font-medium text-text-tertiary uppercase tracking-[0.14em] mb-5 pb-3 border-b border-border-primary/60">
+            Engineered on
+          </h4>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+            {ENGINE_STACK.map((s) => (
+              <div key={s.label} className="flex flex-col gap-2">
+                <s.icon
+                  size={16}
+                  strokeWidth={1.25}
+                  className="text-text-tertiary"
+                />
+                <p className="text-[10px] font-medium text-text-tertiary uppercase tracking-[0.14em]">
+                  {s.label}
+                </p>
+                <p className="font-display text-sm font-medium text-text-primary tracking-tight">
+                  {s.value}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ============== Middle band: link columns ============== */}
+      <div className="pt-10 pb-10 border-t border-border-primary grid grid-cols-2 md:grid-cols-4 gap-10">
+        {FOOTER_LINKS.map((col) => (
+          <div key={col.title}>
+            <h4 className="flex items-center gap-2 text-[11px] font-medium text-text-tertiary uppercase tracking-[0.14em] mb-4 pb-3 border-b border-border-primary/60">
+              <col.icon
+                size={11}
+                strokeWidth={1.5}
+                className="text-text-tertiary"
+              />
+              {col.title}
+            </h4>
+            <ul className="space-y-2">
+              {col.items.map((item) => {
+                const isInternal = item.href.startsWith("/");
+                const linkClass =
+                  "group inline-flex items-center gap-1.5 text-[13px] text-text-secondary hover:text-primary transition-colors duration-300 ease-out";
+                return (
+                  <li key={item.label}>
+                    {isInternal ? (
+                      <Link to={item.href} className={linkClass}>
+                        {item.label}
+                      </Link>
+                    ) : (
+                      <a
+                        href={item.href}
+                        target={item.external ? "_blank" : undefined}
+                        rel={item.external ? "noreferrer" : undefined}
+                        className={linkClass}
+                      >
+                        {item.label}
+                        {item.external && (
+                          <ArrowUpRight
+                            size={11}
+                            strokeWidth={1.5}
+                            className="text-text-tertiary/60 group-hover:text-primary transition-colors duration-300 ease-out"
+                          />
+                        )}
+                      </a>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+      </div>
+
+      {/* ============== Release strip — copyright + version + build ============== */}
+      <div className="pt-6 pb-2 border-t border-border-primary flex flex-wrap items-baseline justify-between gap-4">
+        <div className="flex flex-wrap items-baseline gap-3 text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
+          <span className="font-mono normal-case tracking-normal text-text-tertiary/80">
+            © {new Date().getFullYear()}
+          </span>
+          <span>HyperForge</span>
+          <span className="text-text-tertiary/40">·</span>
+          <span>All rights reserved</span>
+        </div>
+        <div className="flex flex-wrap items-baseline gap-3 text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
+          <span className="flex items-center gap-1.5">
+            <ScrollText size={11} strokeWidth={1.5} />
+            <span className="font-mono normal-case tracking-normal">
+              v0.1.0
+            </span>
+          </span>
+          <span className="text-text-tertiary/40">·</span>
+          <span className="font-mono normal-case tracking-normal">
+            {buildId}
+          </span>
+          <span className="text-text-tertiary/40">·</span>
+          <span className="font-mono normal-case tracking-normal">
+            {buildDate}
+          </span>
+        </div>
+      </div>
+    </footer>
   );
 }
