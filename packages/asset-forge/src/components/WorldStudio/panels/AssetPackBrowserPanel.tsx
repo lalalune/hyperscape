@@ -248,7 +248,7 @@ function summarizeManifest(manifest: unknown): PackManifestSummary {
  *     project state + `onInstalled` callback so the panel itself
  *     never touches `useWorldStudio()` (it's also used outside
  *     the WorldStudio provider on the top-level Asset Packs page).
- *   - `"manage"` — runs as a top-level Asset Forge page, team-bound.
+ *   - `"manage"` — runs as a top-level HyperForge page, team-bound.
  *     Caller supplies `teamId`. No project, install affordance is
  *     hidden. Used by `pages/AssetPacksPage`.
  */

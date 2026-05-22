@@ -254,7 +254,7 @@ const CATEGORIES: CategoryConfig[] = [
     id: "custom-assets",
     label: "Custom Assets",
     icon: <Package size={13} />,
-    description: "Imported models from Asset Forge",
+    description: "Imported models from HyperForge",
     color: {
       icon: "text-teal-400",
       bg: "bg-teal-500/5",

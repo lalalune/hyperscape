@@ -1,16 +1,16 @@
 /**
- * BuildingWalkabilityService - Simplified building walkability for Asset Forge
+ * BuildingWalkabilityService - Simplified building walkability for HyperForge
  *
  * This service provides building-aware walkability checks that match
  * the main game's BuildingCollisionService logic but simplified for
- * the Asset Forge world builder.
+ * the HyperForge world builder.
  *
  * Key features:
  * - Track building footprints when towns are generated
  * - Check if a tile is inside a building (walkable)
  * - Check if movement between tiles is blocked by a wall
  *
- * This ensures Asset Forge shows the same walkability as the actual game.
+ * This ensures HyperForge shows the same walkability as the actual game.
  */
 
 import {
@@ -201,7 +201,7 @@ class BuildingWalkabilityService {
    * Check if movement between two tiles is blocked by a wall
    *
    * This is a simplified check - the full game checks wall segments
-   * For Asset Forge, we check if crossing a building boundary
+   * For HyperForge, we check if crossing a building boundary
    */
   isMovementBlocked(
     fromX: number,
@@ -215,7 +215,7 @@ class BuildingWalkabilityService {
     // If moving between different buildings (or in/out of a building)
     // that's a potential wall crossing - but we allow it for doors
     // The full BuildingCollisionService handles this properly
-    // For Asset Forge visualization, we'll allow it
+    // For HyperForge visualization, we'll allow it
 
     return false; // Simplified - walls not visualized
   }

@@ -10,7 +10,7 @@ import { GLTF } from "three/examples/jsm/loaders/GLTFLoader.js";
 import {
   THREE,
   createWebGPURenderer,
-  type AssetForgeRenderer,
+  type HyperForgeRenderer,
 } from "../../utils/webgpu-renderer";
 
 export interface SpriteGenerationOptions {
@@ -29,7 +29,7 @@ export interface SpriteResult {
 }
 
 export class SpriteGenerationService {
-  private renderer: AssetForgeRenderer | null = null;
+  private renderer: HyperForgeRenderer | null = null;
   private scene: THREE.Scene;
   private camera: THREE.OrthographicCamera;
   private loader: GLTFLoader;

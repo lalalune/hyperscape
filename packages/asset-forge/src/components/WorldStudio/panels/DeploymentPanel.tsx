@@ -359,7 +359,7 @@ export function DeploymentPanel() {
       actions.deployStagingStatus("pushing");
 
       // Step 2: Push to game server staging endpoint
-      // The deploy routes live on the game server (default port 5555), not the Asset Forge UI
+      // The deploy routes live on the game server (default port 5555), not the HyperForge UI
       const serverUrl =
         import.meta.env.VITE_API_URL ||
         import.meta.env.VITE_GAME_SERVER_URL ||
@@ -426,7 +426,7 @@ export function DeploymentPanel() {
         `[Deploy] Pushed ${manifestCount} manifests to server staging: ${serverDeploymentId}`,
       );
 
-      // Persist deployment record to Asset Forge database (Phase 5.1)
+      // Persist deployment record to HyperForge database (Phase 5.1)
       try {
         const projectId = state.project.currentProjectId;
         const gameId = state.project.currentGameId;
@@ -556,7 +556,7 @@ export function DeploymentPanel() {
         if (resp.ok) {
           console.log("[Deploy] Production promotion succeeded on server");
 
-          // Persist to Asset Forge DB (Phase 5.1)
+          // Persist to HyperForge DB (Phase 5.1)
           const projectId = state.project.currentProjectId;
           const gameId = state.project.currentGameId;
           if (projectId && gameId) {

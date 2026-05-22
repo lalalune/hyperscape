@@ -18,7 +18,7 @@ import { MeshStandardNodeMaterial, MeshBasicNodeMaterial } from "three/webgpu";
 import {
   THREE,
   createWebGPURenderer,
-  type AssetForgeRenderer,
+  type HyperForgeRenderer,
 } from "@/utils/webgpu-renderer";
 
 export interface TerrainPreviewConfig {
@@ -211,7 +211,7 @@ export const TerrainPreview: React.FC<TerrainPreviewProps> = ({
   className = "",
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const rendererRef = useRef<AssetForgeRenderer | null>(null);
+  const rendererRef = useRef<HyperForgeRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);

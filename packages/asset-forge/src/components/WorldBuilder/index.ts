@@ -1,7 +1,7 @@
 /**
  * WorldBuilder Components
  *
- * Components for world building and terrain editing in Asset Forge.
+ * Components for world building and terrain editing in HyperForge.
  * Two-phase system: Creation (procedural) and Editing (layered content).
  */
 

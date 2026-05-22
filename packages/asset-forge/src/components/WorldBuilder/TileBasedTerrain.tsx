@@ -128,7 +128,7 @@ import { ViewportRenderLoop } from "./systems/ViewportRenderLoop";
 // import { SelectionManager } from "./systems/SelectionManager";
 // import { TileManager } from "./systems/TileManager";
 
-import { THREE, type AssetForgeRenderer } from "@/utils/webgpu-renderer";
+import { THREE, type HyperForgeRenderer } from "@/utils/webgpu-renderer";
 import {
   DAY_CYCLE,
   FOG_COLORS,
@@ -619,7 +619,7 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
     exitPlayerMode: camExitPlayerMode,
   } = cam;
 
-  const rendererRef = useRef<AssetForgeRenderer | null>(null);
+  const rendererRef = useRef<HyperForgeRenderer | null>(null);
   const renderLoopRef = useRef<ViewportRenderLoop | null>(null);
   // Post-processing pipeline is now managed by ViewportRenderLoop.
   const gpuRecoveryCountRef = useRef(0);
@@ -2150,7 +2150,7 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
 
     // ---- Hyperia game pipeline: fetch exact towns + roads
     // from server-side Hyperia game code ----
-    // The Asset Forge API runs the ACTUAL Hyperia TownGenerator
+    // The HyperForge API runs the ACTUAL Hyperia TownGenerator
     // + BFS road pathfinding, producing pixel-identical
     // town/road layouts for the live Hyperia world. Non-Hyperia
     // projects must not fetch this (the layout is Hyperia-

@@ -1,5 +1,5 @@
 /**
- * Privy Authentication Provider for Asset Forge
+ * Privy Authentication Provider for HyperForge
  *
  * Mirrors the game client's PrivyAuthProvider pattern:
  * - Registers getAccessToken as an async token provider for apiFetch()

@@ -4,7 +4,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import {
   THREE,
   createWebGPURenderer,
-  type AssetForgeRenderer,
+  type HyperForgeRenderer,
 } from "../utils/webgpu-renderer";
 
 export interface ThreeSceneConfig {
@@ -18,7 +18,7 @@ export interface ThreeSceneConfig {
 export interface ThreeSceneRefs {
   scene: THREE.Scene | null;
   camera: THREE.PerspectiveCamera | null;
-  renderer: AssetForgeRenderer | null;
+  renderer: HyperForgeRenderer | null;
   orbitControls: OrbitControls | null;
 }
 
@@ -66,7 +66,7 @@ export function useThreeScene(
     refs.current.camera = camera;
 
     // Initialize WebGPU renderer asynchronously
-    let renderer: AssetForgeRenderer;
+    let renderer: HyperForgeRenderer;
     let mounted = true;
 
     const initRenderer = async () => {

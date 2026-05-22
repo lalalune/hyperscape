@@ -1,7 +1,7 @@
 /**
- * VFX Catalog — standalone effect metadata for the Asset Forge VFX browser.
+ * VFX Catalog — standalone effect metadata for the HyperForge VFX browser.
  *
- * Data is duplicated here as plain objects so the Asset Forge never imports
+ * Data is duplicated here as plain objects so the HyperForge never imports
  * from packages/shared (which would pull in the full game engine).
  *
  * Source-of-truth files:

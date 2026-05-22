@@ -379,7 +379,7 @@ export function createTemplateGeometry(
 
 /**
  * Create terrain material using the game's terrain shader.
- * This ensures Asset Forge renders terrain identically to the game,
+ * This ensures HyperForge renders terrain identically to the game,
  * including road influence blending via the roadInfluence vertex attribute.
  *
  * No fallback - the game shader must load for correct road rendering.

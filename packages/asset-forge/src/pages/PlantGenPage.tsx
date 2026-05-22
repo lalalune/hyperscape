@@ -45,7 +45,7 @@ import { notify } from "@/utils/notify";
 import {
   THREE,
   createWebGPURenderer,
-  type AssetForgeRenderer,
+  type HyperForgeRenderer,
 } from "@/utils/webgpu-renderer";
 
 // API base
@@ -53,7 +53,7 @@ const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3401";
 
 export const PlantGenPage: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const rendererRef = useRef<AssetForgeRenderer | null>(null);
+  const rendererRef = useRef<HyperForgeRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);

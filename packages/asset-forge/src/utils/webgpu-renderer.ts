@@ -1,5 +1,5 @@
 /**
- * WebGPU Renderer Factory for Asset Forge
+ * WebGPU Renderer Factory for HyperForge
  *
  * Provides async WebGPU renderer creation for offline processing tools.
  * WebGPU requires async initialization via renderer.init().
@@ -14,7 +14,7 @@ export interface WebGPURendererOptions {
   preserveDrawingBuffer?: boolean;
 }
 
-export type AssetForgeRenderer = THREE.WebGPURenderer;
+export type HyperForgeRenderer = THREE.WebGPURenderer;
 
 /**
  * Create and initialize a WebGPU renderer.
@@ -25,7 +25,7 @@ export type AssetForgeRenderer = THREE.WebGPURenderer;
  */
 export async function createWebGPURenderer(
   options: WebGPURendererOptions = {},
-): Promise<AssetForgeRenderer> {
+): Promise<HyperForgeRenderer> {
   if (!navigator.gpu) {
     throw new Error(
       "WebGPU not supported — required for World Studio. " +

@@ -1,7 +1,7 @@
 /**
  * Landing page — shown when the user is not authenticated.
  *
- * Gates the entire Asset Forge app behind Privy sign-in.
+ * Gates the entire HyperForge app behind Privy sign-in.
  * Clicking "Sign In" opens the Privy modal (email, Google, or wallet).
  *
  * Design: FORGE brand-compliant. Solid Obsidian backdrop, restrained
@@ -127,11 +127,11 @@ export function WorldStudioLanding() {
       <div className="relative z-10 flex flex-col items-center px-6 max-w-3xl text-center">
         {/* FORGE mark — brand identity, no container chrome.
            Lets the symmetric form carry the moment on its own. */}
-        <ForgeLogo size={64} className="mb-8" title="Asset Forge" />
+        <ForgeLogo size={64} className="mb-8" title="HyperForge" />
 
         {/* Title */}
         <h1 className="font-display text-4xl font-medium text-text-primary mb-3 tracking-tight">
-          Asset Forge
+          HyperForge
         </h1>
         <p className="text-sm text-text-tertiary mb-10 max-w-md leading-relaxed">
           AI-powered 3D asset creation, procedural world building, and game

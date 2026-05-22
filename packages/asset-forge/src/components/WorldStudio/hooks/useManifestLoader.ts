@@ -1,5 +1,5 @@
 /**
- * useManifestLoader — Fetches game manifests from the Asset Forge API
+ * useManifestLoader — Fetches game manifests from the HyperForge API
  *
  * Loads all game manifests (NPCs, items, quests, stores, stations, combat,
  * recipes, gathering, progression, arenas, config) on mount. Converts raw

@@ -61,10 +61,10 @@ let _initPromise: Promise<void> | null = null;
 let _initialized = false;
 
 /**
- * Resolve an asset:// URL to a fetchable URL via the Asset Forge proxy.
+ * Resolve an asset:// URL to a fetchable URL via the HyperForge proxy.
  * asset://models/trees/oak_01.glb → /game-models/trees/oak_01.glb
  *
- * The Asset Forge Vite proxy routes /game-models/* to the backend which serves
+ * The HyperForge Vite proxy routes /game-models/* to the backend which serves
  * from packages/server/world/assets/models/
  */
 function resolveAssetUrl(assetPath: string): string {

@@ -1,6 +1,6 @@
 /**
  * LandmarkGenPage
- * Procedural town landmark generator for Asset Forge.
+ * Procedural town landmark generator for HyperForge.
  *
  * Previews the various town decoration/prop meshes generated in-game by
  * ProceduralTownLandmarks.ts. Each landmark type builds simple Three.js
@@ -25,7 +25,7 @@ import { notify } from "@/utils/notify";
 import {
   THREE,
   createWebGPURenderer,
-  type AssetForgeRenderer,
+  type HyperForgeRenderer,
 } from "@/utils/webgpu-renderer";
 
 // ---------------------------------------------------------------------------
@@ -439,7 +439,7 @@ function disposeGroup(group: THREE.Group): void {
 const LandmarkGenPage: React.FC = () => {
   // Refs
   const containerRef = useRef<HTMLDivElement>(null);
-  const rendererRef = useRef<AssetForgeRenderer | null>(null);
+  const rendererRef = useRef<HyperForgeRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);

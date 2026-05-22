@@ -600,7 +600,7 @@ export interface WildernessBoundary {
 export interface PlacedCustomAsset {
   id: string;
   name: string;
-  /** Asset Forge asset ID (maps to /api/assets/:id) */
+  /** HyperForge asset ID (maps to /api/assets/:id) */
   assetId: string;
   /** Display name from the asset database */
   assetName: string;

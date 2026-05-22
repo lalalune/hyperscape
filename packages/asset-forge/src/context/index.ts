@@ -1,5 +1,5 @@
 /**
- * Context providers and hooks for Asset Forge
+ * Context providers and hooks for HyperForge
  */
 
 export {

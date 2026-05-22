@@ -143,7 +143,7 @@ const Navigation: React.FC = () => {
         </button>
         <ForgeLogo size={18} className="ml-3" />
         <span className="ml-2 font-display text-sm font-medium text-text-secondary tracking-tight">
-          Asset Forge
+          HyperForge
         </span>
 
         {/* User info */}
@@ -176,7 +176,7 @@ const Navigation: React.FC = () => {
             className="flex items-center gap-2.5 font-display text-lg font-medium text-text-primary tracking-tight hover:text-primary transition-colors duration-300 ease-out"
           >
             <ForgeLogo size={22} />
-            Asset Forge
+            HyperForge
           </Link>
           <button
             className="p-1.5 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-all duration-300 ease-out"

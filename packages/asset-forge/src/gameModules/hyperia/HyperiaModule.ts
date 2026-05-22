@@ -1149,7 +1149,7 @@ export const HyperiaModule: GameModule = {
           type: "string",
           section: "Custom Asset",
           readOnly: true,
-          description: "Asset Forge asset ID",
+          description: "HyperForge asset ID",
         },
         {
           key: "modelPath",

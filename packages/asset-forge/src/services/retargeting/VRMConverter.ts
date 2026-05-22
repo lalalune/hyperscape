@@ -25,7 +25,7 @@
  * - humanoid: Bone mappings to glTF nodes
  * - meta: Avatar metadata (name, version, authors, etc.)
  *
- * **Referenced by:** Asset Forge UI, character import pipeline
+ * **Referenced by:** HyperForge UI, character import pipeline
  */
 
 import * as THREE from "three";

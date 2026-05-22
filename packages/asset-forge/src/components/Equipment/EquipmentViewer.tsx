@@ -2007,7 +2007,7 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>(
           return new ArrayBuffer(0);
         }
 
-        // Map Asset Forge bone names to VRM standard bone names
+        // Map HyperForge bone names to VRM standard bone names
         const boneNameMap: Record<string, string> = {
           Hand_R: "rightHand",
           Hand_L: "leftHand",
@@ -2082,7 +2082,7 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>(
           // Hyperia can apply this directly to get exact same positioning
           relativeMatrix: relativeMatrix.toArray(),
 
-          // Original slot from Asset Forge (for reference)
+          // Original slot from HyperForge (for reference)
           originalSlot: equipmentSlot,
 
           // Avatar info for validation/debugging

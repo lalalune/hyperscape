@@ -10,7 +10,7 @@ import { MeshBasicNodeMaterial } from "three/webgpu";
 import {
   THREE,
   createWebGPURenderer,
-  type AssetForgeRenderer,
+  type HyperForgeRenderer,
 } from "../../utils/webgpu-renderer";
 
 export interface CaptureOptions {
@@ -42,7 +42,7 @@ export interface WristBoneInfo {
 }
 
 export class OrthographicHandRenderer {
-  private renderer: AssetForgeRenderer | null = null;
+  private renderer: HyperForgeRenderer | null = null;
   private scene: THREE.Scene;
   private camera: THREE.OrthographicCamera;
   private loader: GLTFLoader;

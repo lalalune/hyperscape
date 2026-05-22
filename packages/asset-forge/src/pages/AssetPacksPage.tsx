@@ -1,5 +1,5 @@
 /**
- * AssetPacksPage — top-level Asset Forge tool for browsing the
+ * AssetPacksPage — top-level HyperForge tool for browsing the
  * marketplace + managing your team's asset packs.
  *
  * Mounts the existing `AssetPackBrowserPanel` in `mode="manage"`

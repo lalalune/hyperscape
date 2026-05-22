@@ -1,6 +1,6 @@
 /**
  * BridgeGenPage
- * Procedural bridge generator for Asset Forge
+ * Procedural bridge generator for HyperForge
  *
  * Features:
  * - Parametric parabolic arch deck surface
@@ -23,7 +23,7 @@ import { notify } from "@/utils/notify";
 import {
   THREE,
   createWebGPURenderer,
-  type AssetForgeRenderer,
+  type HyperForgeRenderer,
 } from "@/utils/webgpu-renderer";
 
 // ============================================================================
@@ -524,7 +524,7 @@ function generateBridge(params: BridgeParams): BridgeResult {
 
 export const BridgeGenPage: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const rendererRef = useRef<AssetForgeRenderer | null>(null);
+  const rendererRef = useRef<HyperForgeRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);

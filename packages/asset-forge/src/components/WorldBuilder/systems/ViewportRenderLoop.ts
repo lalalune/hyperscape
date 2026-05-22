@@ -20,7 +20,7 @@ import { bloom } from "three/addons/tsl/display/BloomNode.js";
 import {
   THREE,
   createWebGPURenderer,
-  type AssetForgeRenderer,
+  type HyperForgeRenderer,
 } from "@/utils/webgpu-renderer";
 import { EXPOSURE } from "@hyperforge/shared";
 
@@ -99,7 +99,7 @@ const MAX_DELTA = 0.1;
 
 export class ViewportRenderLoop {
   // ---- Public state ----
-  readonly renderer: AssetForgeRenderer;
+  readonly renderer: HyperForgeRenderer;
 
   // ---- Private rendering refs ----
   private _scene: THREE.Scene;
@@ -160,7 +160,7 @@ export class ViewportRenderLoop {
    * @internal — prefer `ViewportRenderLoop.create()`.
    * The renderer must already be initialized (via `createWebGPURenderer`).
    */
-  constructor(renderer: AssetForgeRenderer, config: ViewportRenderLoopConfig) {
+  constructor(renderer: HyperForgeRenderer, config: ViewportRenderLoopConfig) {
     this.renderer = renderer;
     this._scene = config.scene;
     this._camera = config.camera;
@@ -548,7 +548,7 @@ export class ViewportRenderLoop {
    * Wire the WebGPU device.lost handler on a renderer.
    * The "destroyed" reason is expected during cleanup and is ignored.
    */
-  private _wireDeviceLossHandler(renderer: AssetForgeRenderer): void {
+  private _wireDeviceLossHandler(renderer: HyperForgeRenderer): void {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const backend = (renderer as any).backend;
     if (!backend?.device?.lost) return;
@@ -667,7 +667,7 @@ export class ViewportRenderLoop {
       }
 
       // Replace the renderer reference — cast away readonly for recovery
-      (this as { renderer: AssetForgeRenderer }).renderer = newRenderer;
+      (this as { renderer: HyperForgeRenderer }).renderer = newRenderer;
 
       // Rebuild post-processing with new renderer
       this._buildPostProcessing();

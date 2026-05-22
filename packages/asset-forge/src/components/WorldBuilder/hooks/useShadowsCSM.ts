@@ -25,10 +25,10 @@ import { useEffect, type RefObject, useRef } from "react";
 import { CSMShadowNode } from "three/addons/csm/CSMShadowNode.js";
 
 import { THREE } from "@/utils/webgpu-renderer";
-import type { AssetForgeRenderer } from "@/utils/webgpu-renderer";
+import type { HyperForgeRenderer } from "@/utils/webgpu-renderer";
 
 export interface UseShadowsCSMHostRefs {
-  rendererRef: RefObject<AssetForgeRenderer | null>;
+  rendererRef: RefObject<HyperForgeRenderer | null>;
   sunRef: RefObject<THREE.DirectionalLight | null>;
   cameraRef: RefObject<THREE.PerspectiveCamera | null>;
   isStudioModeRef: RefObject<boolean>;
