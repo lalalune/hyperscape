@@ -292,11 +292,11 @@ export function NewWorldDialog({
           {/* ── Name + description ───────────────────────────── */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-text-secondary">
-              Name <span className="text-red-400">*</span>
+              Name <span className="text-error">*</span>
             </label>
             <input
               type="text"
-              className="w-full px-5 py-4 text-sm bg-bg-tertiary border border-border-primary rounded text-text-primary focus:outline-none focus:border-primary/50 placeholder:text-text-tertiary"
+              className="input"
               placeholder="My World"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -313,8 +313,8 @@ export function NewWorldDialog({
               Description
             </label>
             <textarea
-              className="w-full px-5 py-4 text-sm bg-bg-tertiary border border-border-primary rounded text-text-primary focus:outline-none focus:border-primary/50 placeholder:text-text-tertiary resize-none"
-              placeholder="A brief description of your world..."
+              className="input resize-none"
+              placeholder="A brief description of your world…"
               rows={2}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -330,8 +330,12 @@ export function NewWorldDialog({
           )}
 
           {error && (
-            <div className="flex items-start gap-2 p-2 bg-red-500/10 border border-red-500/20 rounded text-xs text-red-400">
-              <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
+            <div className="flex items-start gap-2 p-3 bg-error/10 border border-error/30 rounded-md text-xs text-error">
+              <AlertTriangle
+                size={13}
+                strokeWidth={1.5}
+                className="flex-shrink-0 mt-0.5"
+              />
               <span>{error}</span>
             </div>
           )}
@@ -340,36 +344,38 @@ export function NewWorldDialog({
       <ModalFooter>
         <div className="flex items-center gap-2 w-full">
           <button
-            className="flex-1 px-5 py-4 text-xs font-medium rounded bg-bg-tertiary border border-border-primary text-text-primary hover:bg-bg-secondary transition-colors ease-out"
+            type="button"
+            className="btn-secondary flex-1"
             onClick={onClose}
             disabled={isCreating}
           >
             Cancel
           </button>
           <button
-            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium rounded bg-primary text-white hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ease-out"
+            type="button"
+            className="btn-primary flex-1"
             onClick={handleCreate}
             disabled={!canCreate}
           >
             {isCreating ? (
               <>
-                <Loader2 size={14} className="animate-spin" />
-                Creating...
+                <Loader2 size={13} strokeWidth={1.5} className="animate-spin" />
+                Creating…
               </>
             ) : mode === "ai" ? (
               <>
-                <Sparkles size={14} />
+                <Sparkles size={13} strokeWidth={1.5} />
                 Start with AI
               </>
             ) : mode === "template" ? (
               <>
-                <Wand2 size={14} />
+                <Wand2 size={13} strokeWidth={1.5} />
                 Fork project pack
               </>
             ) : (
               <>
-                <Globe size={14} />
-                Create World
+                <Globe size={13} strokeWidth={1.5} />
+                Create world
               </>
             )}
           </button>
@@ -410,36 +416,43 @@ function ModeCard({
       aria-checked={selected}
       onClick={onSelect}
       disabled={disabled}
-      className={`relative text-left p-5 rounded border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+      className={`group relative text-left p-5 rounded-lg border transition-colors duration-300 ease-out disabled:opacity-50 disabled:cursor-not-allowed ${
         selected
           ? isHero
-            ? "border-primary bg-primary/15 ring-1 ring-primary/40"
-            : "border-primary bg-primary/10"
+            ? "border-primary/60 bg-primary/10"
+            : "border-primary/40 bg-primary/5"
           : isHero
-            ? "border-primary/30 bg-bg-tertiary hover:border-primary/60 hover:bg-bg-secondary"
-            : "border-border-primary bg-bg-tertiary hover:bg-bg-secondary"
-      } ease-out`}
+            ? "border-border-primary bg-bg-tertiary hover:border-primary/40"
+            : "border-border-primary bg-bg-tertiary hover:border-primary/40"
+      }`}
     >
+      {/* Forge Gold left edge on the hero card when selected */}
+      {isHero && selected && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute left-0 top-5 bottom-5 w-px bg-primary"
+        />
+      )}
       {badge && (
-        <div className="absolute top-1.5 right-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-primary/20 text-primary uppercase tracking-[0.12em]">
+        <div className="absolute top-2 right-2 text-[10px] font-medium px-1.5 py-0.5 rounded bg-primary/15 text-primary uppercase tracking-[0.14em]">
           {badge}
         </div>
       )}
-      <div className="flex items-start gap-2.5">
+      <div className="flex items-start gap-3">
         <div
-          className={`mt-0.5 flex-shrink-0 ${
-            selected ? "text-primary" : "text-text-secondary"
+          className={`mt-0.5 flex-shrink-0 transition-colors duration-300 ease-out ${
+            selected
+              ? "text-primary"
+              : "text-text-tertiary group-hover:text-primary"
           }`}
         >
-          <Icon size={isHero ? 20 : 16} />
+          <Icon size={isHero ? 18 : 14} />
         </div>
         <div className="flex-1 min-w-0">
-          <div
-            className={`text-sm font-semibold ${isHero ? "text-text-primary" : "text-text-primary"}`}
-          >
+          <div className="font-display text-sm font-medium text-text-primary tracking-tight">
             {title}
           </div>
-          <div className="text-xs text-text-secondary mt-1 leading-relaxed">
+          <div className="text-xs text-text-tertiary mt-1.5 leading-relaxed">
             {description}
           </div>
         </div>
@@ -472,41 +485,51 @@ function ProjectPackOption({
       aria-checked={selected}
       onClick={onSelect}
       disabled={disabled}
-      className={`w-full text-left p-5 rounded border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+      className={`group w-full text-left p-4 rounded-lg border transition-colors duration-300 ease-out disabled:opacity-50 disabled:cursor-not-allowed ${
         selected
-          ? "border-primary bg-primary/10"
-          : "border-border-primary bg-bg-tertiary hover:bg-bg-secondary"
-      } ease-out`}
+          ? "border-primary/40 bg-primary/5"
+          : "border-border-primary bg-bg-tertiary hover:border-primary/40"
+      }`}
     >
       <div className="flex items-start gap-3">
         <div
-          className={`mt-0.5 w-4 h-4 rounded-full border flex-shrink-0 ${
-            selected ? "border-primary" : "border-border-primary"
+          className={`mt-0.5 w-3.5 h-3.5 rounded-full border flex-shrink-0 transition-colors duration-300 ease-out ${
+            selected
+              ? "border-primary"
+              : "border-border-primary group-hover:border-primary/40"
           }`}
         >
           {selected && (
-            <div className="w-2 h-2 rounded-full bg-primary m-0.5" />
+            <div className="w-1.5 h-1.5 rounded-full bg-primary m-0.5" />
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-medium text-text-primary">
+          <div className="font-display text-sm font-medium text-text-primary tracking-tight">
             {pack.manifest.name}
           </div>
           {pack.manifest.description && (
-            <div className="text-xs text-text-secondary mt-0.5">
+            <div className="text-xs text-text-tertiary mt-1 leading-relaxed">
               {pack.manifest.description}
             </div>
           )}
-          <div className="text-[11px] text-text-tertiary mt-1 flex flex-wrap gap-x-2 gap-y-0.5">
+          <div className="text-[10px] text-text-tertiary uppercase tracking-[0.12em] mt-2 flex flex-wrap items-center gap-x-2 gap-y-0.5">
             {pluginCount > 0 && (
               <span>
-                {pluginCount} plugin{pluginCount === 1 ? "" : "s"}
+                <span className="font-mono normal-case tracking-normal tabular-nums">
+                  {pluginCount}
+                </span>{" "}
+                plugin{pluginCount === 1 ? "" : "s"}
               </span>
+            )}
+            {pluginCount > 0 && contentPackCount > 0 && (
+              <span className="text-text-tertiary/40">·</span>
             )}
             {contentPackCount > 0 && (
               <span>
-                {contentPackCount} content pack
-                {contentPackCount === 1 ? "" : "s"}
+                <span className="font-mono normal-case tracking-normal tabular-nums">
+                  {contentPackCount}
+                </span>{" "}
+                content pack{contentPackCount === 1 ? "" : "s"}
               </span>
             )}
             {pluginCount === 0 && contentPackCount === 0 && (
