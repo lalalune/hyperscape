@@ -11,161 +11,33 @@ import {
   Plus,
   ArrowUpRight,
   ChevronRight,
-  Crown,
-  Shield,
-  Settings,
   User,
   Loader2,
 } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { useForgeAuth } from "../auth/ForgeAuthProvider";
 import { Avatar } from "../components/shared/Avatar";
-import { ForgeLogo } from "../components/shared/ForgeLogo";
+import {
+  AtmosphericScene,
+  ErrorBanner,
+  PageFooter,
+  SectionHeader,
+  StatusDot,
+} from "../components/shared/page";
 import { CreateTeamDialog } from "../components/teams/CreateTeamDialog";
 import { ROUTES, buildTeamDetailPath } from "../constants";
+import {
+  roleBadge,
+  roleBadgeIconClass,
+  roleBadgeTextClass,
+} from "../utils/roleBadge";
 import { isPersonalTeam } from "../utils/teamApi";
 import {
   fetchCurrentUser,
   type AuthTeamMembership,
 } from "../utils/worldProjectApi";
-
-// =============================================================================
-// Primitives (mirrors ProfilePage / DashboardPage)
-// =============================================================================
-
-function StatusDot({
-  tone = "online",
-}: {
-  tone?: "online" | "ready" | "idle";
-}) {
-  const map = {
-    online: "bg-success",
-    ready: "bg-primary",
-    idle: "bg-text-tertiary",
-  };
-  return (
-    <span
-      className={`inline-block w-1.5 h-1.5 rounded-full ${map[tone]}`}
-      style={{ animation: "status-pulse 2.4s ease-in-out infinite" }}
-    />
-  );
-}
-
-function AtmosphericScene() {
-  const halfContent = 600;
-  const monoliths = [
-    {
-      side: "left" as const,
-      offset: halfContent + 80,
-      opacity: 0.45,
-      dur: 22,
-      delay: 0,
-    },
-    {
-      side: "left" as const,
-      offset: halfContent + 8,
-      opacity: 0.75,
-      dur: 18,
-      delay: -7,
-    },
-    {
-      side: "right" as const,
-      offset: halfContent + 8,
-      opacity: 0.75,
-      dur: 20,
-      delay: -12,
-    },
-    {
-      side: "right" as const,
-      offset: halfContent + 80,
-      opacity: 0.45,
-      dur: 24,
-      delay: -3,
-    },
-  ];
-  return (
-    <div
-      aria-hidden
-      className="pointer-events-none absolute inset-0 overflow-hidden"
-    >
-      <div
-        className="absolute inset-x-0 top-0 h-[640px]"
-        style={{
-          background:
-            "radial-gradient(ellipse 100% 100% at 50% 0%, rgba(28,30,34,0.75) 0%, transparent 75%)",
-        }}
-      />
-      {monoliths.map((m, i) => (
-        <div
-          key={i}
-          className="absolute inset-y-0 w-px"
-          style={{
-            [m.side]: `calc(50% - ${m.offset}px)`,
-            background: `linear-gradient(180deg, transparent 0%, rgba(28,30,34,${m.opacity}) 30%, rgba(28,30,34,${m.opacity}) 70%, transparent 100%)`,
-            animation: `drift-y ${m.dur}s ease-in-out infinite`,
-            animationDelay: `${m.delay}s`,
-          }}
-        />
-      ))}
-      <div
-        className="absolute inset-x-0 top-[440px] h-px"
-        style={{
-          background:
-            "linear-gradient(90deg, transparent 5%, rgba(212,175,55,0.22) 50%, transparent 95%)",
-          animation: "celestial-pulse 8s ease-in-out infinite",
-        }}
-      />
-    </div>
-  );
-}
-
-function SectionHeader({
-  number,
-  title,
-  meta,
-  action,
-}: {
-  number: string;
-  title: string;
-  meta?: React.ReactNode;
-  action?: React.ReactNode;
-}) {
-  return (
-    <header className="mb-8 pb-4 border-b border-border-primary flex items-baseline justify-between gap-4">
-      <div className="flex items-baseline gap-4 min-w-0">
-        <span className="font-mono text-[11px] text-text-tertiary tabular-nums tracking-[0.05em] flex-shrink-0">
-          {number}
-        </span>
-        <h2 className="font-display text-base font-medium text-text-primary tracking-tight">
-          {title}
-        </h2>
-        {meta && (
-          <span className="text-[11px] text-text-tertiary uppercase tracking-[0.12em] truncate">
-            {meta}
-          </span>
-        )}
-      </div>
-      {action && <div className="flex-shrink-0">{action}</div>}
-    </header>
-  );
-}
-
-function roleBadge(role: string) {
-  const normalized = role.toLowerCase();
-  if (normalized === "owner")
-    return { label: "Owner", icon: Crown, isPrimary: true };
-  if (normalized === "admin")
-    return { label: "Admin", icon: Shield, isPrimary: true };
-  if (normalized === "editor")
-    return { label: "Editor", icon: Settings, isPrimary: false };
-  return { label: role || "Viewer", icon: User, isPrimary: false };
-}
-
-// =============================================================================
-// Page
-// =============================================================================
 
 export function TeamsPage() {
   const auth = useForgeAuth();
@@ -243,11 +115,7 @@ export function TeamsPage() {
           </p>
         </header>
 
-        {error && (
-          <div className="rounded-lg bg-bg-tertiary border border-error/40 p-6 mb-8">
-            <p className="text-sm text-error">{error}</p>
-          </div>
-        )}
+        {error && <ErrorBanner message={error} />}
 
         {/* TEAM LIST */}
         <section className="mb-20">
@@ -358,18 +226,10 @@ export function TeamsPage() {
                       <BadgeIcon
                         size={12}
                         strokeWidth={1.5}
-                        className={
-                          badge.isPrimary
-                            ? "text-primary"
-                            : "text-text-tertiary"
-                        }
+                        className={roleBadgeIconClass(badge.tone)}
                       />
                       <span
-                        className={`text-[11px] uppercase tracking-[0.12em] ${
-                          badge.isPrimary
-                            ? "text-primary"
-                            : "text-text-secondary"
-                        }`}
+                        className={`text-[11px] uppercase tracking-[0.12em] ${roleBadgeTextClass(badge.tone)}`}
                       >
                         {badge.label}
                       </span>
@@ -448,25 +308,15 @@ export function TeamsPage() {
           </div>
         </section>
 
-        {/* FOOTER */}
-        <footer className="pt-10 border-t border-border-primary">
-          <div className="flex flex-wrap items-baseline justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <ForgeLogo size={18} />
-              <span className="font-display text-sm font-medium text-text-secondary tracking-tight">
-                HyperForge
-              </span>
-              <span className="text-text-tertiary/40">·</span>
-              <span className="text-[11px] text-text-tertiary uppercase tracking-[0.14em]">
-                Teams
-              </span>
-            </div>
+        <PageFooter
+          subtitle="Teams"
+          right={
             <div className="flex items-center gap-3 text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
               <StatusDot tone="online" />
               All systems operational
             </div>
-          </div>
-        </footer>
+          }
+        />
       </div>
 
       {/* Create-team modal — navigate to detail; the next mount of

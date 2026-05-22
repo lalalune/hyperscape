@@ -20,22 +20,19 @@ import {
   ArrowUpRight,
   ChevronRight,
   Clock,
-  Crown,
   Loader2,
   LogOut,
   Mail,
   Plus,
   Save,
-  Search,
   Settings,
-  Shield,
   Sparkles,
   Trash2,
   User as UserIcon,
   Users,
   X,
 } from "lucide-react";
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Link,
   useNavigate,
@@ -46,10 +43,23 @@ import {
 import { useForgeAuth } from "../auth/ForgeAuthProvider";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { Avatar } from "../components/shared/Avatar";
-import { ForgeLogo } from "../components/shared/ForgeLogo";
+import {
+  AtmosphericScene,
+  ErrorBanner,
+  FilterInput,
+  PageFooter,
+  PanelHeader,
+  StatusDot,
+} from "../components/shared/page";
 import { InviteMemberDialog } from "../components/teams/InviteMemberDialog";
 import { useApp } from "../contexts/AppContext";
 import { ROUTES, buildTeamDetailPath } from "../constants";
+import {
+  roleBadge,
+  roleBadgeIconClass,
+  roleBadgeTextClass,
+} from "../utils/roleBadge";
+import { timeAgo } from "../utils/timeAgo";
 import { fetchCurrentUser } from "../utils/worldProjectApi";
 import {
   fetchTeam,
@@ -85,140 +95,6 @@ const TABS: { id: SettingsTab; label: string; icon: typeof Settings }[] = [
 function isSettingsTab(v: string | null): v is SettingsTab {
   return (
     v === "general" || v === "members" || v === "invitations" || v === "audit"
-  );
-}
-
-function StatusDot({
-  tone = "online",
-}: {
-  tone?: "online" | "ready" | "idle";
-}) {
-  const map = {
-    online: "bg-success",
-    ready: "bg-primary",
-    idle: "bg-text-tertiary",
-  };
-  return (
-    <span
-      className={`inline-block w-1.5 h-1.5 rounded-full ${map[tone]}`}
-      style={{ animation: "status-pulse 2.4s ease-in-out infinite" }}
-    />
-  );
-}
-
-function AtmosphericScene() {
-  const halfContent = 600;
-  const monoliths = [
-    {
-      side: "left" as const,
-      offset: halfContent + 80,
-      opacity: 0.45,
-      dur: 22,
-      delay: 0,
-    },
-    {
-      side: "left" as const,
-      offset: halfContent + 8,
-      opacity: 0.75,
-      dur: 18,
-      delay: -7,
-    },
-    {
-      side: "right" as const,
-      offset: halfContent + 8,
-      opacity: 0.75,
-      dur: 20,
-      delay: -12,
-    },
-    {
-      side: "right" as const,
-      offset: halfContent + 80,
-      opacity: 0.45,
-      dur: 24,
-      delay: -3,
-    },
-  ];
-  return (
-    <div
-      aria-hidden
-      className="pointer-events-none absolute inset-0 overflow-hidden"
-    >
-      <div
-        className="absolute inset-x-0 top-0 h-[520px]"
-        style={{
-          background:
-            "radial-gradient(ellipse 100% 100% at 50% 0%, rgba(28,30,34,0.75) 0%, transparent 75%)",
-        }}
-      />
-      {monoliths.map((m, i) => (
-        <div
-          key={i}
-          className="absolute inset-y-0 w-px"
-          style={{
-            [m.side]: `calc(50% - ${m.offset}px)`,
-            background: `linear-gradient(180deg, transparent 0%, rgba(28,30,34,${m.opacity}) 30%, rgba(28,30,34,${m.opacity}) 70%, transparent 100%)`,
-            animation: `drift-y ${m.dur}s ease-in-out infinite`,
-            animationDelay: `${m.delay}s`,
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
-function roleBadge(role: string) {
-  const normalized = role.toLowerCase();
-  if (normalized === "owner")
-    return { label: "Owner", icon: Crown, isPrimary: true };
-  if (normalized === "admin")
-    return { label: "Admin", icon: Shield, isPrimary: true };
-  if (normalized === "editor")
-    return { label: "Editor", icon: Settings, isPrimary: false };
-  return { label: role || "Viewer", icon: UserIcon, isPrimary: false };
-}
-
-function timeAgo(iso: string): string {
-  const now = Date.now();
-  const then = new Date(iso).getTime();
-  const diff = Math.max(0, now - then);
-  const sec = Math.floor(diff / 1000);
-  if (sec < 60) return "just now";
-  const min = Math.floor(sec / 60);
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  const day = Math.floor(hr / 24);
-  if (day < 30) return `${day}d ago`;
-  const mo = Math.floor(day / 30);
-  if (mo < 12) return `${mo}mo ago`;
-  const yr = Math.floor(day / 365);
-  return `${yr}y ago`;
-}
-
-/** Reusable section header inside the settings content pane. */
-function PanelHeader({
-  title,
-  description,
-  action,
-}: {
-  title: string;
-  description?: string;
-  action?: React.ReactNode;
-}) {
-  return (
-    <header className="mb-6 pb-5 border-b border-border-primary flex items-start justify-between gap-6">
-      <div className="min-w-0">
-        <h2 className="font-display text-xl font-medium text-text-primary tracking-tight mb-1">
-          {title}
-        </h2>
-        {description && (
-          <p className="text-sm text-text-tertiary leading-relaxed max-w-prose">
-            {description}
-          </p>
-        )}
-      </div>
-      {action && <div className="flex-shrink-0">{action}</div>}
-    </header>
   );
 }
 
@@ -693,18 +569,12 @@ function MembersPanel({
       />
 
       {members.length > 4 && (
-        <div className="relative max-w-md mb-5">
-          <Search
-            size={13}
-            strokeWidth={1.5}
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-tertiary pointer-events-none"
-          />
-          <input
-            type="text"
+        <div className="mb-5">
+          <FilterInput
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={setQuery}
             placeholder="Filter members by name, email, or role"
-            className="input pl-10"
+            maxWidth="28rem"
           />
         </div>
       )}
@@ -805,18 +675,10 @@ function MembersPanel({
                       <BadgeIcon
                         size={11}
                         strokeWidth={1.5}
-                        className={
-                          badge.isPrimary
-                            ? "text-primary"
-                            : "text-text-tertiary"
-                        }
+                        className={roleBadgeIconClass(badge.tone)}
                       />
                       <span
-                        className={`text-[11px] uppercase tracking-[0.12em] ${
-                          badge.isPrimary
-                            ? "text-primary"
-                            : "text-text-secondary"
-                        }`}
+                        className={`text-[11px] uppercase tracking-[0.12em] ${roleBadgeTextClass(badge.tone)}`}
                       >
                         {badge.label}
                       </span>
@@ -977,14 +839,10 @@ function InvitationsPanel({
                     <BadgeIcon
                       size={11}
                       strokeWidth={1.5}
-                      className={
-                        badge.isPrimary ? "text-primary" : "text-text-tertiary"
-                      }
+                      className={roleBadgeIconClass(badge.tone)}
                     />
                     <span
-                      className={`text-[11px] uppercase tracking-[0.12em] ${
-                        badge.isPrimary ? "text-primary" : "text-text-secondary"
-                      }`}
+                      className={`text-[11px] uppercase tracking-[0.12em] ${roleBadgeTextClass(badge.tone)}`}
                     >
                       {badge.label}
                     </span>
@@ -1270,7 +1128,7 @@ export function TeamSettingsPage() {
   if (error || !team || !teamId) {
     return (
       <div className="relative min-h-full bg-bg-primary overflow-hidden">
-        <AtmosphericScene />
+        <AtmosphericScene topEllipseHeight={520} horizonY={null} />
         <div className="relative max-w-[1200px] mx-auto px-10 py-16">
           {teamId && (
             <Link
@@ -1281,9 +1139,7 @@ export function TeamSettingsPage() {
               Back to team
             </Link>
           )}
-          <div className="rounded-lg bg-bg-tertiary border border-error/40 p-8 text-center">
-            <p className="text-sm text-error">{error || "Team not found"}</p>
-          </div>
+          <ErrorBanner variant="page" message={error || "Team not found"} />
         </div>
       </div>
     );
@@ -1291,7 +1147,7 @@ export function TeamSettingsPage() {
 
   return (
     <div className="relative min-h-full bg-bg-primary overflow-hidden">
-      <AtmosphericScene />
+      <AtmosphericScene topEllipseHeight={520} horizonY={null} />
 
       <div className="relative max-w-[1200px] mx-auto px-10 py-12">
         {/* Breadcrumb + back */}
@@ -1453,27 +1309,27 @@ export function TeamSettingsPage() {
           </main>
         </div>
 
-        {/* Footer */}
-        <footer className="mt-16 pt-8 border-t border-border-primary flex flex-wrap items-baseline justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <ForgeLogo size={18} />
-            <span className="font-display text-sm font-medium text-text-secondary tracking-tight">
-              HyperForge
-            </span>
-            <span className="text-text-tertiary/40">·</span>
-            <span className="text-[11px] text-text-tertiary uppercase tracking-[0.14em]">
-              Team settings
-            </span>
-            <ArrowUpRight
-              size={11}
-              strokeWidth={1.5}
-              className="text-text-tertiary/40"
-            />
-          </div>
-          <div className="text-[11px] text-text-tertiary uppercase tracking-[0.12em] font-mono normal-case tracking-normal">
-            {team.id}
-          </div>
-        </footer>
+        <div className="mt-16">
+          <PageFooter
+            subtitle={
+              <span className="flex items-center gap-3">
+                <span className="text-[11px] text-text-tertiary uppercase tracking-[0.14em]">
+                  Team settings
+                </span>
+                <ArrowUpRight
+                  size={11}
+                  strokeWidth={1.5}
+                  className="text-text-tertiary/40"
+                />
+              </span>
+            }
+            right={
+              <div className="text-[11px] text-text-tertiary uppercase tracking-[0.12em] font-mono normal-case tracking-normal">
+                {team.id}
+              </div>
+            }
+          />
+        </div>
       </div>
     </div>
   );

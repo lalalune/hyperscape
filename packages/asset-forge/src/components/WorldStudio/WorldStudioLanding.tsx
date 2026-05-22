@@ -19,7 +19,6 @@
 
 import {
   Mountain,
-  Building2,
   Layers,
   Sparkles,
   LogIn,
@@ -30,10 +29,10 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
-import React from "react";
 
-import { ForgeLogo } from "../shared/ForgeLogo";
 import { useForgeAuth } from "../../auth/ForgeAuthProvider";
+import { ForgeLogo } from "../shared/ForgeLogo";
+import { AtmosphericScene, SectionHeader, StatusDot } from "../shared/page";
 
 // =============================================================================
 // Data
@@ -84,125 +83,6 @@ const ENGINE_STACK: { label: string; value: string; icon: LucideIcon }[] = [
 // =============================================================================
 // Primitives
 // =============================================================================
-
-function StatusDot() {
-  return (
-    <span
-      className="inline-block w-1.5 h-1.5 rounded-full bg-success"
-      style={{ animation: "status-pulse 2.4s ease-in-out infinite" }}
-    />
-  );
-}
-
-/** Background scene — matches the dashboard's content-aligned monoliths. */
-function AtmosphericScene() {
-  const halfContent = 600;
-  const monoliths = [
-    {
-      side: "left" as const,
-      offset: halfContent + 80,
-      opacity: 0.45,
-      dur: 22,
-      delay: 0,
-    },
-    {
-      side: "left" as const,
-      offset: halfContent + 8,
-      opacity: 0.75,
-      dur: 18,
-      delay: -7,
-    },
-    {
-      side: "right" as const,
-      offset: halfContent + 8,
-      opacity: 0.75,
-      dur: 20,
-      delay: -12,
-    },
-    {
-      side: "right" as const,
-      offset: halfContent + 80,
-      opacity: 0.45,
-      dur: 24,
-      delay: -3,
-    },
-  ];
-
-  return (
-    <div
-      aria-hidden
-      className="pointer-events-none absolute inset-0 overflow-hidden"
-    >
-      {/* Volumetric Graphite ellipse */}
-      <div
-        className="absolute inset-x-0 top-0 h-[720px]"
-        style={{
-          background:
-            "radial-gradient(ellipse 100% 100% at 50% 0%, rgba(28,30,34,0.8) 0%, transparent 75%)",
-        }}
-      />
-
-      {/* Architectural monoliths flanking content */}
-      {monoliths.map((m, i) => (
-        <div
-          key={i}
-          className="absolute inset-y-0 w-px"
-          style={{
-            [m.side]: `calc(50% - ${m.offset}px)`,
-            background: `linear-gradient(180deg, transparent 0%, rgba(28,30,34,${m.opacity}) 30%, rgba(28,30,34,${m.opacity}) 70%, transparent 100%)`,
-            animation: `drift-y ${m.dur}s ease-in-out infinite`,
-            animationDelay: `${m.delay}s`,
-          }}
-        />
-      ))}
-
-      {/* Forge Gold horizons */}
-      <div
-        className="absolute inset-x-0 top-[500px] h-px"
-        style={{
-          background:
-            "linear-gradient(90deg, transparent 5%, rgba(212,175,55,0.22) 50%, transparent 95%)",
-          animation: "celestial-pulse 8s ease-in-out infinite",
-        }}
-      />
-      <div
-        className="absolute inset-x-0 top-[1100px] h-px"
-        style={{
-          background:
-            "linear-gradient(90deg, transparent 15%, rgba(212,175,55,0.10) 50%, transparent 85%)",
-          animation: "celestial-pulse 14s ease-in-out infinite",
-          animationDelay: "-4s",
-        }}
-      />
-    </div>
-  );
-}
-
-function SectionHeader({
-  number,
-  title,
-  meta,
-}: {
-  number: string;
-  title: string;
-  meta?: React.ReactNode;
-}) {
-  return (
-    <header className="mb-10 pb-4 border-b border-border-primary flex items-baseline gap-4">
-      <span className="font-mono text-[11px] text-text-tertiary tabular-nums tracking-[0.05em] flex-shrink-0">
-        {number}
-      </span>
-      <h2 className="font-display text-base font-medium text-text-primary tracking-tight">
-        {title}
-      </h2>
-      {meta && (
-        <span className="text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
-          {meta}
-        </span>
-      )}
-    </header>
-  );
-}
 
 // =============================================================================
 // Capability card
@@ -291,7 +171,11 @@ export function WorldStudioLanding() {
 
   return (
     <div className="relative min-h-screen bg-bg-primary overflow-hidden">
-      <AtmosphericScene />
+      <AtmosphericScene
+        topEllipseHeight={720}
+        horizonY={500}
+        secondaryHorizonY={1100}
+      />
 
       <div className="relative max-w-[1200px] mx-auto px-10 py-16">
         {/* ====================================================================

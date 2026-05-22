@@ -21,23 +21,31 @@ import {
   Wallet,
   ChevronRight,
   LogOut,
-  Shield,
   Users,
   ArrowUpRight,
   Loader2,
-  Crown,
-  Settings,
   Pencil,
 } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { useForgeAuth } from "../auth/ForgeAuthProvider";
 import { EditProfileDialog } from "../components/profile/EditProfileDialog";
 import { Avatar } from "../components/shared/Avatar";
-import { ForgeLogo } from "../components/shared/ForgeLogo";
+import {
+  AtmosphericScene,
+  ErrorBanner,
+  PageFooter,
+  SectionHeader,
+  StatusDot,
+} from "../components/shared/page";
 import { useApp } from "../contexts/AppContext";
 import { ROUTES, buildTeamDetailPath } from "../constants";
+import {
+  roleBadge,
+  roleBadgeIconClass,
+  roleBadgeTextClass,
+} from "../utils/roleBadge";
 import {
   acceptInvite,
   fetchReceivedInvites,
@@ -48,138 +56,6 @@ import {
   type AuthMeResponse,
   type AuthTeamMembership,
 } from "../utils/worldProjectApi";
-
-// =============================================================================
-// Utilities
-// =============================================================================
-
-function StatusDot({
-  tone = "online",
-}: {
-  tone?: "online" | "ready" | "idle";
-}) {
-  const map = {
-    online: "bg-success",
-    ready: "bg-primary",
-    idle: "bg-text-tertiary",
-  };
-  return (
-    <span
-      className={`inline-block w-1.5 h-1.5 rounded-full ${map[tone]}`}
-      style={{ animation: "status-pulse 2.4s ease-in-out infinite" }}
-    />
-  );
-}
-
-function AtmosphericScene() {
-  const halfContent = 600;
-  const monoliths = [
-    {
-      side: "left" as const,
-      offset: halfContent + 80,
-      opacity: 0.45,
-      dur: 22,
-      delay: 0,
-    },
-    {
-      side: "left" as const,
-      offset: halfContent + 8,
-      opacity: 0.75,
-      dur: 18,
-      delay: -7,
-    },
-    {
-      side: "right" as const,
-      offset: halfContent + 8,
-      opacity: 0.75,
-      dur: 20,
-      delay: -12,
-    },
-    {
-      side: "right" as const,
-      offset: halfContent + 80,
-      opacity: 0.45,
-      dur: 24,
-      delay: -3,
-    },
-  ];
-  return (
-    <div
-      aria-hidden
-      className="pointer-events-none absolute inset-0 overflow-hidden"
-    >
-      <div
-        className="absolute inset-x-0 top-0 h-[640px]"
-        style={{
-          background:
-            "radial-gradient(ellipse 100% 100% at 50% 0%, rgba(28,30,34,0.75) 0%, transparent 75%)",
-        }}
-      />
-      {monoliths.map((m, i) => (
-        <div
-          key={i}
-          className="absolute inset-y-0 w-px"
-          style={{
-            [m.side]: `calc(50% - ${m.offset}px)`,
-            background: `linear-gradient(180deg, transparent 0%, rgba(28,30,34,${m.opacity}) 30%, rgba(28,30,34,${m.opacity}) 70%, transparent 100%)`,
-            animation: `drift-y ${m.dur}s ease-in-out infinite`,
-            animationDelay: `${m.delay}s`,
-          }}
-        />
-      ))}
-      <div
-        className="absolute inset-x-0 top-[440px] h-px"
-        style={{
-          background:
-            "linear-gradient(90deg, transparent 5%, rgba(212,175,55,0.22) 50%, transparent 95%)",
-          animation: "celestial-pulse 8s ease-in-out infinite",
-        }}
-      />
-    </div>
-  );
-}
-
-function SectionHeader({
-  number,
-  title,
-  meta,
-}: {
-  number: string;
-  title: string;
-  meta?: React.ReactNode;
-}) {
-  return (
-    <header className="mb-8 pb-4 border-b border-border-primary flex items-baseline gap-4">
-      <span className="font-mono text-[11px] text-text-tertiary tabular-nums tracking-[0.05em] flex-shrink-0">
-        {number}
-      </span>
-      <h2 className="font-display text-base font-medium text-text-primary tracking-tight">
-        {title}
-      </h2>
-      {meta && (
-        <span className="text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
-          {meta}
-        </span>
-      )}
-    </header>
-  );
-}
-
-/** Role-to-icon-and-color helper for team membership rows. */
-function roleBadge(role: string): {
-  label: string;
-  icon: typeof Crown;
-  tone: "primary" | "secondary" | "tertiary";
-} {
-  const normalized = role.toLowerCase();
-  if (normalized === "owner")
-    return { label: "Owner", icon: Crown, tone: "primary" };
-  if (normalized === "admin")
-    return { label: "Admin", icon: Shield, tone: "primary" };
-  if (normalized === "editor")
-    return { label: "Editor", icon: Settings, tone: "secondary" };
-  return { label: role || "Viewer", icon: User, tone: "tertiary" };
-}
 
 // =============================================================================
 // Sections
@@ -376,18 +252,10 @@ function TeamMembershipsSection({
                       <BadgeIcon
                         size={12}
                         strokeWidth={1.5}
-                        className={
-                          badge.tone === "primary"
-                            ? "text-primary"
-                            : "text-text-tertiary"
-                        }
+                        className={roleBadgeIconClass(badge.tone)}
                       />
                       <span
-                        className={`text-[11px] uppercase tracking-[0.12em] ${
-                          badge.tone === "primary"
-                            ? "text-primary"
-                            : "text-text-secondary"
-                        }`}
+                        className={`text-[11px] uppercase tracking-[0.12em] ${roleBadgeTextClass(badge.tone)}`}
                       >
                         {badge.label}
                       </span>
@@ -502,18 +370,10 @@ function ReceivedInvitesSection({
                     <BadgeIcon
                       size={11}
                       strokeWidth={1.5}
-                      className={
-                        badge.tone === "primary"
-                          ? "text-primary"
-                          : "text-text-tertiary"
-                      }
+                      className={roleBadgeIconClass(badge.tone)}
                     />
                     <span
-                      className={`text-[11px] uppercase tracking-[0.12em] ${
-                        badge.tone === "primary"
-                          ? "text-primary"
-                          : "text-text-secondary"
-                      }`}
+                      className={`text-[11px] uppercase tracking-[0.12em] ${roleBadgeTextClass(badge.tone)}`}
                     >
                       {badge.label}
                     </span>
@@ -691,11 +551,7 @@ export function ProfilePage() {
           </p>
         </header>
 
-        {error && (
-          <div className="rounded-lg bg-bg-tertiary border border-error/40 p-6 mb-8">
-            <p className="text-sm text-error">{error}</p>
-          </div>
-        )}
+        {error && <ErrorBanner message={error} />}
 
         {/* ====================================================================
             01 / IDENTITY
@@ -742,27 +598,15 @@ export function ProfilePage() {
             ==================================================================== */}
         <SessionSection onSignOut={auth.logout} />
 
-        {/* ====================================================================
-            FOOTER
-            ==================================================================== */}
-        <footer className="relative pt-10 border-t border-border-primary">
-          <div className="flex flex-wrap items-baseline justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <ForgeLogo size={18} />
-              <span className="font-display text-sm font-medium text-text-secondary tracking-tight">
-                HyperForge
-              </span>
-              <span className="text-text-tertiary/40">·</span>
-              <span className="text-[11px] text-text-tertiary uppercase tracking-[0.14em]">
-                Profile
-              </span>
-            </div>
+        <PageFooter
+          subtitle="Profile"
+          right={
             <div className="flex items-center gap-3 text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
               <StatusDot tone="online" />
               Identity managed by Privy
             </div>
-          </div>
-        </footer>
+          }
+        />
       </div>
 
       {/* Edit profile modal — only mount once /api/auth/me has loaded */}

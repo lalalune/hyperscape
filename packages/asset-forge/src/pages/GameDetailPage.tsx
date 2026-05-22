@@ -20,7 +20,6 @@ import {
   Map,
   Loader2,
   ChevronRight,
-  ArrowUpRight,
   Globe,
   Layers,
   ExternalLink,
@@ -28,12 +27,20 @@ import {
   Plus,
   Package,
 } from "lucide-react";
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { useForgeAuth } from "../auth/ForgeAuthProvider";
-import { ForgeLogo } from "../components/shared/ForgeLogo";
+import {
+  AtmosphericScene,
+  ErrorBanner,
+  PageFooter,
+  SectionHeader,
+  StatCard,
+  StatusDot,
+} from "../components/shared/page";
 import { ROUTES, buildTeamDetailPath } from "../constants";
+import { timeAgo } from "../utils/timeAgo";
 import {
   fetchCurrentUser,
   fetchGame,
@@ -41,143 +48,6 @@ import {
   type GameResponse,
   type WorldProjectSummary,
 } from "../utils/worldProjectApi";
-
-// =============================================================================
-// Primitives (mirror other pages)
-// =============================================================================
-
-function StatusDot({
-  tone = "online",
-}: {
-  tone?: "online" | "ready" | "idle";
-}) {
-  const map = {
-    online: "bg-success",
-    ready: "bg-primary",
-    idle: "bg-text-tertiary",
-  };
-  return (
-    <span
-      className={`inline-block w-1.5 h-1.5 rounded-full ${map[tone]}`}
-      style={{ animation: "status-pulse 2.4s ease-in-out infinite" }}
-    />
-  );
-}
-
-function AtmosphericScene() {
-  const halfContent = 600;
-  const monoliths = [
-    {
-      side: "left" as const,
-      offset: halfContent + 80,
-      opacity: 0.45,
-      dur: 22,
-      delay: 0,
-    },
-    {
-      side: "left" as const,
-      offset: halfContent + 8,
-      opacity: 0.75,
-      dur: 18,
-      delay: -7,
-    },
-    {
-      side: "right" as const,
-      offset: halfContent + 8,
-      opacity: 0.75,
-      dur: 20,
-      delay: -12,
-    },
-    {
-      side: "right" as const,
-      offset: halfContent + 80,
-      opacity: 0.45,
-      dur: 24,
-      delay: -3,
-    },
-  ];
-  return (
-    <div
-      aria-hidden
-      className="pointer-events-none absolute inset-0 overflow-hidden"
-    >
-      <div
-        className="absolute inset-x-0 top-0 h-[640px]"
-        style={{
-          background:
-            "radial-gradient(ellipse 100% 100% at 50% 0%, rgba(28,30,34,0.75) 0%, transparent 75%)",
-        }}
-      />
-      {monoliths.map((m, i) => (
-        <div
-          key={i}
-          className="absolute inset-y-0 w-px"
-          style={{
-            [m.side]: `calc(50% - ${m.offset}px)`,
-            background: `linear-gradient(180deg, transparent 0%, rgba(28,30,34,${m.opacity}) 30%, rgba(28,30,34,${m.opacity}) 70%, transparent 100%)`,
-            animation: `drift-y ${m.dur}s ease-in-out infinite`,
-            animationDelay: `${m.delay}s`,
-          }}
-        />
-      ))}
-      <div
-        className="absolute inset-x-0 top-[440px] h-px"
-        style={{
-          background:
-            "linear-gradient(90deg, transparent 5%, rgba(212,175,55,0.22) 50%, transparent 95%)",
-          animation: "celestial-pulse 8s ease-in-out infinite",
-        }}
-      />
-    </div>
-  );
-}
-
-function SectionHeader({
-  number,
-  title,
-  meta,
-  action,
-}: {
-  number: string;
-  title: string;
-  meta?: React.ReactNode;
-  action?: React.ReactNode;
-}) {
-  return (
-    <header className="mb-8 pb-4 border-b border-border-primary flex items-baseline justify-between gap-4">
-      <div className="flex items-baseline gap-4 min-w-0">
-        <span className="font-mono text-[11px] text-text-tertiary tabular-nums tracking-[0.05em] flex-shrink-0">
-          {number}
-        </span>
-        <h2 className="font-display text-base font-medium text-text-primary tracking-tight">
-          {title}
-        </h2>
-        {meta && (
-          <span className="text-[11px] text-text-tertiary uppercase tracking-[0.12em] truncate">
-            {meta}
-          </span>
-        )}
-      </div>
-      {action && <div className="flex-shrink-0">{action}</div>}
-    </header>
-  );
-}
-
-function timeAgo(iso: string): string {
-  const now = Date.now();
-  const then = new Date(iso).getTime();
-  const diff = Math.max(0, now - then);
-  const min = Math.floor(diff / 60_000);
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  const day = Math.floor(hr / 24);
-  if (day < 30) return `${day}d ago`;
-  const mo = Math.floor(day / 30);
-  if (mo < 12) return `${mo}mo ago`;
-  const yr = Math.floor(day / 365);
-  return `${yr}y ago`;
-}
 
 // =============================================================================
 // Page
@@ -254,14 +124,11 @@ export function GameDetailPage() {
               Back to team
             </Link>
           )}
-          <div className="rounded-lg bg-bg-tertiary border border-error/40 p-8 text-center">
-            <p className="text-sm text-error mb-2">
-              {error || "Game not found"}
-            </p>
-            <p className="text-[11px] text-text-tertiary uppercase tracking-[0.12em] font-mono normal-case">
-              {gameId}
-            </p>
-          </div>
+          <ErrorBanner
+            variant="page"
+            message={error || "Game not found"}
+            meta={gameId}
+          />
         </div>
       </div>
     );
@@ -330,6 +197,7 @@ export function GameDetailPage() {
               value={game.moduleId || "—"}
               sub="Game module"
               valueMono={false}
+              truncateValue
             />
             <StatCard
               label="Created"
@@ -490,15 +358,9 @@ export function GameDetailPage() {
           </div>
         </section>
 
-        {/* FOOTER */}
-        <footer className="pt-10 border-t border-border-primary">
-          <div className="flex flex-wrap items-baseline justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <ForgeLogo size={18} />
-              <span className="font-display text-sm font-medium text-text-secondary tracking-tight">
-                HyperForge
-              </span>
-              <span className="text-text-tertiary/40">·</span>
+        <PageFooter
+          subtitle={
+            <>
               <Link
                 to={ROUTES.TEAMS}
                 className="text-[11px] text-text-tertiary hover:text-primary uppercase tracking-[0.14em] transition-colors duration-300 ease-out"
@@ -524,12 +386,14 @@ export function GameDetailPage() {
               <span className="text-[11px] text-text-tertiary uppercase tracking-[0.14em]">
                 {game.name}
               </span>
-            </div>
+            </>
+          }
+          right={
             <div className="text-[11px] text-text-tertiary uppercase tracking-[0.12em] font-mono normal-case tracking-normal">
               {game.id}
             </div>
-          </div>
-        </footer>
+          }
+        />
       </div>
     </div>
   );
@@ -538,34 +402,6 @@ export function GameDetailPage() {
 // =============================================================================
 // Subcomponents
 // =============================================================================
-
-function StatCard({
-  label,
-  value,
-  sub,
-  valueMono = true,
-}: {
-  label: string;
-  value: string;
-  sub: string;
-  valueMono?: boolean;
-}) {
-  return (
-    <div className="rounded-lg bg-bg-tertiary border border-border-primary p-6">
-      <p className="text-[10px] font-medium text-text-tertiary uppercase tracking-[0.14em] mb-3">
-        {label}
-      </p>
-      <p
-        className={`font-display text-2xl font-medium text-text-primary tracking-tight leading-none mb-2 ${valueMono ? "tabular-nums" : ""} truncate`}
-      >
-        {value}
-      </p>
-      <p className="text-[11px] text-text-tertiary uppercase tracking-[0.1em]">
-        {sub}
-      </p>
-    </div>
-  );
-}
 
 function ServerCard({
   label,

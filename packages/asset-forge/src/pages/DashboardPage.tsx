@@ -29,7 +29,6 @@ import {
   ArrowUpRight,
   ArrowRight,
   Package,
-  Plus,
   ChevronRight,
   Box,
   BookOpen,
@@ -43,9 +42,16 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { useForgeAuth } from "../auth/ForgeAuthProvider";
 import { ForgeLogo } from "../components/shared/ForgeLogo";
+import {
+  AtmosphericScene,
+  EmptyHero,
+  SectionHeader,
+  StatusDot,
+} from "../components/shared/page";
 import { useActiveTeam } from "../contexts/ActiveTeamContext";
 import { ROUTES } from "../constants";
 import { useAssets } from "../hooks/useAssets";
+import { timeAgo } from "../utils/timeAgo";
 import {
   fetchTeamGames,
   listWorldProjects,
@@ -68,24 +74,6 @@ const PROMPT_SUGGESTIONS = [
 // =============================================================================
 // Utilities
 // =============================================================================
-
-function timeAgo(iso: string): string {
-  const now = Date.now();
-  const then = new Date(iso).getTime();
-  const diff = Math.max(0, now - then);
-  const sec = Math.floor(diff / 1000);
-  if (sec < 60) return "just now";
-  const min = Math.floor(sec / 60);
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  const day = Math.floor(hr / 24);
-  if (day < 30) return `${day}d ago`;
-  const mo = Math.floor(day / 30);
-  if (mo < 12) return `${mo}mo ago`;
-  const yr = Math.floor(day / 365);
-  return `${yr}y ago`;
-}
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -110,145 +98,6 @@ function buildActivitySparkline(assets: { generatedAt: string }[]): number[] {
     }
   }
   return buckets;
-}
-
-// =============================================================================
-// Primitives
-// =============================================================================
-
-function StatusDot({
-  tone = "online",
-}: {
-  tone?: "online" | "ready" | "active" | "idle";
-}) {
-  const map = {
-    online: "bg-success",
-    ready: "bg-primary",
-    active: "bg-accent-aether",
-    idle: "bg-text-tertiary",
-  };
-  return (
-    <span
-      className={`inline-block w-1.5 h-1.5 rounded-full ${map[tone]}`}
-      style={{ animation: "status-pulse 2.4s ease-in-out infinite" }}
-    />
-  );
-}
-
-/** Background scene — monoliths flank the content as architectural columns. */
-function AtmosphericScene() {
-  const halfContent = 600;
-  const monoliths = [
-    {
-      side: "left" as const,
-      offset: halfContent + 80,
-      opacity: 0.45,
-      dur: 22,
-      delay: 0,
-    },
-    {
-      side: "left" as const,
-      offset: halfContent + 8,
-      opacity: 0.75,
-      dur: 18,
-      delay: -7,
-    },
-    {
-      side: "right" as const,
-      offset: halfContent + 8,
-      opacity: 0.75,
-      dur: 20,
-      delay: -12,
-    },
-    {
-      side: "right" as const,
-      offset: halfContent + 80,
-      opacity: 0.45,
-      dur: 24,
-      delay: -3,
-    },
-  ];
-
-  return (
-    <div
-      aria-hidden
-      className="pointer-events-none absolute inset-0 overflow-hidden"
-    >
-      {/* Volumetric Graphite ellipse — anchored to top */}
-      <div
-        className="absolute inset-x-0 top-0 h-[720px]"
-        style={{
-          background:
-            "radial-gradient(ellipse 100% 100% at 50% 0%, rgba(28,30,34,0.8) 0%, transparent 75%)",
-        }}
-      />
-
-      {/* Architectural monoliths */}
-      {monoliths.map((m, i) => (
-        <div
-          key={i}
-          className="absolute inset-y-0 w-px"
-          style={{
-            [m.side]: `calc(50% - ${m.offset}px)`,
-            background: `linear-gradient(180deg, transparent 0%, rgba(28,30,34,${m.opacity}) 30%, rgba(28,30,34,${m.opacity}) 70%, transparent 100%)`,
-            animation: `drift-y ${m.dur}s ease-in-out infinite`,
-            animationDelay: `${m.delay}s`,
-          }}
-        />
-      ))}
-
-      {/* Horizon lines — celestial light, breathing */}
-      <div
-        className="absolute inset-x-0 top-[560px] h-px"
-        style={{
-          background:
-            "linear-gradient(90deg, transparent 5%, rgba(212,175,55,0.22) 50%, transparent 95%)",
-          animation: "celestial-pulse 8s ease-in-out infinite",
-        }}
-      />
-      <div
-        className="absolute inset-x-0 top-[1320px] h-px"
-        style={{
-          background:
-            "linear-gradient(90deg, transparent 15%, rgba(212,175,55,0.10) 50%, transparent 85%)",
-          animation: "celestial-pulse 14s ease-in-out infinite",
-          animationDelay: "-4s",
-        }}
-      />
-    </div>
-  );
-}
-
-/** Editorial numbered section header — "01 / Continue". */
-function SectionHeader({
-  number,
-  title,
-  meta,
-  action,
-}: {
-  number: string;
-  title: string;
-  meta?: React.ReactNode;
-  action?: React.ReactNode;
-}) {
-  return (
-    <header className="mb-8 pb-4 border-b border-border-primary flex items-baseline justify-between gap-6">
-      <div className="flex items-baseline gap-4 min-w-0">
-        <span className="font-mono text-[11px] text-text-tertiary tabular-nums tracking-[0.05em] flex-shrink-0">
-          {number}
-        </span>
-        <h2 className="font-display text-base font-medium text-text-primary tracking-tight">
-          {title}
-        </h2>
-        {meta && (
-          <span className="text-[11px] text-text-tertiary uppercase tracking-[0.12em] truncate">
-            {meta}
-          </span>
-        )}
-      </div>
-      {action && <div className="flex-shrink-0">{action}</div>}
-    </header>
-  );
 }
 
 // =============================================================================
@@ -555,6 +404,7 @@ function ContinueSection({
           subtitle="Start building your first procedural world — terrain, biomes, structures — with AI-assisted authoring."
           ctaLabel="Start a new world"
           ctaTo={ROUTES.WORLD_STUDIO}
+          fixedHeight={320}
         />
       )}
 
@@ -564,6 +414,7 @@ function ContinueSection({
           subtitle="Teams group your worlds, asset libraries, and members. You need a team to start building games in HyperForge."
           ctaLabel="Create a team"
           ctaTo={ROUTES.TEAMS}
+          fixedHeight={320}
         />
       )}
 
@@ -575,61 +426,6 @@ function ContinueSection({
         </div>
       )}
     </section>
-  );
-}
-
-// =============================================================================
-// Empty state hero
-// =============================================================================
-
-function EmptyHero({
-  message,
-  subtitle,
-  ctaLabel,
-  ctaTo,
-}: {
-  message: string;
-  subtitle: string;
-  ctaLabel?: string;
-  ctaTo?: string;
-}) {
-  return (
-    <div className="relative rounded-lg bg-bg-tertiary border border-border-primary p-16 text-center overflow-hidden h-[320px] flex flex-col items-center justify-center">
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(ellipse 60% 80% at 50% 100%, rgba(212,175,55,0.05) 0%, transparent 70%)",
-        }}
-      />
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-1/2 h-px"
-        style={{
-          background:
-            "linear-gradient(90deg, transparent, rgba(212,175,55,0.12), transparent)",
-        }}
-      />
-      <div className="relative">
-        <ForgeLogo size={48} className="mx-auto mb-6 opacity-60" />
-        <h3 className="font-display text-xl font-medium text-text-primary tracking-tight mb-3">
-          {message}
-        </h3>
-        <p className="text-sm text-text-tertiary max-w-md mx-auto leading-relaxed mb-6">
-          {subtitle}
-        </p>
-        {ctaLabel && ctaTo && (
-          <Link
-            to={ctaTo}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md bg-primary text-bg-primary text-sm font-medium hover:bg-primary-dark transition-colors duration-500 ease-out"
-          >
-            <Plus size={14} strokeWidth={2} />
-            {ctaLabel}
-          </Link>
-        )}
-      </div>
-    </div>
   );
 }
 
@@ -1005,7 +801,11 @@ export function DashboardPage() {
 
   return (
     <div className="relative min-h-full bg-bg-primary overflow-hidden">
-      <AtmosphericScene />
+      <AtmosphericScene
+        topEllipseHeight={720}
+        horizonY={560}
+        secondaryHorizonY={1320}
+      />
 
       <div className="relative max-w-[1200px] mx-auto px-10 py-16">
         {/* ====================================================================
