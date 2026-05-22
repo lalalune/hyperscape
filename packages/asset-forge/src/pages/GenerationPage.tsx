@@ -737,39 +737,18 @@ export const GenerationPage: React.FC = () => {
               </button>
             </div>
 
-            {/* Display hero: "Forge an item/avatar" — verb-led, large */}
-            <div className="flex items-end justify-between gap-8 flex-wrap mb-6">
-              <div className="flex items-end gap-6">
-                <h1 className="font-display text-5xl md:text-6xl font-medium text-text-primary tracking-tight leading-[1.02]">
-                  Forge an
-                  <br />
-                  <span className="text-primary">
-                    {generationType === "avatar" ? "avatar" : "item"}
-                  </span>
-                </h1>
-                {/* Large monogram icon as identity */}
-                <div className="hidden md:flex items-end pb-3 opacity-30">
-                  {generationType === "avatar" ? (
-                    <User
-                      size={88}
-                      strokeWidth={1.0}
-                      className="text-text-tertiary"
-                    />
-                  ) : (
-                    <Box
-                      size={88}
-                      strokeWidth={1.0}
-                      className="text-text-tertiary"
-                    />
-                  )}
-                </div>
-              </div>
-              <p className="text-sm text-text-tertiary leading-relaxed max-w-md">
-                {generationType === "avatar"
-                  ? "Generate a humanoid character with mesh, texture, and rigging baked in."
-                  : "Generate a 3D item with mesh + texture in one pass; optionally fork material variants."}
-              </p>
-            </div>
+            {/* Display hero: stacked verb-led title */}
+            <h1 className="font-display text-5xl md:text-6xl font-medium text-text-primary tracking-tight leading-[1.02] mb-5">
+              Forge an{" "}
+              <span className="text-primary">
+                {generationType === "avatar" ? "avatar" : "item"}
+              </span>
+            </h1>
+            <p className="text-base text-text-tertiary leading-relaxed max-w-2xl mb-9">
+              {generationType === "avatar"
+                ? "Generate a humanoid character with mesh, texture, and rigging baked in. The pipeline runs end-to-end from prompt to game-ready asset."
+                : "Generate a 3D item with mesh and texture in one pass. Optionally fork material variants and bake sprite renders for inventory UI."}
+            </p>
 
             {/* Tab strip — below the hero, clean horizontal nav */}
             <div className="pt-6 border-t border-border-primary flex items-center justify-between gap-4 flex-wrap">
@@ -790,12 +769,26 @@ export const GenerationPage: React.FC = () => {
               )}
             </div>
           </header>
-          {/* Configuration Form View */}
+          {/* ====================================================
+              CONFIGURE VIEW — two numbered sections: 01 BRIEF + 02 SPECS
+              ==================================================== */}
           {activeView === "config" && (
-            <div className="animate-fade-in space-y-8">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Main Form */}
-                <div className="lg:col-span-2 space-y-8">
+            <div className="animate-fade-in">
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-10">
+                {/* ── 01 / BRIEF — what you're making ─────────────── */}
+                <section className="lg:col-span-3 space-y-6">
+                  <header className="flex items-baseline gap-3 pb-4 border-b border-border-primary">
+                    <span className="font-mono text-[11px] text-text-tertiary tabular-nums tracking-[0.05em]">
+                      01
+                    </span>
+                    <h2 className="font-display text-base font-medium text-text-primary tracking-tight">
+                      Brief
+                    </h2>
+                    <span className="text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
+                      What you&apos;re making
+                    </span>
+                  </header>
+
                   {/* Asset Details Card */}
                   <AssetDetailsCard
                     generationType={generationType}
@@ -862,10 +855,22 @@ export const GenerationPage: React.FC = () => {
                     onDeleteCustomGameStyle={deleteCustomGameStyle}
                     onDeleteCustomAssetType={deleteCustomAssetType}
                   />
-                </div>
+                </section>
 
-                {/* Sidebar */}
-                <div className="space-y-8">
+                {/* ── 02 / SPECS — how the pipeline runs ─────────── */}
+                <section className="lg:col-span-2 space-y-6">
+                  <header className="flex items-baseline gap-3 pb-4 border-b border-border-primary">
+                    <span className="font-mono text-[11px] text-text-tertiary tabular-nums tracking-[0.05em]">
+                      02
+                    </span>
+                    <h2 className="font-display text-base font-medium text-text-primary tracking-tight">
+                      Specs
+                    </h2>
+                    <span className="text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
+                      How it&apos;s built
+                    </span>
+                  </header>
+
                   {/* Pipeline Options */}
                   <PipelineOptionsCard
                     generationType={generationType}
@@ -939,35 +944,60 @@ export const GenerationPage: React.FC = () => {
                     onDataUrlChange={setReferenceImageDataUrl}
                   />
 
-                  {/* Start Generation — restrained earned-moment CTA */}
-                  <div className="rounded-lg bg-bg-tertiary border border-primary/30 p-5 space-y-3 relative overflow-hidden">
-                    {/* Subtle Forge Gold left edge — earned moment */}
+                  {/* Start Generation — earned-moment composition */}
+                  <div className="rounded-lg bg-bg-tertiary border border-primary/30 p-6 space-y-4 relative overflow-hidden">
+                    {/* Forge Gold left edge */}
                     <span
                       aria-hidden
-                      className="pointer-events-none absolute left-0 top-4 bottom-4 w-px bg-primary"
+                      className="pointer-events-none absolute left-0 top-5 bottom-5 w-px bg-primary"
                     />
-                    <div className="flex items-baseline gap-3">
-                      <span className="font-mono text-[11px] text-text-tertiary tabular-nums tracking-[0.05em]">
+                    {/* Subtle Gold radial — atmospheric */}
+                    <span
+                      aria-hidden
+                      className="pointer-events-none absolute inset-0"
+                      style={{
+                        background:
+                          "radial-gradient(ellipse 80% 80% at 50% 100%, rgba(212,175,55,0.06) 0%, transparent 70%)",
+                      }}
+                    />
+                    <div className="relative flex items-baseline gap-3">
+                      <span className="font-mono text-[11px] text-primary tabular-nums tracking-[0.05em]">
                         →
                       </span>
-                      <span className="font-display text-sm font-medium text-text-primary tracking-tight">
-                        Ready to generate
+                      <span className="font-display text-base font-medium text-text-primary tracking-tight">
+                        Ready to forge
                       </span>
                     </div>
-                    <p className="text-xs text-text-tertiary leading-relaxed">
-                      The pipeline will run model generation, texturing, and
-                      {generationType === "avatar"
-                        ? " auto-rigging"
-                        : enableRetexturing
-                          ? " material variants"
-                          : " export"}{" "}
-                      with your current settings.
+                    {/* Live "intent" line — composes what the pipeline will run */}
+                    <p className="relative text-xs text-text-tertiary leading-relaxed">
+                      {(() => {
+                        const features: string[] = ["model + texture"];
+                        if (useGPT5Enhancement)
+                          features.unshift("GPT-5 prompt enhancement");
+                        if (
+                          generationType === "item" &&
+                          enableRetexturing &&
+                          selectedMaterials.length > 0
+                        )
+                          features.push(
+                            `${selectedMaterials.length} material variant${selectedMaterials.length === 1 ? "" : "s"}`,
+                          );
+                        if (generationType === "item" && enableSprites)
+                          features.push("sprite renders");
+                        if (generationType === "avatar" && enableRigging)
+                          features.push("auto-rigging");
+                        const target =
+                          generationType === "avatar"
+                            ? assetType || "character"
+                            : assetType || "item";
+                        return `Pipeline will run on a ${target} with ${features.join(", ")}.`;
+                      })()}
                     </p>
                     <button
                       type="button"
                       onClick={handleStartGeneration}
                       disabled={!assetName || !description || isGenerating}
-                      className="btn-primary w-full"
+                      className="btn-primary w-full relative"
                     >
                       {isGenerating ? (
                         <>
@@ -985,42 +1015,48 @@ export const GenerationPage: React.FC = () => {
                         </>
                       )}
                     </button>
+                    {(!assetName || !description) && (
+                      <p className="relative text-[10px] text-text-tertiary uppercase tracking-[0.12em] font-mono normal-case tracking-normal">
+                        {!assetName && !description
+                          ? "Add a name + description to continue."
+                          : !assetName
+                            ? "Add a name to continue."
+                            : "Add a description to continue."}
+                      </p>
+                    )}
                   </div>
-                </div>
+                </section>
               </div>
             </div>
           )}
 
-          {/* Progress View */}
+          {/* ====================================================
+              PROGRESS VIEW — pipeline running
+              ==================================================== */}
           {activeView === "progress" && (
             <div className="animate-fade-in space-y-8">
-              <PipelineProgressCard
-                pipelineStages={pipelineStages}
-                generationType={generationType}
-                isGenerating={isGenerating}
-                onBackToConfig={() => setActiveView("config")}
-                onBack={() => {
-                  setGenerationType(undefined);
-                  setActiveView("config");
-                  resetForm();
-                  resetPipeline();
-                }}
-              />
-
-              {/* Additional Progress Info */}
-              <GenerationTimeline />
-            </div>
-          )}
-
-          {/* Results View */}
-          {activeView === "results" && (
-            <div className="animate-fade-in space-y-8">
-              <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                {/* Asset List */}
-                <GeneratedAssetsList
-                  generatedAssets={generatedAssets}
-                  selectedAsset={selectedAsset}
-                  onAssetSelect={setSelectedAsset}
+              <section className="space-y-6">
+                <header className="flex items-baseline gap-3 pb-4 border-b border-border-primary">
+                  <span className="font-mono text-[11px] text-text-tertiary tabular-nums tracking-[0.05em]">
+                    01
+                  </span>
+                  <h2 className="font-display text-base font-medium text-text-primary tracking-tight">
+                    Pipeline
+                  </h2>
+                  <span className="text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
+                    {isGenerating ? "Running" : "Complete"}
+                  </span>
+                  {assetName && (
+                    <span className="ml-auto text-[11px] text-text-tertiary uppercase tracking-[0.12em] font-mono normal-case tracking-normal">
+                      {assetName}
+                    </span>
+                  )}
+                </header>
+                <PipelineProgressCard
+                  pipelineStages={pipelineStages}
+                  generationType={generationType}
+                  isGenerating={isGenerating}
+                  onBackToConfig={() => setActiveView("config")}
                   onBack={() => {
                     setGenerationType(undefined);
                     setActiveView("config");
@@ -1028,37 +1064,95 @@ export const GenerationPage: React.FC = () => {
                     resetPipeline();
                   }}
                 />
+              </section>
 
-                {/* Asset Details */}
-                <div className="lg:col-span-3 space-y-8">
+              <section className="space-y-6">
+                <header className="flex items-baseline gap-3 pb-4 border-b border-border-primary">
+                  <span className="font-mono text-[11px] text-text-tertiary tabular-nums tracking-[0.05em]">
+                    02
+                  </span>
+                  <h2 className="font-display text-base font-medium text-text-primary tracking-tight">
+                    Timeline
+                  </h2>
+                  <span className="text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
+                    Stage history
+                  </span>
+                </header>
+                <GenerationTimeline />
+              </section>
+            </div>
+          )}
+
+          {/* ====================================================
+              RESULTS VIEW — forged assets + selected preview
+              ==================================================== */}
+          {activeView === "results" && (
+            <div className="animate-fade-in">
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-10">
+                {/* ── 01 / LIBRARY — list of forged assets ──────── */}
+                <section className="space-y-5">
+                  <header className="flex items-baseline gap-3 pb-4 border-b border-border-primary">
+                    <span className="font-mono text-[11px] text-text-tertiary tabular-nums tracking-[0.05em]">
+                      01
+                    </span>
+                    <h2 className="font-display text-base font-medium text-text-primary tracking-tight">
+                      Library
+                    </h2>
+                    <span className="ml-auto text-[11px] text-text-tertiary uppercase tracking-[0.12em] font-mono normal-case tracking-normal tabular-nums">
+                      {generatedAssets.length}
+                    </span>
+                  </header>
+                  <GeneratedAssetsList
+                    generatedAssets={generatedAssets}
+                    selectedAsset={selectedAsset}
+                    onAssetSelect={setSelectedAsset}
+                    onBack={() => {
+                      setGenerationType(undefined);
+                      setActiveView("config");
+                      resetForm();
+                      resetPipeline();
+                    }}
+                  />
+                </section>
+
+                {/* ── 02 / DETAIL — preview + variants + actions ── */}
+                <section className="lg:col-span-3 space-y-6">
+                  <header className="flex items-baseline gap-3 pb-4 border-b border-border-primary">
+                    <span className="font-mono text-[11px] text-text-tertiary tabular-nums tracking-[0.05em]">
+                      02
+                    </span>
+                    <h2 className="font-display text-base font-medium text-text-primary tracking-tight">
+                      {selectedAsset?.name ? "Preview" : "Pick an asset"}
+                    </h2>
+                    {selectedAsset?.name && (
+                      <span className="text-[11px] text-text-tertiary uppercase tracking-[0.12em] font-mono normal-case tracking-normal truncate">
+                        {selectedAsset.name}
+                      </span>
+                    )}
+                  </header>
                   {selectedAsset ? (
                     <>
-                      {/* 3D Preview */}
                       <AssetPreviewCard
                         selectedAsset={selectedAsset}
                         generationType={generationType}
                       />
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        {/* Material Variants */}
-                        {generationType === "item" &&
-                          selectedAsset.variants && (
-                            <MaterialVariantsDisplay
-                              variants={selectedAsset.variants}
+                      {generationType === "item" &&
+                        (selectedAsset.variants || true) && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {selectedAsset.variants && (
+                              <MaterialVariantsDisplay
+                                variants={selectedAsset.variants}
+                              />
+                            )}
+                            <SpritesDisplay
+                              selectedAsset={selectedAsset}
+                              isGeneratingSprites={isGeneratingSprites}
+                              onGenerateSprites={handleGenerateSprites}
                             />
-                          )}
-
-                        {/* 2D Sprites */}
-                        {generationType === "item" && (
-                          <SpritesDisplay
-                            selectedAsset={selectedAsset}
-                            isGeneratingSprites={isGeneratingSprites}
-                            onGenerateSprites={handleGenerateSprites}
-                          />
+                          </div>
                         )}
-                      </div>
 
-                      {/* Actions */}
                       <AssetActionsCard
                         onGenerateNew={() => {
                           setActiveView("config");
@@ -1070,7 +1164,7 @@ export const GenerationPage: React.FC = () => {
                   ) : (
                     <NoAssetSelected />
                   )}
-                </div>
+                </section>
               </div>
             </div>
           )}
