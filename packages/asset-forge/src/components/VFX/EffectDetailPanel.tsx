@@ -71,32 +71,51 @@ const LayerCard: React.FC<{ layer: GlowLayer }> = ({ layer }) => {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="border border-border-primary/50 rounded">
+    <div className="rounded-md border border-border-primary overflow-hidden">
       <button
-        className="w-full flex items-center justify-between px-3 py-2 text-xs hover:bg-bg-tertiary transition-colors ease-out"
+        type="button"
+        className="w-full flex items-center justify-between px-3.5 py-2.5 text-xs hover:bg-bg-tertiary transition-colors duration-300 ease-out"
         onClick={() => setOpen(!open)}
       >
         <span className="font-medium text-text-primary">
           {layer.pool}{" "}
-          <span className="text-text-tertiary font-normal">×{layer.count}</span>
+          <span className="text-text-tertiary font-normal font-mono tabular-nums">
+            ×{layer.count}
+          </span>
         </span>
         <ChevronDown
-          size={12}
-          className={`text-text-tertiary transition-transform ${open ? "rotate-180" : ""} ease-out`}
+          size={11}
+          strokeWidth={1.5}
+          className={`text-text-tertiary transition-transform duration-300 ease-out ${
+            open ? "rotate-180" : ""
+          }`}
         />
       </button>
       {open && (
-        <div className="px-3 pb-2 text-xs text-text-secondary space-y-1">
-          <div>
-            Lifetime: <span className="font-mono">{layer.lifetime}</span>
+        <div className="px-3.5 pb-3 pt-1 text-xs text-text-secondary space-y-1.5 border-t border-border-primary/50">
+          <div className="flex justify-between gap-3">
+            <span className="text-text-tertiary uppercase tracking-[0.1em] text-[10px]">
+              Lifetime
+            </span>
+            <span className="font-mono tabular-nums">{layer.lifetime}</span>
           </div>
-          <div>
-            Scale: <span className="font-mono">{layer.scale}</span>
+          <div className="flex justify-between gap-3">
+            <span className="text-text-tertiary uppercase tracking-[0.1em] text-[10px]">
+              Scale
+            </span>
+            <span className="font-mono tabular-nums">{layer.scale}</span>
           </div>
-          <div>
-            Sharpness: <span className="font-mono">{layer.sharpness}</span>
+          <div className="flex justify-between gap-3">
+            <span className="text-text-tertiary uppercase tracking-[0.1em] text-[10px]">
+              Sharpness
+            </span>
+            <span className="font-mono tabular-nums">{layer.sharpness}</span>
           </div>
-          <div className="text-text-tertiary italic">{layer.notes}</div>
+          {layer.notes && (
+            <p className="text-text-tertiary leading-relaxed pt-1.5">
+              {layer.notes}
+            </p>
+          )}
         </div>
       )}
     </div>
@@ -117,28 +136,39 @@ export const LayerBreakdown: React.FC<{ effect: GlowEffect }> = ({
 // PhaseTimeline (for teleport)
 // ---------------------------------------------------------------------------
 
-const PHASE_BG: Record<string, string> = {
-  Gather: "bg-cyan-600",
-  Erupt: "bg-white",
-  Sustain: "bg-cyan-300",
-  Fade: "bg-blue-800",
+/**
+ * Phase backgrounds visualise the teleport timeline as a single-hue
+ * Aether-Blue gradient: build → peak → sustain → fade. The Erupt
+ * phase uses Forge Gold to mark the "earned moment".
+ */
+const PHASE_BG: Record<string, { bg: string; fg: string }> = {
+  Gather: { bg: "bg-accent-aether/70", fg: "text-text-primary" },
+  Erupt: { bg: "bg-primary", fg: "text-bg-primary" },
+  Sustain: { bg: "bg-accent-aether/40", fg: "text-text-primary" },
+  Fade: { bg: "bg-accent-aether/20", fg: "text-text-secondary" },
 };
 
 export const PhaseTimeline: React.FC<{ effect: TeleportEffect }> = ({
   effect,
 }) => (
   <div className="space-y-2">
-    <div className="flex h-6 rounded overflow-hidden border border-border-primary/50">
+    <div className="flex h-7 rounded-md overflow-hidden border border-border-primary">
       {effect.phases.map((phase) => {
         const width = (phase.end - phase.start) * 100;
+        const style = PHASE_BG[phase.name] ?? {
+          bg: "bg-bg-secondary",
+          fg: "text-text-secondary",
+        };
         return (
           <div
             key={phase.name}
-            className={`${PHASE_BG[phase.name] ?? "bg-gray-500"} flex items-center justify-center`}
+            className={`${style.bg} flex items-center justify-center`}
             style={{ width: `${width}%` }}
             title={`${phase.name}: ${(phase.start * effect.duration).toFixed(2)}s – ${(phase.end * effect.duration).toFixed(2)}s`}
           >
-            <span className="text-[10px] font-bold text-black/70 truncate px-1">
+            <span
+              className={`text-[10px] font-medium ${style.fg} truncate px-1 uppercase tracking-[0.1em]`}
+            >
               {phase.name}
             </span>
           </div>
@@ -188,13 +218,13 @@ export const VariantsPanel: React.FC<{ effect: CombatHudEffect }> = ({
   if (!effect.variants?.length) return null;
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2.5">
       {effect.variants.map((variant) => (
         <div
           key={variant.label}
-          className="border border-border-primary/50 rounded p-2"
+          className="rounded-md border border-border-primary p-3"
         >
-          <div className="text-xs font-medium text-text-primary mb-1.5">
+          <div className="text-[10px] font-medium text-text-tertiary uppercase tracking-[0.14em] mb-2">
             {variant.label}
           </div>
           <ColorSwatchRow colors={variant.colors} />
