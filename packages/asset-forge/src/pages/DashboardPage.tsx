@@ -1,23 +1,24 @@
 /**
  * DashboardPage — HyperForge project hub.
  *
- * Architecture:
- *   Hero band     — brand identity + greeting + system status
- *   Continue      — recent world projects with last-edited time + version
- *   Quick start   — three primary CTAs (new world / generate / library)
- *   Activity rail — recent generated assets (left)
- *   Telemetry     — engine + library stats (right)
- *   Tool index    — collapsed secondary navigation
+ * Composition system:
+ *   Content max-width: 1200px (max-w-[1200px])
+ *   Horizontal padding: px-10
+ *   Vertical section rhythm: mb-20 between major sections
+ *   Card padding scale: p-6 (compact) / p-8 (featured)
+ *   Card heights: explicit min-h within each row for uniform baseline
+ *
+ * Background composition:
+ *   Two architectural monoliths positioned at the CONTENT edges
+ *   (not viewport edges) — framing the content like classical columns.
+ *   Radial Graphite ellipse anchored to top.
+ *   Two Forge Gold horizon lines breathing on different cycles.
  *
  * Data sources:
  *   - fetchCurrentUser → user.teams
  *   - fetchTeamGames(teamId) → games
  *   - listWorldProjects(teamId, gameId) → world projects
  *   - AssetService.listAssets → asset library
- *
- * Loads first team's first game by default (mirrors WorldPickerPage
- * convention). Multi-team / multi-game project switching happens in
- * the World Studio picker.
  */
 
 import {
@@ -170,12 +171,58 @@ function StatusDot({
   );
 }
 
+/**
+ * Atmospheric scene — composed RELATIVE TO CONTENT, not viewport.
+ *
+ * Content max-width: 1200px. We position monoliths at the content
+ * edges using calc() so they read as architectural columns framing
+ * the content area, regardless of viewport width.
+ *
+ * Outer columns sit just outside the content (-24px), inner columns
+ * sit on the content edges. Two horizon lines breathe at different
+ * cycles for layered depth.
+ */
 function AtmosphericScene() {
+  // Distance from viewport center to each monolith line, based on
+  // 1200px content width.
+  const halfContent = 600; // 1200 / 2
+  const monoliths = [
+    {
+      side: "left" as const,
+      offset: halfContent + 80,
+      opacity: 0.45,
+      dur: 22,
+      delay: 0,
+    },
+    {
+      side: "left" as const,
+      offset: halfContent + 8,
+      opacity: 0.75,
+      dur: 18,
+      delay: -7,
+    },
+    {
+      side: "right" as const,
+      offset: halfContent + 8,
+      opacity: 0.75,
+      dur: 20,
+      delay: -12,
+    },
+    {
+      side: "right" as const,
+      offset: halfContent + 80,
+      opacity: 0.45,
+      dur: 24,
+      delay: -3,
+    },
+  ];
+
   return (
     <div
       aria-hidden
       className="pointer-events-none absolute inset-0 overflow-hidden"
     >
+      {/* Volumetric Graphite ellipse anchored to top */}
       <div
         className="absolute inset-x-0 top-0 h-[640px]"
         style={{
@@ -183,30 +230,41 @@ function AtmosphericScene() {
             "radial-gradient(ellipse 100% 100% at 50% 0%, rgba(28,30,34,0.75) 0%, transparent 75%)",
         }}
       />
-      {[
-        { left: "6%", w: 0.6, dur: 18, delay: 0 },
-        { left: "14%", w: 0.85, dur: 22, delay: -7 },
-        { right: "18%", w: 0.7, dur: 25, delay: -12 },
-        { right: "8%", w: 0.5, dur: 20, delay: -3 },
-      ].map((m, i) => (
+
+      {/* Architectural monoliths — flank the content as classical columns.
+          Each side uses calc(50% ± offset) so they track content edges
+          (not viewport edges) at every breakpoint. */}
+      {monoliths.map((m, i) => (
         <div
           key={i}
           className="absolute inset-y-0 w-px"
           style={{
-            left: m.left,
-            right: m.right,
-            background: `linear-gradient(180deg, transparent 0%, rgba(28,30,34,${m.w}) 35%, rgba(28,30,34,${m.w}) 65%, transparent 100%)`,
+            [m.side]: `calc(50% - ${m.offset}px)`,
+            background: `linear-gradient(180deg, transparent 0%, rgba(28,30,34,${m.opacity}) 30%, rgba(28,30,34,${m.opacity}) 70%, transparent 100%)`,
             animation: `drift-y ${m.dur}s ease-in-out infinite`,
             animationDelay: `${m.delay}s`,
           }}
         />
       ))}
+
+      {/* Primary celestial horizon — anchored to the hero/continue band */}
       <div
         className="absolute inset-x-0 top-[420px] h-px"
         style={{
           background:
             "linear-gradient(90deg, transparent 5%, rgba(212,175,55,0.22) 50%, transparent 95%)",
           animation: "celestial-pulse 8s ease-in-out infinite",
+        }}
+      />
+
+      {/* Secondary horizon — softer, lower, longer cycle */}
+      <div
+        className="absolute inset-x-0 top-[1080px] h-px"
+        style={{
+          background:
+            "linear-gradient(90deg, transparent 15%, rgba(212,175,55,0.08) 50%, transparent 85%)",
+          animation: "celestial-pulse 14s ease-in-out infinite",
+          animationDelay: "-4s",
         }}
       />
     </div>
@@ -223,7 +281,7 @@ function SectionHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <header className="flex items-baseline justify-between mb-6 pb-3 border-b border-border-primary">
+    <header className="flex items-baseline justify-between mb-8 pb-4 border-b border-border-primary">
       <div className="flex items-baseline gap-3">
         <h2 className="font-display text-sm font-medium text-text-primary tracking-tight">
           {title}
@@ -240,7 +298,7 @@ function SectionHeader({
 }
 
 // =============================================================================
-// Continue section — most recent world projects
+// Continue — recent world projects
 // =============================================================================
 
 function ProjectCard({
@@ -255,21 +313,20 @@ function ProjectCard({
     <Link
       to={`${ROUTES.WORLD_STUDIO}/${project.id}`}
       state={{ teamId, gameId: project.gameId }}
-      className="group relative flex flex-col rounded-lg bg-bg-tertiary border border-border-primary hover:border-primary/50 transition-colors duration-500 ease-out overflow-hidden"
+      className="group relative flex flex-col rounded-lg bg-bg-tertiary border border-border-primary hover:border-primary/50 transition-colors duration-500 ease-out overflow-hidden h-[320px]"
     >
       {/* Earned Gold left-edge on hover */}
-      <span className="pointer-events-none absolute left-0 top-6 bottom-6 w-px bg-primary opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-out" />
+      <span className="pointer-events-none absolute left-0 top-6 bottom-6 w-px bg-primary opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-out z-10" />
 
-      {/* Project "preview" — atmospheric scene since we don't have thumbnails.
-          Reads as a rendered world atlas. */}
+      {/* Project preview pane — fixed 160px height */}
       <div
-        className="relative h-32 border-b border-border-primary overflow-hidden"
+        className="relative h-40 border-b border-border-primary overflow-hidden"
         style={{
           background:
             "radial-gradient(ellipse 60% 80% at 30% 100%, rgba(212,175,55,0.06) 0%, transparent 60%), linear-gradient(180deg, rgba(11,11,13,0.4) 0%, rgba(28,30,34,0.6) 100%)",
         }}
       >
-        {/* Faint architectural horizon inside the preview */}
+        {/* Horizon inside the preview */}
         <span
           aria-hidden
           className="absolute inset-x-0 top-3/4 h-px"
@@ -278,10 +335,10 @@ function ProjectCard({
               "linear-gradient(90deg, transparent, rgba(212,175,55,0.18), transparent)",
           }}
         />
-        {/* Faint monolith silhouette */}
+        {/* Architectural silhouettes */}
         <span
           aria-hidden
-          className="absolute inset-y-3 left-[28%] w-px"
+          className="absolute inset-y-4 left-[25%] w-px"
           style={{
             background:
               "linear-gradient(180deg, transparent, rgba(28,30,34,0.9) 40%, rgba(28,30,34,0.9) 60%, transparent)",
@@ -289,33 +346,42 @@ function ProjectCard({
         />
         <span
           aria-hidden
-          className="absolute inset-y-5 right-[22%] w-px"
+          className="absolute inset-y-6 left-[40%] w-px"
           style={{
             background:
               "linear-gradient(180deg, transparent, rgba(28,30,34,0.6) 40%, rgba(28,30,34,0.6) 60%, transparent)",
           }}
         />
+        <span
+          aria-hidden
+          className="absolute inset-y-3 right-[28%] w-px"
+          style={{
+            background:
+              "linear-gradient(180deg, transparent, rgba(28,30,34,0.8) 35%, rgba(28,30,34,0.8) 65%, transparent)",
+          }}
+        />
 
-        {/* Project version tag in top-right */}
-        <div className="absolute top-3 right-3 inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-bg-primary/60 border border-border-primary">
-          <span className="text-[10px] font-mono text-text-tertiary tabular-nums">
+        {/* Version tag */}
+        <div className="absolute top-3 right-3 inline-flex items-center px-2 py-1 rounded bg-bg-primary/80 border border-border-primary">
+          <span className="text-[10px] font-mono text-text-tertiary tabular-nums leading-none">
             v{project.version}
           </span>
         </div>
 
-        {/* Lock indicator if locked */}
+        {/* Lock indicator */}
         {project.lockedBy && (
-          <div className="absolute top-3 left-3 inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-bg-primary/60 border border-border-primary">
+          <div className="absolute top-3 left-3 inline-flex items-center gap-1.5 px-2 py-1 rounded bg-bg-primary/80 border border-border-primary">
             <StatusDot tone="active" />
-            <span className="text-[10px] text-text-tertiary uppercase tracking-[0.1em]">
+            <span className="text-[10px] text-text-tertiary uppercase tracking-[0.1em] leading-none">
               In session
             </span>
           </div>
         )}
       </div>
 
-      <div className="p-5 flex flex-col gap-2 flex-1">
-        <div className="flex items-start justify-between gap-3">
+      {/* Text content — fills remaining height */}
+      <div className="flex flex-col flex-1 p-6">
+        <div className="flex items-start justify-between gap-3 mb-2">
           <h3 className="font-display text-base font-medium text-text-primary tracking-tight line-clamp-1">
             {project.name}
           </h3>
@@ -325,12 +391,12 @@ function ProjectCard({
             className="text-text-tertiary opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-out flex-shrink-0 mt-1"
           />
         </div>
-        {project.description && (
-          <p className="text-xs text-text-tertiary leading-relaxed line-clamp-2">
-            {project.description}
-          </p>
-        )}
-        <div className="mt-auto pt-3 flex items-center justify-between text-[11px] text-text-tertiary uppercase tracking-[0.1em]">
+        <p className="text-xs text-text-tertiary leading-relaxed line-clamp-2 mb-auto">
+          {project.description || (
+            <span className="italic text-text-tertiary/60">No description</span>
+          )}
+        </p>
+        <div className="flex items-center justify-between pt-4 text-[11px] text-text-tertiary uppercase tracking-[0.1em]">
           <span>Edited {lastEdited}</span>
           {project.assetPacks.length > 0 && (
             <span className="flex items-center gap-1.5 normal-case tracking-normal">
@@ -369,12 +435,12 @@ function ContinueSection({
   );
 
   return (
-    <section className="mb-16">
+    <section className="mb-20">
       <SectionHeader
         title="Continue"
         meta={
           loading
-            ? "Loading…"
+            ? "Loading"
             : recent.length > 0
               ? `${recent.length} of ${projects.length} world${projects.length === 1 ? "" : "s"}`
               : null
@@ -392,13 +458,12 @@ function ContinueSection({
         }
       />
 
-      {/* Loading skeleton */}
       {loading && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {[0, 1, 2].map((i) => (
             <div
               key={i}
-              className="h-[280px] rounded-lg bg-bg-tertiary border border-border-primary"
+              className="h-[320px] rounded-lg bg-bg-tertiary border border-border-primary"
               style={{
                 animation: "celestial-pulse 2.4s ease-in-out infinite",
                 animationDelay: `${i * 0.2}s`,
@@ -408,34 +473,30 @@ function ContinueSection({
         </div>
       )}
 
-      {/* Error state */}
       {!loading && error && (
         <div className="rounded-lg bg-bg-tertiary border border-border-primary p-8 text-center">
           <p className="text-sm text-text-tertiary">{error}</p>
         </div>
       )}
 
-      {/* Empty state — invite to start */}
       {!loading && !error && recent.length === 0 && teamId && (
         <EmptyHero
-          message="No worlds yet."
+          message="No worlds yet"
           subtitle="Start building your first procedural world — terrain, biomes, structures — with AI-assisted authoring."
           ctaLabel="Start a new world"
           ctaTo={ROUTES.WORLD_STUDIO}
         />
       )}
 
-      {/* No-team state (auth not loaded yet, or no teams) */}
       {!loading && !error && !teamId && (
         <EmptyHero
-          message="No team selected."
+          message="No team selected"
           subtitle="Sign in or create a team to begin building worlds in HyperForge."
         />
       )}
 
-      {/* Filled — recent projects */}
       {!loading && !error && recent.length > 0 && teamId && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {recent.map((p) => (
             <ProjectCard key={p.id} project={p} teamId={teamId} />
           ))}
@@ -461,7 +522,7 @@ function EmptyHero({
   ctaTo?: string;
 }) {
   return (
-    <div className="relative rounded-lg bg-bg-tertiary border border-border-primary p-12 text-center overflow-hidden">
+    <div className="relative rounded-lg bg-bg-tertiary border border-border-primary p-16 text-center overflow-hidden h-[320px] flex flex-col items-center justify-center">
       <span
         aria-hidden
         className="pointer-events-none absolute inset-0"
@@ -480,7 +541,7 @@ function EmptyHero({
       />
       <div className="relative">
         <ForgeLogo size={48} className="mx-auto mb-6 opacity-60" />
-        <h3 className="font-display text-xl font-medium text-text-primary tracking-tight mb-2">
+        <h3 className="font-display text-xl font-medium text-text-primary tracking-tight mb-3">
           {message}
         </h3>
         <p className="text-sm text-text-tertiary max-w-md mx-auto leading-relaxed mb-6">
@@ -501,7 +562,7 @@ function EmptyHero({
 }
 
 // =============================================================================
-// Quick start — three primary actions
+// Quick start — three uniform primary actions
 // =============================================================================
 
 function QuickStartSection() {
@@ -511,7 +572,6 @@ function QuickStartSection() {
       label: "New World",
       desc: "Compose terrain, biomes, structures, and quests with AI-assisted authoring.",
       icon: Map,
-      featured: true,
     },
     {
       route: ROUTES.GENERATION,
@@ -528,20 +588,16 @@ function QuickStartSection() {
   ];
 
   return (
-    <section className="mb-16">
+    <section className="mb-20">
       <SectionHeader title="Quick start" meta="Primary workflows" />
-      <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr_1fr] gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {actions.map((a) => {
           const Icon = a.icon;
           return (
             <Link
               key={a.route}
               to={a.route}
-              className={`group relative flex flex-col rounded-lg bg-bg-tertiary border border-border-primary hover:border-primary/50 transition-colors duration-500 ease-out overflow-hidden ${
-                a.featured
-                  ? "p-8 gap-6 min-h-[220px]"
-                  : "p-6 gap-5 min-h-[180px]"
-              }`}
+              className="group relative flex flex-col rounded-lg bg-bg-tertiary border border-border-primary hover:border-primary/50 transition-colors duration-500 ease-out overflow-hidden h-[200px] p-7"
             >
               <span className="pointer-events-none absolute left-0 top-6 bottom-6 w-px bg-primary opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-out" />
               <span
@@ -552,34 +608,24 @@ function QuickStartSection() {
                     "radial-gradient(ellipse 70% 80% at 30% 100%, rgba(212,175,55,0.05) 0%, transparent 65%)",
                 }}
               />
-              <div className="relative flex items-start justify-between">
+              <div className="relative flex items-start justify-between mb-5">
                 <Icon
-                  size={a.featured ? 32 : 24}
+                  size={26}
                   strokeWidth={1.25}
                   className="text-text-secondary group-hover:text-primary transition-colors duration-500 ease-out"
                 />
                 <ArrowUpRight
-                  size={16}
+                  size={15}
                   strokeWidth={1.5}
                   className="text-text-tertiary opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-500 ease-out"
                 />
               </div>
-              <div className="relative">
-                <h3
-                  className={`font-display font-medium text-text-primary tracking-tight mb-2 ${
-                    a.featured ? "text-2xl" : "text-lg"
-                  }`}
-                >
-                  {a.label}
-                </h3>
-                <p
-                  className={`text-text-tertiary leading-relaxed ${
-                    a.featured ? "text-base" : "text-sm"
-                  }`}
-                >
-                  {a.desc}
-                </p>
-              </div>
+              <h3 className="relative font-display text-xl font-medium text-text-primary tracking-tight mb-2">
+                {a.label}
+              </h3>
+              <p className="relative text-sm text-text-tertiary leading-relaxed mt-auto">
+                {a.desc}
+              </p>
             </Link>
           );
         })}
@@ -589,7 +635,7 @@ function QuickStartSection() {
 }
 
 // =============================================================================
-// Activity + Telemetry rail
+// Activity + Telemetry
 // =============================================================================
 
 interface Asset {
@@ -620,8 +666,8 @@ function ActivityList({
   );
 
   return (
-    <div className="rounded-lg bg-bg-tertiary border border-border-primary overflow-hidden">
-      <header className="flex items-baseline justify-between px-5 py-4 border-b border-border-primary">
+    <div className="rounded-lg bg-bg-tertiary border border-border-primary overflow-hidden flex flex-col h-full">
+      <header className="flex items-baseline justify-between px-6 py-4 border-b border-border-primary">
         <h3 className="font-display text-sm font-medium text-text-primary tracking-tight">
           Recent generation
         </h3>
@@ -631,13 +677,20 @@ function ActivityList({
       </header>
 
       {loading && (
-        <div className="divide-y divide-border-primary">
-          {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="px-5 py-3.5">
+        <div className="divide-y divide-border-primary flex-1">
+          {[0, 1, 2, 3, 4].map((i) => (
+            <div key={i} className="px-6 py-4 flex items-center gap-3">
               <div
-                className="h-3 bg-bg-secondary rounded"
+                className="w-8 h-8 rounded bg-bg-secondary"
                 style={{
-                  width: `${60 + i * 8}%`,
+                  animation: "celestial-pulse 2.4s ease-in-out infinite",
+                  animationDelay: `${i * 0.15}s`,
+                }}
+              />
+              <div
+                className="h-3 bg-bg-secondary rounded flex-1"
+                style={{
+                  maxWidth: `${50 + i * 8}%`,
                   animation: "celestial-pulse 2.4s ease-in-out infinite",
                   animationDelay: `${i * 0.15}s`,
                 }}
@@ -648,7 +701,12 @@ function ActivityList({
       )}
 
       {!loading && recent.length === 0 && (
-        <div className="px-5 py-8 text-center">
+        <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 text-center">
+          <Box
+            size={28}
+            strokeWidth={1.25}
+            className="text-text-tertiary/60 mb-4"
+          />
           <p className="text-sm text-text-tertiary mb-4">
             No assets generated yet.
           </p>
@@ -663,16 +721,16 @@ function ActivityList({
       )}
 
       {!loading && recent.length > 0 && (
-        <ul className="divide-y divide-border-primary">
+        <ul className="divide-y divide-border-primary flex-1">
           {recent.map((asset) => (
             <li key={asset.id}>
               <Link
                 to={ROUTES.ASSETS}
-                className="group flex items-center gap-3 px-5 py-3 hover:bg-bg-secondary transition-colors duration-300 ease-out"
+                className="group flex items-center gap-3 px-6 py-3 hover:bg-bg-secondary transition-colors duration-300 ease-out"
               >
-                <div className="w-7 h-7 rounded bg-bg-primary border border-border-primary flex items-center justify-center flex-shrink-0">
+                <div className="w-8 h-8 rounded bg-bg-primary border border-border-primary flex items-center justify-center flex-shrink-0">
                   <Box
-                    size={12}
+                    size={13}
                     strokeWidth={1.5}
                     className="text-text-tertiary group-hover:text-primary transition-colors duration-300 ease-out"
                   />
@@ -697,7 +755,7 @@ function ActivityList({
       {!loading && recent.length > 0 && (
         <Link
           to={ROUTES.ASSETS}
-          className="block px-5 py-3 border-t border-border-primary text-[11px] text-text-tertiary hover:text-primary uppercase tracking-[0.12em] transition-colors duration-300 ease-out"
+          className="block px-6 py-3 border-t border-border-primary text-[11px] text-text-tertiary hover:text-primary uppercase tracking-[0.12em] transition-colors duration-300 ease-out"
         >
           View all assets →
         </Link>
@@ -738,24 +796,24 @@ function TelemetryRail({
   ];
 
   return (
-    <div className="space-y-4">
-      {/* Library — your numbers */}
+    <div className="flex flex-col gap-5 h-full">
+      {/* Library */}
       <div className="rounded-lg bg-bg-tertiary border border-border-primary overflow-hidden">
-        <header className="px-5 py-4 border-b border-border-primary">
+        <header className="px-6 py-4 border-b border-border-primary">
           <h3 className="font-display text-sm font-medium text-text-primary tracking-tight">
             Your library
           </h3>
         </header>
         <div className="grid grid-cols-2 divide-x divide-border-primary">
           {libraryStats.map((s) => (
-            <div key={s.label} className="px-5 py-5">
-              <p className="text-[10px] font-medium text-text-tertiary uppercase tracking-[0.14em] mb-2">
+            <div key={s.label} className="px-6 py-6">
+              <p className="text-[10px] font-medium text-text-tertiary uppercase tracking-[0.14em] mb-3">
                 {s.label}
               </p>
-              <p className="font-display text-3xl font-medium text-text-primary tracking-tight tabular-nums">
+              <p className="font-display text-3xl font-medium text-text-primary tracking-tight tabular-nums leading-none">
                 {loading ? (
                   <span
-                    className="inline-block w-12 h-6 bg-bg-secondary rounded"
+                    className="inline-block w-12 h-7 bg-bg-secondary rounded"
                     style={{
                       animation: "celestial-pulse 2.4s ease-in-out infinite",
                     }}
@@ -769,9 +827,9 @@ function TelemetryRail({
         </div>
       </div>
 
-      {/* Engine — subsystem status */}
-      <div className="rounded-lg bg-bg-tertiary border border-border-primary overflow-hidden">
-        <header className="flex items-baseline justify-between px-5 py-4 border-b border-border-primary">
+      {/* Engine */}
+      <div className="rounded-lg bg-bg-tertiary border border-border-primary overflow-hidden flex-1">
+        <header className="flex items-baseline justify-between px-6 py-4 border-b border-border-primary">
           <h3 className="font-display text-sm font-medium text-text-primary tracking-tight">
             Engine
           </h3>
@@ -784,7 +842,7 @@ function TelemetryRail({
           {systemStats.map((s) => (
             <div
               key={s.label}
-              className="flex items-center justify-between px-5 py-3"
+              className="flex items-center justify-between px-6 py-3.5"
             >
               <div className="flex items-center gap-3">
                 <StatusDot tone={s.indicator} />
@@ -804,17 +862,17 @@ function TelemetryRail({
 }
 
 // =============================================================================
-// Tool index — secondary nav, compact
+// Toolchain index — secondary nav
 // =============================================================================
 
 function ToolIndex() {
   return (
-    <section>
+    <section className="mb-20">
       <SectionHeader title="Toolchain" meta="All modules" />
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
         {TOOLS.map((group) => (
           <div key={group.title}>
-            <h4 className="text-[11px] font-medium text-text-tertiary uppercase tracking-[0.14em] mb-3 pb-2 border-b border-border-primary/60">
+            <h4 className="text-[11px] font-medium text-text-tertiary uppercase tracking-[0.14em] mb-4 pb-3 border-b border-border-primary/60">
               {group.title}
             </h4>
             <ul className="space-y-0.5">
@@ -822,10 +880,10 @@ function ToolIndex() {
                 <li key={t.route}>
                   <Link
                     to={t.route}
-                    className="group flex items-center gap-2.5 px-2 py-1.5 -mx-2 rounded text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-colors duration-300 ease-out"
+                    className="group flex items-center gap-3 px-2 py-2 -mx-2 rounded text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-colors duration-300 ease-out"
                   >
                     <t.icon
-                      size={13}
+                      size={14}
                       strokeWidth={1.5}
                       className="text-text-tertiary group-hover:text-primary transition-colors duration-300 ease-out flex-shrink-0"
                     />
@@ -849,7 +907,6 @@ export function DashboardPage() {
   const auth = useForgeAuth();
   const { assets, loading: assetsLoading } = useAssets();
 
-  // Project loading state
   const [teamId, setTeamId] = useState<string | null>(null);
   const [_gameId, setGameId] = useState<string | null>(null);
   const [projects, setProjects] = useState<WorldProjectSummary[]>([]);
@@ -911,39 +968,45 @@ export function DashboardPage() {
     <div className="relative min-h-full bg-bg-primary overflow-hidden">
       <AtmosphericScene />
 
-      <div className="relative max-w-6xl mx-auto px-8 py-14">
-        {/* ============== HERO ============== */}
-        <header className="mb-14 grid grid-cols-1 md:grid-cols-[auto_1fr] gap-7 items-center">
-          <ForgeLogo size={80} />
-          <div>
-            <p className="flex items-center gap-3 text-[11px] font-medium text-text-tertiary uppercase tracking-[0.18em] mb-3">
-              <span className="inline-flex items-center gap-1.5">
-                <StatusDot tone="online" />
-                HyperForge
-              </span>
-              <span className="text-text-tertiary/40">·</span>
-              <span className="font-mono tabular-nums normal-case tracking-normal">
-                v0.1.0
-              </span>
-            </p>
-            <h1 className="font-display text-4xl md:text-5xl font-medium text-text-primary tracking-tight leading-[1.05] mb-3">
-              {displayName ? (
-                <>
-                  {greeting},{" "}
-                  <span className="text-primary">{displayName}</span>
-                </>
-              ) : (
-                <>The engine beneath infinite worlds.</>
-              )}
-            </h1>
-            <p className="text-base text-text-tertiary max-w-xl leading-relaxed">
-              AI-driven authoring, procedural worldbuilding, and a unified asset
-              pipeline — all rendered on WebGPU.
-            </p>
+      <div className="relative max-w-[1200px] mx-auto px-10 py-16">
+        {/* ============== HERO BAND ==============
+            Single column, left-aligned. Logo above text — vertical
+            rhythm reads as architectural masthead. */}
+        <header className="mb-20">
+          <div className="flex flex-col gap-7 max-w-3xl">
+            <div className="flex items-center gap-4">
+              <ForgeLogo size={56} />
+              <div className="flex items-center gap-3">
+                <p className="flex items-center gap-2 text-[11px] font-medium text-text-tertiary uppercase tracking-[0.18em]">
+                  <StatusDot tone="online" />
+                  HyperForge
+                </p>
+                <span className="text-text-tertiary/40">·</span>
+                <span className="text-[11px] font-mono text-text-tertiary tabular-nums">
+                  v0.1.0
+                </span>
+              </div>
+            </div>
+            <div>
+              <h1 className="font-display text-4xl md:text-5xl font-medium text-text-primary tracking-tight leading-[1.05] mb-4">
+                {displayName ? (
+                  <>
+                    {greeting},{" "}
+                    <span className="text-primary">{displayName}</span>
+                  </>
+                ) : (
+                  <>The engine beneath infinite worlds.</>
+                )}
+              </h1>
+              <p className="text-base text-text-tertiary leading-relaxed">
+                AI-driven authoring, procedural worldbuilding, and a unified
+                asset pipeline — all rendered on WebGPU.
+              </p>
+            </div>
           </div>
         </header>
 
-        {/* ============== CONTINUE — recent world projects ============== */}
+        {/* ============== CONTINUE ============== */}
         <ContinueSection
           projects={projects}
           loading={projectsLoading}
@@ -954,9 +1017,10 @@ export function DashboardPage() {
         {/* ============== QUICK START ============== */}
         <QuickStartSection />
 
-        {/* ============== ACTIVITY + TELEMETRY split ============== */}
-        <section className="mb-16">
-          <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-4">
+        {/* ============== ACTIVITY + TELEMETRY ============== */}
+        <section className="mb-20">
+          <SectionHeader title="Workspace" meta="Activity & telemetry" />
+          <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-5 min-h-[480px]">
             <ActivityList assets={assets} loading={assetsLoading} />
             <TelemetryRail
               assetCount={assets.length}
@@ -966,11 +1030,11 @@ export function DashboardPage() {
           </div>
         </section>
 
-        {/* ============== TOOL INDEX ============== */}
+        {/* ============== TOOLCHAIN ============== */}
         <ToolIndex />
 
         {/* ============== FOOTER ============== */}
-        <footer className="mt-20 pt-8 border-t border-border-primary">
+        <footer className="pt-10 border-t border-border-primary">
           <div className="flex flex-wrap items-baseline justify-between gap-6">
             <div className="flex items-center gap-3">
               <ForgeLogo size={18} />
