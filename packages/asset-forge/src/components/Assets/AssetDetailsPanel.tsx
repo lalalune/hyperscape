@@ -25,6 +25,7 @@ import React, { useState, useEffect, useCallback } from "react";
 
 import { getTierColor } from "../../constants";
 import { Asset, LODBundle, LODLevel } from "../../types";
+import { formatBytes } from "../../utils/formatters";
 
 interface AssetDetailsPanelProps {
   asset: Asset;
@@ -162,12 +163,6 @@ const LODTab: React.FC<{
     return "text-text-tertiary";
   };
 
-  const formatSize = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
-
   if (loading) {
     return (
       <div className="p-5 flex items-center justify-center">
@@ -228,7 +223,7 @@ const LODTab: React.FC<{
           <div className="flex items-center gap-2 text-xs text-text-secondary">
             <span>{modelInfo?.vertices?.toLocaleString() || "—"} verts</span>
             <span>
-              {modelInfo?.fileSize ? formatSize(modelInfo.fileSize) : "—"}
+              {modelInfo?.fileSize ? formatBytes(modelInfo.fileSize) : "—"}
             </span>
           </div>
         </div>
@@ -363,7 +358,7 @@ const LODTab: React.FC<{
               Total Size
             </span>
             <span className="text-xs text-text-secondary">
-              {formatSize(lodBundle.metadata.totalSize)}
+              {formatBytes(lodBundle.metadata.totalSize)}
             </span>
           </div>
         </div>

@@ -27,6 +27,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { PIEDebugEntry, PIEDebugLevel } from "@hyperforge/shared/runtime";
 import { usePIEDebugStore } from "../../../editor/stores/usePIEDebugStore";
+import { formatClockTime } from "../../../utils/formatters";
 
 // ---------------------------------------------------------------------------
 // Style tokens — match ViewportOverlay's frosted-glass language
@@ -83,15 +84,6 @@ const ALL_LEVELS: PIEDebugLevel[] = ["trigger", "action", "error", "info"];
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function formatTime(ts: number): string {
-  const d = new Date(ts);
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  const ss = String(d.getSeconds()).padStart(2, "0");
-  const ms = String(d.getMilliseconds()).padStart(3, "0");
-  return `${hh}:${mm}:${ss}.${ms}`;
-}
 
 function formatData(data: Record<string, unknown> | undefined): string | null {
   if (!data) return null;
@@ -245,7 +237,7 @@ export function PIEConsolePanel() {
                       className={`${meta.color} mt-[2px] shrink-0`}
                     />
                     <span className="text-white/30 shrink-0 tabular-nums">
-                      {formatTime(e.ts)}
+                      {formatClockTime(e.ts, true)}
                     </span>
                     <span className={`${meta.color} shrink-0 font-semibold`}>
                       {meta.label}

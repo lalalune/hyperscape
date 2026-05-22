@@ -25,6 +25,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { ROUTES } from "../constants";
 import { useGenerationStore } from "../store";
+import { slugify } from "../utils/slugify";
 import {
   addAssetPackEntry,
   getAssetPack,
@@ -32,16 +33,6 @@ import {
 } from "../utils/assetPackApi";
 
 const QUERY_TARGET_PACK = "targetPack";
-
-/** Slugify free-form text for use as a pack-scoped entry id. */
-function slugify(input: string): string {
-  return input
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 60);
-}
 
 /**
  * Map the generation pipeline's free-form `type` field to the

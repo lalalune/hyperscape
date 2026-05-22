@@ -82,6 +82,7 @@ import { AssetService, type Asset } from "../../../services/api/AssetService";
 import { Link } from "react-router-dom";
 import { ROUTES } from "../../../constants";
 import { getAssetConceptArtUrl } from "../../../utils/api";
+import { slugify } from "../../../utils/slugify";
 import { ModelThumbnail } from "../../shared/ModelThumbnail";
 import { isContentPackId } from "../utils/contentPackConstants";
 
@@ -845,19 +846,6 @@ export function AssetPackBrowserPanel({
       )}
     </div>
   );
-}
-
-/**
- * Slugify free-form text into a kebab-case identifier safe for
- * pack ids. "Medieval Weapons!" → "medieval-weapons".
- */
-function slugify(input: string): string {
-  return input
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 60);
 }
 
 /**

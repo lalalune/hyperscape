@@ -48,6 +48,10 @@ import { AssetPackBrowserPanelProjectBound } from "./AssetPackBrowserPanel";
 import { ContentBrowser } from "./ContentBrowser";
 import { PluginBrowserPanel } from "./PluginBrowserPanel";
 import { UILayoutLibraryTab } from "./UILayoutLibraryTab";
+import {
+  formatClockTime,
+  formatShortRelative,
+} from "../../../utils/formatters";
 
 // ============== CONSTANTS ==============
 
@@ -317,16 +321,6 @@ const LEVEL_BG: Record<ConsoleLevel, string> = {
   error: "bg-red-500/5",
 };
 
-function formatTimestamp(ts: number): string {
-  const d = new Date(ts);
-  return d.toLocaleTimeString("en-US", {
-    hour12: false,
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-}
-
 function ConsoleTab() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [, setTick] = useState(0);
@@ -407,7 +401,7 @@ function ConsoleTab() {
             className={`flex items-start gap-2 px-3 py-0.5 text-[11px] border-b border-border-primary/20 ${LEVEL_BG[entry.level]}`}
           >
             <span className="text-text-tertiary flex-shrink-0 tabular-nums text-[10px] leading-[18px]">
-              {formatTimestamp(entry.timestamp)}
+              {formatClockTime(entry.timestamp)}
             </span>
             <span
               className={`flex-1 break-all whitespace-pre-wrap leading-[18px] ${LEVEL_COLORS[entry.level]}`}
@@ -422,18 +416,6 @@ function ConsoleTab() {
 }
 
 // ============== HISTORY TAB ==============
-
-/** Format relative time from now (e.g., "2m ago", "just now") */
-function formatRelativeTime(timestampMs: number): string {
-  const delta = Date.now() - timestampMs;
-  const seconds = Math.floor(delta / 1000);
-  if (seconds < 5) return "just now";
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  return `${hours}h ago`;
-}
 
 function HistoryTab() {
   const { undoEntries, redoEntries } = useCommandHistorySnapshot();
@@ -482,7 +464,7 @@ function HistoryTab() {
               {describeCommand(cmd)}
             </span>
             <span className="flex-shrink-0 text-[10px] text-text-tertiary">
-              {formatRelativeTime(now - age)}
+              {formatShortRelative(now - age)}
             </span>
           </div>
         );

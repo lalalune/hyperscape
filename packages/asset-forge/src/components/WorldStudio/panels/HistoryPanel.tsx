@@ -16,6 +16,7 @@ import { History, Loader2, RotateCcw, Sparkles, User } from "lucide-react";
 import React, { useCallback, useEffect, useState } from "react";
 
 import { useWorldStudio } from "../WorldStudioContext";
+import { formatRelativeWithDateFallback } from "../../../utils/formatters";
 import {
   listProjectRevisions,
   restoreProjectRevision,
@@ -197,7 +198,7 @@ function RevisionCard({
               v{revision.version}
             </span>
             <span className="text-text-tertiary text-[10px]">
-              · {formatRelativeTime(revision.createdAt)}
+              · {formatRelativeWithDateFallback(revision.createdAt)}
             </span>
           </div>
           {revision.changeReason && (
@@ -232,15 +233,4 @@ function RevisionCard({
       </div>
     </div>
   );
-}
-
-function formatRelativeTime(iso: string): string {
-  const then = new Date(iso).getTime();
-  const now = Date.now();
-  const diffSec = Math.floor((now - then) / 1000);
-  if (diffSec < 60) return "just now";
-  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
-  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
-  if (diffSec < 86400 * 7) return `${Math.floor(diffSec / 86400)}d ago`;
-  return new Date(iso).toLocaleDateString();
 }

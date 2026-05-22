@@ -18,20 +18,11 @@ import React, { useState, useEffect, useRef } from "react";
 import { commandHistory } from "../../../editor/commands";
 import { useWorldStudio } from "../WorldStudioContext";
 import { useManifestValidation } from "../hooks/useManifestValidation";
+import { formatShortRelative } from "../../../utils/formatters";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function formatTimeAgo(ts: number): string {
-  const seconds = Math.floor((Date.now() - ts) / 1000);
-  if (seconds < 5) return "just now";
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  return `${hours}h ago`;
-}
 
 function StatusDot({ color }: { color: string }) {
   return (
@@ -187,7 +178,7 @@ export function StatusBar() {
         {persistence.lastSavedAt ? (
           <span className="flex items-center gap-1 tabular-nums">
             <Clock size={9} />
-            {formatTimeAgo(persistence.lastSavedAt)}
+            {formatShortRelative(persistence.lastSavedAt)}
           </span>
         ) : null}
 

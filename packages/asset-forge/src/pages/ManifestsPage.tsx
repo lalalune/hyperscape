@@ -47,6 +47,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/common";
+import { formatBytes, formatDateTime } from "@/utils/formatters";
 
 // API base URL
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3401";
@@ -109,19 +110,6 @@ interface BakeJobStatus {
   currentAsset?: string;
   currentModel?: string;
   error?: string;
-}
-
-// Format file size
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
-
-// Format date
-function formatDate(dateString: string): string {
-  const date = new Date(dateString);
-  return date.toLocaleString();
 }
 
 export const ManifestsPage: React.FC = () => {
@@ -1059,7 +1047,7 @@ export const ManifestsPage: React.FC = () => {
                   </div>
                   <div>
                     <strong>Total Size:</strong>{" "}
-                    {formatSize(imposterStats.totalSize)}
+                    {formatBytes(imposterStats.totalSize)}
                   </div>
                   {Object.entries(imposterStats.byCategory).map(
                     ([cat, count]) => (
@@ -1164,9 +1152,9 @@ export const ManifestsPage: React.FC = () => {
                 {manifestContent.name}.json
               </h2>
               <div className="text-xs text-text-muted flex items-center gap-4">
-                <span>{formatSize(manifestContent.size)}</span>
+                <span>{formatBytes(manifestContent.size)}</span>
                 <span>
-                  Modified: {formatDate(manifestContent.lastModified)}
+                  Modified: {formatDateTime(manifestContent.lastModified)}
                 </span>
               </div>
             </div>

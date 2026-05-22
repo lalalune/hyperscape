@@ -30,6 +30,7 @@ import React, { useRef, useEffect, useState, useCallback } from "react";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { MeshStandardNodeMaterial } from "three/webgpu";
 
+import { colorUtils } from "@/styles/utils";
 import { notify } from "@/utils/notify";
 import {
   THREE,
@@ -119,17 +120,7 @@ const BIOME_UI_PRESETS: Record<string, Partial<GrassUIConfig>> = {
 /**
  * Convert hex color to RGB object
  */
-function hexToRgb(hex: string): { r: number; g: number; b: number } {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  if (!result) {
-    return { r: 0.3, g: 0.5, b: 0.15 };
-  }
-  return {
-    r: parseInt(result[1], 16) / 255,
-    g: parseInt(result[2], 16) / 255,
-    b: parseInt(result[3], 16) / 255,
-  };
-}
+const GRASS_COLOR_FALLBACK = { r: 0.3, g: 0.5, b: 0.15 };
 
 /**
  * Convert UI config to procgen GrassConfig
@@ -137,8 +128,14 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
 function uiConfigToProcgenConfig(
   uiConfig: GrassUIConfig,
 ): Partial<GrassGen.GrassConfig> {
-  const baseColor = hexToRgb(uiConfig.baseColor);
-  const tipColor = hexToRgb(uiConfig.tipColor);
+  const baseColor = colorUtils.hexToRgb01(
+    uiConfig.baseColor,
+    GRASS_COLOR_FALLBACK,
+  );
+  const tipColor = colorUtils.hexToRgb01(
+    uiConfig.tipColor,
+    GRASS_COLOR_FALLBACK,
+  );
 
   return {
     blade: {

@@ -32,6 +32,7 @@ import React, { useRef, useEffect, useState, useCallback } from "react";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { MeshStandardNodeMaterial } from "three/webgpu";
 
+import { colorUtils } from "@/styles/utils";
 import { notify } from "@/utils/notify";
 import {
   THREE,
@@ -119,17 +120,7 @@ const BIOME_UI_PRESETS: Record<string, Partial<FlowerUIConfig>> = {
 /**
  * Convert hex color to RGB object
  */
-function hexToRgb(hex: string): { r: number; g: number; b: number } {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  if (!result) {
-    return { r: 0.5, g: 0.5, b: 0.5 };
-  }
-  return {
-    r: parseInt(result[1], 16) / 255,
-    g: parseInt(result[2], 16) / 255,
-    b: parseInt(result[3], 16) / 255,
-  };
-}
+const FLOWER_COLOR_FALLBACK = { r: 0.5, g: 0.5, b: 0.5 };
 
 /**
  * Convert UI config to procgen FlowerConfig
@@ -137,8 +128,8 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
 function uiConfigToProcgenConfig(
   uiConfig: FlowerUIConfig,
 ): Partial<FlowerGen.FlowerConfig> {
-  const color1 = hexToRgb(uiConfig.color1);
-  const color2 = hexToRgb(uiConfig.color2);
+  const color1 = colorUtils.hexToRgb01(uiConfig.color1, FLOWER_COLOR_FALLBACK);
+  const color2 = colorUtils.hexToRgb01(uiConfig.color2, FLOWER_COLOR_FALLBACK);
 
   return {
     appearance: {

@@ -6,6 +6,7 @@
  */
 
 import { apiFetch } from "./api";
+import { slugify } from "./slugify";
 
 // ============== Types ==============
 
@@ -235,15 +236,10 @@ export function isPersonalTeam(
 }
 
 /**
- * Slug a name client-side — basic kebab-case with ASCII-only chars.
+ * Slug a team name client-side. Team slugs cap at 48 chars (vs 60
+ * for pack/asset ids) so the URL stays compact.
  * Server enforces uniqueness so collisions surface as a 409 / 4xx.
  */
 export function slugifyTeamName(name: string): string {
-  return name
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "") // strip combining marks
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 48);
+  return slugify(name, 48);
 }

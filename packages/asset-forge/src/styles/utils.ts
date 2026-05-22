@@ -181,7 +181,8 @@ export const responsive = {
  */
 export const colorUtils = {
   /**
-   * Convert hex to RGB
+   * Convert hex to RGB (0–255 byte channels). Returns null when
+   * `hex` is malformed.
    */
   hexToRgb(hex: string): { r: number; g: number; b: number } | null {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -192,6 +193,20 @@ export const colorUtils = {
           b: parseInt(result[3], 16),
         }
       : null;
+  },
+
+  /**
+   * Convert hex to RGB normalized to 0..1 (Three.js / shader-ready).
+   * Falls back to the supplied colour when `hex` doesn't parse — pages
+   * pass a sensible default so a bad picker value doesn't flash dark.
+   */
+  hexToRgb01(
+    hex: string,
+    fallback: { r: number; g: number; b: number },
+  ): { r: number; g: number; b: number } {
+    const rgb = colorUtils.hexToRgb(hex);
+    if (!rgb) return fallback;
+    return { r: rgb.r / 255, g: rgb.g / 255, b: rgb.b / 255 };
   },
 
   /**
