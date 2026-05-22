@@ -1006,14 +1006,14 @@ const DockGenPage: React.FC = () => {
       <div className="w-80 bg-bg-secondary border-r border-border-primary overflow-y-auto">
         <div className="p-4 space-y-4">
           <div className="flex items-center gap-2 pb-2 border-b border-border-primary">
-            <Anchor className="w-5 h-5 text-blue-400" />
-            <h2 className="text-lg font-semibold text-text-primary">
+            <Anchor className="w-5 h-5 text-accent-aether" />
+            <h2 className="font-display text-lg font-medium tracking-tight text-text-primary">
               Dock Generator
             </h2>
           </div>
 
-          <div className="bg-blue-500/10 border border-blue-500/20 rounded-md p-3">
-            <p className="text-xs text-blue-300">
+          <div className="bg-primary/10 border border-primary/20 rounded-md p-3">
+            <p className="text-xs text-primary">
               Uses @hyperforge/procgen DockGenerator for layout, with simplified
               world-space mesh matching the in-game rendering.
             </p>
@@ -1276,7 +1276,7 @@ const DockGenPage: React.FC = () => {
           <button
             onClick={generateDock}
             disabled={isGenerating}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors disabled:opacity-50 ease-out"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary hover:bg-primary-dark text-white rounded-md font-medium transition-colors disabled:opacity-50 ease-out"
           >
             <RefreshCw
               className={`w-4 h-4 ${isGenerating ? "animate-spin" : ""}`}

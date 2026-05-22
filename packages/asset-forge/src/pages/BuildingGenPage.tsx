@@ -602,7 +602,7 @@ export const BuildingGenPage: React.FC = () => {
                     </button>
                     <button
                       onClick={() => deleteSavedPreset(savedPreset.id)}
-                      className="p-1 text-text-secondary hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity ease-out"
+                      className="p-1 text-text-secondary hover:text-error opacity-0 group-hover:opacity-100 transition-opacity ease-out"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -794,7 +794,7 @@ export const BuildingGenPage: React.FC = () => {
                       <div className="bg-bg-tertiary rounded p-2 space-y-1">
                         {pathInfo.start && (
                           <div className="text-xs">
-                            <span className="text-cyan-400">Start:</span>{" "}
+                            <span className="text-accent-aether">Start:</span>{" "}
                             <span className="text-text-primary font-mono">
                               ({pathInfo.start.x}, {pathInfo.start.z})
                             </span>
@@ -802,7 +802,7 @@ export const BuildingGenPage: React.FC = () => {
                         )}
                         {pathInfo.end && (
                           <div className="text-xs">
-                            <span className="text-fuchsia-400">End:</span>{" "}
+                            <span className="text-accent-violet">End:</span>{" "}
                             <span className="text-text-primary font-mono">
                               ({pathInfo.end.x}, {pathInfo.end.z})
                             </span>
@@ -814,8 +814,8 @@ export const BuildingGenPage: React.FC = () => {
                             <span
                               className={
                                 pathInfo.partial
-                                  ? "text-orange-400"
-                                  : "text-green-400"
+                                  ? "text-accent-ember"
+                                  : "text-success"
                               }
                             >
                               {pathInfo.length} tiles
@@ -826,7 +826,7 @@ export const BuildingGenPage: React.FC = () => {
                         {pathInfo.start &&
                           pathInfo.end &&
                           pathInfo.length === 0 && (
-                            <div className="text-xs text-red-400">
+                            <div className="text-xs text-error">
                               No path found!
                             </div>
                           )}
@@ -968,7 +968,7 @@ export const BuildingGenPage: React.FC = () => {
       {showSaveDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-bg-secondary rounded-lg p-6 w-96 border border-border-primary">
-            <h3 className="text-lg font-semibold text-text-primary mb-4">
+            <h3 className="font-display text-lg font-medium tracking-tight text-text-primary mb-4">
               Save Preset
             </h3>
             <p className="text-sm text-text-secondary mb-4">

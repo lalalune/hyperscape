@@ -160,7 +160,7 @@ export function AssetPacksPage() {
         )}
 
         {!fetchState.loading && fetchState.error && (
-          <div className="px-4 py-8 text-center text-xs text-red-400">
+          <div className="px-4 py-8 text-center text-xs text-error">
             Failed to load teams: {fetchState.error}
           </div>
         )}

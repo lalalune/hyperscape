@@ -245,7 +245,7 @@ export const BatchSpritesPage: React.FC = () => {
           ) : (
             <button
               onClick={stop}
-              className="px-6 py-2 bg-red-600 text-white rounded-md font-medium hover:bg-red-700"
+              className="px-6 py-2 bg-error text-white rounded-md font-medium hover:bg-error/80"
             >
               Stop
             </button>
@@ -307,7 +307,7 @@ export const BatchSpritesPage: React.FC = () => {
               <span className="ml-2 font-normal">
                 — {successCount} saved
                 {failCount > 0 && (
-                  <span className="text-red-400">, {failCount} failed</span>
+                  <span className="text-error">, {failCount} failed</span>
                 )}
               </span>
             )}
@@ -322,15 +322,15 @@ export const BatchSpritesPage: React.FC = () => {
               <div
                 key={i}
                 className={`flex items-center gap-2 px-3 py-1.5 text-sm border-b border-border-primary last:border-b-0 ${
-                  r.success ? "text-text-primary" : "text-red-400"
+                  r.success ? "text-text-primary" : "text-error"
                 }`}
               >
-                <span className={r.success ? "text-green-400" : "text-red-400"}>
+                <span className={r.success ? "text-success" : "text-error"}>
                   {r.success ? "✓" : "✗"}
                 </span>
                 <span className="font-mono text-xs">{r.name}.png</span>
                 {r.error && (
-                  <span className="text-xs text-red-400 truncate ml-2">
+                  <span className="text-xs text-error truncate ml-2">
                     {r.error}
                   </span>
                 )}

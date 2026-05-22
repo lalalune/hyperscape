@@ -424,8 +424,8 @@ export const GrassGenPage: React.FC = () => {
         <div className="p-4 space-y-6">
           {/* Header */}
           <div className="flex items-center gap-3">
-            <Leaf className="text-green-500" size={24} />
-            <h1 className="text-lg font-semibold text-text-primary">
+            <Leaf className="text-success" size={24} />
+            <h1 className="font-display text-lg font-medium tracking-tight text-text-primary">
               Grass Generator
             </h1>
           </div>
@@ -636,7 +636,7 @@ export const GrassGenPage: React.FC = () => {
           <button
             onClick={generateGrass}
             disabled={isGenerating}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium transition-colors disabled:opacity-50 ease-out"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-success hover:bg-success/80 text-white rounded-md font-medium transition-colors disabled:opacity-50 ease-out"
           >
             <RefreshCw
               size={18}

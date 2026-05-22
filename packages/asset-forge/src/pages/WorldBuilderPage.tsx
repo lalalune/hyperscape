@@ -3400,7 +3400,7 @@ const AssetsLODPanel: React.FC = () => {
     <>
       <div className="flex items-center gap-2 mb-4">
         <Grid3x3 className="w-5 h-5 text-primary" />
-        <h2 className="text-lg font-semibold text-text-primary">
+        <h2 className="font-display text-lg font-medium tracking-tight text-text-primary">
           Assets & LOD
         </h2>
       </div>
@@ -3628,25 +3628,25 @@ const AssetsLODPanel: React.FC = () => {
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div className="p-2 bg-bg-tertiary rounded">
               <div className="text-text-tertiary">Total Assets</div>
-              <div className="text-lg font-semibold text-text-primary">
+              <div className="font-display text-lg font-medium tracking-tight text-text-primary">
                 {assets.length}
               </div>
             </div>
             <div className="p-2 bg-bg-tertiary rounded">
               <div className="text-text-tertiary">Complete</div>
-              <div className="text-lg font-semibold text-success">
+              <div className="font-display text-lg font-medium tracking-tight text-success">
                 {assets.filter((a) => a.isComplete).length}
               </div>
             </div>
             <div className="p-2 bg-bg-tertiary rounded">
               <div className="text-text-tertiary">Missing LOD1</div>
-              <div className="text-lg font-semibold text-warning">
+              <div className="font-display text-lg font-medium tracking-tight text-warning">
                 {assets.filter((a) => a.missingLevels.includes("lod1")).length}
               </div>
             </div>
             <div className="p-2 bg-bg-tertiary rounded">
               <div className="text-text-tertiary">Missing LOD2</div>
-              <div className="text-lg font-semibold text-warning">
+              <div className="font-display text-lg font-medium tracking-tight text-warning">
                 {assets.filter((a) => a.missingLevels.includes("lod2")).length}
               </div>
             </div>
@@ -5462,7 +5462,7 @@ export const WorldBuilderPage: React.FC = () => {
                 <>
                   <div className="flex items-center gap-2 mb-4">
                     <Building2 className="w-5 h-5 text-primary" />
-                    <h2 className="text-lg font-semibold text-text-primary">
+                    <h2 className="font-display text-lg font-medium tracking-tight text-text-primary">
                       Building Generator
                     </h2>
                   </div>
@@ -5620,7 +5620,7 @@ export const WorldBuilderPage: React.FC = () => {
                 <>
                   <div className="flex items-center gap-2 mb-4">
                     <Mountain className="w-5 h-5 text-primary" />
-                    <h2 className="text-lg font-semibold text-text-primary">
+                    <h2 className="font-display text-lg font-medium tracking-tight text-text-primary">
                       Terrain Config
                     </h2>
                     {isLoadingManifest && (
@@ -5632,12 +5632,12 @@ export const WorldBuilderPage: React.FC = () => {
 
                   {/* Manifest loading error banner */}
                   {manifestError && (
-                    <div className="mb-4 p-3 rounded-md bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-2">
+                    <div className="mb-4 p-3 rounded-md bg-error/10 border border-error/20 text-error text-sm flex items-center gap-2">
                       <AlertTriangle className="w-4 h-4 flex-shrink-0" />
                       <span>{manifestError}</span>
                       <button
                         onClick={() => setManifestError(null)}
-                        className="ml-auto text-red-400 hover:text-red-300"
+                        className="ml-auto text-error hover:text-error"
                       >
                         ×
                       </button>
@@ -5726,7 +5726,7 @@ export const WorldBuilderPage: React.FC = () => {
                 <>
                   <div className="flex items-center gap-2 mb-4">
                     <MapPin className="w-5 h-5 text-primary" />
-                    <h2 className="text-lg font-semibold text-text-primary">
+                    <h2 className="font-display text-lg font-medium tracking-tight text-text-primary">
                       Town Config
                     </h2>
                   </div>
@@ -5952,7 +5952,7 @@ export const WorldBuilderPage: React.FC = () => {
                 <>
                   <div className="flex items-center gap-2 mb-4">
                     <Route className="w-5 h-5 text-primary" />
-                    <h2 className="text-lg font-semibold text-text-primary">
+                    <h2 className="font-display text-lg font-medium tracking-tight text-text-primary">
                       Road Config
                     </h2>
                   </div>
@@ -6008,7 +6008,7 @@ export const WorldBuilderPage: React.FC = () => {
                 <>
                   <div className="flex items-center gap-2 mb-4">
                     <TreePine className="w-5 h-5 text-primary" />
-                    <h2 className="text-lg font-semibold text-text-primary">
+                    <h2 className="font-display text-lg font-medium tracking-tight text-text-primary">
                       Tree Generator
                     </h2>
                   </div>
@@ -6101,7 +6101,7 @@ export const WorldBuilderPage: React.FC = () => {
                 <>
                   <div className="flex items-center gap-2 mb-4">
                     <Gem className="w-5 h-5 text-primary" />
-                    <h2 className="text-lg font-semibold text-text-primary">
+                    <h2 className="font-display text-lg font-medium tracking-tight text-text-primary">
                       Rock Generator
                     </h2>
                   </div>
@@ -6226,7 +6226,7 @@ export const WorldBuilderPage: React.FC = () => {
                 <>
                   <div className="flex items-center gap-2 mb-4">
                     <Flower2 className="w-5 h-5 text-primary" />
-                    <h2 className="text-lg font-semibold text-text-primary">
+                    <h2 className="font-display text-lg font-medium tracking-tight text-text-primary">
                       Plant Generator
                     </h2>
                   </div>
@@ -6368,7 +6368,7 @@ export const WorldBuilderPage: React.FC = () => {
                     </Button>
 
                     {configDirty && (
-                      <div className="text-xs text-amber-500 text-center mt-2">
+                      <div className="text-xs text-warning text-center mt-2">
                         Config has unsaved changes
                       </div>
                     )}

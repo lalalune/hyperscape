@@ -405,7 +405,7 @@ export const RoadsGenPage: React.FC = () => {
                     </button>
                     <button
                       onClick={() => deleteSavedPreset(savedPreset.id)}
-                      className="p-1 text-text-secondary hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity ease-out"
+                      className="p-1 text-text-secondary hover:text-error opacity-0 group-hover:opacity-100 transition-opacity ease-out"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -544,7 +544,7 @@ export const RoadsGenPage: React.FC = () => {
       {showSaveDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-bg-secondary rounded-lg p-6 w-96 border border-border-primary">
-            <h3 className="text-lg font-semibold text-text-primary mb-4">
+            <h3 className="font-display text-lg font-medium tracking-tight text-text-primary mb-4">
               Save Preset
             </h3>
             <p className="text-sm text-text-secondary mb-4">

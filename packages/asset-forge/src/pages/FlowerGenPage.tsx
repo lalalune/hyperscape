@@ -409,8 +409,8 @@ export const FlowerGenPage: React.FC = () => {
         <div className="p-4 space-y-6">
           {/* Header */}
           <div className="flex items-center gap-3">
-            <Flower2 className="text-pink-500" size={24} />
-            <h1 className="text-lg font-semibold text-text-primary">
+            <Flower2 className="text-accent-violet" size={24} />
+            <h1 className="font-display text-lg font-medium tracking-tight text-text-primary">
               Flower Generator
             </h1>
           </div>
@@ -626,7 +626,7 @@ export const FlowerGenPage: React.FC = () => {
           <button
             onClick={generateFlowers}
             disabled={isGenerating}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-pink-600 hover:bg-pink-700 text-white rounded-md font-medium transition-colors disabled:opacity-50 ease-out"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-accent-violet hover:bg-accent-violet/80 text-white rounded-md font-medium transition-colors disabled:opacity-50 ease-out"
           >
             <RefreshCw
               size={18}

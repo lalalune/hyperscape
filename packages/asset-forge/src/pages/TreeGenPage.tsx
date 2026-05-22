@@ -1512,7 +1512,7 @@ export const TreeGenPage: React.FC = () => {
             disabled={!currentTreeRef.current || isGenerating}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
               showLODPreview
-                ? "bg-purple-600 text-white"
+                ? "bg-accent-violet text-white"
                 : "bg-bg-tertiary text-text-secondary hover:text-text-primary"
             } disabled:opacity-50 ease-out`}
             title="Show all LODs and impostor side by side"
@@ -1547,7 +1547,7 @@ export const TreeGenPage: React.FC = () => {
           <button
             onClick={() => saveToAssets()}
             disabled={!currentTreeRef.current}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600/20 text-green-500 hover:bg-green-600/30 rounded-lg transition-all disabled:opacity-50 ease-out"
+            className="flex items-center gap-2 px-4 py-2 bg-success/20 text-success hover:bg-success/30 rounded-lg transition-all disabled:opacity-50 ease-out"
             title="Save GLB to assets (loses instancing - for external tools only)"
           >
             <Database size={18} />
@@ -2385,7 +2385,7 @@ export const TreeGenPage: React.FC = () => {
                 <button
                   onClick={generateLODPreviews}
                   disabled={!currentTreeRef.current || isGenerating}
-                  className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-all disabled:opacity-50 text-sm flex items-center justify-center gap-2 ease-out"
+                  className="w-full py-2 bg-accent-violet hover:bg-accent-violet/80 text-white rounded-md transition-all disabled:opacity-50 text-sm flex items-center justify-center gap-2 ease-out"
                 >
                   <Eye size={16} />
                   Generate LOD Preview
@@ -2636,7 +2636,7 @@ export const TreeGenPage: React.FC = () => {
                     </button>
                     <button
                       onClick={() => deleteSavedPreset(savedPreset.id)}
-                      className="p-1 text-text-secondary hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity ease-out"
+                      className="p-1 text-text-secondary hover:text-error opacity-0 group-hover:opacity-100 transition-opacity ease-out"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -2659,12 +2659,12 @@ export const TreeGenPage: React.FC = () => {
 
               {/* Instancing Badge - show in normal mode */}
               {!showLODPreview && !batchMode && (
-                <div className="mb-3 p-2 bg-green-900/30 border border-green-600/50 rounded-md">
-                  <div className="text-xs font-semibold text-green-400 flex items-center gap-1">
-                    <span className="w-2 h-2 bg-green-400 rounded-full "></span>
+                <div className="mb-3 p-2 bg-success/30 border border-success/50 rounded-md">
+                  <div className="text-xs font-semibold text-success flex items-center gap-1">
+                    <span className="w-2 h-2 bg-success rounded-full "></span>
                     WebGPU Instanced Rendering
                   </div>
-                  <p className="text-xs text-green-300/80 mt-1">
+                  <p className="text-xs text-success/80 mt-1">
                     TSL shader - 1 draw call for all leaves per tree
                   </p>
                 </div>
@@ -2675,7 +2675,7 @@ export const TreeGenPage: React.FC = () => {
                   <>
                     {/* LOD0 Stats */}
                     <div className="p-2 bg-bg-tertiary rounded">
-                      <div className="text-xs font-semibold text-blue-400 mb-1">
+                      <div className="text-xs font-semibold text-accent-aether mb-1">
                         LOD0 (Original)
                       </div>
                       <div className="flex justify-between text-text-secondary text-xs">
@@ -2693,7 +2693,7 @@ export const TreeGenPage: React.FC = () => {
                     </div>
                     {/* LOD1 Stats */}
                     <div className="p-2 bg-bg-tertiary rounded">
-                      <div className="text-xs font-semibold text-green-400 mb-1">
+                      <div className="text-xs font-semibold text-success mb-1">
                         LOD1 @ {lodSettings.lod1.distance}m
                       </div>
                       <div className="flex justify-between text-text-secondary text-xs">
@@ -2711,7 +2711,7 @@ export const TreeGenPage: React.FC = () => {
                       <div className="flex justify-between text-text-secondary text-xs mt-1 pt-1 border-t border-border-primary/50">
                         <span>Reduction:</span>
                         <span
-                          className={`font-mono ${lodData.lod1.vertices < lodData.lod0.vertices * 0.4 ? "text-green-400" : "text-yellow-400"}`}
+                          className={`font-mono ${lodData.lod1.vertices < lodData.lod0.vertices * 0.4 ? "text-success" : "text-warning"}`}
                         >
                           {lodData.lod0.vertices > 0
                             ? Math.round(
@@ -2727,7 +2727,7 @@ export const TreeGenPage: React.FC = () => {
                     </div>
                     {/* LOD2 Stats */}
                     <div className="p-2 bg-bg-tertiary rounded">
-                      <div className="text-xs font-semibold text-yellow-400 mb-1">
+                      <div className="text-xs font-semibold text-warning mb-1">
                         LOD2 @ {lodSettings.lod2.distance}m
                       </div>
                       <div className="flex justify-between text-text-secondary text-xs">
@@ -2745,7 +2745,7 @@ export const TreeGenPage: React.FC = () => {
                       <div className="flex justify-between text-text-secondary text-xs mt-1 pt-1 border-t border-border-primary/50">
                         <span>Reduction:</span>
                         <span
-                          className={`font-mono ${lodData.lod2.vertices < lodData.lod0.vertices * 0.15 ? "text-green-400" : "text-yellow-400"}`}
+                          className={`font-mono ${lodData.lod2.vertices < lodData.lod0.vertices * 0.15 ? "text-success" : "text-warning"}`}
                         >
                           {lodData.lod0.vertices > 0
                             ? Math.round(
@@ -2761,7 +2761,7 @@ export const TreeGenPage: React.FC = () => {
                     </div>
                     {/* Impostor Stats */}
                     <div className="p-2 bg-bg-tertiary rounded">
-                      <div className="text-xs font-semibold text-purple-400 mb-1">
+                      <div className="text-xs font-semibold text-accent-violet mb-1">
                         Impostor @ {lodSettings.imposter.activationDistance}m
                       </div>
                       <div className="flex justify-between text-text-secondary text-xs">
@@ -2946,7 +2946,7 @@ export const TreeGenPage: React.FC = () => {
                 <h3 className="font-semibold text-text-primary">Results</h3>
                 <button
                   onClick={clearBatchResults}
-                  className="text-xs text-text-secondary hover:text-red-500"
+                  className="text-xs text-text-secondary hover:text-error"
                 >
                   Clear All
                 </button>
@@ -2998,13 +2998,13 @@ export const TreeGenPage: React.FC = () => {
           {showLODPreview && (
             <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-16 pointer-events-none">
               <div className="text-center">
-                <div className="bg-blue-500/80 text-white text-xs px-3 py-1 rounded-full font-semibold">
+                <div className="bg-accent-aether/80 text-white text-xs px-3 py-1 rounded-full font-semibold">
                   LOD0
                 </div>
                 <div className="text-xs text-white/80 mt-1">Original</div>
               </div>
               <div className="text-center">
-                <div className="bg-green-500/80 text-white text-xs px-3 py-1 rounded-full font-semibold">
+                <div className="bg-success/80 text-white text-xs px-3 py-1 rounded-full font-semibold">
                   LOD1
                 </div>
                 <div className="text-xs text-white/80 mt-1">
@@ -3012,7 +3012,7 @@ export const TreeGenPage: React.FC = () => {
                 </div>
               </div>
               <div className="text-center">
-                <div className="bg-yellow-500/80 text-white text-xs px-3 py-1 rounded-full font-semibold">
+                <div className="bg-warning/80 text-white text-xs px-3 py-1 rounded-full font-semibold">
                   LOD2
                 </div>
                 <div className="text-xs text-white/80 mt-1">
@@ -3020,7 +3020,7 @@ export const TreeGenPage: React.FC = () => {
                 </div>
               </div>
               <div className="text-center">
-                <div className="bg-purple-500/80 text-white text-xs px-3 py-1 rounded-full font-semibold">
+                <div className="bg-accent-violet/80 text-white text-xs px-3 py-1 rounded-full font-semibold">
                   Impostor
                 </div>
                 <div className="text-xs text-white/80 mt-1">Billboard</div>
@@ -3034,7 +3034,7 @@ export const TreeGenPage: React.FC = () => {
       {showSaveDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-bg-secondary rounded-lg p-6 w-96 border border-border-primary">
-            <h3 className="text-lg font-semibold text-text-primary mb-4">
+            <h3 className="font-display text-lg font-medium tracking-tight text-text-primary mb-4">
               Save Preset
             </h3>
             <p className="text-sm text-text-secondary mb-4">

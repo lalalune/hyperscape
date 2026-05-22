@@ -248,7 +248,7 @@ export const ArmorFittingPage: React.FC = () => {
       {/* Right Panel - Fitting Controls */}
       <div className="card overflow-hidden w-96 flex flex-col bg-gradient-to-br from-bg-primary to-bg-secondary">
         <div className="p-4 border-b border-border-primary bg-bg-primary bg-opacity-30">
-          <h2 className="text-lg font-semibold text-text-primary">
+          <h2 className="font-display text-lg font-medium tracking-tight text-text-primary">
             Fitting Controls
           </h2>
         </div>

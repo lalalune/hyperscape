@@ -848,7 +848,7 @@ export const RockGenPage: React.FC = () => {
           <button
             onClick={() => saveToAssets()}
             disabled={!currentRockRef.current}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600/20 text-green-500 hover:bg-green-600/30 rounded-lg transition-all disabled:opacity-50 ease-out"
+            className="flex items-center gap-2 px-4 py-2 bg-success/20 text-success hover:bg-success/30 rounded-lg transition-all disabled:opacity-50 ease-out"
             title="Save to Assets for LOD/Impostor processing"
           >
             <Database size={18} />
@@ -1043,7 +1043,7 @@ export const RockGenPage: React.FC = () => {
                     </button>
                     <button
                       onClick={() => deleteSavedPreset(savedPreset.id)}
-                      className="p-1 text-text-secondary hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity ease-out"
+                      className="p-1 text-text-secondary hover:text-error opacity-0 group-hover:opacity-100 transition-opacity ease-out"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -1156,7 +1156,7 @@ export const RockGenPage: React.FC = () => {
               <button
                 onClick={generateImpostor}
                 disabled={isGeneratingImpostor || !currentRockRef.current}
-                className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-all disabled:opacity-50 flex items-center justify-center gap-2 ease-out"
+                className="w-full py-2 bg-accent-violet hover:bg-accent-violet/80 text-white rounded-md transition-all disabled:opacity-50 flex items-center justify-center gap-2 ease-out"
               >
                 <Eye size={16} />
                 {isGeneratingImpostor ? "Generating..." : "Generate Impostor"}
@@ -1169,8 +1169,8 @@ export const RockGenPage: React.FC = () => {
                     <span
                       className={
                         impostorStats.hasNormalAtlas
-                          ? "text-green-500"
-                          : "text-red-500"
+                          ? "text-success"
+                          : "text-error"
                       }
                     >
                       {impostorStats.hasNormalAtlas ? "✓ Yes" : "✗ No"}
@@ -1206,7 +1206,7 @@ export const RockGenPage: React.FC = () => {
                 <h3 className="font-semibold text-text-primary">Results</h3>
                 <button
                   onClick={clearBatchResults}
-                  className="text-xs text-text-secondary hover:text-red-500"
+                  className="text-xs text-text-secondary hover:text-error"
                 >
                   Clear All
                 </button>
@@ -1260,7 +1260,7 @@ export const RockGenPage: React.FC = () => {
       {showSaveDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-bg-secondary rounded-lg p-6 w-96 border border-border-primary">
-            <h3 className="text-lg font-semibold text-text-primary mb-4">
+            <h3 className="font-display text-lg font-medium tracking-tight text-text-primary mb-4">
               Save Preset
             </h3>
             <p className="text-sm text-text-secondary mb-4">

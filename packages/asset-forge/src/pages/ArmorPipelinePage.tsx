@@ -235,8 +235,8 @@ export const ArmorPipelinePage: React.FC = () => {
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-5 py-4 rounded-md text-sm font-medium transition-all ${
                 isActive
-                  ? "bg-yellow-500/15 text-yellow-400 border border-yellow-500/25"
-                  : "text-text-tertiary hover:text-yellow-400/80 hover:bg-bg-tertiary border border-transparent"
+                  ? "bg-warning/15 text-warning border border-warning/25"
+                  : "text-text-tertiary hover:text-warning/80 hover:bg-bg-tertiary border border-transparent"
               } ease-out`}
               title={tab.description}
             >
@@ -249,7 +249,7 @@ export const ArmorPipelinePage: React.FC = () => {
         <div className="ml-auto flex items-center gap-3 text-xs text-text-tertiary px-3">
           {sharedExtraction && (
             <span className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
+              <span className="w-1.5 h-1.5 rounded-full bg-success" />
               {sharedExtraction.shells.size} shells cached
             </span>
           )}

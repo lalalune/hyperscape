@@ -183,7 +183,7 @@ function SystemPanel({
       <CardHeader className="py-2 px-3">
         <div className="flex items-center justify-between">
           <button
-            className="flex items-center gap-2 text-sm font-medium text-white hover:text-blue-400"
+            className="flex items-center gap-2 text-sm font-medium text-white hover:text-primary"
             onClick={() => setExpanded(!expanded)}
           >
             {icon}
@@ -356,7 +356,7 @@ function EditorControlsPanel() {
             Real TownSystem with flatness-based placement and building spawning.
           </p>
           {towns && (
-            <p className="text-xs text-blue-400">
+            <p className="text-xs text-accent-aether">
               {towns.getTowns?.()?.length ?? 0} towns generated
             </p>
           )}
@@ -538,10 +538,10 @@ export function WorldEditorPage() {
     <div className="h-[calc(100vh-44px)] flex flex-col bg-bg-secondary">
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-2 bg-bg-secondary border-b border-border-primary">
-        <h1 className="text-lg font-semibold text-white flex items-center gap-2">
+        <h1 className="font-display text-lg font-medium tracking-tight text-white flex items-center gap-2">
           <Mountain className="w-5 h-5" />
           World Editor
-          <span className="text-xs text-blue-400 font-normal ml-2">
+          <span className="text-xs text-accent-aether font-normal ml-2">
             (Using Real Game Systems)
           </span>
         </h1>

@@ -63,11 +63,11 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
-  world: "text-green-400",
-  entities: "text-blue-400",
-  items: "text-yellow-400",
-  progression: "text-purple-400",
-  audio: "text-pink-400",
+  world: "text-success",
+  entities: "text-accent-aether",
+  items: "text-warning",
+  progression: "text-accent-violet",
+  audio: "text-accent-violet",
   generated: "text-text-secondary",
 };
 
@@ -853,7 +853,7 @@ export const ManifestsPage: React.FC = () => {
                       </div>
                     )}
                     {lodJob.error && (
-                      <div className="text-red-400">Error: {lodJob.error}</div>
+                      <div className="text-error">Error: {lodJob.error}</div>
                     )}
                   </div>
                 )}
@@ -927,7 +927,7 @@ export const ManifestsPage: React.FC = () => {
                       </div>
                     )}
                     {vatJob.error && (
-                      <div className="text-red-400">Error: {vatJob.error}</div>
+                      <div className="text-error">Error: {vatJob.error}</div>
                     )}
                   </div>
                 )}
@@ -1026,7 +1026,7 @@ export const ManifestsPage: React.FC = () => {
                       </div>
                     )}
                     {imposterJob.error && (
-                      <div className="text-red-400">
+                      <div className="text-error">
                         Error: {imposterJob.error}
                       </div>
                     )}
@@ -1086,7 +1086,7 @@ export const ManifestsPage: React.FC = () => {
                         </div>
                         <div className="flex items-center gap-2 ml-2">
                           {asset.hasImposter ? (
-                            <span className="text-green-400 flex items-center gap-1">
+                            <span className="text-success flex items-center gap-1">
                               <Check className="w-3 h-3" />
                               Baked
                             </span>
@@ -1131,8 +1131,8 @@ export const ManifestsPage: React.FC = () => {
           <div
             className={`px-4 py-2 flex items-center gap-2 ${
               notification.type === "success"
-                ? "bg-green-500 bg-opacity-20 text-green-400"
-                : "bg-red-500 bg-opacity-20 text-red-400"
+                ? "bg-success bg-opacity-20 text-success"
+                : "bg-error bg-opacity-20 text-error"
             }`}
           >
             {notification.type === "success" ? (
@@ -1148,7 +1148,7 @@ export const ManifestsPage: React.FC = () => {
         {selectedManifest && manifestContent && (
           <div className="px-4 py-2 border-b border-border-primary flex items-center gap-2 bg-bg-secondary">
             <div className="flex-1">
-              <h2 className="text-lg font-semibold text-text-primary">
+              <h2 className="font-display text-lg font-medium tracking-tight text-text-primary">
                 {manifestContent.name}.json
               </h2>
               <div className="text-xs text-text-muted flex items-center gap-4">
@@ -1255,14 +1255,14 @@ export const ManifestsPage: React.FC = () => {
 
         {/* Validation errors */}
         {validationErrors.length > 0 && (
-          <div className="border-b border-red-500 border-opacity-30 bg-red-500 bg-opacity-10 p-4">
-            <h3 className="text-sm font-medium text-red-400 mb-2 flex items-center gap-2">
+          <div className="border-b border-error border-opacity-30 bg-error bg-opacity-10 p-4">
+            <h3 className="text-sm font-medium text-error mb-2 flex items-center gap-2">
               <AlertCircle className="w-4 h-4" />
               Validation Errors ({validationErrors.length})
             </h3>
             <div className="space-y-1 max-h-32 overflow-y-auto">
               {validationErrors.map((error, i) => (
-                <div key={i} className="text-xs text-red-300">
+                <div key={i} className="text-xs text-error">
                   {error.path && (
                     <span className="font-mono">{error.path}: </span>
                   )}
