@@ -3,7 +3,7 @@ import React from "react";
 
 export const EmptyAssetState: React.FC = () => {
   return (
-    <div className="flex items-center justify-center h-full bg-gradient-to-br from-bg-primary to-bg-secondary">
+    <div className="flex items-center justify-center h-full bg-bg-primary">
       <div className="text-center p-8 animate-fade-in">
         <div className="relative">
           <div className="absolute inset-0 bg-primary opacity-20 blur-3xl " />

@@ -52,7 +52,7 @@ const AssetFilters: React.FC<AssetFiltersProps> = ({
   const hasActiveFilters = searchTerm || typeFilter || materialFilter;
 
   return (
-    <div className="card bg-gradient-to-br from-bg-primary to-bg-secondary border-border-primary animate-scale-in">
+    <div className="card bg-bg-primary border-border-primary animate-scale-in">
       {/* Compact Header */}
       <div className="p-4 pb-3">
         <div className="flex items-center justify-between">

@@ -225,7 +225,7 @@ const SpriteGenerationModal: React.FC<SpriteGenerationModalProps> = ({
                   <Eye className="w-6 h-6 text-success" />
                 </div>
                 <div>
-                  <h4 className="text-lg font-semibold text-text-primary">
+                  <h4 className="font-display text-lg font-medium tracking-tight text-text-primary">
                     Existing Sprites
                   </h4>
                   <p className="text-sm text-text-secondary">
@@ -413,7 +413,7 @@ const SpriteGenerationModal: React.FC<SpriteGenerationModalProps> = ({
         {status === "generating" && (
           <div className="flex flex-col items-center justify-center py-12 space-y-4">
             <Loader2 className="w-12 h-12 text-primary animate-spin" />
-            <h4 className="text-lg font-semibold text-text-primary">
+            <h4 className="font-display text-lg font-medium tracking-tight text-text-primary">
               Generating Sprites
             </h4>
             <p className="text-sm text-text-secondary text-center max-w-sm">

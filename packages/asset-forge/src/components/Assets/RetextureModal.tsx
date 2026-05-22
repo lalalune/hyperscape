@@ -176,7 +176,7 @@ const RetextureModal: React.FC<RetextureModalProps> = ({
               </div>
 
               <div className="flex-1">
-                <CardTitle className="text-lg font-semibold text-text-primary mb-2">
+                <CardTitle className="font-display text-lg font-medium tracking-tight text-text-primary mb-2">
                   Material Presets
                 </CardTitle>
                 <CardDescription className="text-text-tertiary">
@@ -226,7 +226,7 @@ const RetextureModal: React.FC<RetextureModalProps> = ({
               </div>
 
               <div className="flex-1">
-                <CardTitle className="text-lg font-semibold text-text-primary mb-2">
+                <CardTitle className="font-display text-lg font-medium tracking-tight text-text-primary mb-2">
                   Custom Description
                 </CardTitle>
                 <CardDescription className="text-text-tertiary">
@@ -267,7 +267,7 @@ const RetextureModal: React.FC<RetextureModalProps> = ({
               </div>
 
               <div className="flex-1">
-                <CardTitle className="text-lg font-semibold text-text-primary mb-2">
+                <CardTitle className="font-display text-lg font-medium tracking-tight text-text-primary mb-2">
                   Image Reference
                 </CardTitle>
                 <CardDescription className="text-text-tertiary">
@@ -290,10 +290,7 @@ const RetextureModal: React.FC<RetextureModalProps> = ({
 
         {/* Smart Detection Alert */}
         {suggestedCategories.length > 0 && (
-          <Card
-            variant="default"
-            className="bg-gradient-to-r from-primary-50 to-primary-100 border-primary-200"
-          >
+          <Card variant="default" className="bg-primary/10 border-primary/20">
             <CardContent className="p-4">
               <div className="flex items-start gap-3">
                 <Sparkles className="w-5 h-5 text-primary-600 mt-0.5 flex-shrink-0" />
@@ -393,7 +390,7 @@ const RetextureModal: React.FC<RetextureModalProps> = ({
               >
                 <CardContent className="p-4">
                   <div
-                    className="w-16 h-16 rounded-full mx-auto mb-3 shadow-lg border border-white"
+                    className="w-16 h-16 rounded-full mx-auto mb-3 border border-white"
                     style={{ backgroundColor: preset.color }}
                   />
                   <h5 className="font-medium text-sm text-text-primary mb-1">
@@ -421,7 +418,7 @@ const RetextureModal: React.FC<RetextureModalProps> = ({
 
         {/* Selected Materials Summary */}
         {selectedPresets.length > 0 && (
-          <Card className="bg-gradient-to-r from-primary-50 to-primary-100 border-primary-200">
+          <Card className="bg-primary/10 border-primary/20">
             <CardContent className="p-4">
               <h4 className="font-medium text-primary-900 mb-2">
                 Selected Materials ({selectedPresets.length})
@@ -520,7 +517,7 @@ const RetextureModal: React.FC<RetextureModalProps> = ({
         <Loader className="w-8 h-8 text-primary-600 animate-spin" />
       </div>
 
-      <h3 className="text-lg font-semibold text-text-primary mb-2">
+      <h3 className="font-display text-lg font-medium tracking-tight text-text-primary mb-2">
         Generating Textures
       </h3>
       <p className="text-text-tertiary mb-6">
@@ -574,7 +571,7 @@ const RetextureModal: React.FC<RetextureModalProps> = ({
         <CheckCircle className="w-8 h-8 text-success-600" />
       </div>
 
-      <h3 className="text-lg font-semibold text-text-primary mb-2">
+      <h3 className="font-display text-lg font-medium tracking-tight text-text-primary mb-2">
         Textures Generated Successfully!
       </h3>
       <p className="text-text-tertiary mb-6">

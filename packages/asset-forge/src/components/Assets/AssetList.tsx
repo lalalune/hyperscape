@@ -287,7 +287,7 @@ const AssetList: React.FC<AssetListProps> = ({ assets }) => {
 
   if (assets.length === 0) {
     return (
-      <div className="card overflow-hidden flex flex-col h-full bg-gradient-to-br from-bg-primary to-bg-secondary animate-scale-in">
+      <div className="card overflow-hidden flex flex-col h-full bg-bg-primary animate-scale-in">
         <div className="p-4 border-b border-border-primary bg-bg-primary bg-opacity-30">
           <h2 className="text-base font-semibold text-text-primary flex items-center gap-2">
             <Package size={18} className="text-primary" />
@@ -314,7 +314,7 @@ const AssetList: React.FC<AssetListProps> = ({ assets }) => {
   }
 
   return (
-    <div className="card overflow-hidden flex flex-col h-full bg-gradient-to-br from-bg-primary to-bg-secondary animate-scale-in">
+    <div className="card overflow-hidden flex flex-col h-full bg-bg-primary animate-scale-in">
       <div className="p-4 border-b border-border-primary bg-bg-primary bg-opacity-30 sticky top-0 z-10 ">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold text-text-primary flex items-center gap-2">

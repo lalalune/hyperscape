@@ -130,7 +130,7 @@ const RegenerateModal: React.FC<RegenerateModalProps> = ({
         {status === "processing" && (
           <div className="flex flex-col items-center justify-center py-8 space-y-4">
             <Loader2 className="w-12 h-12 text-primary animate-spin" />
-            <h4 className="text-lg font-semibold text-text-primary">
+            <h4 className="font-display text-lg font-medium tracking-tight text-text-primary">
               Regenerating Base Model
             </h4>
             <p className="text-sm text-text-secondary text-center max-w-sm">
@@ -155,7 +155,7 @@ const RegenerateModal: React.FC<RegenerateModalProps> = ({
             <div className="w-16 h-16 bg-success/10 rounded-full flex items-center justify-center">
               <CheckCircle className="w-8 h-8 text-success" />
             </div>
-            <h4 className="text-lg font-semibold text-text-primary">
+            <h4 className="font-display text-lg font-medium tracking-tight text-text-primary">
               Success!
             </h4>
             <p className="text-sm text-text-secondary text-center max-w-sm">

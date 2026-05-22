@@ -134,7 +134,9 @@ export function AssetEditModal({
   return (
     <Modal open={isOpen} onClose={onClose} className="max-w-md">
       <div className="flex items-center justify-between mb-6 px-6 pt-6">
-        <h2 className="text-lg font-semibold text-text-primary">Edit Asset</h2>
+        <h2 className="font-display text-lg font-medium tracking-tight text-text-primary">
+          Edit Asset
+        </h2>
         <button
           onClick={onClose}
           className="p-1.5 hover:bg-bg-tertiary rounded-lg transition-colors ease-out"
@@ -214,12 +216,12 @@ export function AssetEditModal({
         {/* Status Info */}
         <div className="flex flex-wrap gap-2 pt-2">
           {asset.hasModel && (
-            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-500 bg-opacity-20 text-green-300">
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success bg-opacity-20 text-success">
               Has Model
             </span>
           )}
           {hasVariants && (
-            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-500 bg-opacity-20 text-blue-300">
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary bg-opacity-20 text-primary">
               Has Variants
             </span>
           )}
@@ -229,7 +231,7 @@ export function AssetEditModal({
             </span>
           )}
           {asset.metadata.isPlaceholder && (
-            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-500 bg-opacity-20 text-yellow-300">
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-warning bg-opacity-20 text-warning">
               Placeholder
             </span>
           )}

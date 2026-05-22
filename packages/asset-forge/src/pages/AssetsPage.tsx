@@ -1,5 +1,5 @@
 import { Activity, Edit3, Layers } from "lucide-react";
-import React, { useRef, useCallback } from "react";
+import { useRef, useCallback } from "react";
 
 import { API_ENDPOINTS } from "../constants";
 import { useAssetsStore } from "../store";
@@ -16,11 +16,12 @@ import SpriteGenerationModal from "@/components/Assets/SpriteGenerationModal";
 import { TransitionOverlay } from "@/components/Assets/TransitionOverlay";
 import ViewerControls from "@/components/Assets/ViewerControls";
 import { AnimationPlayer } from "@/components/shared/AnimationPlayer";
+import { StatusDot } from "@/components/shared/page";
 import ThreeViewer, { ThreeViewerRef } from "@/components/shared/ThreeViewer";
 import { useAssetActions } from "@/hooks";
 import { useAssets } from "@/hooks";
 
-export const AssetsPage: React.FC = () => {
+export function AssetsPage() {
   const { assets, loading, reloadAssets, forceReload } = useAssets();
 
   // Get state and actions from store
@@ -83,29 +84,65 @@ export const AssetsPage: React.FC = () => {
   }
 
   return (
-    <div className="page-container-no-padding flex-col">
-      <div className="flex-1 flex gap-4 p-4 overflow-hidden min-h-0">
-        {/* Sidebar - Made narrower */}
-        <div className="flex flex-col gap-3 w-72 min-w-[18rem] animate-slide-in-left">
-          {/* Filters */}
+    <div className="flex flex-col h-full bg-bg-primary">
+      {/* Editorial hero — slim, leaves max room for the viewer */}
+      <header className="px-6 py-5 border-b border-border-primary flex-shrink-0">
+        <div className="flex items-end justify-between gap-6 flex-wrap">
+          <div>
+            <div className="flex items-baseline gap-3 mb-2">
+              <span className="font-mono text-[11px] text-text-tertiary tabular-nums tracking-[0.05em]">
+                00 / Library
+              </span>
+              <span className="text-text-tertiary/40">·</span>
+              <span className="flex items-center gap-2 text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
+                <StatusDot tone={assets.length > 0 ? "ready" : "idle"} />
+                <span className="font-mono normal-case tracking-normal tabular-nums">
+                  {filteredAssets.length}
+                  {filteredAssets.length !== assets.length &&
+                    ` / ${assets.length}`}
+                </span>
+                {filteredAssets.length === 1 ? "asset" : "assets"}
+              </span>
+            </div>
+            <h1 className="font-display text-2xl md:text-3xl font-medium text-text-primary tracking-tight leading-[1.05]">
+              Asset <span className="text-primary">library</span>
+            </h1>
+          </div>
+          {selectedAsset && (
+            <div className="flex items-baseline gap-3 text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
+              <span>Viewing</span>
+              <span className="font-mono normal-case tracking-normal text-text-secondary truncate max-w-xs">
+                {selectedAsset.name}
+              </span>
+            </div>
+          )}
+        </div>
+      </header>
+
+      {/* Main split: sidebar + viewer */}
+      <div className="flex-1 flex gap-5 p-5 overflow-hidden min-h-0">
+        {/* Sidebar — filters + list */}
+        <aside className="flex flex-col gap-3 w-80 min-w-[20rem] flex-shrink-0">
           <AssetFilters
             totalAssets={assets.length}
             filteredCount={filteredAssets.length}
           />
-
-          {/* Asset List */}
           <AssetList assets={filteredAssets} />
-        </div>
+        </aside>
 
-        {/* Main Viewer Area */}
-        <div className="flex-1 flex flex-col gap-4 min-w-0 animate-fade-in">
-          <div className="flex-1 relative rounded-xl border border-border-primary shadow-2xl overflow-hidden">
+        {/* Main viewer */}
+        <section className="flex-1 flex flex-col min-w-0">
+          <div className="flex-1 relative rounded-lg border border-border-primary overflow-hidden bg-bg-primary">
             {selectedAsset ? (
               <>
                 <div className="absolute inset-0">
-                  {/* Keep both viewers mounted; fade inactive one to preserve layout and canvas size */}
+                  {/* Keep both viewers mounted; fade inactive one */}
                   <div
-                    className={`absolute inset-0 transition-opacity duration-500 ${showAnimationView && selectedAsset.type === "character" ? "opacity-0 pointer-events-none" : "opacity-100"} ease-out`}
+                    className={`absolute inset-0 transition-opacity duration-500 ${
+                      showAnimationView && selectedAsset.type === "character"
+                        ? "opacity-0 pointer-events-none"
+                        : "opacity-100"
+                    } ease-out`}
                   >
                     <ThreeViewer
                       ref={viewerRef}
@@ -130,7 +167,11 @@ export const AssetsPage: React.FC = () => {
                     />
                   </div>
                   <div
-                    className={`absolute inset-0 transition-opacity duration-500 ${showAnimationView && selectedAsset.type === "character" ? "opacity-100" : "opacity-0 pointer-events-none"} ease-out`}
+                    className={`absolute inset-0 transition-opacity duration-500 ${
+                      showAnimationView && selectedAsset.type === "character"
+                        ? "opacity-100"
+                        : "opacity-0 pointer-events-none"
+                    } ease-out`}
                   >
                     <AnimationPlayer
                       modelUrl={
@@ -154,60 +195,50 @@ export const AssetsPage: React.FC = () => {
                 {isTransitioning && <TransitionOverlay />}
 
                 {showAnimationView ? (
-                  // Controls for animation view - positioned top-right to match asset browser layout
-                  <div className="absolute top-4 right-4 flex gap-2 animate-fade-in z-10">
-                    {/* Animation Toggle - furthest left */}
+                  /* Animation-view control pills — brand HUD style */
+                  <div className="absolute top-5 right-5 flex gap-2 z-10">
                     {selectedAsset.type === "character" && (
                       <button
+                        type="button"
                         onClick={toggleAnimationView}
-                        className={`group p-3 bg-bg-secondary bg-opacity-90 rounded-xl transition-all duration-300 hover:bg-bg-tertiary shadow-lg ${
-                          showAnimationView ? "ring-1 ring-primary/40" : ""
-                        } ease-out`}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-[11px] uppercase tracking-[0.12em] transition-colors duration-300 ease-out ${
+                          showAnimationView
+                            ? "bg-primary/10 border-primary/40 text-primary"
+                            : "bg-bg-tertiary border-border-primary text-text-secondary hover:border-primary/40 hover:text-primary"
+                        }`}
                         title={
                           showAnimationView
-                            ? "View 3D Model"
-                            : "View Animations"
+                            ? "View 3D model"
+                            : "View animations"
                         }
                       >
-                        <Activity
-                          size={20}
-                          className={`transition-colors ${
-                            showAnimationView
-                              ? "text-primary"
-                              : "text-text-secondary group-hover:text-primary"
-                          } ease-out`}
-                        />
+                        <Activity size={11} strokeWidth={1.5} />
+                        Animations
                       </button>
                     )}
 
-                    {/* Edit Button - middle */}
                     <button
+                      type="button"
                       onClick={() => setShowEditModal(true)}
-                      className="group p-3 bg-bg-secondary bg-opacity-90 rounded-xl transition-all duration-300 hover:bg-bg-tertiary shadow-lg ease-out"
-                      title="Edit Asset"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-bg-tertiary border border-border-primary hover:border-primary/40 text-[11px] text-text-secondary hover:text-primary uppercase tracking-[0.12em] transition-colors duration-300 ease-out"
+                      title="Edit asset"
                     >
-                      <Edit3
-                        size={20}
-                        className="text-text-secondary group-hover:text-primary transition-colors ease-out"
-                      />
+                      <Edit3 size={11} strokeWidth={1.5} />
+                      Edit
                     </button>
 
-                    {/* Details Button - furthest right with Layers icon */}
                     <button
+                      type="button"
                       onClick={toggleDetailsPanel}
-                      className={`p-3 bg-bg-secondary bg-opacity-90 rounded-xl transition-all duration-300 hover:bg-bg-tertiary shadow-lg ${
-                        showDetailsPanel ? "ring-1 ring-primary/40" : ""
-                      } ease-out`}
-                      title="Toggle Details (D)"
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-[11px] uppercase tracking-[0.12em] transition-colors duration-300 ease-out ${
+                        showDetailsPanel
+                          ? "bg-primary/10 border-primary/40 text-primary"
+                          : "bg-bg-tertiary border-border-primary text-text-secondary hover:border-primary/40 hover:text-primary"
+                      }`}
+                      title="Toggle details (D)"
                     >
-                      <Layers
-                        size={20}
-                        className={`transition-colors ${
-                          showDetailsPanel
-                            ? "text-primary"
-                            : "text-text-secondary"
-                        } ease-out`}
-                      />
+                      <Layers size={11} strokeWidth={1.5} />
+                      Details
                     </button>
                   </div>
                 ) : (
@@ -237,7 +268,7 @@ export const AssetsPage: React.FC = () => {
               <EmptyAssetState />
             )}
           </div>
-        </div>
+        </section>
       </div>
 
       {showRetextureModal && selectedAsset && (
@@ -289,6 +320,6 @@ export const AssetsPage: React.FC = () => {
       )}
     </div>
   );
-};
+}
 
 export default AssetsPage;

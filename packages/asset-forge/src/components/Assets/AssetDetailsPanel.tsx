@@ -459,13 +459,13 @@ const AssetDetailsPanel: React.FC<AssetDetailsPanelProps> = ({
 
   return (
     <div
-      className={`absolute top-0 right-0 h-full w-80 bg-bg-primary bg-opacity-95 shadow-2xl transform transition-all duration-300 ease-out z-20 ${
+      className={`absolute top-0 right-0 h-full w-80 bg-bg-primary bg-opacity-95 transition-colors duration-300 ease-out z-20 ${
         isOpen ? "translate-x-0 opacity-100" : "translate-x-full opacity-0"
       }`}
     >
       <div className="h-full flex flex-col">
         {/* Header */}
-        <div className="relative p-5 pb-4 border-b border-border-primary bg-gradient-to-r from-bg-secondary to-bg-tertiary">
+        <div className="relative p-5 pb-4 border-b border-border-primary bg-bg-secondary">
           {/* Close button */}
           <button
             onClick={onClose}
