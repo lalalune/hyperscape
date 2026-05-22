@@ -85,38 +85,31 @@ export function AssetsPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-44px)] bg-bg-primary">
-      {/* Editorial hero — slim, leaves max room for the viewer */}
-      <header className="px-6 py-5 border-b border-border-primary flex-shrink-0">
-        <div className="flex items-end justify-between gap-6 flex-wrap">
-          <div>
-            <div className="flex items-baseline gap-3 mb-2">
-              <span className="font-mono text-[11px] text-text-tertiary tabular-nums tracking-[0.05em]">
-                00 / Library
-              </span>
-              <span className="text-text-tertiary/40">·</span>
-              <span className="flex items-center gap-2 text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
-                <StatusDot tone={assets.length > 0 ? "ready" : "idle"} />
-                <span className="font-mono normal-case tracking-normal tabular-nums">
-                  {filteredAssets.length}
-                  {filteredAssets.length !== assets.length &&
-                    ` / ${assets.length}`}
-                </span>
-                {filteredAssets.length === 1 ? "asset" : "assets"}
-              </span>
-            </div>
-            <h1 className="font-display text-2xl md:text-3xl font-medium text-text-primary tracking-tight leading-[1.05]">
-              Asset <span className="text-primary">library</span>
-            </h1>
-          </div>
-          {selectedAsset && (
-            <div className="flex items-baseline gap-3 text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
-              <span>Viewing</span>
-              <span className="font-mono normal-case tracking-normal text-text-secondary truncate max-w-xs">
-                {selectedAsset.name}
-              </span>
-            </div>
-          )}
-        </div>
+      {/* Slim editorial top strip — single-line identity, max viewer room */}
+      <header className="px-6 py-3 border-b border-border-primary flex-shrink-0 flex items-center gap-4 flex-wrap">
+        <span className="font-mono text-[11px] text-text-tertiary tabular-nums tracking-[0.05em]">
+          00 / Library
+        </span>
+        <span className="text-text-tertiary/40">·</span>
+        <span className="font-display text-sm font-medium text-text-primary tracking-tight">
+          Asset <span className="text-primary">library</span>
+        </span>
+        <span className="flex items-center gap-2 text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
+          <StatusDot tone={assets.length > 0 ? "ready" : "idle"} />
+          <span className="font-mono normal-case tracking-normal tabular-nums">
+            {filteredAssets.length}
+            {filteredAssets.length !== assets.length && ` / ${assets.length}`}
+          </span>
+          {filteredAssets.length === 1 ? "asset" : "assets"}
+        </span>
+        {selectedAsset && (
+          <span className="ml-auto flex items-baseline gap-2 text-[11px] text-text-tertiary uppercase tracking-[0.12em] min-w-0">
+            <span>Viewing</span>
+            <span className="font-mono normal-case tracking-normal text-text-secondary truncate max-w-xs">
+              {selectedAsset.name}
+            </span>
+          </span>
+        )}
       </header>
 
       {/* Main split: sidebar + viewer */}
