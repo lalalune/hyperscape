@@ -1419,24 +1419,30 @@ export function DesignWithAIDialog({
       `}</style>
       <div className="w-full max-w-6xl flex flex-col bg-bg-primary border-x border-border-primary design-ai-panel-in">
         {/* ── Header ─────────────────────────────────────── */}
-        <div className="bg-bg-secondary/40">
-          <div className="flex items-center justify-between px-6 pt-5 pb-3">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-primary/20 flex items-center justify-center ring-1 ring-primary/30 ">
-                <Sparkles size={16} className="text-primary" />
-              </div>
-              <div>
-                <div className="text-[14px] font-semibold text-text-primary leading-tight">
-                  Design with AI
-                </div>
-                <div className="text-[12px] text-text-tertiary mt-0.5">
+        <div className="bg-bg-secondary/30 border-b border-border-primary">
+          <div className="flex items-center justify-between px-6 pt-5 pb-4">
+            <div className="min-w-0">
+              <div className="flex items-baseline gap-3 mb-1.5">
+                <span className="font-mono text-[11px] text-text-tertiary tabular-nums tracking-[0.05em]">
+                  00 / AI
+                </span>
+                <span className="text-text-tertiary/40">·</span>
+                <span className="flex items-center gap-2 text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
+                  <Sparkles
+                    size={11}
+                    strokeWidth={1.5}
+                    className="text-primary"
+                  />
                   {countSetSlots(effectivePlan) === 0
-                    ? "Describe the world you want — I'll handle the rest."
+                    ? "Awaiting brief"
                     : countSetSlots(effectivePlan) === PLAN_SLOTS.length
-                      ? "All four slots set. Ready to generate."
-                      : `${countSetSlots(effectivePlan)} of ${PLAN_SLOTS.length} slots set.`}
-                </div>
+                      ? "Ready to generate"
+                      : `${countSetSlots(effectivePlan)} / ${PLAN_SLOTS.length} slots set`}
+                </span>
               </div>
+              <h2 className="font-display text-lg font-medium text-text-primary tracking-tight leading-tight">
+                Design with <span className="text-primary">AI</span>
+              </h2>
             </div>
             <div className="flex items-center gap-1">
               <button
@@ -1472,40 +1478,46 @@ export function DesignWithAIDialog({
               </button>
             </div>
           </div>
-          {/* B1'.7 — refined progress strip with slot icons + animated connectors. */}
+          {/* Editorial progress strip — slot chips connected by thin lines */}
           <div className="px-6 pb-4 flex items-center gap-2">
             {PLAN_SLOTS.map((slot, i) => {
               const set = isSlotSet(effectivePlan, slot.key);
               const Icon = slot.Icon;
+              const stepNum = String(i + 1).padStart(2, "0");
               return (
                 <React.Fragment key={slot.key}>
                   <div
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium ring-1 transition-all duration-300 ${
+                    className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md border text-[11px] uppercase tracking-[0.12em] transition-colors duration-300 ease-out ${
                       set
-                        ? "bg-primary/15 text-text-primary ring-primary/40 "
-                        : "bg-bg-tertiary/60 text-text-tertiary ring-white/[0.05]"
-                    } ease-out`}
+                        ? "bg-primary/10 border-primary/40 text-primary"
+                        : "bg-bg-tertiary border-border-primary text-text-tertiary"
+                    }`}
                   >
                     <span
-                      className={`w-4 h-4 rounded-full flex items-center justify-center transition-all duration-300 ${
-                        set
-                          ? "bg-primary text-white scale-100"
-                          : "bg-transparent text-text-tertiary scale-90"
-                      } ease-out`}
+                      className={`font-mono tabular-nums text-[10px] tracking-[0.05em] ${
+                        set ? "text-primary" : "text-text-tertiary"
+                      }`}
                     >
-                      {set ? (
-                        <Check size={10} strokeWidth={3} />
-                      ) : (
-                        <Icon size={9} strokeWidth={2.5} />
-                      )}
+                      {stepNum}
                     </span>
-                    <span>{slot.short}</span>
+                    {set ? (
+                      <Check
+                        size={10}
+                        strokeWidth={2}
+                        className="text-primary"
+                      />
+                    ) : (
+                      <Icon size={10} strokeWidth={1.5} />
+                    )}
+                    <span className="font-medium normal-case tracking-normal text-[11px]">
+                      {slot.short}
+                    </span>
                   </div>
                   {i < PLAN_SLOTS.length - 1 && (
                     <div
-                      className={`flex-1 h-px transition-colors duration-500 ${
-                        set ? "bg-primary/30" : "bg-border-primary/40"
-                      } ease-out`}
+                      className={`flex-1 h-px transition-colors duration-300 ease-out ${
+                        set ? "bg-primary/40" : "bg-border-primary"
+                      }`}
                     />
                   )}
                 </React.Fragment>
@@ -1694,9 +1706,10 @@ export function DesignWithAIDialog({
             {/* ── Error ──────────────────────────────────────── */}
             {error && (
               <div className="px-6 pb-2">
-                <div className="flex items-start gap-2 p-3 bg-error/10 ring-1 ring-error/25 rounded-lg text-[12px] text-error shadow-sm">
+                <div className="flex items-start gap-2 p-3 bg-error/10 border border-error/30 rounded-md text-[12px] text-error">
                   <AlertTriangle
-                    size={14}
+                    size={13}
+                    strokeWidth={1.5}
                     className="flex-shrink-0 mt-0.5 text-error"
                   />
                   <span className="flex-1 leading-relaxed">{error}</span>
@@ -1705,9 +1718,9 @@ export function DesignWithAIDialog({
                       type="button"
                       onClick={() => void retryLast()}
                       disabled={pending}
-                      className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-md bg-error/20 hover:bg-error/30 text-error disabled:opacity-50 disabled:cursor-not-allowed transition-colors ease-out"
+                      className="flex-shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] uppercase tracking-[0.12em] font-medium rounded-md border border-error/30 hover:bg-error/15 text-error disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-300 ease-out"
                     >
-                      <RefreshCw size={11} />
+                      <RefreshCw size={11} strokeWidth={1.5} />
                       Retry
                     </button>
                   )}
@@ -1720,7 +1733,7 @@ export function DesignWithAIDialog({
               onSubmit={sendMessage}
               className="px-6 py-4 bg-bg-secondary/30"
             >
-              <div className="relative flex items-end gap-2 rounded-xl bg-bg-tertiary ring-1 ring-white/[0.06] focus-within:ring-1 focus-within:ring-primary/40 focus-within:bg-bg-secondary transition-all shadow-sm ease-out">
+              <div className="relative flex items-end gap-2 rounded-md bg-bg-tertiary border border-border-primary focus-within:border-primary/40 transition-colors duration-300 ease-out">
                 <textarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
@@ -1742,7 +1755,7 @@ export function DesignWithAIDialog({
                     <button
                       type="button"
                       onClick={cancel}
-                      className="px-3 py-1.5 text-[12px] font-medium rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-primary/60 transition-colors ease-out"
+                      className="px-3 py-1.5 text-[11px] uppercase tracking-[0.12em] font-medium rounded-md text-text-tertiary hover:text-primary hover:bg-bg-primary border border-transparent hover:border-border-primary transition-colors duration-300 ease-out"
                     >
                       Stop
                     </button>
@@ -1751,22 +1764,23 @@ export function DesignWithAIDialog({
                       type="submit"
                       disabled={!input.trim() || isCreatingProject}
                       aria-label="Send"
-                      className="w-8 h-8 flex items-center justify-center rounded-lg bg-primary text-white hover:bg-primary/90 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:shadow-none transition-all ease-out"
+                      className="w-8 h-8 flex items-center justify-center rounded-md bg-primary text-bg-primary hover:bg-primary-dark disabled:opacity-30 disabled:cursor-not-allowed transition-colors duration-300 ease-out"
                     >
-                      <Send size={14} />
+                      <Send size={13} strokeWidth={1.5} />
                     </button>
                   )}
                 </div>
               </div>
-              <div className="mt-2 text-[10px] text-text-tertiary px-1 flex items-center gap-3">
-                <span className="flex items-center gap-1">
-                  <kbd className="px-1.5 py-0.5 rounded bg-bg-tertiary ring-1 ring-white/[0.06] text-text-secondary font-mono text-[9px]">
+              <div className="mt-2 text-[10px] text-text-tertiary px-1 flex items-center gap-3 uppercase tracking-[0.12em]">
+                <span className="flex items-center gap-1.5">
+                  <kbd className="px-1.5 py-0.5 rounded bg-bg-tertiary border border-border-primary text-text-secondary font-mono text-[9px] normal-case tracking-normal">
                     ⏎
                   </kbd>
                   <span>Send</span>
                 </span>
-                <span className="flex items-center gap-1">
-                  <kbd className="px-1.5 py-0.5 rounded bg-bg-tertiary ring-1 ring-white/[0.06] text-text-secondary font-mono text-[9px]">
+                <span className="text-text-tertiary/40">·</span>
+                <span className="flex items-center gap-1.5">
+                  <kbd className="px-1.5 py-0.5 rounded bg-bg-tertiary border border-border-primary text-text-secondary font-mono text-[9px] normal-case tracking-normal">
                     ⇧⏎
                   </kbd>
                   <span>Newline</span>
