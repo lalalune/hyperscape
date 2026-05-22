@@ -27,11 +27,13 @@ import {
   Loader2,
   Crown,
   Settings,
+  Pencil,
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { useForgeAuth } from "../auth/ForgeAuthProvider";
+import { EditProfileDialog } from "../components/profile/EditProfileDialog";
 import { Avatar } from "../components/shared/Avatar";
 import { ForgeLogo } from "../components/shared/ForgeLogo";
 import { ROUTES, buildTeamDetailPath } from "../constants";
@@ -180,9 +182,13 @@ function roleBadge(role: string): {
 function IdentityCard({
   user,
   displayName,
+  avatarUrl,
+  onEdit,
 }: {
   user: ReturnType<typeof useForgeAuth>["user"];
   displayName: string;
+  avatarUrl: string | null;
+  onEdit: () => void;
 }) {
   const email = user?.email?.address ?? null;
   const wallet = user?.wallet?.address ?? null;
@@ -191,7 +197,7 @@ function IdentityCard({
   return (
     <div className="rounded-lg bg-bg-tertiary border border-border-primary overflow-hidden">
       <div className="p-7 flex items-start gap-6">
-        <Avatar size={80} rounded="lg" name={displayName} />
+        <Avatar size={80} rounded="lg" src={avatarUrl} name={displayName} />
 
         <div className="flex flex-col gap-2 min-w-0 flex-1">
           <div className="flex items-baseline gap-3 flex-wrap">
@@ -208,6 +214,16 @@ function IdentityCard({
             all connections show below.
           </p>
         </div>
+
+        <button
+          type="button"
+          onClick={onEdit}
+          className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-bg-primary border border-border-primary hover:border-primary/40 text-[11px] text-text-secondary hover:text-primary uppercase tracking-[0.12em] transition-colors duration-300 ease-out"
+          title="Edit display name + avatar"
+        >
+          <Pencil size={11} strokeWidth={1.5} />
+          Edit
+        </button>
       </div>
 
       {/* Connected methods strip */}
@@ -439,6 +455,7 @@ export function ProfilePage() {
   const [me, setMe] = useState<AuthMeResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
 
   useEffect(() => {
     if (!auth.ready || !auth.authenticated) {
@@ -472,8 +489,8 @@ export function ProfilePage() {
 
   // Display name — server takes priority, then Privy email/wallet
   const displayName =
-    me?.displayName ||
-    me?.email ||
+    me?.user.displayName ||
+    me?.user.email ||
     auth.user?.email?.address ||
     auth.user?.wallet?.address?.slice(0, 8) ||
     "Anonymous";
@@ -505,7 +522,7 @@ export function ProfilePage() {
             </span>
             <span className="flex items-center gap-2 text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
               <StatusDot tone="online" />
-              {me?.id ? `id ${me.id.slice(0, 8)}` : "Signed in"}
+              {me?.user.id ? `id ${me.user.id.slice(0, 8)}` : "Signed in"}
             </span>
           </div>
           <h1 className="font-display text-4xl md:text-5xl font-medium text-text-primary tracking-tight leading-[1.05] mb-3">
@@ -532,7 +549,12 @@ export function ProfilePage() {
             title="Identity"
             meta="Connected accounts"
           />
-          <IdentityCard user={auth.user} displayName={displayName} />
+          <IdentityCard
+            user={auth.user}
+            displayName={displayName}
+            avatarUrl={me?.user.avatarUrl ?? null}
+            onEdit={() => setEditOpen(true)}
+          />
         </section>
 
         {/* ====================================================================
@@ -567,6 +589,16 @@ export function ProfilePage() {
           </div>
         </footer>
       </div>
+
+      {/* Edit profile modal — only mount once /api/auth/me has loaded */}
+      {me && (
+        <EditProfileDialog
+          open={editOpen}
+          onClose={() => setEditOpen(false)}
+          user={me.user}
+          onUpdated={(updated) => setMe(updated)}
+        />
+      )}
     </div>
   );
 }

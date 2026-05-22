@@ -446,6 +446,16 @@ export const AuthMeResponse = t.Object({
   ),
 });
 
+/**
+ * Profile update request body. All fields optional — clients send only
+ * what they want to change. `null` for avatarUrl clears the avatar;
+ * undefined leaves it as-is.
+ */
+export const AuthMeUpdateBody = t.Object({
+  displayName: t.Optional(t.String({ minLength: 1, maxLength: 64 })),
+  avatarUrl: t.Optional(t.Nullable(t.String({ maxLength: 2048 }))),
+});
+
 // ==================== Common ====================
 
 export const TeamIdParam = t.Object({

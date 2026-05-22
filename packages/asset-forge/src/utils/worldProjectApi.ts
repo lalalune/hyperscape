@@ -15,11 +15,16 @@ export interface AuthTeamMembership {
   role: string;
 }
 
-export interface AuthMeResponse {
+export interface AuthUserRecord {
   id: string;
+  privyUserId: string | null;
   email: string | null;
-  displayName: string | null;
+  displayName: string;
   avatarUrl: string | null;
+}
+
+export interface AuthMeResponse {
+  user: AuthUserRecord;
   teams: AuthTeamMembership[];
 }
 
@@ -104,6 +109,23 @@ export interface LockResult {
 export async function fetchCurrentUser(): Promise<AuthMeResponse> {
   const res = await apiFetch("/api/auth/me");
   if (!res.ok) throw new Error(`Failed to fetch user: ${res.status}`);
+  return res.json();
+}
+
+/**
+ * Update the current user's profile (displayName + avatarUrl).
+ * Pass undefined to leave a field unchanged. Pass `null` for avatarUrl
+ * to clear it.
+ */
+export async function updateCurrentUser(input: {
+  displayName?: string;
+  avatarUrl?: string | null;
+}): Promise<AuthMeResponse> {
+  const res = await apiFetch("/api/auth/me", {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(`Failed to update profile: ${res.status}`);
   return res.json();
 }
 
