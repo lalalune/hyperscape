@@ -976,7 +976,7 @@ export const GenerationPage: React.FC = () => {
                 />
               </section>
 
-              {/* ── 04 / FORGE — anchored earned-moment CTA bar ── */}
+              {/* ── 04 / FORGE — clean editorial climax ─────────── */}
               <section className="space-y-6">
                 <header className="flex items-baseline gap-3 pb-4 border-b border-border-primary">
                   <span className="font-mono text-[11px] text-primary tabular-nums tracking-[0.05em]">
@@ -988,93 +988,67 @@ export const GenerationPage: React.FC = () => {
                   <span className="text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
                     Run the pipeline
                   </span>
+                  {(!assetName || !description) && (
+                    <span className="ml-auto text-[10px] text-warning uppercase tracking-[0.14em] font-medium">
+                      {!assetName && !description
+                        ? "Name + description needed"
+                        : !assetName
+                          ? "Name needed"
+                          : "Description needed"}
+                    </span>
+                  )}
                 </header>
 
-                {/* Start Generation — full-width earned-moment bar */}
-                <div className="rounded-lg bg-bg-tertiary border border-primary/30 p-6 relative overflow-hidden">
-                  {/* Forge Gold left edge */}
-                  <span
-                    aria-hidden
-                    className="pointer-events-none absolute left-0 top-5 bottom-5 w-px bg-primary"
-                  />
-                  {/* Subtle Gold radial */}
-                  <span
-                    aria-hidden
-                    className="pointer-events-none absolute inset-0"
-                    style={{
-                      background:
-                        "radial-gradient(ellipse 80% 100% at 50% 100%, rgba(212,175,55,0.06) 0%, transparent 70%)",
-                    }}
-                  />
-                  <div className="relative flex items-end justify-between gap-6 flex-wrap">
-                    {/* Left: live intent — what the pipeline will do */}
-                    <div className="flex-1 min-w-0 space-y-2">
-                      <div className="flex items-baseline gap-3 flex-wrap">
-                        <span className="font-mono text-[11px] text-primary tabular-nums tracking-[0.05em]">
-                          →
-                        </span>
-                        <span className="font-display text-base font-medium text-text-primary tracking-tight">
-                          Ready to forge
-                        </span>
-                        {(!assetName || !description) && (
-                          <span className="text-[10px] text-warning uppercase tracking-[0.12em] font-medium">
-                            {!assetName && !description
-                              ? "Name + description needed"
-                              : !assetName
-                                ? "Name needed"
-                                : "Description needed"}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-text-tertiary leading-relaxed max-w-2xl">
-                        {(() => {
-                          const features: string[] = ["model + texture"];
-                          if (useGPT5Enhancement)
-                            features.unshift("GPT-5 prompt enhancement");
-                          if (
-                            generationType === "item" &&
-                            enableRetexturing &&
-                            selectedMaterials.length > 0
-                          )
-                            features.push(
-                              `${selectedMaterials.length} material variant${selectedMaterials.length === 1 ? "" : "s"}`,
-                            );
-                          if (generationType === "item" && enableSprites)
-                            features.push("sprite renders");
-                          if (generationType === "avatar" && enableRigging)
-                            features.push("auto-rigging");
-                          const target =
-                            generationType === "avatar"
-                              ? assetType || "character"
-                              : assetType || "item";
-                          return `Pipeline will run on a ${target} with ${features.join(", ")}.`;
-                        })()}
-                      </p>
-                    </div>
-                    {/* Right: Start button — anchored climax */}
-                    <button
-                      type="button"
-                      onClick={handleStartGeneration}
-                      disabled={!assetName || !description || isGenerating}
-                      className="btn-primary flex-shrink-0 px-6 py-3 text-sm"
-                    >
-                      {isGenerating ? (
-                        <>
-                          <Loader2
-                            size={14}
-                            strokeWidth={1.5}
-                            className="animate-spin"
-                          />
-                          Generating…
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles size={14} strokeWidth={1.5} />
-                          Start generation
-                        </>
-                      )}
-                    </button>
-                  </div>
+                {/* Clean horizontal layout: intent line on the left,
+                    Start button anchored right. No card chrome — the
+                    section header is the editorial frame. */}
+                <div className="flex items-end justify-between gap-8 flex-wrap">
+                  <p className="text-sm text-text-tertiary leading-relaxed max-w-2xl flex-1 min-w-0">
+                    {(() => {
+                      const features: string[] = ["model + texture"];
+                      if (useGPT5Enhancement)
+                        features.unshift("GPT-5 prompt enhancement");
+                      if (
+                        generationType === "item" &&
+                        enableRetexturing &&
+                        selectedMaterials.length > 0
+                      )
+                        features.push(
+                          `${selectedMaterials.length} material variant${selectedMaterials.length === 1 ? "" : "s"}`,
+                        );
+                      if (generationType === "item" && enableSprites)
+                        features.push("sprite renders");
+                      if (generationType === "avatar" && enableRigging)
+                        features.push("auto-rigging");
+                      const target =
+                        generationType === "avatar"
+                          ? assetType || "character"
+                          : assetType || "item";
+                      return `Pipeline will run on a ${target} with ${features.join(", ")}.`;
+                    })()}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleStartGeneration}
+                    disabled={!assetName || !description || isGenerating}
+                    className="btn-primary flex-shrink-0 px-7 py-3"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <Loader2
+                          size={14}
+                          strokeWidth={1.5}
+                          className="animate-spin"
+                        />
+                        Generating…
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={14} strokeWidth={1.5} />
+                        Start generation
+                      </>
+                    )}
+                  </button>
                 </div>
               </section>
             </div>
