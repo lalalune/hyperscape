@@ -5,7 +5,11 @@
  *   00 / HERO        — brand identity + greeting + AI compose prompt
  *   01 / CONTINUE    — recent world projects
  *   02 / WORKSPACE   — activity feed + library counts + engine status + sparkline
- *   03 / TOOLCHAIN   — full module index
+ *   FOOTER           — brand signature + Resources/Engine/Community links
+ *
+ * No "Toolchain" section on this page — global nav lives in the sidebar
+ * drawer (Navigation.tsx). The dashboard is for current work + composing,
+ * not for browsing the tool catalog.
  *
  * Composition system:
  *   Content max-width: 1200px
@@ -21,27 +25,7 @@
  */
 
 import {
-  Wand2,
-  Database,
-  Map,
-  Globe,
-  Gamepad2,
-  FileJson,
-  Wrench,
-  Shield,
-  Hand,
-  Shuffle,
-  Image as ImageIcon,
   Sparkles,
-  Building2,
-  Mountain,
-  TreePine,
-  Flower2,
-  Route,
-  Sprout,
-  Anchor,
-  BrickWall,
-  Landmark,
   ArrowUpRight,
   ArrowRight,
   Package,
@@ -69,56 +53,8 @@ import {
 } from "../utils/worldProjectApi";
 
 // =============================================================================
-// Types & constants
+// Constants
 // =============================================================================
-
-interface ToolCard {
-  route: string;
-  label: string;
-  icon: LucideIcon;
-}
-
-const TOOLS: { title: string; tools: ToolCard[] }[] = [
-  {
-    title: "World & Environment",
-    tools: [
-      { route: ROUTES.WORLD_BUILDER, label: "World Builder", icon: Globe },
-      { route: ROUTES.WORLD_EDITOR, label: "World Editor", icon: Gamepad2 },
-      { route: ROUTES.TERRAIN_GEN, label: "Terrain", icon: Mountain },
-      { route: ROUTES.BUILDING_GEN, label: "Buildings", icon: Building2 },
-      { route: ROUTES.ROADS_GEN, label: "Roads", icon: Route },
-      { route: ROUTES.LANDMARK_GEN, label: "Landmarks", icon: Landmark },
-      { route: ROUTES.DOCK_GEN, label: "Docks", icon: Anchor },
-      { route: ROUTES.BRIDGE_GEN, label: "Bridges", icon: BrickWall },
-    ],
-  },
-  {
-    title: "Nature",
-    tools: [
-      { route: ROUTES.TREE_GEN, label: "Trees", icon: TreePine },
-      { route: ROUTES.PLANT_GEN, label: "Plants", icon: Flower2 },
-      { route: ROUTES.VEGETATION_GEN, label: "Vegetation", icon: Sprout },
-    ],
-  },
-  {
-    title: "Asset Pipeline",
-    tools: [
-      { route: ROUTES.EQUIPMENT, label: "Equipment", icon: Wrench },
-      { route: ROUTES.ARMOR_FITTING, label: "Armor Fitting", icon: Shield },
-      { route: ROUTES.HAND_RIGGING, label: "Hand Rigging", icon: Hand },
-      { route: ROUTES.RETARGET_ANIMATE, label: "Retarget", icon: Shuffle },
-      { route: ROUTES.BATCH_SPRITES, label: "Sprites", icon: ImageIcon },
-      { route: ROUTES.VFX, label: "VFX", icon: Sparkles },
-    ],
-  },
-  {
-    title: "Data",
-    tools: [
-      { route: ROUTES.MANIFESTS, label: "Manifests", icon: FileJson },
-      { route: ROUTES.ASSET_PACKS, label: "Asset Packs", icon: Package },
-    ],
-  },
-];
 
 /** Compose-prompt suggestion chips — give users a sense of what they can ask for. */
 const PROMPT_SUGGESTIONS = [
@@ -1003,44 +939,6 @@ function TelemetryRail({
 }
 
 // =============================================================================
-// 03 / TOOLCHAIN — full module index
-// =============================================================================
-
-function ToolIndex() {
-  return (
-    <section className="mb-24">
-      <SectionHeader number="03" title="Toolchain" meta="All modules" />
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-        {TOOLS.map((group) => (
-          <div key={group.title}>
-            <h4 className="text-[11px] font-medium text-text-tertiary uppercase tracking-[0.14em] mb-4 pb-3 border-b border-border-primary/60">
-              {group.title}
-            </h4>
-            <ul className="space-y-0.5">
-              {group.tools.map((t) => (
-                <li key={t.route}>
-                  <Link
-                    to={t.route}
-                    className="group flex items-center gap-3 px-2 py-2 -mx-2 rounded text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-colors duration-300 ease-out"
-                  >
-                    <t.icon
-                      size={14}
-                      strokeWidth={1.5}
-                      className="text-text-tertiary group-hover:text-primary transition-colors duration-300 ease-out flex-shrink-0"
-                    />
-                    <span className="text-[13px]">{t.label}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-// =============================================================================
 // Page
 // =============================================================================
 
@@ -1186,11 +1084,6 @@ export function DashboardPage() {
             />
           </div>
         </section>
-
-        {/* ====================================================================
-            03 / TOOLCHAIN
-            ==================================================================== */}
-        <ToolIndex />
 
         {/* ====================================================================
             FOOTER — film-credits closing
