@@ -1417,12 +1417,12 @@ export function DesignWithAIDialog({
           background-clip: padding-box;
         }
       `}</style>
-      <div className="w-full max-w-6xl flex flex-col bg-bg-primary border-x border-border-primary shadow-2xl design-ai-panel-in">
+      <div className="w-full max-w-6xl flex flex-col bg-bg-primary border-x border-border-primary design-ai-panel-in">
         {/* ── Header ─────────────────────────────────────── */}
-        <div className="bg-gradient-to-b from-bg-secondary/60 to-transparent">
+        <div className="bg-bg-secondary/40">
           <div className="flex items-center justify-between px-6 pt-5 pb-3">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center ring-1 ring-primary/30 ">
+              <div className="w-9 h-9 rounded-lg bg-primary/20 flex items-center justify-center ring-1 ring-primary/30 ">
                 <Sparkles size={16} className="text-primary" />
               </div>
               <div>
@@ -1443,7 +1443,7 @@ export function DesignWithAIDialog({
                 type="button"
                 onClick={loadDebugPlan}
                 disabled={isCreatingProject}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] rounded-md text-amber-400/80 hover:text-amber-300 hover:bg-amber-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-mono ease-out"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] rounded-md text-warning/80 hover:text-warning hover:bg-warning/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-mono ease-out"
                 title="Fill the plan with hardcoded sample content (no LLM call). Useful for iterating on the build pipeline without burning API credits."
               >
                 <Bug size={11} />
@@ -1503,10 +1503,8 @@ export function DesignWithAIDialog({
                   </div>
                   {i < PLAN_SLOTS.length - 1 && (
                     <div
-                      className={`flex-1 h-px transition-all duration-500 ${
-                        set
-                          ? "bg-gradient-to-r from-primary/50 to-border-primary/40"
-                          : "bg-border-primary/40"
+                      className={`flex-1 h-px transition-colors duration-500 ${
+                        set ? "bg-primary/30" : "bg-border-primary/40"
                       } ease-out`}
                     />
                   )}
@@ -1595,7 +1593,7 @@ export function DesignWithAIDialog({
                             type="button"
                             onClick={() => void sendPrompt(c.prompt)}
                             disabled={pending || isCreatingProject}
-                            className="group inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium rounded-full bg-gradient-to-br from-primary/20 to-primary/10 ring-1 ring-primary/40 text-text-primary hover:from-primary/30 hover:to-primary/20 hover:ring-primary/60 disabled:opacity-50 disabled:cursor-not-allowed transition-all ease-out"
+                            className="group inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium rounded-full bg-primary/15 ring-1 ring-primary/40 text-text-primary hover:bg-primary/25 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-300 ease-out"
                           >
                             <span>{c.label}</span>
                             <ArrowRight
@@ -1696,10 +1694,10 @@ export function DesignWithAIDialog({
             {/* ── Error ──────────────────────────────────────── */}
             {error && (
               <div className="px-6 pb-2">
-                <div className="flex items-start gap-2 p-3 bg-red-500/10 ring-1 ring-red-500/25 rounded-lg text-[12px] text-red-300 shadow-sm">
+                <div className="flex items-start gap-2 p-3 bg-error/10 ring-1 ring-error/25 rounded-lg text-[12px] text-error shadow-sm">
                   <AlertTriangle
                     size={14}
-                    className="flex-shrink-0 mt-0.5 text-red-400"
+                    className="flex-shrink-0 mt-0.5 text-error"
                   />
                   <span className="flex-1 leading-relaxed">{error}</span>
                   {lastFailedPrompt && !isCreatingProject && (
@@ -1707,7 +1705,7 @@ export function DesignWithAIDialog({
                       type="button"
                       onClick={() => void retryLast()}
                       disabled={pending}
-                      className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-md bg-red-500/20 hover:bg-red-500/30 text-red-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ease-out"
+                      className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-md bg-error/20 hover:bg-error/30 text-error disabled:opacity-50 disabled:cursor-not-allowed transition-colors ease-out"
                     >
                       <RefreshCw size={11} />
                       Retry
@@ -1720,7 +1718,7 @@ export function DesignWithAIDialog({
             {/* ── Input ──────────────────────────────────────── */}
             <form
               onSubmit={sendMessage}
-              className="px-6 py-4 bg-gradient-to-t from-bg-secondary/40 to-transparent"
+              className="px-6 py-4 bg-bg-secondary/30"
             >
               <div className="relative flex items-end gap-2 rounded-xl bg-bg-tertiary ring-1 ring-white/[0.06] focus-within:ring-1 focus-within:ring-primary/40 focus-within:bg-bg-secondary transition-all shadow-sm ease-out">
                 <textarea
