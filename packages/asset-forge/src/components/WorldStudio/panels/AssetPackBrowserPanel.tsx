@@ -578,15 +578,15 @@ export function AssetPackBrowserPanel({
 
       {/* Transient success banner */}
       {flashMessage && (
-        <div className="px-3 py-2 border-b border-emerald-500/20 bg-emerald-500/10 flex items-center gap-2">
-          <Check size={12} className="text-emerald-400 flex-shrink-0" />
-          <p className="text-[11px] text-emerald-300 flex-1 truncate">
+        <div className="px-3 py-2 border-b border-success/20 bg-success/10 flex items-center gap-2">
+          <Check size={12} className="text-success flex-shrink-0" />
+          <p className="text-[11px] text-success flex-1 truncate">
             {flashMessage}
           </p>
           <button
             type="button"
             onClick={() => setFlashMessage(null)}
-            className="text-emerald-300/70 hover:text-emerald-200"
+            className="text-success/70 hover:text-success"
           >
             <X size={11} />
           </button>
@@ -638,9 +638,7 @@ export function AssetPackBrowserPanel({
                   <span className="text-text-tertiary/30">·</span>
                   <span
                     className={
-                      published > 0
-                        ? "text-emerald-400/80"
-                        : "text-text-tertiary"
+                      published > 0 ? "text-success/80" : "text-text-tertiary"
                     }
                   >
                     {published} published
@@ -662,8 +660,8 @@ export function AssetPackBrowserPanel({
 
         {activeFetchState.kind === "error" && (
           <div className="px-3 py-4 text-center space-y-2">
-            <AlertTriangle size={16} className="mx-auto text-red-400" />
-            <p className="text-xs text-red-400">{activeFetchState.message}</p>
+            <AlertTriangle size={16} className="mx-auto text-error" />
+            <p className="text-xs text-error">{activeFetchState.message}</p>
             <button
               onClick={() =>
                 void (subTab === "marketplace"
@@ -1042,7 +1040,7 @@ function CreatePackModal({
           )}
 
           {error && (
-            <div className="text-[11px] text-red-400 bg-red-500/10 border border-red-500/20 rounded px-2 py-1.5">
+            <div className="text-[11px] text-error bg-error/10 border border-error/20 rounded px-2 py-1.5">
               {error}
             </div>
           )}
@@ -1406,7 +1404,7 @@ function AddEntryModal({ pack, onClose, onAdded }: AddEntryModalProps) {
             </div>
 
             {error && (
-              <div className="text-[11px] text-red-400 bg-red-500/10 border border-red-500/20 rounded px-2 py-1.5">
+              <div className="text-[11px] text-error bg-error/10 border border-error/20 rounded px-2 py-1.5">
                 {error}
               </div>
             )}
@@ -1487,8 +1485,8 @@ function AddEntryModal({ pack, onClose, onAdded }: AddEntryModalProps) {
               )}
               {libraryState.kind === "error" && (
                 <div className="px-3 py-4 text-center space-y-2">
-                  <AlertTriangle size={16} className="mx-auto text-red-400" />
-                  <p className="text-xs text-red-400">{libraryState.message}</p>
+                  <AlertTriangle size={16} className="mx-auto text-error" />
+                  <p className="text-xs text-error">{libraryState.message}</p>
                   <button
                     onClick={() => void reloadLibrary()}
                     className="text-xs text-primary hover:underline"
@@ -1690,7 +1688,7 @@ function AddEntryModal({ pack, onClose, onAdded }: AddEntryModalProps) {
             )}
 
             {error && (
-              <div className="text-[11px] text-red-400 bg-red-500/10 border border-red-500/20 rounded px-2 py-1.5">
+              <div className="text-[11px] text-error bg-error/10 border border-error/20 rounded px-2 py-1.5">
                 {error}
               </div>
             )}
@@ -1805,7 +1803,7 @@ function PublishConfirmModal({
           </p>
 
           {empty && (
-            <div className="flex items-start gap-2 p-2.5 rounded border border-amber-500/30 bg-amber-500/5 text-[11px] text-amber-200/90">
+            <div className="flex items-start gap-2 p-2.5 rounded border border-warning/30 bg-warning/5 text-[11px] text-warning/90">
               <AlertTriangle size={11} className="mt-0.5 flex-shrink-0" />
               <p className="leading-relaxed">
                 This pack has no assets yet. You can still publish, but it'll
@@ -1831,7 +1829,7 @@ function PublishConfirmModal({
           <button
             type="button"
             onClick={onConfirm}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded bg-emerald-500 text-white hover:bg-emerald-600 transition-colors ease-out"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded bg-success text-white hover:bg-success transition-colors ease-out"
           >
             <Upload size={11} />
             Publish
@@ -1931,9 +1929,9 @@ function PackCard({
                 const v = visibilityLabel(pack.visibility);
                 const cls =
                   v.tone === "published"
-                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                    ? "bg-success/10 text-success border-success/20"
                     : v.tone === "team"
-                      ? "bg-amber-500/10 text-amber-300 border-amber-500/20"
+                      ? "bg-warning/10 text-warning border-warning/20"
                       : "bg-bg-tertiary/40 text-text-tertiary border-border-primary";
                 return (
                   <span
@@ -1991,7 +1989,7 @@ function PackCard({
           </div>
 
           {(installError || publishError) && (
-            <p className="text-[10px] text-red-400 leading-relaxed">
+            <p className="text-[10px] text-error leading-relaxed">
               {installError ?? publishError}
             </p>
           )}
@@ -2004,7 +2002,7 @@ function PackCard({
         <div className="border-t border-border-primary bg-black/20 px-3 py-2 flex items-center gap-2 flex-wrap">
           {projectMode &&
             (isInstalled ? (
-              <span className="inline-flex items-center gap-1 px-2 py-1 text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded">
+              <span className="inline-flex items-center gap-1 px-2 py-1 text-[10px] text-success bg-success/10 border border-success/20 rounded">
                 <Check size={10} />
                 Installed
               </span>
@@ -2048,7 +2046,7 @@ function PackCard({
                 className={`inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-medium rounded border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   isPublic
                     ? "bg-bg-tertiary/40 hover:bg-bg-tertiary/60 text-text-secondary border-border-primary"
-                    : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                    : "bg-success/10 hover:bg-success/20 text-success border-success/30"
                 } ease-out`}
                 title={
                   isPublic
@@ -2169,9 +2167,9 @@ function PackDetailModal({
                   const v = visibilityLabel(pack.visibility);
                   const cls =
                     v.tone === "published"
-                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                      ? "bg-success/10 text-success border-success/20"
                       : v.tone === "team"
-                        ? "bg-amber-500/10 text-amber-300 border-amber-500/20"
+                        ? "bg-warning/10 text-warning border-warning/20"
                         : "bg-bg-tertiary/40 text-text-tertiary border-border-primary";
                   return (
                     <span
@@ -2262,7 +2260,7 @@ function PackDetailModal({
           <div className="border-t border-border-primary bg-black/20 px-5 py-3 flex items-center gap-2 flex-wrap flex-shrink-0">
             {projectMode &&
               (isInstalled ? (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] text-success bg-success/10 border border-success/20 rounded">
                   <Check size={11} />
                   Installed on this project
                 </span>
@@ -2300,7 +2298,7 @@ function PackDetailModal({
                   className={`inline-flex items-center gap-1.5 px-5 py-1.5 text-[11px] font-medium rounded border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                     isPublic
                       ? "bg-bg-tertiary/40 hover:bg-bg-tertiary/60 text-text-secondary border-border-primary"
-                      : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                      : "bg-success/10 hover:bg-success/20 text-success border-success/30"
                   } ease-out`}
                 >
                   {publishing ? (

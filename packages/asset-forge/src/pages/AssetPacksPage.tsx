@@ -11,11 +11,13 @@
  * users (most everyone) skip it.
  */
 
-import { Loader2, Package, Users } from "lucide-react";
-import React, { useEffect, useMemo, useState } from "react";
+import { Loader2, Users } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { AssetPackBrowserPanel } from "../components/WorldStudio/panels/AssetPackBrowserPanel";
+import { EmptyHero, ErrorBanner, StatusDot } from "../components/shared/page";
+import { ROUTES } from "../constants";
 import {
   fetchCurrentUser,
   type AuthTeamMembership,
@@ -105,34 +107,50 @@ export function AssetPacksPage() {
     [fetchState.teams, activeTeamId],
   );
 
+  const isLoading = fetchState.loading;
+  const isReady =
+    !fetchState.loading && !fetchState.error && fetchState.teams.length > 0;
+
   return (
     <div className="flex flex-col h-full bg-bg-primary">
-      {/* Page header — friendlier title + subtitle */}
-      <div className="px-6 py-5 border-b border-border-primary">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-start gap-3 min-w-0">
-            <div className="rounded-lg bg-primary/10 border border-primary/20 p-2 flex-shrink-0">
-              <Package size={18} className="text-primary" />
+      {/* Editorial page header */}
+      <header className="px-6 py-6 border-b border-border-primary">
+        <div className="flex items-end justify-between gap-6">
+          <div className="min-w-0">
+            <div className="flex items-baseline gap-3 mb-3">
+              <span className="font-mono text-[11px] text-text-tertiary tabular-nums tracking-[0.05em]">
+                00
+              </span>
+              <span className="font-display text-base font-medium text-text-primary tracking-tight">
+                Library
+              </span>
+              <span className="flex items-center gap-2 text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
+                <StatusDot tone={isReady ? "ready" : "idle"} />
+                {isLoading
+                  ? "Loading"
+                  : isReady
+                    ? `${fetchState.teams.length} team${fetchState.teams.length === 1 ? "" : "s"}`
+                    : "No teams"}
+              </span>
             </div>
-            <div className="min-w-0">
-              <h1 className="text-base font-semibold text-text-primary leading-tight">
-                Asset Packs
-              </h1>
-              <p className="text-xs text-text-tertiary leading-relaxed mt-1 max-w-xl">
-                Bundle 3D assets — characters, props, weapons, vehicles — into
-                reusable packs your team can install on any project, or publish
-                to the marketplace for anyone to use.
-              </p>
-            </div>
+            <h1 className="font-display text-2xl md:text-3xl font-medium text-text-primary tracking-tight leading-[1.05]">
+              Asset <span className="text-primary">packs</span>
+            </h1>
+            <p className="text-sm text-text-tertiary leading-relaxed mt-2 max-w-2xl">
+              Bundle 3D assets into reusable packs. Install on any team project,
+              or publish to the marketplace.
+            </p>
           </div>
 
           {fetchState.teams.length > 1 && (
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              <Users size={11} className="text-text-tertiary" />
+            <div className="flex-shrink-0 min-w-[200px]">
+              <label className="block text-[10px] text-text-tertiary uppercase tracking-[0.14em] mb-1.5">
+                Team
+              </label>
               <select
                 value={activeTeamId ?? ""}
                 onChange={(e) => setActiveTeamId(e.target.value)}
-                className="px-2 py-1 text-xs bg-bg-tertiary/40 border border-border-primary rounded text-text-primary focus:outline-none focus:border-primary/40"
+                className="input"
               >
                 {fetchState.teams.map((t) => (
                   <option key={t.teamId} value={t.teamId}>
@@ -143,61 +161,72 @@ export function AssetPacksPage() {
             </div>
           )}
           {fetchState.teams.length === 1 && activeTeam && (
-            <span className="inline-flex items-center gap-1.5 text-xs text-text-tertiary flex-shrink-0">
-              <Users size={11} />
-              {activeTeam.teamName}
-            </span>
+            <div className="flex-shrink-0">
+              <p className="text-[10px] text-text-tertiary uppercase tracking-[0.14em] mb-1.5">
+                Team
+              </p>
+              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-bg-tertiary border border-border-primary text-[11px] text-text-secondary uppercase tracking-[0.12em]">
+                <Users size={11} strokeWidth={1.5} />
+                {activeTeam.teamName}
+              </span>
+            </div>
           )}
         </div>
-      </div>
+      </header>
 
       {/* Body */}
       <div className="flex-1 min-h-0">
         {fetchState.loading && (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 size={20} className="animate-spin text-text-tertiary" />
+          <div className="flex items-center justify-center gap-3 py-16">
+            <Loader2
+              size={14}
+              strokeWidth={1.5}
+              className="animate-spin text-text-tertiary"
+            />
+            <span className="text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
+              Loading teams
+            </span>
           </div>
         )}
 
         {!fetchState.loading && fetchState.error && (
-          <div className="px-4 py-8 text-center text-xs text-error">
-            Failed to load teams: {fetchState.error}
+          <div className="px-6 py-8">
+            <ErrorBanner
+              message={`Failed to load teams: ${fetchState.error}`}
+            />
           </div>
         )}
 
         {!fetchState.loading &&
           !fetchState.error &&
           fetchState.teams.length === 0 && (
-            <div className="px-4 py-12 text-center space-y-2">
-              <Users size={20} className="mx-auto text-text-tertiary/60" />
-              <p className="text-xs text-text-tertiary">
-                You're not a member of any team yet.
-              </p>
-              <p className="text-[11px] text-text-tertiary/70 max-w-md mx-auto leading-relaxed">
-                Asset packs are scoped to teams — create or join a team to start
-                authoring packs.
-              </p>
+            <div className="flex items-center justify-center px-6 py-16">
+              <div className="w-full max-w-md">
+                <EmptyHero
+                  message="No team memberships"
+                  subtitle="Asset packs are scoped to teams. Create or join a team to start authoring packs."
+                  ctaLabel="Create a team"
+                  ctaTo={ROUTES.TEAMS}
+                />
+              </div>
             </div>
           )}
 
-        {!fetchState.loading &&
-          !fetchState.error &&
-          activeTeamId &&
-          fetchState.teams.length > 0 && (
-            <AssetPackBrowserPanel
-              mode="manage"
-              teamId={activeTeamId}
-              teamName={activeTeam?.teamName ?? null}
-              initialFlash={
-                celebration
-                  ? celebration.assetName
-                    ? `Added ${celebration.assetName} to your pack.`
-                    : "Added to your pack."
-                  : null
-              }
-              autoExpandPackId={celebration?.manifestId ?? null}
-            />
-          )}
+        {isReady && activeTeamId && (
+          <AssetPackBrowserPanel
+            mode="manage"
+            teamId={activeTeamId}
+            teamName={activeTeam?.teamName ?? null}
+            initialFlash={
+              celebration
+                ? celebration.assetName
+                  ? `Added ${celebration.assetName} to your pack.`
+                  : "Added to your pack."
+                : null
+            }
+            autoExpandPackId={celebration?.manifestId ?? null}
+          />
+        )}
       </div>
     </div>
   );
