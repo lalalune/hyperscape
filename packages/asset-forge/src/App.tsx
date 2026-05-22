@@ -29,6 +29,9 @@ import { HandRiggingPage } from "./pages/HandRiggingPage";
 // LeafClusterPage consolidated into TreeGenPage - clusters are now auto-generated
 import { ManifestsPage } from "./pages/ManifestsPage";
 import { PlantGenPage } from "./pages/PlantGenPage";
+import { ProfilePage } from "./pages/ProfilePage";
+import { TeamsPage } from "./pages/TeamsPage";
+import { TeamDetailPage } from "./pages/TeamDetailPage";
 import { RetargetAnimatePage } from "./pages/RetargetAnimatePage";
 import { RoadsGenPage } from "./pages/RoadsGenPage";
 import { RockGenPage } from "./pages/RockGenPage";
@@ -144,6 +147,9 @@ function AppLayout() {
             <Route path={ROUTES.WORLD_BUILDER} element={<WorldBuilderPage />} />
             <Route path={ROUTES.WORLD_EDITOR} element={<WorldEditorPage />} />
             <Route path={ROUTES.MANIFESTS} element={<ManifestsPage />} />
+            <Route path={ROUTES.PROFILE} element={<ProfilePage />} />
+            <Route path={ROUTES.TEAMS} element={<TeamsPage />} />
+            <Route path={ROUTES.TEAM_DETAIL} element={<TeamDetailPage />} />
             <Route
               path={ROUTES.ARMOR_PIPELINE}
               element={<ArmorPipelinePage />}

@@ -66,6 +66,9 @@ export const ROUTES = {
   ARMOR_PIPELINE: "/armor-pipeline",
   UI_LAYOUT_EDITOR: "/ui-layout",
   ASSET_PACKS: "/asset-packs",
+  PROFILE: "/profile",
+  TEAMS: "/teams",
+  TEAM_DETAIL: "/teams/:teamId",
   /**
    * Asset-scoped UI layout editor route. The concrete URL is built by
    * `buildUILayoutEditorPath(teamId, layoutId)`; ROUTES.UI_LAYOUT_ASSET
@@ -73,6 +76,11 @@ export const ROUTES = {
    */
   UI_LAYOUT_ASSET: "/ui-layout/:teamId/:layoutId",
 } as const;
+
+/** Build a concrete URL to view a team's detail page. */
+export function buildTeamDetailPath(teamId: string): string {
+  return `/teams/${teamId}`;
+}
 
 /** Build a concrete URL to edit a persisted UI layout asset. */
 export function buildUILayoutEditorPath(

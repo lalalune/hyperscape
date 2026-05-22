@@ -248,10 +248,13 @@ const Navigation: React.FC = () => {
         {/* Account section */}
         {auth.authenticated && (
           <div className="border-t border-border-primary">
-            {/* User profile */}
-            <div className="px-4 py-3 flex items-center gap-3">
+            {/* User profile — click to navigate to /profile */}
+            <Link
+              to={ROUTES.PROFILE}
+              className="group flex items-center gap-3 px-4 py-3 hover:bg-bg-tertiary transition-colors duration-300 ease-out"
+            >
               <div className="w-8 h-8 rounded-full bg-bg-tertiary border border-border-primary flex items-center justify-center flex-shrink-0">
-                <User size={14} className="text-primary" />
+                <User size={14} strokeWidth={1.5} className="text-primary" />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-text-primary truncate">
@@ -265,16 +268,21 @@ const Navigation: React.FC = () => {
                     "Signed in"}
                 </p>
               </div>
-            </div>
+              <ChevronDown
+                size={12}
+                strokeWidth={1.5}
+                className="text-text-tertiary opacity-0 group-hover:opacity-100 transition-opacity duration-300 ease-out -rotate-90"
+              />
+            </Link>
 
             {/* Sign out button */}
             <div className="px-3 pb-3">
               <button
-                className="flex items-center gap-3 px-4 py-2 rounded-md text-sm font-medium text-text-secondary hover:text-red-400 hover:bg-bg-tertiary transition-all duration-300 w-full ease-out"
+                className="flex items-center gap-3 px-4 py-2 rounded-md text-sm font-medium text-text-secondary hover:text-error hover:bg-bg-tertiary transition-colors duration-300 w-full ease-out"
                 onClick={() => auth.logout()}
               >
-                <LogOut size={16} />
-                <span>Sign Out</span>
+                <LogOut size={16} strokeWidth={1.5} />
+                <span>Sign out</span>
               </button>
             </div>
           </div>
