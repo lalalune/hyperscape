@@ -40,13 +40,13 @@ export const AssetPreviewCard: React.FC<AssetPreviewCardProps> = ({
     selectedAsset.metadata.animations;
 
   return (
-    <Card className="overflow-hidden shadow-xl hover:shadow-2xl transition-shadow ease-out">
+    <Card className="overflow-hidden transition-colors ease-out">
       <CardHeader>
         <CardTitle>3D Preview</CardTitle>
         <CardDescription>Interactive model viewer</CardDescription>
       </CardHeader>
       <CardContent className="p-0">
-        <div className="aspect-video bg-gradient-to-br from-bg-secondary to-bg-tertiary relative">
+        <div className="aspect-video bg-bg-secondary relative">
           {hasModel ? (
             <>
               {isRiggedAvatar ? (

@@ -52,7 +52,7 @@ export const PipelineProgressCard: React.FC<PipelineProgressCardProps> = ({
   });
 
   return (
-    <Card className="overflow-hidden bg-gradient-to-br from-bg-primary via-bg-primary to-primary/5 border-border-primary shadow-lg">
+    <Card className="overflow-hidden bg-bg-primary border-border-primary">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -60,7 +60,7 @@ export const PipelineProgressCard: React.FC<PipelineProgressCardProps> = ({
               <Zap className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <CardTitle className="text-lg font-semibold">
+              <CardTitle className="font-display text-lg font-medium tracking-tight">
                 Generation Pipeline
               </CardTitle>
               <CardDescription className="text-xs mt-0.5">
@@ -97,7 +97,7 @@ export const PipelineProgressCard: React.FC<PipelineProgressCardProps> = ({
             onClick={onBackToConfig}
             disabled={isGenerating}
             size="lg"
-            className="shadow-lg hover:shadow-xl transition-all ease-out"
+            className="transition-colors duration-300 ease-out"
           >
             Back to Configuration
           </Button>
@@ -144,12 +144,9 @@ const PipelineStageItem: React.FC<{
       <div
         className={cn(
           "flex items-center gap-4 p-4 rounded-xl border transition-all duration-200",
-          isActive &&
-            "border-primary/30 bg-gradient-to-r from-primary/5 to-primary/10 shadow-sm",
-          isComplete &&
-            "border-success/30 bg-gradient-to-r from-success/5 to-success/10",
-          isFailed &&
-            "border-error/30 bg-gradient-to-r from-error/5 to-error/10",
+          isActive && "border-primary/30 bg-primary/10 shadow-sm",
+          isComplete && "border-success/30 bg-success/10",
+          isFailed && "border-error/30 bg-error/10",
           isSkipped && "opacity-50 border-border-secondary bg-bg-secondary/30",
           !isActive &&
             !isComplete &&

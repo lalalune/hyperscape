@@ -110,7 +110,7 @@ export const AdvancedPromptsCard: React.FC<AdvancedPromptsCardProps> = ({
   const [isSaving, setIsSaving] = useState(false);
 
   return (
-    <Card className="overflow-hidden bg-gradient-to-br from-bg-primary via-bg-primary to-primary/5 border-border-primary shadow-lg">
+    <Card className="overflow-hidden bg-bg-primary border-border-primary">
       <CardHeader
         className="cursor-pointer select-none hover:bg-bg-secondary/30 transition-all duration-300 ease-out"
         onClick={onToggleAdvancedPrompts}
@@ -121,7 +121,7 @@ export const AdvancedPromptsCard: React.FC<AdvancedPromptsCardProps> = ({
               <Brain className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <CardTitle className="text-lg font-semibold">
+              <CardTitle className="font-display text-lg font-medium tracking-tight">
                 Prompt Studio
               </CardTitle>
               <CardDescription className="text-xs mt-0.5">
@@ -434,7 +434,9 @@ const _EmptyState: React.FC<{
     <div className="inline-flex p-4 bg-bg-secondary rounded-full text-text-tertiary mb-4">
       {icon}
     </div>
-    <h3 className="text-lg font-semibold text-text-primary mb-2">{title}</h3>
+    <h3 className="font-display text-lg font-medium tracking-tight text-text-primary mb-2">
+      {title}
+    </h3>
     <p className="text-sm text-text-secondary mb-6 max-w-sm mx-auto">
       {description}
     </p>
@@ -467,7 +469,7 @@ const StyleCreator: React.FC<{
   onSave,
   onCancel,
 }) => (
-  <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-secondary/5">
+  <Card className="border-primary/20 bg-primary/5">
     <CardHeader className="pb-4">
       <div className="flex items-center justify-between">
         <CardTitle className="text-base flex items-center gap-2">
@@ -752,7 +754,7 @@ const CustomStyleCard: React.FC<{
   };
 
   return (
-    <Card className="bg-gradient-to-br from-primary/5 to-secondary/5 border-primary/20">
+    <Card className="bg-primary/5 border-primary/20">
       <CardContent className="p-4">
         <div className="flex items-start justify-between">
           <div className="flex-1">
@@ -842,7 +844,7 @@ const TypeCard: React.FC<{
       className={cn(
         "p-3 rounded-lg border transition-all",
         isCustom
-          ? "bg-gradient-to-br from-primary/5 to-secondary/5 border-primary/20"
+          ? "bg-primary/5 border-primary/20"
           : "bg-bg-secondary/50 border-border-primary hover:border-border-secondary",
       )}
     >

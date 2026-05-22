@@ -40,7 +40,6 @@ import {
   NoAssetSelected,
   ReferenceImageCard,
 } from "@/components/Generation";
-import { Button, Card, CardContent } from "@/components/common";
 import {
   useGameStylePrompts,
   useAssetTypePrompts,
@@ -667,54 +666,128 @@ export const GenerationPage: React.FC = () => {
   // Show generation type selector first
   if (!generationType) {
     return (
-      <div className="fixed inset-0 pt-[44px] overflow-hidden">
+      <div className="min-h-full">
         <GenerationTypeSelector onSelectType={setGenerationType} />
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 pt-[44px] bg-bg-primary bg-opacity-95 z-40 overflow-y-auto animate-fade-in scrollbar-hide">
+    <div className="relative min-h-full bg-bg-primary overflow-y-auto">
+      {/* Subtle atmospheric backdrop — radial Graphite at the top */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-[480px]"
+        style={{
+          background:
+            "radial-gradient(ellipse 100% 100% at 50% 0%, rgba(28,30,34,0.7) 0%, transparent 75%)",
+        }}
+      />
+      {/* Forge Gold horizon at hero baseline */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-[320px] h-px"
+        style={{
+          background:
+            "linear-gradient(90deg, transparent 5%, rgba(212,175,55,0.18) 50%, transparent 95%)",
+          animation: "celestial-pulse 8s ease-in-out infinite",
+        }}
+      />
+
       {/* Pack-target banner — only renders when launched from the
           Asset Packs page with `?targetPack=…`. Sticks above content. */}
       <GenerationPackTargetBanner />
 
-      {/* Main Content Area */}
-      <div className="bg-bg-primary">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24">
-          {/* Editorial header — brand identity above the tab strip */}
-          <header className="mb-8 pb-6 border-b border-border-primary">
-            <div className="flex items-end justify-between gap-6 flex-wrap">
-              <div>
-                <div className="flex items-baseline gap-3 mb-3">
-                  <span className="font-mono text-[11px] text-text-tertiary tabular-nums tracking-[0.05em]">
-                    00
+      {/* Main content */}
+      <div className="relative">
+        <div className="max-w-[1200px] mx-auto px-6 sm:px-8 lg:px-10 py-12 pb-24">
+          {/* Cinematic editorial hero */}
+          <header className="mb-12">
+            {/* Eyebrow row: identity + status + pipeline switcher */}
+            <div className="flex items-center gap-4 mb-7 flex-wrap">
+              <span className="font-mono text-[11px] text-text-tertiary tabular-nums tracking-[0.05em]">
+                00 / Generation
+              </span>
+              <span className="text-text-tertiary/40">·</span>
+              <span className="flex items-center gap-2 text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
+                <span
+                  className="inline-block w-1.5 h-1.5 rounded-full bg-primary"
+                  style={{
+                    animation: "status-pulse 2.4s ease-in-out infinite",
+                  }}
+                />
+                {isGenerating
+                  ? "Running"
+                  : generationType === "avatar"
+                    ? "Avatar pipeline"
+                    : "Item pipeline"}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setGenerationType(undefined);
+                  setActiveView("config");
+                  resetForm();
+                  resetPipeline();
+                }}
+                className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-bg-tertiary border border-border-primary hover:border-primary/40 text-[11px] text-text-secondary hover:text-primary uppercase tracking-[0.12em] transition-colors duration-300 ease-out"
+                title="Switch pipeline"
+              >
+                ← Switch pipeline
+              </button>
+            </div>
+
+            {/* Display hero: "Forge an item/avatar" — verb-led, large */}
+            <div className="flex items-end justify-between gap-8 flex-wrap mb-6">
+              <div className="flex items-end gap-6">
+                <h1 className="font-display text-5xl md:text-6xl font-medium text-text-primary tracking-tight leading-[1.02]">
+                  Forge an
+                  <br />
+                  <span className="text-primary">
+                    {generationType === "avatar" ? "avatar" : "item"}
                   </span>
-                  <span className="font-display text-base font-medium text-text-primary tracking-tight">
-                    Generation
-                  </span>
-                  <span className="flex items-center gap-2 text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
-                    <span
-                      className="inline-block w-1.5 h-1.5 rounded-full bg-primary"
-                      style={{
-                        animation: "status-pulse 2.4s ease-in-out infinite",
-                      }}
-                    />
-                    {generationType === "avatar"
-                      ? "Avatar pipeline"
-                      : "Item pipeline"}
-                  </span>
-                </div>
-                <h1 className="font-display text-2xl md:text-3xl font-medium text-text-primary tracking-tight leading-[1.05]">
-                  {generationType === "avatar" ? "Avatar" : "Item"}{" "}
-                  <span className="text-primary">generation</span>
                 </h1>
+                {/* Large monogram icon as identity */}
+                <div className="hidden md:flex items-end pb-3 opacity-30">
+                  {generationType === "avatar" ? (
+                    <User
+                      size={88}
+                      strokeWidth={1.0}
+                      className="text-text-tertiary"
+                    />
+                  ) : (
+                    <Box
+                      size={88}
+                      strokeWidth={1.0}
+                      className="text-text-tertiary"
+                    />
+                  )}
+                </div>
               </div>
+              <p className="text-sm text-text-tertiary leading-relaxed max-w-md">
+                {generationType === "avatar"
+                  ? "Generate a humanoid character with mesh, texture, and rigging baked in."
+                  : "Generate a 3D item with mesh + texture in one pass; optionally fork material variants."}
+              </p>
+            </div>
+
+            {/* Tab strip — below the hero, clean horizontal nav */}
+            <div className="pt-6 border-t border-border-primary flex items-center justify-between gap-4 flex-wrap">
               <TabNavigation
                 activeView={activeView}
                 generatedAssetsCount={generatedAssets.length}
                 onTabChange={setActiveView}
               />
+              {isGenerating && (
+                <span className="flex items-center gap-2 text-[11px] text-primary uppercase tracking-[0.12em]">
+                  <Loader2
+                    size={12}
+                    strokeWidth={1.5}
+                    className="animate-spin"
+                  />
+                  Pipeline running
+                </span>
+              )}
             </div>
           </header>
           {/* Configuration Form View */}
@@ -866,29 +939,53 @@ export const GenerationPage: React.FC = () => {
                     onDataUrlChange={setReferenceImageDataUrl}
                   />
 
-                  {/* Start Generation Button */}
-                  <Card className="overflow-hidden bg-gradient-to-r from-primary/10 via-secondary/10 to-primary/10 border-primary/20">
-                    <CardContent className="p-4">
-                      <Button
-                        onClick={handleStartGeneration}
-                        disabled={!assetName || !description || isGenerating}
-                        className="w-full h-14 text-base font-semibold bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-lg hover:shadow-xl transform transition-all duration-300 ease-out"
-                        size="lg"
-                      >
-                        {isGenerating ? (
-                          <>
-                            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                            Generating...
-                          </>
-                        ) : (
-                          <>
-                            <Sparkles className="w-5 h-5 mr-2 " />
-                            Start Generation
-                          </>
-                        )}
-                      </Button>
-                    </CardContent>
-                  </Card>
+                  {/* Start Generation — restrained earned-moment CTA */}
+                  <div className="rounded-lg bg-bg-tertiary border border-primary/30 p-5 space-y-3 relative overflow-hidden">
+                    {/* Subtle Forge Gold left edge — earned moment */}
+                    <span
+                      aria-hidden
+                      className="pointer-events-none absolute left-0 top-4 bottom-4 w-px bg-primary"
+                    />
+                    <div className="flex items-baseline gap-3">
+                      <span className="font-mono text-[11px] text-text-tertiary tabular-nums tracking-[0.05em]">
+                        →
+                      </span>
+                      <span className="font-display text-sm font-medium text-text-primary tracking-tight">
+                        Ready to generate
+                      </span>
+                    </div>
+                    <p className="text-xs text-text-tertiary leading-relaxed">
+                      The pipeline will run model generation, texturing, and
+                      {generationType === "avatar"
+                        ? " auto-rigging"
+                        : enableRetexturing
+                          ? " material variants"
+                          : " export"}{" "}
+                      with your current settings.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleStartGeneration}
+                      disabled={!assetName || !description || isGenerating}
+                      className="btn-primary w-full"
+                    >
+                      {isGenerating ? (
+                        <>
+                          <Loader2
+                            size={14}
+                            strokeWidth={1.5}
+                            className="animate-spin"
+                          />
+                          Generating…
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles size={14} strokeWidth={1.5} />
+                          Start generation
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

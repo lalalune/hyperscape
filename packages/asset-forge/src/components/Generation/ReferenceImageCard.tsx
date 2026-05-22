@@ -74,7 +74,7 @@ export const ReferenceImageCard: React.FC<ReferenceImageCardProps> = ({
 
   return (
     <Card className="overflow-hidden animate-fade-in">
-      <CardHeader className="bg-gradient-to-r from-bg-secondary to-bg-tertiary">
+      <CardHeader className="bg-bg-secondary">
         <CardTitle className="flex items-center gap-2">
           <ImageIcon className="w-5 h-5 text-primary" />
           Reference Image

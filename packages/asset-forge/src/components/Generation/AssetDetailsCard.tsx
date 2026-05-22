@@ -61,7 +61,7 @@ export const AssetDetailsCard: React.FC<AssetDetailsCardProps> = ({
   onSaveCustomGameStyle,
 }) => {
   return (
-    <Card className="overflow-hidden bg-gradient-to-br from-bg-primary via-bg-primary to-primary/5 border-border-primary shadow-lg">
+    <Card className="overflow-hidden bg-bg-primary border-border-primary">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -73,7 +73,7 @@ export const AssetDetailsCard: React.FC<AssetDetailsCardProps> = ({
               )}
             </div>
             <div>
-              <CardTitle className="text-lg font-semibold">
+              <CardTitle className="font-display text-lg font-medium tracking-tight">
                 {generationType === "avatar"
                   ? "Avatar Details"
                   : "Asset Details"}

@@ -30,7 +30,7 @@ export const SpritesDisplay: React.FC<SpritesDisplayProps> = ({
   const sprites = selectedAsset.sprites as Sprite[] | null;
 
   return (
-    <Card className="overflow-hidden shadow-xl hover:shadow-2xl transition-shadow ease-out">
+    <Card className="overflow-hidden transition-colors ease-out">
       <CardHeader>
         <CardTitle>2D Sprites</CardTitle>
         <CardDescription>8-directional sprite sheet</CardDescription>
@@ -40,7 +40,7 @@ export const SpritesDisplay: React.FC<SpritesDisplayProps> = ({
           <div className="grid grid-cols-4 gap-3">
             {sprites.map((sprite, i) => (
               <div key={i} className="group relative aspect-square">
-                <div className="w-full h-full bg-bg-tertiary rounded-lg p-2 overflow-hidden hover:shadow-lg transition-all ease-out">
+                <div className="w-full h-full bg-bg-tertiary rounded-lg p-2 overflow-hidden transition-colors duration-300 ease-out">
                   <img
                     src={sprite.imageUrl}
                     alt={`${sprite.angle}°`}
@@ -75,7 +75,7 @@ export const SpritesDisplay: React.FC<SpritesDisplayProps> = ({
               <Button
                 onClick={() => onGenerateSprites(selectedAsset.id)}
                 disabled={isGeneratingSprites}
-                className="shadow-lg hover:shadow-xl transition-all ease-out"
+                className="transition-colors duration-300 ease-out"
               >
                 {isGeneratingSprites ? (
                   <>

@@ -17,7 +17,7 @@ export const AssetActionsCard: React.FC<AssetActionsCardProps> = ({
   onGenerateNew,
 }) => {
   return (
-    <Card className="shadow-xl">
+    <Card>
       <CardContent className="p-6">
         <div className="flex flex-wrap gap-4">
           <Button

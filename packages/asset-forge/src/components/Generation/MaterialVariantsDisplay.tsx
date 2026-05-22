@@ -44,7 +44,7 @@ export const MaterialVariantsDisplay: React.FC<
   };
 
   return (
-    <Card className="overflow-hidden shadow-xl hover:shadow-2xl transition-shadow ease-out">
+    <Card className="overflow-hidden transition-colors ease-out">
       <CardHeader>
         <CardTitle>Material Variants</CardTitle>
         <CardDescription>{variants.length} variants generated</CardDescription>
@@ -63,7 +63,7 @@ export const MaterialVariantsDisplay: React.FC<
 
             return (
               <div key={i} className="group cursor-pointer">
-                <div className="aspect-square bg-gradient-to-br from-bg-secondary to-bg-tertiary rounded-xl p-6 relative overflow-hidden transition-all hover:shadow-xl ease-out">
+                <div className="aspect-square bg-bg-secondary rounded-xl p-6 relative overflow-hidden transition-colors duration-300 ease-out">
                   <div
                     className="absolute inset-0 opacity-30"
                     style={{ backgroundColor: color }}

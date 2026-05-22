@@ -91,14 +91,14 @@ export const PipelineOptionsCard: React.FC<PipelineOptionsCardProps> = ({
   ];
 
   return (
-    <Card className="overflow-hidden bg-gradient-to-br from-bg-primary via-bg-primary to-primary/5 border-border-primary shadow-lg">
+    <Card className="overflow-hidden bg-bg-primary border-border-primary">
       <CardHeader>
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-primary/10 rounded-xl">
             <Settings2 className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <CardTitle className="text-lg font-semibold">
+            <CardTitle className="font-display text-lg font-medium tracking-tight">
               Pipeline Options
             </CardTitle>
             <CardDescription className="text-xs mt-0.5">
@@ -143,7 +143,7 @@ export const PipelineOptionsCard: React.FC<PipelineOptionsCardProps> = ({
               className={cn(
                 "p-4 rounded-xl border transition-all duration-200",
                 option.checked
-                  ? "border-primary/30 bg-gradient-to-r from-primary/5 to-primary/10"
+                  ? "border-primary/30 bg-primary/10"
                   : "border-border-primary hover:border-border-secondary bg-bg-secondary/50",
               )}
             >

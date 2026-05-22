@@ -19,7 +19,7 @@ export const AvatarRiggingOptionsCard: React.FC<
   AvatarRiggingOptionsCardProps
 > = ({ characterHeight, onCharacterHeightChange }) => {
   return (
-    <Card className="animate-fade-in shadow-xl">
+    <Card className="animate-fade-in">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <User className="w-5 h-5" />

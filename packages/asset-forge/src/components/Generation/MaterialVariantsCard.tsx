@@ -68,14 +68,14 @@ export const MaterialVariantsCard: React.FC<MaterialVariantsCardProps> = ({
   onDeletePreset,
 }) => {
   return (
-    <Card className="overflow-hidden bg-gradient-to-br from-bg-primary via-bg-primary to-secondary/5 border-border-primary shadow-lg">
+    <Card className="overflow-hidden bg-bg-primary border-border-primary">
       <CardHeader>
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-secondary/10 rounded-xl">
             <Package2 className="w-5 h-5 text-secondary" />
           </div>
           <div>
-            <CardTitle className="text-lg font-semibold">
+            <CardTitle className="font-display text-lg font-medium tracking-tight">
               Material Variants
             </CardTitle>
             <CardDescription className="text-xs mt-0.5">
@@ -174,7 +174,7 @@ const MaterialPresetItem: React.FC<{
       className={cn(
         "relative group rounded-xl border transition-all duration-200 cursor-pointer",
         isSelected
-          ? "border-primary bg-gradient-to-br from-primary/10 to-primary/5 shadow-sm"
+          ? "border-primary bg-primary/10 shadow-sm"
           : "border-border-primary hover:border-secondary/50 bg-bg-secondary hover:bg-bg-secondary/80",
       )}
     >
@@ -203,7 +203,7 @@ const MaterialPresetItem: React.FC<{
 
         {/* Enhanced Tooltip on Hover */}
         <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 pointer-events-none z-50 ease-out">
-          <div className="bg-bg-primary/95 border border-border-primary rounded-lg shadow-xl p-5 min-w-[200px] max-w-[300px]">
+          <div className="bg-bg-primary/95 border border-border-primary rounded-lg p-5 min-w-[200px] max-w-[300px]">
             <p className="text-sm font-medium text-text-primary">
               {preset.displayName}
             </p>
@@ -312,10 +312,7 @@ const CustomMaterialsSection: React.FC<{
       </div>
       <div className="space-y-3">
         {customMaterials.map((mat, index) => (
-          <Card
-            key={index}
-            className="bg-gradient-to-br from-bg-secondary to-bg-tertiary border-border-primary"
-          >
+          <Card key={index} className="bg-bg-secondary border-border-primary">
             <CardContent className="p-4 space-y-3">
               <div className="flex gap-2">
                 <Input

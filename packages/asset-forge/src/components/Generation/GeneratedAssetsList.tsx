@@ -45,7 +45,7 @@ export const GeneratedAssetsList: React.FC<GeneratedAssetsListProps> = ({
   };
 
   return (
-    <Card className="lg:col-span-1 h-fit lg:sticky lg:top-20 overflow-hidden bg-gradient-to-br from-bg-primary via-bg-primary to-secondary/5 border-border-primary shadow-lg">
+    <Card className="lg:col-span-1 h-fit lg:sticky lg:top-20 overflow-hidden bg-bg-primary border-border-primary">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -53,7 +53,7 @@ export const GeneratedAssetsList: React.FC<GeneratedAssetsListProps> = ({
               <Package className="w-5 h-5 text-secondary" />
             </div>
             <div>
-              <CardTitle className="text-lg font-semibold">
+              <CardTitle className="font-display text-lg font-medium tracking-tight">
                 Generated Assets
               </CardTitle>
               <CardDescription className="text-xs mt-0.5">
@@ -83,7 +83,7 @@ export const GeneratedAssetsList: React.FC<GeneratedAssetsListProps> = ({
               className={cn(
                 "w-full p-4 rounded-xl text-left transition-all duration-200 relative group",
                 selectedAsset?.id === asset.id
-                  ? "bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary shadow-sm"
+                  ? "bg-primary/10 border border-primary shadow-sm"
                   : "bg-bg-secondary hover:bg-bg-secondary/80 border border-border-primary hover:border-secondary/50",
               )}
             >
