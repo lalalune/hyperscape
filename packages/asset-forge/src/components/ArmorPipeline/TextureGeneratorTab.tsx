@@ -800,7 +800,7 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
         <div className="p-4 space-y-5">
           {/* Header */}
           <div>
-            <h2 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+            <h2 className="font-display text-lg font-medium tracking-tight text-text-primary flex items-center gap-2">
               <Paintbrush size={20} className="text-primary" />
               Texture Generator
             </h2>
@@ -1410,7 +1410,7 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
                     }
                   }}
                   className="w-full px-4 py-2.5 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2
- bg-green-600 text-white hover:bg-green-500 ease-out"
+ bg-success text-white hover:bg-success/90 ease-out"
                 >
                   <Wand2 size={16} />
                   Add{" "}
@@ -1448,10 +1448,10 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
                     </>
                   )}
                   {task.status === "succeeded" && (
-                    <span className="text-green-400">Done</span>
+                    <span className="text-success">Done</span>
                   )}
                   {task.status === "failed" && (
-                    <span className="text-red-400">Failed</span>
+                    <span className="text-error">Failed</span>
                   )}
                 </div>
               ))}
@@ -1484,12 +1484,12 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
 
           {/* Error */}
           {error && (
-            <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg flex items-start gap-2">
+            <div className="p-3 bg-error/10 border border-error/30 rounded-lg flex items-start gap-2">
               <AlertCircle
                 size={14}
-                className="text-red-400 mt-0.5 flex-shrink-0"
+                className="text-error mt-0.5 flex-shrink-0"
               />
-              <p className="text-xs text-red-400">{error}</p>
+              <p className="text-xs text-error">{error}</p>
             </div>
           )}
 
@@ -1550,9 +1550,9 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
                   key={i}
                   className={`text-xs font-mono ${
                     log.includes("ERROR")
-                      ? "text-red-400"
+                      ? "text-error"
                       : log.includes("complete") || log.includes("Done")
-                        ? "text-green-400"
+                        ? "text-success"
                         : "text-text-tertiary"
                   }`}
                 >

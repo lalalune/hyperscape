@@ -176,44 +176,46 @@ export const ArmorPipelinePage: React.FC = () => {
   const experimentalTabs = TABS.filter((t) => t.group === "experimental");
 
   return (
-    <div className="flex flex-col h-[calc(100vh-44px)]">
-      {/* Tab bar */}
-      <div className="flex items-center gap-1 px-3 py-1.5 bg-bg-secondary border-b border-border-primary">
+    <div className="flex flex-col h-[calc(100vh-44px)] bg-bg-primary">
+      {/* Tab bar — editorial step-flow */}
+      <div className="flex items-center gap-1 px-5 py-3 bg-bg-primary border-b border-border-primary">
         {/* Pipeline tabs with step flow */}
         {pipelineTabs.map((tab, i) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
-          const stepNum = i + 1;
+          const stepNum = String(i + 1).padStart(2, "0");
           return (
             <React.Fragment key={tab.id}>
               {i > 0 && (
                 <ChevronRight
-                  size={14}
-                  className="text-text-tertiary/30 mx-0.5 flex-shrink-0"
+                  size={12}
+                  strokeWidth={1.5}
+                  className="text-text-tertiary/40 mx-1 flex-shrink-0"
                 />
               )}
               <button
+                type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-1.5 px-5 py-4 rounded-md text-sm font-medium transition-all ${
+                className={`group inline-flex items-center gap-2 px-3.5 py-2 rounded-md border text-[11px] uppercase tracking-[0.12em] transition-colors duration-300 ease-out ${
                   isActive
-                    ? "bg-primary/15 text-primary border border-primary/25"
-                    : "text-text-secondary hover:text-text-primary hover:bg-bg-tertiary border border-transparent"
-                } ease-out`}
+                    ? "bg-primary/10 border-primary/40 text-primary"
+                    : "bg-bg-tertiary border-border-primary text-text-secondary hover:text-primary hover:border-primary/40"
+                }`}
                 title={tab.description}
               >
                 <span
-                  className={`w-[18px] h-[18px] rounded-full text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${
-                    isActive
-                      ? "bg-primary/20 text-primary"
-                      : "bg-bg-tertiary text-text-tertiary"
+                  className={`font-mono tabular-nums text-[10px] tracking-[0.05em] ${
+                    isActive ? "text-primary" : "text-text-tertiary"
                   }`}
                 >
                   {stepNum}
                 </span>
-                <Icon size={16} />
-                {tab.label}
+                <Icon size={13} strokeWidth={1.5} />
+                <span className="font-medium normal-case tracking-normal text-[12px]">
+                  {tab.label}
+                </span>
                 {tab.id === "preview" && kitCount > 0 && (
-                  <span className="ml-0.5 px-1.5 py-0.5 text-[10px] rounded-full bg-primary/20 text-primary">
+                  <span className="ml-1 px-1.5 py-0.5 text-[10px] rounded font-mono tabular-nums bg-primary/15 text-primary tracking-normal">
                     {kitCount}
                   </span>
                 )}
@@ -223,7 +225,7 @@ export const ArmorPipelinePage: React.FC = () => {
         })}
 
         {/* Separator */}
-        <div className="w-px h-6 bg-border-primary mx-1" />
+        <div className="w-px h-5 bg-border-primary mx-2" />
 
         {/* Experimental tabs */}
         {experimentalTabs.map((tab) => {
@@ -232,34 +234,54 @@ export const ArmorPipelinePage: React.FC = () => {
           return (
             <button
               key={tab.id}
+              type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-5 py-4 rounded-md text-sm font-medium transition-all ${
+              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-md border text-[11px] uppercase tracking-[0.12em] transition-colors duration-300 ease-out ${
                 isActive
-                  ? "bg-warning/15 text-warning border border-warning/25"
-                  : "text-text-tertiary hover:text-warning/80 hover:bg-bg-tertiary border border-transparent"
-              } ease-out`}
+                  ? "bg-warning/10 border-warning/40 text-warning"
+                  : "bg-bg-tertiary border-border-primary text-text-tertiary hover:text-warning hover:border-warning/40"
+              }`}
               title={tab.description}
             >
-              <Icon size={16} />
-              {tab.label}
+              <Icon size={13} strokeWidth={1.5} />
+              <span className="font-medium normal-case tracking-normal text-[12px]">
+                {tab.label}
+              </span>
+              <span
+                className={`font-mono text-[9px] uppercase tracking-[0.12em] ${
+                  isActive ? "text-warning/70" : "text-text-tertiary/60"
+                }`}
+              >
+                Lab
+              </span>
             </button>
           );
         })}
 
-        <div className="ml-auto flex items-center gap-3 text-xs text-text-tertiary px-3">
-          {sharedExtraction && (
+        {/* Status strip */}
+        <div className="ml-auto flex items-center gap-4 text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
+          {sharedExtraction ? (
             <span className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-success" />
-              {sharedExtraction.shells.size} shells cached
+              <span className="w-1 h-1 rounded-full bg-success" />
+              <span className="font-mono tabular-nums normal-case tracking-normal text-text-secondary">
+                {sharedExtraction.shells.size}
+              </span>
+              shells cached
+            </span>
+          ) : (
+            <span className="font-display text-sm font-medium text-text-secondary tracking-tight normal-case">
+              Armor v2
             </span>
           )}
           {kitCount > 0 && (
             <span className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-              {kitCount} in kit
+              <span className="w-1 h-1 rounded-full bg-primary" />
+              <span className="font-mono tabular-nums normal-case tracking-normal text-text-secondary">
+                {kitCount}
+              </span>
+              in kit
             </span>
           )}
-          {!sharedExtraction && kitCount === 0 && <span>Armor Pipeline</span>}
         </div>
       </div>
 

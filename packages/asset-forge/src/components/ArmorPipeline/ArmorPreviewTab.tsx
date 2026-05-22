@@ -424,7 +424,7 @@ export const ArmorPreviewTab: React.FC<ArmorPreviewTabProps> = ({
         <div className="p-4 space-y-5">
           {/* Header */}
           <div>
-            <h2 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+            <h2 className="font-display text-lg font-medium tracking-tight text-text-primary flex items-center gap-2">
               <Package size={20} className="text-primary" />
               Rig &amp; Preview
             </h2>
@@ -505,7 +505,7 @@ export const ArmorPreviewTab: React.FC<ArmorPreviewTabProps> = ({
                       </span>
 
                       {isRiggedPiece && (
-                        <span className="text-[10px] text-green-400 bg-green-400/10 px-1.5 py-0.5 rounded">
+                        <span className="text-[10px] text-success bg-success/10 px-1.5 py-0.5 rounded">
                           Rigged
                         </span>
                       )}
@@ -689,7 +689,7 @@ export const ArmorPreviewTab: React.FC<ArmorPreviewTabProps> = ({
                 onClick={handlePublishToGame}
                 disabled={isPublishing || riggedPieces.size === 0}
                 className="w-full px-4 py-2.5 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2
- bg-green-600 text-white hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed ease-out"
+ bg-success text-white hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed ease-out"
               >
                 {isPublishing ? (
                   <>
@@ -734,8 +734,8 @@ export const ArmorPreviewTab: React.FC<ArmorPreviewTabProps> = ({
                     <span
                       className={`px-1 py-0.5 rounded text-[9px] ${
                         result.vertexMatch
-                          ? "bg-green-400/10 text-green-400"
-                          : "bg-yellow-400/10 text-yellow-400"
+                          ? "bg-success/10 text-success"
+                          : "bg-warning/10 text-warning"
                       }`}
                     >
                       {result.vertexMatch ? "exact" : "transferred"}
@@ -756,8 +756,8 @@ export const ArmorPreviewTab: React.FC<ArmorPreviewTabProps> = ({
 
           {/* Error */}
           {error && (
-            <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-              <p className="text-xs text-red-400">{error}</p>
+            <div className="p-3 bg-error/10 border border-error/30 rounded-lg">
+              <p className="text-xs text-error">{error}</p>
             </div>
           )}
         </div>
@@ -786,11 +786,11 @@ export const ArmorPreviewTab: React.FC<ArmorPreviewTabProps> = ({
                   key={i}
                   className={`text-xs font-mono ${
                     log.includes("ERROR")
-                      ? "text-red-400"
+                      ? "text-error"
                       : log.includes("rigged") ||
                           log.includes("All") ||
                           log.includes("Published")
-                        ? "text-green-400"
+                        ? "text-success"
                         : "text-text-tertiary"
                   }`}
                 >

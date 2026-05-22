@@ -227,7 +227,7 @@ export const ShellGeneratorTab: React.FC<ShellGeneratorTabProps> = ({
         <div className="p-4 space-y-5">
           {/* Header */}
           <div>
-            <h2 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+            <h2 className="font-display text-lg font-medium tracking-tight text-text-primary flex items-center gap-2">
               <Layers size={20} className="text-primary" />
               Shell Extraction
             </h2>
@@ -491,8 +491,8 @@ export const ShellGeneratorTab: React.FC<ShellGeneratorTabProps> = ({
 
           {/* Error */}
           {error && (
-            <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-              <p className="text-xs text-red-400">{error}</p>
+            <div className="p-3 bg-error/10 border border-error/30 rounded-lg">
+              <p className="text-xs text-error">{error}</p>
             </div>
           )}
         </div>
@@ -520,9 +520,9 @@ export const ShellGeneratorTab: React.FC<ShellGeneratorTabProps> = ({
                   key={i}
                   className={`text-xs font-mono ${
                     log.includes("ERROR")
-                      ? "text-red-400"
+                      ? "text-error"
                       : log.includes("complete")
-                        ? "text-green-400"
+                        ? "text-success"
                         : "text-text-tertiary"
                   }`}
                 >

@@ -411,8 +411,8 @@ export const TierGeneratorTab: React.FC<TierGeneratorTabProps> = ({
         <div className="p-4 space-y-4">
           {/* Header */}
           <div>
-            <h2 className="text-lg font-semibold text-text-primary flex items-center gap-2">
-              <Crown size={20} className="text-yellow-500" />
+            <h2 className="font-display text-lg font-medium tracking-tight text-text-primary flex items-center gap-2">
+              <Crown size={20} className="text-warning" />
               Tier Generator
             </h2>
             <p className="text-xs text-text-tertiary mt-1">
@@ -586,7 +586,7 @@ export const TierGeneratorTab: React.FC<TierGeneratorTabProps> = ({
                   title={level.desc}
                   className={`flex-1 px-1 py-1.5 rounded-md text-[11px] font-medium transition-all text-center ${
                     detailLevel === level.id
-                      ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
+                      ? "bg-warning/20 text-warning border border-warning/30"
                       : "bg-bg-secondary text-text-tertiary border border-border-primary hover:border-border-secondary"
                   } ease-out`}
                 >
@@ -605,7 +605,7 @@ export const TierGeneratorTab: React.FC<TierGeneratorTabProps> = ({
               onClick={handleGenerate}
               disabled={isRunning || enabledTiers.size === 0}
               className="w-full px-4 py-2.5 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2
- bg-yellow-600 text-white hover:bg-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed ease-out"
+ bg-warning text-white hover:bg-warning/90 disabled:opacity-50 disabled:cursor-not-allowed ease-out"
             >
               {isRunning ? (
                 <>
@@ -699,17 +699,17 @@ export const TierGeneratorTab: React.FC<TierGeneratorTabProps> = ({
                           onClick={() =>
                             onAddToKit(currentShell, task.downloadUrl!)
                           }
-                          className="text-[10px] text-green-400 hover:underline"
+                          className="text-[10px] text-success hover:underline"
                           title="Add to armor kit"
                         >
                           <Wand2 size={10} />
                         </button>
                       )}
-                      <Check size={12} className="text-green-400" />
+                      <Check size={12} className="text-success" />
                     </>
                   )}
                   {task.status === "failed" && (
-                    <X size={12} className="text-red-400" />
+                    <X size={12} className="text-error" />
                   )}
                 </div>
               ))}
@@ -718,12 +718,12 @@ export const TierGeneratorTab: React.FC<TierGeneratorTabProps> = ({
 
           {/* Error */}
           {error && (
-            <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg flex items-start gap-2">
+            <div className="p-3 bg-error/10 border border-error/30 rounded-lg flex items-start gap-2">
               <AlertCircle
                 size={14}
-                className="text-red-400 mt-0.5 flex-shrink-0"
+                className="text-error mt-0.5 flex-shrink-0"
               />
-              <p className="text-xs text-red-400">{error}</p>
+              <p className="text-xs text-error">{error}</p>
             </div>
           )}
 
@@ -768,9 +768,9 @@ export const TierGeneratorTab: React.FC<TierGeneratorTabProps> = ({
                   key={i}
                   className={`text-xs font-mono ${
                     log.includes("ERROR")
-                      ? "text-red-400"
+                      ? "text-error"
                       : log.includes("complete") || log.includes("Done")
-                        ? "text-green-400"
+                        ? "text-success"
                         : "text-text-tertiary"
                   }`}
                 >

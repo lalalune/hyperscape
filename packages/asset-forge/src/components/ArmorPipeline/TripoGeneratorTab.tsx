@@ -830,8 +830,8 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
         <div className="p-4 space-y-4">
           {/* Header */}
           <div>
-            <h2 className="text-lg font-semibold text-text-primary flex items-center gap-2">
-              <Wand2 size={20} className="text-purple-400" />
+            <h2 className="font-display text-lg font-medium tracking-tight text-text-primary flex items-center gap-2">
+              <Wand2 size={20} className="text-accent-violet" />
               Tripo Armor Studio
             </h2>
             <p className="text-xs text-text-tertiary mt-1">
@@ -869,15 +869,15 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                 <React.Fragment key={s.id}>
                   {i > 0 && (
                     <div
-                      className={`flex-1 h-px min-w-[8px] ${isPast ? "bg-purple-500" : "bg-border-primary"}`}
+                      className={`flex-1 h-px min-w-[8px] ${isPast ? "bg-accent-violet" : "bg-border-primary"}`}
                     />
                   )}
                   <div
                     className={`flex items-center gap-1 px-1.5 py-1 rounded ${
                       isActive
-                        ? "text-purple-400 font-medium"
+                        ? "text-accent-violet font-medium"
                         : isPast
-                          ? "text-purple-400/60"
+                          ? "text-accent-violet/60"
                           : "text-text-tertiary"
                     }`}
                   >
@@ -962,8 +962,8 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
 
               {/* Resume saved session (skip expensive upload+segment) */}
               {savedSession && step === "setup" && (
-                <div className="p-3 rounded-lg border border-purple-500/30 bg-purple-500/5 space-y-2">
-                  <p className="text-xs text-purple-300 font-medium">
+                <div className="p-3 rounded-lg border border-accent-violet/30 bg-accent-violet/5 space-y-2">
+                  <p className="text-xs text-accent-violet font-medium">
                     Saved segmentation found
                   </p>
                   <p className="text-[10px] text-text-tertiary">
@@ -973,7 +973,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                   <button
                     onClick={handleResumeSession}
                     className="w-full px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
- bg-purple-500/20 border border-purple-500/30 text-purple-400 hover:bg-purple-500/30 ease-out"
+ bg-accent-violet/20 border border-accent-violet/30 text-accent-violet hover:bg-accent-violet/30 ease-out"
                   >
                     <RotateCcw size={14} />
                     Resume — Skip to Customize
@@ -986,7 +986,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                 onClick={handleSegment}
                 disabled={isRunning}
                 className="w-full px-4 py-2.5 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2
- bg-purple-600 text-white hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed ease-out"
+ bg-accent-violet text-white hover:bg-accent-violet/90 disabled:opacity-50 disabled:cursor-not-allowed ease-out"
               >
                 {step === "segmenting" ? (
                   <>
@@ -1073,7 +1073,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                       key={part.partName}
                       className={`rounded-md bg-bg-secondary border transition-all ${
                         isExpanded
-                          ? "border-purple-500/30"
+                          ? "border-accent-violet/30"
                           : "border-border-primary hover:border-border-secondary"
                       } ease-out`}
                     >
@@ -1099,7 +1099,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                             setExpandedPart(isExpanded ? null : part.partName)
                           }
                           disabled={step === "texturing"}
-                          className="text-[10px] text-text-tertiary hover:text-purple-400 px-1 disabled:opacity-50"
+                          className="text-[10px] text-text-tertiary hover:text-accent-violet px-1 disabled:opacity-50"
                         >
                           {isExpanded ? "close" : "edit"}
                         </button>
@@ -1140,7 +1140,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                                 ),
                               )
                             }
-                            className="text-[10px] text-text-tertiary hover:text-purple-400 mt-1"
+                            className="text-[10px] text-text-tertiary hover:text-accent-violet mt-1"
                           >
                             Reset to default
                           </button>
@@ -1164,7 +1164,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                       disabled={step === "texturing"}
                       className={`px-2 py-1.5 rounded-md text-xs font-medium transition-all capitalize disabled:opacity-50 ${
                         quality === q
-                          ? "bg-purple-500/20 text-purple-400 border border-purple-500/30"
+                          ? "bg-accent-violet/20 text-accent-violet border border-accent-violet/30"
                           : "bg-bg-secondary text-text-tertiary border border-border-primary hover:border-border-secondary"
                       } ease-out`}
                     >
@@ -1182,7 +1182,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                   partPrompts.filter((p) => p.enabled).length === 0
                 }
                 className="w-full px-4 py-2.5 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2
- bg-purple-600 text-white hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed ease-out"
+ bg-accent-violet text-white hover:bg-accent-violet/90 disabled:opacity-50 disabled:cursor-not-allowed ease-out"
               >
                 {step === "texturing" ? (
                   <>
@@ -1201,8 +1201,8 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
               {textureChainTaskId &&
                 resumeFromGroup > 0 &&
                 step === "customize" && (
-                  <div className="p-2.5 rounded-lg border border-yellow-500/30 bg-yellow-500/5 space-y-1.5">
-                    <p className="text-[10px] text-yellow-400 font-medium">
+                  <div className="p-2.5 rounded-lg border border-warning/30 bg-warning/5 space-y-1.5">
+                    <p className="text-[10px] text-warning font-medium">
                       {resumeFromGroup} group(s) already textured. Click
                       &quot;Texture&quot; to resume from group{" "}
                       {resumeFromGroup + 1}.
@@ -1216,7 +1216,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                           "Texture chain reset — will start from scratch.",
                         );
                       }}
-                      className="text-[10px] text-yellow-400/70 hover:text-yellow-400 underline"
+                      className="text-[10px] text-warning/70 hover:text-warning underline"
                     >
                       Or restart texturing from scratch
                     </button>
@@ -1240,7 +1240,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                   }}
                   disabled={step === "texturing"}
                   className="flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
- bg-purple-500/15 border border-purple-500/30 text-purple-400 hover:bg-purple-500/25
+ bg-accent-violet/15 border border-accent-violet/30 text-accent-violet hover:bg-accent-violet/25
  disabled:opacity-50 ease-out"
                 >
                   <Move size={14} />
@@ -1278,7 +1278,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                       onClick={() => handleAddAttachment(slot.id)}
                       className="px-2 py-1.5 rounded-md text-[10px] font-medium transition-all
  bg-bg-secondary text-text-tertiary border border-border-primary
- hover:border-purple-500/30 hover:text-purple-400 flex items-center gap-1 ease-out"
+ hover:border-accent-violet/30 hover:text-accent-violet flex items-center gap-1 ease-out"
                     >
                       <Plus size={10} />
                       {slot.label}
@@ -1309,11 +1309,11 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                           key={att.id}
                           className={`rounded-md bg-bg-secondary border transition-all ${
                             isExpanded
-                              ? "border-purple-500/30"
+                              ? "border-accent-violet/30"
                               : att.status === "ready"
-                                ? "border-green-500/20"
+                                ? "border-success/20"
                                 : att.status === "failed"
-                                  ? "border-red-500/20"
+                                  ? "border-error/20"
                                   : "border-border-primary"
                           } ease-out`}
                         >
@@ -1322,17 +1322,17 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                             {isGenerating ? (
                               <Loader2
                                 size={12}
-                                className="animate-spin text-purple-400 flex-shrink-0"
+                                className="animate-spin text-accent-violet flex-shrink-0"
                               />
                             ) : att.status === "ready" ? (
                               <Check
                                 size={12}
-                                className="text-green-400 flex-shrink-0"
+                                className="text-success flex-shrink-0"
                               />
                             ) : att.status === "failed" ? (
                               <AlertCircle
                                 size={12}
-                                className="text-red-400 flex-shrink-0"
+                                className="text-error flex-shrink-0"
                               />
                             ) : (
                               <Box
@@ -1349,14 +1349,14 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                                   isExpanded ? null : att.id,
                                 )
                               }
-                              className="text-[10px] text-text-tertiary hover:text-purple-400 px-1"
+                              className="text-[10px] text-text-tertiary hover:text-accent-violet px-1"
                             >
                               {isExpanded ? "close" : "edit"}
                             </button>
                             <button
                               onClick={() => handleRemoveAttachment(att.id)}
                               disabled={isGenerating}
-                              className="text-text-tertiary hover:text-red-400 disabled:opacity-50"
+                              className="text-text-tertiary hover:text-error disabled:opacity-50"
                             >
                               <Trash2 size={10} />
                             </button>
@@ -1396,7 +1396,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                                 onClick={() => handleGenerateAttachment(att.id)}
                                 disabled={isGenerating || !att.prompt.trim()}
                                 className="w-full px-2 py-1.5 rounded-md text-xs font-medium transition-all flex items-center justify-center gap-1.5
- bg-purple-600 text-white hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed ease-out"
+ bg-accent-violet text-white hover:bg-accent-violet/90 disabled:opacity-50 disabled:cursor-not-allowed ease-out"
                               >
                                 {isGenerating ? (
                                   <>
@@ -1417,7 +1417,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                               </button>
 
                               {att.error && (
-                                <p className="text-[10px] text-red-400">
+                                <p className="text-[10px] text-error">
                                   {att.error}
                                 </p>
                               )}
@@ -1449,7 +1449,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                                             parseFloat(e.target.value),
                                           )
                                         }
-                                        className="flex-1 h-1 accent-purple-500"
+                                        className="flex-1 h-1 accent-primary"
                                       />
                                       <span className="text-[10px] text-text-tertiary w-10 text-right font-mono">
                                         {att.offset[axis].toFixed(3)}
@@ -1481,7 +1481,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                                             parseFloat(e.target.value),
                                           )
                                         }
-                                        className="flex-1 h-1 accent-purple-500"
+                                        className="flex-1 h-1 accent-primary"
                                       />
                                       <span className="text-[10px] text-text-tertiary w-10 text-right font-mono">
                                         {(
@@ -1510,7 +1510,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                                           parseFloat(e.target.value),
                                         )
                                       }
-                                      className="flex-1 h-1 accent-purple-500"
+                                      className="flex-1 h-1 accent-primary"
                                     />
                                     <span className="text-[10px] text-text-tertiary w-10 text-right font-mono">
                                       {att.scale.toFixed(3)}
@@ -1539,7 +1539,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                       onClick={() => setQuality(q)}
                       className={`px-2 py-1.5 rounded-md text-xs font-medium transition-all capitalize ${
                         quality === q
-                          ? "bg-purple-500/20 text-purple-400 border border-purple-500/30"
+                          ? "bg-accent-violet/20 text-accent-violet border border-accent-violet/30"
                           : "bg-bg-secondary text-text-tertiary border border-border-primary hover:border-border-secondary"
                       } ease-out`}
                     >
@@ -1554,7 +1554,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                 onClick={() => setStep("done")}
                 disabled={attachments.some((a) => a.status === "generating")}
                 className="w-full px-4 py-2.5 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2
- bg-green-600 text-white hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed ease-out"
+ bg-success text-white hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed ease-out"
               >
                 <Check size={16} />
                 Finish
@@ -1575,9 +1575,9 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
           {/* === STEP: Done === */}
           {step === "done" && (
             <>
-              <div className="p-3 rounded-lg border border-green-500/30 bg-green-500/5 flex items-center gap-2">
-                <Check size={16} className="text-green-400" />
-                <span className="text-sm font-medium text-green-400">
+              <div className="p-3 rounded-lg border border-success/30 bg-success/5 flex items-center gap-2">
+                <Check size={16} className="text-success" />
+                <span className="text-sm font-medium text-success">
                   {attachments.some((a) => a.status === "ready")
                     ? "Armor with attachments ready!"
                     : downloadUrl
@@ -1592,7 +1592,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                     <button
                       onClick={handlePreview}
                       className="flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
- bg-purple-500/15 border border-purple-500/30 text-purple-400 hover:bg-purple-500/25 ease-out"
+ bg-accent-violet/15 border border-accent-violet/30 text-accent-violet hover:bg-accent-violet/25 ease-out"
                     >
                       <Box size={14} />
                       Preview 3D
@@ -1616,7 +1616,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                   setStep("attachments");
                 }}
                 className="w-full px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
- bg-purple-500/15 border border-purple-500/30 text-purple-400 hover:bg-purple-500/25 ease-out"
+ bg-accent-violet/15 border border-accent-violet/30 text-accent-violet hover:bg-accent-violet/25 ease-out"
               >
                 <Move size={14} />
                 {attachments.length > 0
@@ -1628,7 +1628,7 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                 <button
                   onClick={() => onAddToKit(currentShell, downloadUrl)}
                   className="w-full px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5
- bg-green-500/15 border border-green-500/30 text-green-400 hover:bg-green-500/25 ease-out"
+ bg-success/15 border border-success/30 text-success hover:bg-success/25 ease-out"
                 >
                   <Wand2 size={14} />
                   Add to Armor Kit
@@ -1651,20 +1651,20 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
 
           {/* Error */}
           {error && (
-            <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg flex items-start gap-2">
+            <div className="p-3 bg-error/10 border border-error/30 rounded-lg flex items-start gap-2">
               <AlertCircle
                 size={14}
-                className="text-red-400 mt-0.5 flex-shrink-0"
+                className="text-error mt-0.5 flex-shrink-0"
               />
-              <p className="text-xs text-red-400">{error}</p>
+              <p className="text-xs text-error">{error}</p>
             </div>
           )}
 
           {/* Info */}
           <div className="p-5 bg-bg-secondary rounded-lg border border-border-primary space-y-1.5">
-            <h3 className="text-xs font-semibold text-text-primary flex items-center gap-1.5">
-              <Info size={12} />
-              How It Works
+            <h3 className="text-[10px] font-medium uppercase tracking-[0.14em] text-text-tertiary flex items-center gap-1.5">
+              <Info size={11} strokeWidth={1.5} />
+              How it works
             </h3>
             <ul className="text-xs text-text-tertiary space-y-0.5 list-disc pl-3">
               <li>
@@ -1705,13 +1705,13 @@ export const TripoGeneratorTab: React.FC<TripoGeneratorTabProps> = ({
                   key={i}
                   className={`text-xs font-mono ${
                     log.includes("ERROR") || log.includes("FAILED")
-                      ? "text-red-400"
+                      ? "text-error"
                       : log.includes("complete") ||
                           log.includes("Done") ||
                           log.includes("done")
-                        ? "text-green-400"
+                        ? "text-success"
                         : log.includes("•")
-                          ? "text-purple-400"
+                          ? "text-accent-violet"
                           : "text-text-tertiary"
                   }`}
                 >
