@@ -20,14 +20,28 @@ import {
   Anchor,
   BrickWall,
   Landmark,
-  ArrowRight,
+  ArrowUpRight,
+  Package,
   type LucideIcon,
 } from "lucide-react";
 import React from "react";
 import { Link } from "react-router-dom";
 
 import { useForgeAuth } from "../auth/ForgeAuthProvider";
+import { ForgeLogo } from "../components/shared/ForgeLogo";
 import { ROUTES } from "../constants";
+
+// =============================================================================
+// Data
+// =============================================================================
+
+interface MarqueeCard {
+  route: string;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+  hint: string;
+}
 
 interface ToolCard {
   route: string;
@@ -36,30 +50,31 @@ interface ToolCard {
   icon: LucideIcon;
 }
 
-const QUICK_ACTIONS: ToolCard[] = [
-  {
-    route: ROUTES.GENERATION,
-    label: "Generate",
-    desc: "Create 3D models with AI",
-    icon: Wand2,
-  },
+/** Top-row primary workflows — the three things users start here for. */
+const MARQUEE: MarqueeCard[] = [
   {
     route: ROUTES.WORLD_STUDIO,
     label: "World Studio",
-    desc: "Build and edit game worlds",
+    description:
+      "Compose worlds — terrain, biomes, structures, quests, mobs — with AI-assisted authoring.",
     icon: Map,
+    hint: "Build a world",
+  },
+  {
+    route: ROUTES.GENERATION,
+    label: "Generate Assets",
+    description:
+      "Create 3D models, textures, sprites, and VFX through the AI generation pipeline.",
+    icon: Wand2,
+    hint: "Create with AI",
   },
   {
     route: ROUTES.ASSETS,
-    label: "Assets",
-    desc: "Browse and manage all assets",
+    label: "Asset Library",
+    description:
+      "Browse, organize, and re-deploy every asset, prefab, and pack in your library.",
     icon: Database,
-  },
-  {
-    route: ROUTES.MANIFESTS,
-    label: "Manifests",
-    desc: "Game data and configurations",
-    icon: FileJson,
+    hint: "Browse library",
   },
 ];
 
@@ -67,13 +82,13 @@ const WORLD_TOOLS: ToolCard[] = [
   {
     route: ROUTES.WORLD_BUILDER,
     label: "World Builder",
-    desc: "Legacy world builder",
+    desc: "Legacy editor",
     icon: Globe,
   },
   {
     route: ROUTES.WORLD_EDITOR,
     label: "World Editor",
-    desc: "Game systems editor",
+    desc: "Game systems",
     icon: Gamepad2,
   },
   {
@@ -162,37 +177,82 @@ const PIPELINE_TOOLS: ToolCard[] = [
   },
   {
     route: ROUTES.BATCH_SPRITES,
-    label: "Batch Sprites",
+    label: "Sprites",
     desc: "Sprite sheets",
     icon: Image,
   },
   { route: ROUTES.VFX, label: "VFX", desc: "Visual effects", icon: Sparkles },
 ];
 
-function QuickActionCard({ card }: { card: ToolCard }) {
+const DATA_TOOLS: ToolCard[] = [
+  {
+    route: ROUTES.MANIFESTS,
+    label: "Manifests",
+    desc: "Game data",
+    icon: FileJson,
+  },
+  {
+    route: ROUTES.ASSET_PACKS,
+    label: "Asset Packs",
+    desc: "Pack composition",
+    icon: Package,
+  },
+];
+
+const CAPABILITIES: { label: string; value: string }[] = [
+  { label: "Renderer", value: "WebGPU + TSL" },
+  { label: "Engine", value: "Three.js + PhysX" },
+  { label: "Worlds", value: "Procedural" },
+  { label: "Authoring", value: "AI-assisted" },
+];
+
+// =============================================================================
+// Subcomponents
+// =============================================================================
+
+function MarqueeCardView({ card }: { card: MarqueeCard }) {
   return (
     <Link
       to={card.route}
-      className="group relative flex flex-col gap-3 p-5 rounded-md bg-bg-tertiary border border-border-primary hover:border-primary/40 transition-colors duration-500 ease-out"
+      className="group relative flex flex-col gap-6 p-7 rounded-lg bg-bg-tertiary border border-border-primary hover:border-primary/50 transition-colors duration-500 ease-out overflow-hidden"
     >
-      {/* Earned Gold edge — appears only on hover */}
-      <div className="absolute left-0 top-4 bottom-4 w-px bg-primary opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-out" />
+      {/* Earned Gold left-edge on hover */}
+      <span className="pointer-events-none absolute left-0 top-6 bottom-6 w-px bg-primary opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-out" />
 
-      <div className="flex items-center justify-between">
+      {/* Subtle radial atmosphere — only visible on hover */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -inset-px opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-out"
+        style={{
+          background:
+            "radial-gradient(ellipse 80% 60% at 50% 100%, rgba(212,175,55,0.04) 0%, transparent 70%)",
+        }}
+      />
+
+      <div className="relative flex items-start justify-between">
         <card.icon
-          size={20}
+          size={28}
+          strokeWidth={1.25}
           className="text-text-secondary group-hover:text-primary transition-colors duration-500 ease-out"
-          strokeWidth={1.5}
         />
-        <ArrowRight
-          size={14}
-          className="text-text-tertiary opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-out"
+        <ArrowUpRight
+          size={16}
           strokeWidth={1.5}
+          className="text-text-tertiary opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-500 ease-out"
         />
       </div>
-      <div>
-        <h3 className="text-sm font-medium text-text-primary">{card.label}</h3>
-        <p className="text-xs text-text-tertiary mt-0.5">{card.desc}</p>
+
+      <div className="relative">
+        <h2 className="font-display text-xl font-medium text-text-primary tracking-tight mb-2">
+          {card.label}
+        </h2>
+        <p className="text-sm text-text-tertiary leading-relaxed">
+          {card.description}
+        </p>
+      </div>
+
+      <div className="relative mt-auto pt-2 text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
+        {card.hint}
       </div>
     </Link>
   );
@@ -200,21 +260,27 @@ function QuickActionCard({ card }: { card: ToolCard }) {
 
 function ToolGrid({ title, tools }: { title: string; tools: ToolCard[] }) {
   return (
-    <div>
-      <h2 className="text-[11px] font-medium text-text-tertiary uppercase tracking-[0.12em] mb-4">
-        {title}
-      </h2>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+    <section>
+      <header className="flex items-baseline justify-between mb-5 pb-3 border-b border-border-primary">
+        <h3 className="font-display text-sm font-medium text-text-primary tracking-tight">
+          {title}
+        </h3>
+        <span className="text-[11px] text-text-tertiary uppercase tracking-[0.12em] tabular-nums">
+          {tools.length.toString().padStart(2, "0")}
+        </span>
+      </header>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
         {tools.map((tool) => (
           <Link
             key={tool.route}
             to={tool.route}
-            className="group flex items-center gap-3 px-3.5 py-4 rounded-md bg-bg-tertiary border border-border-primary hover:border-primary/30 transition-colors duration-500 ease-out"
+            className="group relative flex items-center gap-3 px-4 py-3.5 rounded-md bg-bg-tertiary border border-border-primary hover:border-primary/30 transition-colors duration-500 ease-out"
           >
+            <span className="pointer-events-none absolute left-0 top-3 bottom-3 w-px bg-primary opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-out" />
             <tool.icon
               size={16}
-              className="text-text-tertiary group-hover:text-primary transition-colors duration-500 flex-shrink-0 ease-out"
               strokeWidth={1.5}
+              className="text-text-tertiary group-hover:text-primary transition-colors duration-500 flex-shrink-0 ease-out"
             />
             <div className="min-w-0">
               <p className="text-sm font-medium text-text-primary truncate">
@@ -227,9 +293,13 @@ function ToolGrid({ title, tools }: { title: string; tools: ToolCard[] }) {
           </Link>
         ))}
       </div>
-    </div>
+    </section>
   );
 }
+
+// =============================================================================
+// Page
+// =============================================================================
 
 export function DashboardPage() {
   const auth = useForgeAuth();
@@ -237,32 +307,93 @@ export function DashboardPage() {
   const displayName =
     auth.user?.email?.address?.split("@")[0] ||
     auth.user?.wallet?.address?.slice(0, 8) ||
-    "there";
+    null;
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-10">
-      {/* Welcome */}
-      <div className="mb-10">
-        <h1 className="font-display text-3xl font-medium text-text-primary tracking-tight">
-          Welcome back, {displayName}
-        </h1>
-        <p className="text-sm text-text-tertiary mt-2">
-          What would you like to work on?
-        </p>
-      </div>
+    <div className="relative min-h-full bg-bg-primary overflow-hidden">
+      {/* Atmospheric hero backdrop — radial Graphite + Gold horizon */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-[480px]"
+        style={{
+          background:
+            "radial-gradient(ellipse 80% 100% at 50% 0%, rgba(28,30,34,0.7) 0%, transparent 70%)",
+        }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-[280px] h-px"
+        style={{
+          background:
+            "linear-gradient(90deg, transparent, rgba(212,175,55,0.18), transparent)",
+        }}
+      />
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-12">
-        {QUICK_ACTIONS.map((card) => (
-          <QuickActionCard key={card.route} card={card} />
-        ))}
-      </div>
+      <div className="relative max-w-6xl mx-auto px-8 py-16">
+        {/* ============== HERO ============== */}
+        <header className="mb-16 grid grid-cols-1 md:grid-cols-[auto_1fr] gap-8 items-center">
+          <ForgeLogo size={72} />
+          <div>
+            <p className="text-[11px] font-medium text-text-tertiary uppercase tracking-[0.18em] mb-3">
+              HyperForge
+            </p>
+            <h1 className="font-display text-4xl md:text-5xl font-medium text-text-primary tracking-tight leading-[1.1] mb-3">
+              {displayName ? (
+                <>
+                  Welcome back,{" "}
+                  <span className="text-primary">{displayName}</span>
+                </>
+              ) : (
+                <>The engine beneath infinite worlds.</>
+              )}
+            </h1>
+            <p className="text-base text-text-tertiary max-w-xl leading-relaxed">
+              AI-driven authoring, procedural worldbuilding, and a unified asset
+              pipeline — all rendered on WebGPU.
+            </p>
+          </div>
+        </header>
 
-      {/* Tool sections */}
-      <div className="space-y-10">
-        <ToolGrid title="World & Environment" tools={WORLD_TOOLS} />
-        <ToolGrid title="Nature & Vegetation" tools={NATURE_TOOLS} />
-        <ToolGrid title="Asset Pipeline" tools={PIPELINE_TOOLS} />
+        {/* ============== MARQUEE — three primary workflows ============== */}
+        <section className="mb-20">
+          <div className="flex items-baseline justify-between mb-6 pb-3 border-b border-border-primary">
+            <h2 className="font-display text-sm font-medium text-text-primary tracking-tight">
+              Start
+            </h2>
+            <span className="text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
+              Primary workflows
+            </span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {MARQUEE.map((card) => (
+              <MarqueeCardView key={card.route} card={card} />
+            ))}
+          </div>
+        </section>
+
+        {/* ============== TOOL MATRIX ============== */}
+        <div className="space-y-14">
+          <ToolGrid title="World & Environment" tools={WORLD_TOOLS} />
+          <ToolGrid title="Nature & Vegetation" tools={NATURE_TOOLS} />
+          <ToolGrid title="Asset Pipeline" tools={PIPELINE_TOOLS} />
+          <ToolGrid title="Data & Configuration" tools={DATA_TOOLS} />
+        </div>
+
+        {/* ============== CAPABILITY FOOTER ============== */}
+        <footer className="mt-20 pt-10 border-t border-border-primary">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            {CAPABILITIES.map((cap) => (
+              <div key={cap.label}>
+                <p className="text-[10px] font-medium text-text-tertiary uppercase tracking-[0.14em] mb-2">
+                  {cap.label}
+                </p>
+                <p className="font-display text-sm font-medium text-text-primary tracking-tight">
+                  {cap.value}
+                </p>
+              </div>
+            ))}
+          </div>
+        </footer>
       </div>
     </div>
   );
