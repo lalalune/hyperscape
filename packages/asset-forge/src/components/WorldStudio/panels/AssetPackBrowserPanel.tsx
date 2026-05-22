@@ -715,7 +715,7 @@ export function AssetPackBrowserPanel({
         )}
 
         {activeFetchState.kind === "ready" && visiblePacks.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-3 auto-rows-min">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 p-4 auto-rows-min">
             {visiblePacks.map((pack) => (
               <PackCard
                 key={pack.id}
@@ -1896,14 +1896,14 @@ function PackCard({
         <PackCoverImage pack={pack} />
 
         {/* Body */}
-        <div className="flex flex-col p-3 gap-2 flex-1">
-          <h3 className="text-[13px] font-semibold text-text-primary leading-tight line-clamp-2">
+        <div className="flex flex-col p-3 gap-1.5 flex-1">
+          <h3 className="text-[13px] font-medium text-text-primary tracking-tight leading-tight line-clamp-1">
             {packName}
           </h3>
 
-          {/* Badges row */}
+          {/* Badges row — version + source + visibility */}
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[10px] text-text-tertiary/80 font-mono">
+            <span className="text-[10px] text-text-tertiary font-mono tabular-nums">
               v{summary.packVersion}
             </span>
             {pack.source === "built-in" && (
@@ -1928,10 +1928,18 @@ function PackCard({
                   </span>
                 );
               })()}
+            {summary.author && (
+              <>
+                <span className="text-text-tertiary/30 text-[10px]">·</span>
+                <span className="text-[10px] text-text-tertiary truncate">
+                  {summary.author}
+                </span>
+              </>
+            )}
           </div>
 
-          {/* Description */}
-          <p className="text-[11px] text-text-tertiary leading-relaxed line-clamp-2">
+          {/* Description — single line, ellipsised */}
+          <p className="text-[11px] text-text-tertiary leading-relaxed line-clamp-1">
             {summary.description || (
               <span className="italic text-text-tertiary/60">
                 No description.
@@ -1939,14 +1947,12 @@ function PackCard({
             )}
           </p>
 
-          {/* Pack-kind chip — surfaces what the pack actually
-              contributes (themed climate name for content packs,
-              "Asset library" for legacy assets-only packs). */}
-          <div className="flex items-center gap-1 flex-wrap">
+          {/* Pack-kind chip + section counts */}
+          <div className="flex items-center gap-1 flex-wrap mt-auto pt-1">
             <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-primary/10 text-primary ring-1 ring-primary/20">
               {summary.kindLabel}
             </span>
-            {summary.sectionCounts.slice(0, 3).map((s) => (
+            {summary.sectionCounts.slice(0, 2).map((s) => (
               <span
                 key={s.label}
                 className="text-[10px] px-1.5 py-0.5 rounded bg-bg-tertiary text-text-tertiary ring-1 ring-white/[0.04]"
@@ -1954,24 +1960,10 @@ function PackCard({
                 {s.count} {s.label}
               </span>
             ))}
-            {summary.sectionCounts.length > 3 && (
+            {summary.sectionCounts.length > 2 && (
               <span className="text-[10px] text-text-tertiary/70">
-                +{summary.sectionCounts.length - 3} more
+                +{summary.sectionCounts.length - 2}
               </span>
-            )}
-          </div>
-
-          {/* Stats row */}
-          <div className="flex items-center gap-2.5 text-[10px] text-text-tertiary/70 mt-auto pt-1">
-            <span className="inline-flex items-center gap-1">
-              <Package size={9} className="text-text-tertiary/50" />v
-              {summary.packVersion}
-            </span>
-            {summary.author && (
-              <>
-                <span className="text-text-tertiary/30">·</span>
-                <span className="truncate">{summary.author}</span>
-              </>
             )}
           </div>
 
@@ -2423,7 +2415,7 @@ function PackCoverImage({ pack }: { pack: AssetPackResponse }) {
   if (isEmpty) {
     return (
       <div
-        className="aspect-[16/10] bg-gradient-to-br from-white/[0.02] to-black/20 border-b border-dashed border-border-primary flex flex-col items-center justify-center gap-1.5"
+        className="aspect-[16/7] bg-gradient-to-br from-white/[0.02] to-black/20 border-b border-dashed border-border-primary flex flex-col items-center justify-center gap-1.5"
         aria-label="Empty pack — ready for content"
       >
         <Package size={22} className="text-text-tertiary/40" />
@@ -2444,7 +2436,7 @@ function PackCoverImage({ pack }: { pack: AssetPackResponse }) {
     <ModelThumbnail
       modelUrl={firstModelUrl}
       alt=""
-      className={`aspect-[16/10] bg-gradient-to-br ${style.bgGradient} flex items-center justify-center overflow-hidden`}
+      className={`aspect-[16/7] bg-gradient-to-br ${style.bgGradient} flex items-center justify-center overflow-hidden`}
       fallback={<Icon size={42} className={style.fg} strokeWidth={1.25} />}
     />
   );
