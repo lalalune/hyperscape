@@ -272,6 +272,31 @@
     0% { transform: translateX(-100%); }
     100% { transform: translateX(100%); }
   }
+
+  /* Cinematic atmospheric drift — for monoliths/scan lines. Very slow,
+     just enough to make the scene feel alive without distraction. */
+  @keyframes drift-x {
+    0%, 100% { transform: translateX(0); }
+    50% { transform: translateX(20px); }
+  }
+
+  @keyframes drift-y {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-12px); }
+  }
+
+  /* Slow celestial scan — atmosphere "breathes" */
+  @keyframes celestial-pulse {
+    0%, 100% { opacity: 0.35; }
+    50% { opacity: 0.6; }
+  }
+
+  /* Status indicator: GPU online, system ready, etc.
+     Restrained pulse — not the SaaS heartbeat. */
+  @keyframes status-pulse {
+    0%, 100% { opacity: 0.9; }
+    50% { opacity: 0.55; }
+  }
 }
 
 /* Component Classes */
