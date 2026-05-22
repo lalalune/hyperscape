@@ -17,10 +17,15 @@ export const CreateTeamBody = t.Object({
   description: t.Optional(t.String({ maxLength: 500 })),
 });
 
+/**
+ * Update-team request body. All fields optional. `null` is accepted
+ * for description/avatarUrl to clear them; undefined leaves the field
+ * unchanged.
+ */
 export const UpdateTeamBody = t.Object({
   name: t.Optional(t.String({ minLength: 1, maxLength: 100 })),
-  description: t.Optional(t.String({ maxLength: 500 })),
-  avatarUrl: t.Optional(t.String()),
+  description: t.Optional(t.Nullable(t.String({ maxLength: 500 }))),
+  avatarUrl: t.Optional(t.Nullable(t.String({ maxLength: 2048 }))),
 });
 
 export const TeamResponse = t.Object({

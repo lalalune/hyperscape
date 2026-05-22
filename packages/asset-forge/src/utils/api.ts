@@ -115,6 +115,17 @@ export async function apiFetch(
     }
   }
 
+  // Auto-set Content-Type for JSON string bodies. fetch() defaults to
+  // text/plain otherwise, which Elysia rejects when the route declares
+  // a TypeBox `body` schema (it can't parse the body as JSON).
+  if (
+    typeof rest.body === "string" &&
+    rest.body.length > 0 &&
+    !headers.has("Content-Type")
+  ) {
+    headers.set("Content-Type", "application/json");
+  }
+
   try {
     const response = await fetch(url, {
       ...rest,
