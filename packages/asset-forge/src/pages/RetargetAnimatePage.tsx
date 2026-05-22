@@ -1,17 +1,41 @@
-import React, { useRef, useState } from "react";
+import {
+  Bone,
+  Box,
+  Check,
+  Download,
+  Loader2,
+  Pause,
+  Play,
+  RotateCcw,
+  Square,
+  Upload,
+  Wand2,
+} from "lucide-react";
+import { useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 import { VRMTestViewer } from "../components/VRMTestViewer";
+import { ForgeLogo } from "../components/shared/ForgeLogo";
 import ThreeViewer, {
   type ThreeViewerRef,
 } from "../components/shared/ThreeViewer";
+import { StatusDot } from "../components/shared/page";
 import { AssetService } from "../services/api/AssetService";
 import { convertGLBToVRM } from "../services/retargeting/VRMConverter";
 import { useRetargetingStore } from "../store";
 
 import { useAssets } from "@/hooks";
+
+const QUICK_ANIMATIONS: { id: string; label: string }[] = [
+  { id: "Idle_Loop", label: "Idle" },
+  { id: "Walk_Loop", label: "Walk" },
+  { id: "Jog_Fwd_Loop", label: "Jog" },
+  { id: "Sprint_Loop", label: "Sprint" },
+  { id: "Jump_Start", label: "Jump" },
+  { id: "Dance_Loop", label: "Dance" },
+];
 
 /**
  * Normalize VRM URL for viewer consumption
@@ -37,7 +61,7 @@ const normalizeVRMUrl = (vrmUrl: string): string => {
   return `/${vrmUrl}`;
 };
 
-export const RetargetAnimatePage: React.FC = () => {
+export function RetargetAnimatePage() {
   const viewerRef = useRef<ThreeViewerRef | null>(null);
   const { assets, loading: assetsLoading } = useAssets();
 
@@ -62,7 +86,7 @@ export const RetargetAnimatePage: React.FC = () => {
 
   // Filter assets for character models
   const avatarAssets = assets.filter(
-    (a) => a.type === "character" && (a as any).hasModel,
+    (a) => a.type === "character" && (a as { hasModel?: boolean }).hasModel,
   );
 
   // Convert Meshy GLB to VRM format
@@ -267,403 +291,504 @@ export const RetargetAnimatePage: React.FC = () => {
     }
   };
 
+  const sourceLabel = sourceModelAssetId || "Local file";
+
   return (
-    <div className="h-[calc(100vh-44px)] w-full flex">
-      {/* Sidebar */}
-      <aside className="w-80 border-r border-border-primary bg-bg-secondary p-4 flex flex-col gap-4">
-        <div>
-          <h2 className="text-lg font-semibold mb-2">Animation Retargeting</h2>
-          <p className="text-xs text-text-tertiary mb-4">
-            Load character → Retarget animations → Play & Test
-          </p>
-          {loadingState && (
-            <div className="px-3 py-2 bg-primary/10 border border-primary/30 rounded-md">
-              <p className="text-xs text-primary ">{loadingState}</p>
+    <div className="h-[calc(100vh-44px)] w-full flex bg-bg-primary">
+      {/* ============================================================
+          SIDEBAR — workflow steps, editorial composition
+          ============================================================ */}
+      <aside className="w-[380px] border-r border-border-primary bg-bg-primary flex-shrink-0 overflow-y-auto scrollbar-thin">
+        <div className="p-8 space-y-7">
+          {/* HERO */}
+          <header>
+            <div className="flex items-baseline gap-4 mb-5">
+              <span className="font-mono text-[11px] text-text-tertiary tabular-nums tracking-[0.05em]">
+                00
+              </span>
+              <span className="font-display text-base font-medium text-text-primary tracking-tight">
+                Retargeting
+              </span>
+              <span className="flex items-center gap-2 text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
+                <StatusDot tone={vrmConverted ? "ready" : "idle"} />
+                {vrmConverted ? "VRM ready" : "Source needed"}
+              </span>
             </div>
-          )}
-        </div>
-
-        {/* Step 1: Select Character */}
-        <section className="space-y-3 p-3 border border-border-primary rounded-md">
-          <h3 className="text-sm font-semibold">1. Select Character</h3>
-
-          <div className="space-y-2">
-            <label className="text-xs text-text-tertiary">
-              Source Model (Your Character with Mesh)
-            </label>
-
-            {/* File upload option */}
-            <div className="space-y-1">
-              <input
-                type="file"
-                accept=".glb,.gltf"
-                className="w-full text-xs"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    const url = URL.createObjectURL(file);
-                    setSourceModel(url, file.name);
-                    setVrmConverted(false);
-                    setRetargetingApplied(false);
-                    console.log(
-                      "[RetargetAnimatePage] Loaded source model from file:",
-                      file.name,
-                    );
-                  }
-                }}
-              />
-              <p className="text-xs text-text-tertiary">
-                Upload a GLB/GLTF file with mesh data
-              </p>
-            </div>
-
-            {/* Or select from existing assets */}
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-border-primary"></div>
+            <h1 className="font-display text-3xl font-medium text-text-primary tracking-tight leading-[1.05] mb-3">
+              Animation <span className="text-primary">retargeting</span>
+            </h1>
+            <p className="text-sm text-text-tertiary leading-relaxed">
+              Convert a character to VRM, then drive it with the standard
+              animation rig.
+            </p>
+            {loadingState && (
+              <div className="mt-5 flex items-center gap-2 px-3.5 py-2.5 rounded-md bg-bg-tertiary border border-primary/30">
+                <Loader2
+                  size={12}
+                  strokeWidth={1.5}
+                  className="animate-spin text-primary flex-shrink-0"
+                />
+                <span className="text-xs text-primary">{loadingState}</span>
               </div>
-              <div className="relative flex justify-center text-xs">
-                <span className="px-2 bg-bg-secondary text-text-tertiary">
-                  or select from assets
+            )}
+          </header>
+
+          {/* ============================================================
+              01 / SOURCE
+              ============================================================ */}
+          <section className="rounded-lg bg-bg-tertiary border border-border-primary p-6 space-y-5">
+            <header className="flex items-baseline gap-3 pb-4 border-b border-border-primary">
+              <span className="font-mono text-[11px] text-text-tertiary tabular-nums tracking-[0.05em]">
+                01
+              </span>
+              <h2 className="font-display text-base font-medium text-text-primary tracking-tight">
+                Source character
+              </h2>
+              <span className="ml-auto text-[10px] text-text-tertiary uppercase tracking-[0.14em]">
+                Required
+              </span>
+            </header>
+
+            <div className="space-y-4">
+              {/* File upload */}
+              <div>
+                <p className="text-[11px] text-text-tertiary uppercase tracking-[0.12em] mb-1.5">
+                  Upload file
+                </p>
+                <label className="group flex items-center gap-3 px-3.5 py-2.5 rounded-md bg-bg-primary border border-border-primary hover:border-primary/40 cursor-pointer transition-colors duration-300 ease-out">
+                  <Upload
+                    size={14}
+                    strokeWidth={1.5}
+                    className="text-text-tertiary group-hover:text-primary transition-colors duration-300 ease-out flex-shrink-0"
+                  />
+                  <span className="text-sm text-text-secondary group-hover:text-text-primary transition-colors duration-300 ease-out truncate flex-1">
+                    {sourceModelUrl && sourceModelUrl.startsWith("blob:")
+                      ? sourceLabel
+                      : "Choose .glb or .gltf"}
+                  </span>
+                  <input
+                    type="file"
+                    accept=".glb,.gltf"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const url = URL.createObjectURL(file);
+                        setSourceModel(url, file.name);
+                        setVrmConverted(false);
+                        setRetargetingApplied(false);
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+
+              {/* Divider */}
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-border-primary" />
+                </div>
+                <div className="relative flex justify-center">
+                  <span className="px-3 bg-bg-tertiary text-[10px] text-text-tertiary uppercase tracking-[0.14em]">
+                    or
+                  </span>
+                </div>
+              </div>
+
+              {/* Library select */}
+              <div>
+                <p className="text-[11px] text-text-tertiary uppercase tracking-[0.12em] mb-1.5">
+                  From library
+                </p>
+                <select
+                  className="input"
+                  disabled={assetsLoading}
+                  value={sourceModelAssetId || ""}
+                  onChange={async (e) => {
+                    const assetId = e.target.value;
+                    const asset = avatarAssets.find((a) => a.id === assetId);
+                    if (asset) {
+                      const modelUrl = await AssetService.getTPoseUrl(asset.id);
+                      setSourceModel(modelUrl, asset.id);
+                    }
+                  }}
+                >
+                  <option value="">
+                    {assetsLoading ? "Loading…" : "Select character…"}
+                  </option>
+                  {avatarAssets.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </section>
+
+          {/* ============================================================
+              02 / CONVERT
+              ============================================================ */}
+          <section className="rounded-lg bg-bg-tertiary border border-border-primary p-6 space-y-5">
+            <header className="flex items-baseline gap-3 pb-4 border-b border-border-primary">
+              <span className="font-mono text-[11px] text-text-tertiary tabular-nums tracking-[0.05em]">
+                02
+              </span>
+              <h2 className="font-display text-base font-medium text-text-primary tracking-tight">
+                Convert to VRM
+              </h2>
+              {vrmConverted && (
+                <span className="ml-auto inline-flex items-center gap-1.5 text-[10px] text-success uppercase tracking-[0.14em]">
+                  <Check size={11} strokeWidth={2} />
+                  Done
                 </span>
-              </div>
-            </div>
+              )}
+            </header>
 
-            <select
-              className="w-full px-2 py-1 rounded-md bg-bg-tertiary text-sm"
-              disabled={assetsLoading}
-              value={sourceModelAssetId || ""}
-              onChange={async (e) => {
-                const assetId = e.target.value;
-                const asset = avatarAssets.find((a) => a.id === assetId);
-                if (asset) {
-                  // Use T-pose URL if available
-                  const modelUrl = await AssetService.getTPoseUrl(asset.id);
-                  setSourceModel(modelUrl, asset.id);
-                }
-              }}
-            >
-              <option value="">
-                {assetsLoading ? "Loading..." : "Select from assets..."}
-              </option>
-              {avatarAssets.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
-            </select>
-          </div>
+            <p className="text-sm text-text-tertiary leading-relaxed">
+              Normalises coordinate system, bone names, and T-pose for animation
+              playback.
+            </p>
 
-          <div className="space-y-2">
             <button
-              className="w-full px-3 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              type="button"
+              className="btn-primary w-full"
               disabled={!sourceModelUrl || vrmConverted}
               onClick={handleConvertToVRM}
             >
-              {vrmConverted ? "✓ Converted to VRM" : "🎭 Convert to VRM Format"}
+              {vrmConverted ? (
+                <>
+                  <Check size={13} strokeWidth={2} />
+                  Converted
+                </>
+              ) : (
+                <>
+                  <Wand2 size={13} strokeWidth={1.5} />
+                  Convert to VRM
+                </>
+              )}
             </button>
 
             {vrmConverted && conversionWarnings.length > 0 && (
-              <div className="p-2 bg-amber-500/10 border border-amber-500/30 rounded-md">
-                <p className="text-xs font-semibold text-amber-400 mb-1">
-                  Conversion Warnings:
+              <div className="rounded-md bg-bg-primary border border-warning/30 p-3.5 space-y-1.5">
+                <p className="text-[10px] uppercase tracking-[0.14em] text-warning font-medium">
+                  Conversion warnings
                 </p>
                 {conversionWarnings.map((warning, idx) => (
-                  <p key={idx} className="text-xs text-amber-300">
-                    • {warning}
+                  <p
+                    key={idx}
+                    className="text-xs text-text-secondary leading-relaxed"
+                  >
+                    · {warning}
                   </p>
                 ))}
               </div>
             )}
 
-            {sourceModelUrl && !vrmConverted && (
-              <p className="text-xs text-text-tertiary">
-                Convert Meshy GLB to VRM format for standardized animation
-                support. This fixes coordinate systems and bone naming.
-                {sourceModelAssetId && (
-                  <span className="block mt-1 text-text-secondary">
-                    Will be uploaded to: /gdd-assets/{sourceModelAssetId}/
-                    {sourceModelAssetId}.vrm
-                  </span>
-                )}
-              </p>
-            )}
-
             {vrmConverted && (
-              <div className="space-y-1">
-                <p className="text-xs text-green-400">
-                  ✓ VRM conversion complete! Now viewing VRM in viewport.
-                </p>
-                {sourceModelAssetId && vrmUrl && (
-                  <p className="text-xs text-blue-400">
-                    📁 Saved to server: {vrmUrl}
+              <div className="rounded-md bg-bg-primary border border-border-primary p-4 space-y-3">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-text-tertiary font-medium mb-2">
+                    VRM properties
                   </p>
-                )}
-                <p className="text-xs text-text-tertiary">
-                  File also downloaded to your computer as backup.
-                </p>
-                <div className="mt-2 p-2 bg-blue-500/10 border border-blue-500/30 rounded-md">
-                  <p className="text-xs font-semibold text-blue-400 mb-1">
-                    ✨ VRM Benefits:
-                  </p>
-                  <ul className="text-xs text-blue-300 space-y-0.5">
-                    <li>✓ Y-up coordinate system (fixed orientation)</li>
-                    <li>✓ Standard HumanoidBone names</li>
-                    <li>✓ T-pose normalized</li>
-                    <li>✓ Ready for animation testing!</li>
+                  <ul className="text-xs text-text-secondary space-y-1.5">
+                    <li className="flex items-center gap-2">
+                      <Check
+                        size={11}
+                        strokeWidth={2}
+                        className="text-success flex-shrink-0"
+                      />
+                      Y-up coordinate system
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <Check
+                        size={11}
+                        strokeWidth={2}
+                        className="text-success flex-shrink-0"
+                      />
+                      Standard humanoid bones
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <Check
+                        size={11}
+                        strokeWidth={2}
+                        className="text-success flex-shrink-0"
+                      />
+                      T-pose normalised
+                    </li>
                   </ul>
                 </div>
-
-                <div className="mt-2">
-                  <button
-                    className="w-full px-3 py-2 rounded-md bg-primary text-white hover:bg-primary/90"
-                    onClick={() => {
-                      setShowVRMTestViewer(true);
-                    }}
-                  >
-                    🎭 Test VRM with Animations
-                  </button>
-                  <p className="text-xs text-text-tertiary mt-1">
-                    Opens the VRM Test Viewer with Idle, Walk, Run, and Jump
-                    animations. Click the toggle in the top-right to switch
-                    between viewers.
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {!vrmConverted && (
-            <>
-              <div className="relative my-4">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-border-primary"></div>
-                </div>
-                <div className="relative flex justify-center text-xs">
-                  <span className="px-2 bg-bg-secondary text-text-tertiary">
-                    or use legacy retargeting
-                  </span>
-                </div>
-              </div>
-
-              <button
-                className="w-full px-3 py-2 rounded-md bg-primary/20 text-primary hover:bg-primary/30 disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={!sourceModelUrl || retargetingApplied}
-                onClick={handleApplyRetargeting}
-              >
-                {retargetingApplied
-                  ? "✓ Animations Retargeted (Legacy)"
-                  : "Legacy: Retarget Animations"}
-              </button>
-
-              {!sourceModelUrl && (
-                <p className="text-xs text-amber-400">
-                  Select a character first
-                </p>
-              )}
-              {sourceModelUrl && !retargetingApplied && (
-                <p className="text-xs text-text-tertiary">
-                  Legacy method: Direct animation retargeting (may have
-                  coordinate system issues)
-                </p>
-              )}
-            </>
-          )}
-        </section>
-
-        {/* Step 2: Test Animations */}
-        {retargetingApplied && (
-          <section className="space-y-3 p-3 border border-border-primary rounded-md">
-            <h3 className="text-sm font-semibold">
-              2. Test Animations{vrmConverted && " (VRM)"}
-            </h3>
-            {vrmConverted && (
-              <div className="p-2 bg-green-500/10 border border-green-500/30 rounded-md mb-2">
-                <p className="text-xs text-green-400">
-                  ✨ Testing VRM animations! Character should stand upright with
-                  correct orientation.
-                </p>
-              </div>
-            )}
-
-            {availableAnimations.length === 0 ? (
-              <p className="text-xs text-text-tertiary">
-                Loading animations...
-              </p>
-            ) : (
-              <div className="space-y-2">
-                <div className="space-y-1">
-                  <label className="text-xs text-text-tertiary">
-                    Select Animation ({availableAnimations.length} available)
-                  </label>
-                  <select
-                    className="w-full px-2 py-1 rounded-md bg-bg-tertiary text-sm"
-                    value={selectedAnimation}
-                    onChange={(e) => handlePlay(e.target.value)}
-                  >
-                    <option value="">Choose an animation...</option>
-                    {availableAnimations.map((anim) => (
-                      <option key={anim.name} value={anim.name}>
-                        {anim.name} ({anim.duration.toFixed(2)}s)
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Quick access to common animations */}
-                <div>
-                  <label className="text-xs text-text-tertiary mb-1 block">
-                    Quick Select
-                  </label>
-                  <div className="grid grid-cols-3 gap-1">
-                    <button
-                      className="px-2 py-1 rounded text-xs bg-primary/10 text-primary hover:bg-primary/20"
-                      onClick={() => handlePlay("Idle_Loop")}
-                    >
-                      Idle
-                    </button>
-                    <button
-                      className="px-2 py-1 rounded text-xs bg-primary/10 text-primary hover:bg-primary/20"
-                      onClick={() => handlePlay("Walk_Loop")}
-                    >
-                      Walk
-                    </button>
-                    <button
-                      className="px-2 py-1 rounded text-xs bg-primary/10 text-primary hover:bg-primary/20"
-                      onClick={() => handlePlay("Jog_Fwd_Loop")}
-                    >
-                      Jog
-                    </button>
-                    <button
-                      className="px-2 py-1 rounded text-xs bg-primary/10 text-primary hover:bg-primary/20"
-                      onClick={() => handlePlay("Sprint_Loop")}
-                    >
-                      Sprint
-                    </button>
-                    <button
-                      className="px-2 py-1 rounded text-xs bg-primary/10 text-primary hover:bg-primary/20"
-                      onClick={() => handlePlay("Jump_Start")}
-                    >
-                      Jump
-                    </button>
-                    <button
-                      className="px-2 py-1 rounded text-xs bg-primary/10 text-primary hover:bg-primary/20"
-                      onClick={() => handlePlay("Dance_Loop")}
-                    >
-                      Dance
-                    </button>
-                  </div>
-                </div>
-
-                {/* Playback controls */}
-                <div className="flex gap-2 pt-2 border-t border-border-primary">
-                  {!isPlaying && (
-                    <button
-                      className="flex-1 px-3 py-1 rounded-md bg-bg-tertiary hover:bg-bg-primary/20"
-                      onClick={handleResume}
-                    >
-                      Resume
-                    </button>
-                  )}
-                  {isPlaying && (
-                    <button
-                      className="flex-1 px-3 py-1 rounded-md bg-bg-tertiary hover:bg-bg-primary/20"
-                      onClick={handlePause}
-                    >
-                      Pause
-                    </button>
-                  )}
-                  <button
-                    className="flex-1 px-3 py-1 rounded-md bg-bg-tertiary hover:bg-bg-primary/20"
-                    onClick={() => viewerRef.current?.stopAnimation()}
-                  >
-                    Stop
-                  </button>
-                </div>
-
-                {selectedAnimation && (
-                  <p className="text-xs text-green-400">
-                    Playing: {selectedAnimation}
+                {sourceModelAssetId && vrmUrl && (
+                  <p className="text-[10px] text-text-tertiary font-mono break-all leading-relaxed">
+                    {vrmUrl}
                   </p>
                 )}
+                <button
+                  type="button"
+                  className="btn-secondary w-full"
+                  onClick={() => setShowVRMTestViewer(true)}
+                >
+                  <Play size={12} strokeWidth={1.5} />
+                  Test in VRM viewer
+                </button>
               </div>
             )}
 
-            <p className="text-xs text-text-tertiary">
-              Test animations to ensure retargeting looks correct. Use the
-              dropdown to access all {availableAnimations.length} animations.
-            </p>
+            {!vrmConverted && (
+              <>
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-border-primary" />
+                  </div>
+                  <div className="relative flex justify-center">
+                    <span className="px-3 bg-bg-tertiary text-[10px] text-text-tertiary uppercase tracking-[0.14em]">
+                      or
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn-ghost w-full"
+                  disabled={!sourceModelUrl || retargetingApplied}
+                  onClick={handleApplyRetargeting}
+                >
+                  {retargetingApplied
+                    ? "Animations retargeted (legacy)"
+                    : "Use legacy retargeting"}
+                </button>
+                <p className="text-xs text-text-tertiary leading-relaxed">
+                  Legacy path keeps the original skeleton — coordinate-system
+                  bugs may surface.
+                </p>
+              </>
+            )}
           </section>
-        )}
 
-        {/* Step 4: Export */}
-        {retargetingApplied && (
-          <section className="space-y-3 p-3 border border-border-primary rounded-md">
-            <h3 className="text-sm font-semibold">4. Export</h3>
+          {/* ============================================================
+              03 / ANIMATIONS  (gated on retargeting applied)
+              ============================================================ */}
+          {retargetingApplied && (
+            <section className="rounded-lg bg-bg-tertiary border border-border-primary p-6 space-y-5">
+              <header className="flex items-baseline gap-3 pb-4 border-b border-border-primary">
+                <span className="font-mono text-[11px] text-text-tertiary tabular-nums tracking-[0.05em]">
+                  03
+                </span>
+                <h2 className="font-display text-base font-medium text-text-primary tracking-tight">
+                  Animations
+                </h2>
+                <span className="ml-auto text-[10px] text-text-tertiary uppercase tracking-[0.14em]">
+                  {availableAnimations.length} available
+                </span>
+              </header>
 
+              {availableAnimations.length === 0 ? (
+                <div className="flex items-center gap-2 text-xs text-text-tertiary">
+                  <Loader2 size={12} className="animate-spin" />
+                  Loading animations…
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <p className="text-[11px] text-text-tertiary uppercase tracking-[0.12em] mb-1.5">
+                      Choose animation
+                    </p>
+                    <select
+                      className="input"
+                      value={selectedAnimation}
+                      onChange={(e) => handlePlay(e.target.value)}
+                    >
+                      <option value="">Choose an animation…</option>
+                      {availableAnimations.map((anim) => (
+                        <option key={anim.name} value={anim.name}>
+                          {anim.name} ({anim.duration.toFixed(2)}s)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <p className="text-[11px] text-text-tertiary uppercase tracking-[0.12em] mb-2">
+                      Quick select
+                    </p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {QUICK_ANIMATIONS.map((q) => {
+                        const active = selectedAnimation === q.id;
+                        return (
+                          <button
+                            key={q.id}
+                            type="button"
+                            onClick={() => handlePlay(q.id)}
+                            className={`px-2.5 py-1.5 rounded-md text-[11px] uppercase tracking-[0.1em] border transition-colors duration-300 ease-out ${
+                              active
+                                ? "bg-primary/10 border-primary/40 text-primary"
+                                : "bg-bg-primary border-border-primary text-text-secondary hover:border-primary/40 hover:text-primary"
+                            }`}
+                          >
+                            {q.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 pt-3 border-t border-border-primary">
+                    {!isPlaying ? (
+                      <button
+                        type="button"
+                        className="btn-secondary flex-1"
+                        onClick={handleResume}
+                      >
+                        <Play size={12} strokeWidth={1.5} />
+                        Resume
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn-secondary flex-1"
+                        onClick={handlePause}
+                      >
+                        <Pause size={12} strokeWidth={1.5} />
+                        Pause
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="btn-secondary flex-1"
+                      onClick={() => viewerRef.current?.stopAnimation()}
+                    >
+                      <Square size={12} strokeWidth={1.5} />
+                      Stop
+                    </button>
+                  </div>
+
+                  {selectedAnimation && (
+                    <p className="flex items-center gap-2 text-xs text-success">
+                      <StatusDot tone="ready" />
+                      Playing {selectedAnimation}
+                    </p>
+                  )}
+                </>
+              )}
+            </section>
+          )}
+
+          {/* ============================================================
+              04 / EXPORT  (gated on retargeting applied)
+              ============================================================ */}
+          {retargetingApplied && (
+            <section className="rounded-lg bg-bg-tertiary border border-border-primary p-6 space-y-4">
+              <header className="flex items-baseline gap-3 pb-4 border-b border-border-primary">
+                <span className="font-mono text-[11px] text-text-tertiary tabular-nums tracking-[0.05em]">
+                  04
+                </span>
+                <h2 className="font-display text-base font-medium text-text-primary tracking-tight">
+                  Export
+                </h2>
+              </header>
+              <p className="text-sm text-text-tertiary leading-relaxed">
+                Export as GLB with the retargeted skeleton.
+              </p>
+              <button
+                type="button"
+                className="btn-primary w-full"
+                disabled={exporting}
+                onClick={handleExport}
+              >
+                {exporting ? (
+                  <>
+                    <Loader2 size={13} className="animate-spin" />
+                    Exporting…
+                  </>
+                ) : (
+                  <>
+                    <Download size={13} strokeWidth={1.5} />
+                    Export model
+                  </>
+                )}
+              </button>
+            </section>
+          )}
+
+          {/* ============================================================
+              UTILITIES
+              ============================================================ */}
+          <section className="pt-2 space-y-2">
             <button
-              className="w-full px-3 py-2 rounded-md bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-50"
-              disabled={exporting}
-              onClick={handleExport}
+              type="button"
+              className="btn-ghost w-full"
+              onClick={() => viewerRef.current?.resetCamera()}
             >
-              {exporting ? "Exporting..." : "Export Retargeted Model"}
+              <RotateCcw size={12} strokeWidth={1.5} />
+              Reset camera
             </button>
-
-            <p className="text-xs text-text-tertiary">
-              Export the retargeted model as a GLB file with the new skeleton.
-            </p>
+            <button
+              type="button"
+              className="btn-ghost w-full text-text-secondary hover:text-error"
+              onClick={() => {
+                if (confirm("Reset all settings and start over?")) {
+                  reset();
+                  setVrmConverted(false);
+                  setVrmUrl("");
+                  setConversionWarnings([]);
+                  setRetargetingApplied(false);
+                  setAvailableAnimations([]);
+                  setSelectedAnimation("");
+                }
+              }}
+            >
+              Reset workflow
+            </button>
           </section>
-        )}
-
-        {/* Utilities */}
-        <section className="space-y-2 pt-4 border-t border-border-primary">
-          <button
-            className="w-full px-3 py-1 rounded-md bg-bg-tertiary hover:bg-bg-primary/20 text-sm"
-            onClick={() => viewerRef.current?.resetCamera()}
-          >
-            Reset Camera
-          </button>
-          <button
-            className="w-full px-3 py-1 rounded-md bg-warning/10 text-warning hover:bg-warning/20 text-sm"
-            onClick={() => {
-              if (confirm("Reset all settings and start over?")) {
-                reset();
-                setVrmConverted(false);
-                setVrmUrl("");
-                setConversionWarnings([]);
-                setRetargetingApplied(false);
-                setAvailableAnimations([]);
-                setSelectedAnimation("");
-              }
-            }}
-          >
-            Reset Workflow
-          </button>
-        </section>
+        </div>
       </aside>
 
-      {/* Viewer */}
-      <section className="flex-1 relative">
-        {/* Viewer Controls */}
-        <div className="absolute top-4 right-4 z-10 flex gap-2">
+      {/* ============================================================
+          VIEWER — right pane
+          ============================================================ */}
+      <section className="flex-1 relative bg-bg-primary">
+        {/* Top-right controls */}
+        <div className="absolute top-5 right-5 z-10 flex gap-2">
           {vrmConverted && vrmUrl && (
             <button
+              type="button"
               onClick={() => setShowVRMTestViewer(!showVRMTestViewer)}
-              className="px-5 py-4 rounded-md bg-bg-primary border border-border-primary text-text-primary hover:bg-bg-tertiary transition-colors text-sm ease-out"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-bg-tertiary border border-border-primary hover:border-primary/40 text-[11px] text-text-secondary hover:text-primary uppercase tracking-[0.12em] transition-colors duration-300 ease-out"
             >
-              {showVRMTestViewer ? "🎨 GLB Viewer" : "🎭 VRM Tester"}
+              <Box size={11} strokeWidth={1.5} />
+              {showVRMTestViewer ? "GLB viewer" : "VRM tester"}
             </button>
           )}
           <button
+            type="button"
             onClick={() => {
               setShowBones(!showBones);
               viewerRef.current?.toggleSkeleton();
             }}
-            className="px-5 py-4 rounded-md bg-bg-primary border border-border-primary text-text-primary hover:bg-bg-tertiary transition-colors text-sm ease-out"
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-[11px] uppercase tracking-[0.12em] transition-colors duration-300 ease-out ${
+              showBones
+                ? "bg-primary/10 border-primary/40 text-primary"
+                : "bg-bg-tertiary border-border-primary text-text-secondary hover:border-primary/40 hover:text-primary"
+            }`}
           >
-            {showBones ? "🦴 Hide Bones" : "🦴 Show Bones"}
+            <Bone size={11} strokeWidth={1.5} />
+            Bones
           </button>
         </div>
+
+        {/* Empty state overlay — shown when no source is loaded */}
+        {!sourceModelUrl && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
+            <div className="text-center max-w-sm px-6">
+              <ForgeLogo size={56} className="mx-auto mb-6 opacity-50" />
+              <p className="font-display text-xl text-text-primary tracking-tight mb-2">
+                Pick a source character
+              </p>
+              <p className="text-sm text-text-tertiary leading-relaxed">
+                Upload a GLB or pick one from the library to start retargeting.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Viewers */}
         {showVRMTestViewer && vrmConverted && vrmUrl ? (
@@ -678,6 +803,6 @@ export const RetargetAnimatePage: React.FC = () => {
       </section>
     </div>
   );
-};
+}
 
 export default RetargetAnimatePage;
