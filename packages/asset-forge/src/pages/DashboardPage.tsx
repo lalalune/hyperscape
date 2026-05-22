@@ -45,15 +45,12 @@ import {
   ArrowUpRight,
   ArrowRight,
   Package,
-  Cpu,
   Plus,
   ChevronRight,
   Box,
   BookOpen,
   MessageCircle,
-  Compass,
   Layers,
-  Zap,
   ScrollText,
   type LucideIcon,
 } from "lucide-react";
@@ -1208,30 +1205,17 @@ export function DashboardPage() {
 // Footer
 // =============================================================================
 
-/** Engine subsystems + the underlying technologies they're built on. */
-const ENGINE_STACK: { label: string; value: string; icon: LucideIcon }[] = [
-  { label: "Renderer", value: "WebGPU · TSL", icon: Cpu },
-  { label: "3D", value: "Three.js", icon: Box },
-  { label: "Physics", value: "PhysX WASM", icon: Zap },
-  { label: "Generation", value: "GPT-4 · Meshy", icon: Sparkles },
-];
-
+/**
+ * Footer link columns. Deliberately omits a "Product" / "Tools" column —
+ * the Toolchain section (03) already serves as the authoritative tool
+ * index, and the sidebar drawer carries the global nav. The footer's
+ * role is the OTHER stuff: docs, engine internals, community.
+ */
 const FOOTER_LINKS: {
   title: string;
   icon: LucideIcon;
   items: { label: string; href: string; external?: boolean }[];
 }[] = [
-  {
-    title: "Product",
-    icon: Compass,
-    items: [
-      { label: "World Studio", href: ROUTES.WORLD_STUDIO },
-      { label: "Asset Generation", href: ROUTES.GENERATION },
-      { label: "Asset Library", href: ROUTES.ASSETS },
-      { label: "Manifests", href: ROUTES.MANIFESTS },
-      { label: "Asset Packs", href: ROUTES.ASSET_PACKS },
-    ],
-  },
   {
     title: "Resources",
     icon: BookOpen,
@@ -1292,103 +1276,76 @@ function DashboardFooter() {
         }}
       />
 
-      {/* ============== Top band: brand statement + engine credits ============== */}
-      <div className="pt-12 pb-10 border-t border-border-primary grid grid-cols-1 lg:grid-cols-[1.5fr_2fr] gap-12">
-        {/* Brand block */}
-        <div className="flex flex-col gap-5 max-w-md">
+      {/* ============== Main band: brand identity + 3 link columns ============== */}
+      <div className="pt-12 pb-12 border-t border-border-primary grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-12">
+        {/* Brand block — concise. Hero already carries the tagline + brand
+            statement; the footer just signs the page. */}
+        <div className="flex flex-col gap-4 max-w-sm">
           <div className="flex items-center gap-3">
-            <ForgeLogo size={32} />
-            <span className="font-display text-xl font-medium text-text-primary tracking-tight">
+            <ForgeLogo size={28} />
+            <span className="font-display text-lg font-medium text-text-primary tracking-tight">
               HyperForge
             </span>
           </div>
-          <p className="font-display text-2xl font-medium text-text-secondary tracking-tight leading-[1.15]">
-            The engine beneath{" "}
-            <span className="text-primary">infinite worlds.</span>
-          </p>
           <p className="text-sm text-text-tertiary leading-relaxed">
             A WebGPU metaverse engine with AI-driven authoring, procedural
             worldbuilding, and a unified asset pipeline.
           </p>
-          <div className="flex items-center gap-3 pt-2">
-            <span className="inline-flex items-center gap-2 text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
-              <StatusDot tone="online" />
-              All systems operational
-            </span>
+          <div className="flex items-center gap-2 pt-1 text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
+            <StatusDot tone="online" />
+            All systems operational
           </div>
         </div>
 
-        {/* Engine stack credits — like a film "made with" sequence */}
-        <div>
-          <h4 className="text-[11px] font-medium text-text-tertiary uppercase tracking-[0.14em] mb-5 pb-3 border-b border-border-primary/60">
-            Engineered on
-          </h4>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-            {ENGINE_STACK.map((s) => (
-              <div key={s.label} className="flex flex-col gap-2">
-                <s.icon
-                  size={16}
-                  strokeWidth={1.25}
+        {/* Link columns — Resources / Engine / Community.
+            Tools live in the Toolchain section above; the sidebar drawer
+            carries global nav. The footer is for everything else. */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-10">
+          {FOOTER_LINKS.map((col) => (
+            <div key={col.title}>
+              <h4 className="flex items-center gap-2 text-[11px] font-medium text-text-tertiary uppercase tracking-[0.14em] mb-4 pb-3 border-b border-border-primary/60">
+                <col.icon
+                  size={11}
+                  strokeWidth={1.5}
                   className="text-text-tertiary"
                 />
-                <p className="text-[10px] font-medium text-text-tertiary uppercase tracking-[0.14em]">
-                  {s.label}
-                </p>
-                <p className="font-display text-sm font-medium text-text-primary tracking-tight">
-                  {s.value}
-                </p>
-              </div>
-            ))}
-          </div>
+                {col.title}
+              </h4>
+              <ul className="space-y-2">
+                {col.items.map((item) => {
+                  const isInternal = item.href.startsWith("/");
+                  const linkClass =
+                    "group inline-flex items-center gap-1.5 text-[13px] text-text-secondary hover:text-primary transition-colors duration-300 ease-out";
+                  return (
+                    <li key={item.label}>
+                      {isInternal ? (
+                        <Link to={item.href} className={linkClass}>
+                          {item.label}
+                        </Link>
+                      ) : (
+                        <a
+                          href={item.href}
+                          target={item.external ? "_blank" : undefined}
+                          rel={item.external ? "noreferrer" : undefined}
+                          className={linkClass}
+                        >
+                          {item.label}
+                          {item.external && (
+                            <ArrowUpRight
+                              size={11}
+                              strokeWidth={1.5}
+                              className="text-text-tertiary/60 group-hover:text-primary transition-colors duration-300 ease-out"
+                            />
+                          )}
+                        </a>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
         </div>
-      </div>
-
-      {/* ============== Middle band: link columns ============== */}
-      <div className="pt-10 pb-10 border-t border-border-primary grid grid-cols-2 md:grid-cols-4 gap-10">
-        {FOOTER_LINKS.map((col) => (
-          <div key={col.title}>
-            <h4 className="flex items-center gap-2 text-[11px] font-medium text-text-tertiary uppercase tracking-[0.14em] mb-4 pb-3 border-b border-border-primary/60">
-              <col.icon
-                size={11}
-                strokeWidth={1.5}
-                className="text-text-tertiary"
-              />
-              {col.title}
-            </h4>
-            <ul className="space-y-2">
-              {col.items.map((item) => {
-                const isInternal = item.href.startsWith("/");
-                const linkClass =
-                  "group inline-flex items-center gap-1.5 text-[13px] text-text-secondary hover:text-primary transition-colors duration-300 ease-out";
-                return (
-                  <li key={item.label}>
-                    {isInternal ? (
-                      <Link to={item.href} className={linkClass}>
-                        {item.label}
-                      </Link>
-                    ) : (
-                      <a
-                        href={item.href}
-                        target={item.external ? "_blank" : undefined}
-                        rel={item.external ? "noreferrer" : undefined}
-                        className={linkClass}
-                      >
-                        {item.label}
-                        {item.external && (
-                          <ArrowUpRight
-                            size={11}
-                            strokeWidth={1.5}
-                            className="text-text-tertiary/60 group-hover:text-primary transition-colors duration-300 ease-out"
-                          />
-                        )}
-                      </a>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
       </div>
 
       {/* ============== Release strip — copyright + version + build ============== */}
