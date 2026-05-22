@@ -84,7 +84,7 @@ export function AssetsPage() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-bg-primary">
+    <div className="flex flex-col h-[calc(100vh-44px)] bg-bg-primary">
       {/* Editorial hero — slim, leaves max room for the viewer */}
       <header className="px-6 py-5 border-b border-border-primary flex-shrink-0">
         <div className="flex items-end justify-between gap-6 flex-wrap">
