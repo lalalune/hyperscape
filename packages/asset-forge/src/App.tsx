@@ -34,6 +34,7 @@ import { NotFoundPage } from "./pages/NotFoundPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { TeamsPage } from "./pages/TeamsPage";
 import { TeamDetailPage } from "./pages/TeamDetailPage";
+import { TeamSettingsPage } from "./pages/TeamSettingsPage";
 import { GameDetailPage } from "./pages/GameDetailPage";
 import { RetargetAnimatePage } from "./pages/RetargetAnimatePage";
 import { RoadsGenPage } from "./pages/RoadsGenPage";
@@ -153,6 +154,7 @@ function AppLayout() {
             <Route path={ROUTES.PROFILE} element={<ProfilePage />} />
             <Route path={ROUTES.TEAMS} element={<TeamsPage />} />
             <Route path={ROUTES.TEAM_DETAIL} element={<TeamDetailPage />} />
+            <Route path={ROUTES.TEAM_SETTINGS} element={<TeamSettingsPage />} />
             <Route path={ROUTES.GAME_DETAIL} element={<GameDetailPage />} />
             <Route
               path={ROUTES.ARMOR_PIPELINE}

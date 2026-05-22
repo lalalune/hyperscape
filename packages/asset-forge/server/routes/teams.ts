@@ -355,6 +355,58 @@ export const createTeamRoutes = (
               security: [{ BearerAuth: [] }],
             },
           },
+        )
+
+        // ==================== Audit Log ====================
+        .get(
+          "/:teamId/audit-log",
+          async ({ auth, params: { teamId }, query, set }) => {
+            const user = auth.user!;
+            // Any team member can view audit log (it's their team's history)
+            const role = await teamService.getMemberRole(teamId, user.id);
+            if (!role) {
+              set.status = 403;
+              return { error: "Not a team member" };
+            }
+
+            const limit = Math.min(
+              200,
+              Math.max(1, Number(query.limit ?? 50) || 50),
+            );
+            const offset = Math.max(0, Number(query.offset ?? 0) || 0);
+
+            const entries = await auditLogService.queryByTeam(teamId, {
+              limit,
+              offset,
+            });
+            return entries.map((e) => ({
+              id: e.id,
+              teamId: e.teamId,
+              gameId: e.gameId,
+              userId: e.userId,
+              action: e.action,
+              targetType: e.targetType,
+              targetId: e.targetId,
+              details: e.details,
+              createdAt: e.createdAt.toISOString(),
+            }));
+          },
+          {
+            params: t.Object({ teamId: t.String() }),
+            query: t.Object({
+              limit: t.Optional(t.String()),
+              offset: t.Optional(t.String()),
+            }),
+            response: {
+              200: t.Array(WS.AuditLogEntryResponse),
+              403: Models.ErrorResponse,
+            },
+            detail: {
+              tags: ["Teams"],
+              summary: "List team audit log entries",
+              security: [{ BearerAuth: [] }],
+            },
+          },
         ),
     );
 };

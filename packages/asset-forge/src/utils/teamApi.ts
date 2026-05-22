@@ -41,6 +41,18 @@ export interface TeamInviteResponse {
   acceptedAt: string | null;
 }
 
+export interface AuditLogEntryResponse {
+  id: string;
+  teamId: string | null;
+  gameId: string | null;
+  userId: string | null;
+  action: string;
+  targetType: string | null;
+  targetId: string | null;
+  details: unknown | null;
+  createdAt: string;
+}
+
 // ============== API ==============
 
 export async function fetchTeam(teamId: string): Promise<TeamResponse> {
@@ -62,6 +74,20 @@ export async function fetchTeamInvites(
 ): Promise<TeamInviteResponse[]> {
   const res = await apiFetch(`/api/teams/${teamId}/invites`);
   if (!res.ok) throw new Error(`Failed to load invites: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchTeamAuditLog(
+  teamId: string,
+  opts: { limit?: number; offset?: number } = {},
+): Promise<AuditLogEntryResponse[]> {
+  const params = new URLSearchParams();
+  if (opts.limit != null) params.set("limit", String(opts.limit));
+  if (opts.offset != null) params.set("offset", String(opts.offset));
+  const qs = params.toString();
+  const url = `/api/teams/${teamId}/audit-log${qs ? `?${qs}` : ""}`;
+  const res = await apiFetch(url);
+  if (!res.ok) throw new Error(`Failed to load audit log: ${res.status}`);
   return res.json();
 }
 

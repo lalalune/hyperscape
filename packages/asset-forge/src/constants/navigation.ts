@@ -69,6 +69,7 @@ export const ROUTES = {
   PROFILE: "/profile",
   TEAMS: "/teams",
   TEAM_DETAIL: "/teams/:teamId",
+  TEAM_SETTINGS: "/teams/:teamId/settings",
   GAME_DETAIL: "/teams/:teamId/games/:gameId",
   /**
    * Asset-scoped UI layout editor route. The concrete URL is built by
@@ -81,6 +82,14 @@ export const ROUTES = {
 /** Build a concrete URL to view a team's detail page. */
 export function buildTeamDetailPath(teamId: string): string {
   return `/teams/${teamId}`;
+}
+
+/** Build a concrete URL to view a team's settings page. Optional tab. */
+export function buildTeamSettingsPath(
+  teamId: string,
+  tab?: "general" | "members" | "invitations" | "audit",
+): string {
+  return `/teams/${teamId}/settings${tab ? `?tab=${tab}` : ""}`;
 }
 
 /** Build a concrete URL to view a game's detail page within a team. */

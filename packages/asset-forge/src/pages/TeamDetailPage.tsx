@@ -34,9 +34,12 @@ import { Link, useParams } from "react-router-dom";
 import { useForgeAuth } from "../auth/ForgeAuthProvider";
 import { Avatar } from "../components/shared/Avatar";
 import { ForgeLogo } from "../components/shared/ForgeLogo";
-import { EditTeamDialog } from "../components/teams/EditTeamDialog";
 import { InviteMemberDialog } from "../components/teams/InviteMemberDialog";
-import { ROUTES, buildGameDetailPath } from "../constants";
+import {
+  ROUTES,
+  buildGameDetailPath,
+  buildTeamSettingsPath,
+} from "../constants";
 import {
   fetchCurrentUser,
   fetchTeamGames,
@@ -272,7 +275,6 @@ export function TeamDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
   const [memberQuery, setMemberQuery] = useState("");
   const [gameQuery, setGameQuery] = useState("");
 
@@ -466,15 +468,14 @@ export function TeamDetailPage() {
                 </div>
               )}
               {canManage && (
-                <button
-                  type="button"
-                  onClick={() => setEditOpen(true)}
+                <Link
+                  to={buildTeamSettingsPath(team.id)}
                   title="Team settings"
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-bg-tertiary border border-border-primary hover:border-primary/40 text-[11px] text-text-secondary hover:text-primary uppercase tracking-[0.12em] transition-colors duration-300 ease-out"
                 >
                   <Settings size={11} strokeWidth={1.5} />
                   Settings
-                </button>
+                </Link>
               )}
             </div>
           </div>
@@ -864,14 +865,6 @@ export function TeamDetailPage() {
         onInvited={(invite) => {
           setInvites((prev) => [invite, ...prev]);
         }}
-      />
-
-      {/* Edit team settings modal */}
-      <EditTeamDialog
-        open={editOpen}
-        onClose={() => setEditOpen(false)}
-        team={team}
-        onUpdated={(updated) => setTeam(updated)}
       />
     </div>
   );

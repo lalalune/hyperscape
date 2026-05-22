@@ -143,6 +143,18 @@ export const TeamInviteResponse = t.Object({
   acceptedAt: t.Nullable(t.String()),
 });
 
+export const AuditLogEntryResponse = t.Object({
+  id: t.String(),
+  teamId: t.Nullable(t.String()),
+  gameId: t.Nullable(t.String()),
+  userId: t.Nullable(t.String()),
+  action: t.String(),
+  targetType: t.Nullable(t.String()),
+  targetId: t.Nullable(t.String()),
+  details: t.Nullable(t.Unknown()),
+  createdAt: t.String(),
+});
+
 // ==================== World Data Schemas ====================
 
 /**
