@@ -1,18 +1,17 @@
 /**
  * DashboardPage — HyperForge project hub.
  *
- * Composition system:
- *   Content max-width: 1200px (max-w-[1200px])
- *   Horizontal padding: px-10
- *   Vertical section rhythm: mb-20 between major sections
- *   Card padding scale: p-6 (compact) / p-8 (featured)
- *   Card heights: explicit min-h within each row for uniform baseline
+ * Architecture:
+ *   00 / HERO        — brand identity + greeting + AI compose prompt
+ *   01 / CONTINUE    — recent world projects
+ *   02 / WORKSPACE   — activity feed + library counts + engine status + sparkline
+ *   03 / TOOLCHAIN   — full module index
  *
- * Background composition:
- *   Two architectural monoliths positioned at the CONTENT edges
- *   (not viewport edges) — framing the content like classical columns.
- *   Radial Graphite ellipse anchored to top.
- *   Two Forge Gold horizon lines breathing on different cycles.
+ * Composition system:
+ *   Content max-width: 1200px
+ *   Horizontal padding: px-10
+ *   Vertical section rhythm: mb-24 between major sections
+ *   Card padding scale: p-6 / p-7
  *
  * Data sources:
  *   - fetchCurrentUser → user.teams
@@ -44,6 +43,7 @@ import {
   BrickWall,
   Landmark,
   ArrowUpRight,
+  ArrowRight,
   Package,
   Cpu,
   Plus,
@@ -52,7 +52,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { useForgeAuth } from "../auth/ForgeAuthProvider";
 import { ForgeLogo } from "../components/shared/ForgeLogo";
@@ -117,6 +117,15 @@ const TOOLS: { title: string; tools: ToolCard[] }[] = [
   },
 ];
 
+/** Compose-prompt suggestion chips — give users a sense of what they can ask for. */
+const PROMPT_SUGGESTIONS = [
+  "a Norse fishing village",
+  "a desert oasis with palms",
+  "a crystal forest biome",
+  "a viking longship",
+  "a magic crystal staff",
+];
+
 // =============================================================================
 // Utilities
 // =============================================================================
@@ -148,6 +157,22 @@ function getGreeting(): string {
   return "Late night build";
 }
 
+/** Bucket assets by day of week (last 7 days) for the sparkline. */
+function buildActivitySparkline(assets: { generatedAt: string }[]): number[] {
+  const days = 7;
+  const buckets = new Array(days).fill(0);
+  const now = Date.now();
+  const dayMs = 1000 * 60 * 60 * 24;
+  for (const a of assets) {
+    const t = new Date(a.generatedAt).getTime();
+    const ageDays = Math.floor((now - t) / dayMs);
+    if (ageDays >= 0 && ageDays < days) {
+      buckets[days - 1 - ageDays] += 1;
+    }
+  }
+  return buckets;
+}
+
 // =============================================================================
 // Primitives
 // =============================================================================
@@ -171,21 +196,9 @@ function StatusDot({
   );
 }
 
-/**
- * Atmospheric scene — composed RELATIVE TO CONTENT, not viewport.
- *
- * Content max-width: 1200px. We position monoliths at the content
- * edges using calc() so they read as architectural columns framing
- * the content area, regardless of viewport width.
- *
- * Outer columns sit just outside the content (-24px), inner columns
- * sit on the content edges. Two horizon lines breathe at different
- * cycles for layered depth.
- */
+/** Background scene — monoliths flank the content as architectural columns. */
 function AtmosphericScene() {
-  // Distance from viewport center to each monolith line, based on
-  // 1200px content width.
-  const halfContent = 600; // 1200 / 2
+  const halfContent = 600;
   const monoliths = [
     {
       side: "left" as const,
@@ -222,18 +235,16 @@ function AtmosphericScene() {
       aria-hidden
       className="pointer-events-none absolute inset-0 overflow-hidden"
     >
-      {/* Volumetric Graphite ellipse anchored to top */}
+      {/* Volumetric Graphite ellipse — anchored to top */}
       <div
-        className="absolute inset-x-0 top-0 h-[640px]"
+        className="absolute inset-x-0 top-0 h-[720px]"
         style={{
           background:
-            "radial-gradient(ellipse 100% 100% at 50% 0%, rgba(28,30,34,0.75) 0%, transparent 75%)",
+            "radial-gradient(ellipse 100% 100% at 50% 0%, rgba(28,30,34,0.8) 0%, transparent 75%)",
         }}
       />
 
-      {/* Architectural monoliths — flank the content as classical columns.
-          Each side uses calc(50% ± offset) so they track content edges
-          (not viewport edges) at every breakpoint. */}
+      {/* Architectural monoliths */}
       {monoliths.map((m, i) => (
         <div
           key={i}
@@ -247,22 +258,20 @@ function AtmosphericScene() {
         />
       ))}
 
-      {/* Primary celestial horizon — anchored to the hero/continue band */}
+      {/* Horizon lines — celestial light, breathing */}
       <div
-        className="absolute inset-x-0 top-[420px] h-px"
+        className="absolute inset-x-0 top-[560px] h-px"
         style={{
           background:
             "linear-gradient(90deg, transparent 5%, rgba(212,175,55,0.22) 50%, transparent 95%)",
           animation: "celestial-pulse 8s ease-in-out infinite",
         }}
       />
-
-      {/* Secondary horizon — softer, lower, longer cycle */}
       <div
-        className="absolute inset-x-0 top-[1080px] h-px"
+        className="absolute inset-x-0 top-[1320px] h-px"
         style={{
           background:
-            "linear-gradient(90deg, transparent 15%, rgba(212,175,55,0.08) 50%, transparent 85%)",
+            "linear-gradient(90deg, transparent 15%, rgba(212,175,55,0.10) 50%, transparent 85%)",
           animation: "celestial-pulse 14s ease-in-out infinite",
           animationDelay: "-4s",
         }}
@@ -271,35 +280,177 @@ function AtmosphericScene() {
   );
 }
 
+/** Editorial numbered section header — "01 / Continue". */
 function SectionHeader({
+  number,
   title,
   meta,
   action,
 }: {
+  number: string;
   title: string;
   meta?: React.ReactNode;
   action?: React.ReactNode;
 }) {
   return (
-    <header className="flex items-baseline justify-between mb-8 pb-4 border-b border-border-primary">
-      <div className="flex items-baseline gap-3">
-        <h2 className="font-display text-sm font-medium text-text-primary tracking-tight">
+    <header className="mb-8 pb-4 border-b border-border-primary flex items-baseline justify-between gap-6">
+      <div className="flex items-baseline gap-4 min-w-0">
+        <span className="font-mono text-[11px] text-text-tertiary tabular-nums tracking-[0.05em] flex-shrink-0">
+          {number}
+        </span>
+        <h2 className="font-display text-base font-medium text-text-primary tracking-tight">
           {title}
         </h2>
         {meta && (
-          <span className="text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
+          <span className="text-[11px] text-text-tertiary uppercase tracking-[0.12em] truncate">
             {meta}
           </span>
         )}
       </div>
-      {action}
+      {action && <div className="flex-shrink-0">{action}</div>}
     </header>
   );
 }
 
 // =============================================================================
-// Continue — recent world projects
+// 00 / HERO with AI compose prompt
 // =============================================================================
+
+function ComposePrompt() {
+  const navigate = useNavigate();
+  const [value, setValue] = useState("");
+
+  const handleSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const trimmed = value.trim();
+    if (!trimmed) {
+      navigate(ROUTES.GENERATION);
+      return;
+    }
+    // Pass intent forward as a URL param — Generation page can read it later.
+    navigate(`${ROUTES.GENERATION}?prompt=${encodeURIComponent(trimmed)}`);
+  };
+
+  return (
+    <div className="relative">
+      <form
+        onSubmit={handleSubmit}
+        className="group relative flex items-center gap-4 rounded-lg bg-bg-tertiary border border-border-primary focus-within:border-primary/60 transition-colors duration-500 ease-out overflow-hidden"
+      >
+        {/* Earned Gold left-edge on focus */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute left-0 top-3 bottom-3 w-px bg-primary opacity-0 group-focus-within:opacity-100 transition-opacity duration-500 ease-out"
+        />
+        {/* Subtle radial atmosphere on focus */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -inset-px opacity-0 group-focus-within:opacity-100 transition-opacity duration-500 ease-out"
+          style={{
+            background:
+              "radial-gradient(ellipse 60% 100% at 50% 100%, rgba(212,175,55,0.06) 0%, transparent 70%)",
+          }}
+        />
+
+        <div className="pl-5 flex-shrink-0 relative">
+          <Sparkles
+            size={18}
+            strokeWidth={1.5}
+            className="text-text-tertiary group-focus-within:text-primary transition-colors duration-500 ease-out"
+          />
+        </div>
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="Describe a world or asset to generate…"
+          className="relative flex-1 bg-transparent border-none py-5 text-base text-text-primary placeholder:text-text-tertiary focus:outline-none"
+        />
+        <button
+          type="submit"
+          className="relative mr-3 inline-flex items-center gap-2 px-5 py-2.5 rounded-md bg-primary text-bg-primary text-sm font-medium hover:bg-primary-dark transition-colors duration-500 ease-out flex-shrink-0"
+        >
+          Generate
+          <ArrowRight size={14} strokeWidth={2} />
+        </button>
+      </form>
+
+      {/* Suggestion chips — small affordance for what's possible */}
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <span className="text-[11px] text-text-tertiary uppercase tracking-[0.12em] mr-1">
+          Try
+        </span>
+        {PROMPT_SUGGESTIONS.map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => {
+              setValue(s);
+            }}
+            className="px-3 py-1 rounded-full bg-bg-tertiary border border-border-primary text-xs text-text-secondary hover:text-text-primary hover:border-primary/40 transition-colors duration-300 ease-out"
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// 01 / CONTINUE — project cards with varied preview compositions
+// =============================================================================
+
+/** Deterministic preview composition variant per project (so each card differs). */
+function previewVariant(seed: string): {
+  monoliths: { x: string; inset: string; opacity: number }[];
+  horizonY: string;
+} {
+  // Simple hash to choose from a small set of compositions
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) {
+    h = (h << 5) - h + seed.charCodeAt(i);
+    h |= 0;
+  }
+  const v = Math.abs(h) % 4;
+  const variants = [
+    {
+      monoliths: [
+        { x: "left-[18%]", inset: "inset-y-4", opacity: 0.85 },
+        { x: "left-[34%]", inset: "inset-y-6", opacity: 0.55 },
+        { x: "right-[24%]", inset: "inset-y-3", opacity: 0.75 },
+      ],
+      horizonY: "top-2/3",
+    },
+    {
+      monoliths: [
+        { x: "left-[12%]", inset: "inset-y-6", opacity: 0.55 },
+        { x: "left-[42%]", inset: "inset-y-3", opacity: 0.85 },
+        { x: "right-[18%]", inset: "inset-y-5", opacity: 0.7 },
+        { x: "right-[30%]", inset: "inset-y-8", opacity: 0.4 },
+      ],
+      horizonY: "top-3/4",
+    },
+    {
+      monoliths: [
+        { x: "left-[22%]", inset: "inset-y-5", opacity: 0.65 },
+        { x: "right-[36%]", inset: "inset-y-7", opacity: 0.5 },
+        { x: "right-[16%]", inset: "inset-y-4", opacity: 0.9 },
+      ],
+      horizonY: "top-1/2",
+    },
+    {
+      monoliths: [
+        { x: "left-[8%]", inset: "inset-y-7", opacity: 0.45 },
+        { x: "left-[28%]", inset: "inset-y-4", opacity: 0.8 },
+        { x: "left-[48%]", inset: "inset-y-9", opacity: 0.35 },
+        { x: "right-[20%]", inset: "inset-y-5", opacity: 0.7 },
+      ],
+      horizonY: "top-3/5",
+    },
+  ];
+  return variants[v];
+}
 
 function ProjectCard({
   project,
@@ -308,17 +459,16 @@ function ProjectCard({
   project: WorldProjectSummary;
   teamId: string;
 }) {
-  const lastEdited = timeAgo(project.updatedAt);
+  const variant = useMemo(() => previewVariant(project.id), [project.id]);
   return (
     <Link
       to={`${ROUTES.WORLD_STUDIO}/${project.id}`}
       state={{ teamId, gameId: project.gameId }}
       className="group relative flex flex-col rounded-lg bg-bg-tertiary border border-border-primary hover:border-primary/50 transition-colors duration-500 ease-out overflow-hidden h-[320px]"
     >
-      {/* Earned Gold left-edge on hover */}
       <span className="pointer-events-none absolute left-0 top-6 bottom-6 w-px bg-primary opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-out z-10" />
 
-      {/* Project preview pane — fixed 160px height */}
+      {/* Preview pane — composition varies per project */}
       <div
         className="relative h-40 border-b border-border-primary overflow-hidden"
         style={{
@@ -326,49 +476,30 @@ function ProjectCard({
             "radial-gradient(ellipse 60% 80% at 30% 100%, rgba(212,175,55,0.06) 0%, transparent 60%), linear-gradient(180deg, rgba(11,11,13,0.4) 0%, rgba(28,30,34,0.6) 100%)",
         }}
       >
-        {/* Horizon inside the preview */}
         <span
           aria-hidden
-          className="absolute inset-x-0 top-3/4 h-px"
+          className={`absolute inset-x-0 ${variant.horizonY} h-px`}
           style={{
             background:
-              "linear-gradient(90deg, transparent, rgba(212,175,55,0.18), transparent)",
+              "linear-gradient(90deg, transparent, rgba(212,175,55,0.20), transparent)",
           }}
         />
-        {/* Architectural silhouettes */}
-        <span
-          aria-hidden
-          className="absolute inset-y-4 left-[25%] w-px"
-          style={{
-            background:
-              "linear-gradient(180deg, transparent, rgba(28,30,34,0.9) 40%, rgba(28,30,34,0.9) 60%, transparent)",
-          }}
-        />
-        <span
-          aria-hidden
-          className="absolute inset-y-6 left-[40%] w-px"
-          style={{
-            background:
-              "linear-gradient(180deg, transparent, rgba(28,30,34,0.6) 40%, rgba(28,30,34,0.6) 60%, transparent)",
-          }}
-        />
-        <span
-          aria-hidden
-          className="absolute inset-y-3 right-[28%] w-px"
-          style={{
-            background:
-              "linear-gradient(180deg, transparent, rgba(28,30,34,0.8) 35%, rgba(28,30,34,0.8) 65%, transparent)",
-          }}
-        />
+        {variant.monoliths.map((m, i) => (
+          <span
+            key={i}
+            aria-hidden
+            className={`absolute ${m.inset} ${m.x} w-px`}
+            style={{
+              background: `linear-gradient(180deg, transparent, rgba(28,30,34,${m.opacity}) 35%, rgba(28,30,34,${m.opacity}) 65%, transparent)`,
+            }}
+          />
+        ))}
 
-        {/* Version tag */}
         <div className="absolute top-3 right-3 inline-flex items-center px-2 py-1 rounded bg-bg-primary/80 border border-border-primary">
           <span className="text-[10px] font-mono text-text-tertiary tabular-nums leading-none">
             v{project.version}
           </span>
         </div>
-
-        {/* Lock indicator */}
         {project.lockedBy && (
           <div className="absolute top-3 left-3 inline-flex items-center gap-1.5 px-2 py-1 rounded bg-bg-primary/80 border border-border-primary">
             <StatusDot tone="active" />
@@ -379,7 +510,6 @@ function ProjectCard({
         )}
       </div>
 
-      {/* Text content — fills remaining height */}
       <div className="flex flex-col flex-1 p-6">
         <div className="flex items-start justify-between gap-3 mb-2">
           <h3 className="font-display text-base font-medium text-text-primary tracking-tight line-clamp-1">
@@ -397,7 +527,7 @@ function ProjectCard({
           )}
         </p>
         <div className="flex items-center justify-between pt-4 text-[11px] text-text-tertiary uppercase tracking-[0.1em]">
-          <span>Edited {lastEdited}</span>
+          <span>Edited {timeAgo(project.updatedAt)}</span>
           {project.assetPacks.length > 0 && (
             <span className="flex items-center gap-1.5 normal-case tracking-normal">
               <Package size={11} strokeWidth={1.5} />
@@ -435,8 +565,9 @@ function ContinueSection({
   );
 
   return (
-    <section className="mb-20">
+    <section className="mb-24">
       <SectionHeader
+        number="01"
         title="Continue"
         meta={
           loading
@@ -562,80 +693,7 @@ function EmptyHero({
 }
 
 // =============================================================================
-// Quick start — three uniform primary actions
-// =============================================================================
-
-function QuickStartSection() {
-  const actions = [
-    {
-      route: ROUTES.WORLD_STUDIO,
-      label: "New World",
-      desc: "Compose terrain, biomes, structures, and quests with AI-assisted authoring.",
-      icon: Map,
-    },
-    {
-      route: ROUTES.GENERATION,
-      label: "Generate Asset",
-      desc: "3D models, textures, sprites, VFX through the AI pipeline.",
-      icon: Wand2,
-    },
-    {
-      route: ROUTES.ASSETS,
-      label: "Asset Library",
-      desc: "Browse, organize, and re-deploy every asset and prefab.",
-      icon: Database,
-    },
-  ];
-
-  return (
-    <section className="mb-20">
-      <SectionHeader title="Quick start" meta="Primary workflows" />
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {actions.map((a) => {
-          const Icon = a.icon;
-          return (
-            <Link
-              key={a.route}
-              to={a.route}
-              className="group relative flex flex-col rounded-lg bg-bg-tertiary border border-border-primary hover:border-primary/50 transition-colors duration-500 ease-out overflow-hidden h-[200px] p-7"
-            >
-              <span className="pointer-events-none absolute left-0 top-6 bottom-6 w-px bg-primary opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-out" />
-              <span
-                aria-hidden
-                className="pointer-events-none absolute -inset-px opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-out"
-                style={{
-                  background:
-                    "radial-gradient(ellipse 70% 80% at 30% 100%, rgba(212,175,55,0.05) 0%, transparent 65%)",
-                }}
-              />
-              <div className="relative flex items-start justify-between mb-5">
-                <Icon
-                  size={26}
-                  strokeWidth={1.25}
-                  className="text-text-secondary group-hover:text-primary transition-colors duration-500 ease-out"
-                />
-                <ArrowUpRight
-                  size={15}
-                  strokeWidth={1.5}
-                  className="text-text-tertiary opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-500 ease-out"
-                />
-              </div>
-              <h3 className="relative font-display text-xl font-medium text-text-primary tracking-tight mb-2">
-                {a.label}
-              </h3>
-              <p className="relative text-sm text-text-tertiary leading-relaxed mt-auto">
-                {a.desc}
-              </p>
-            </Link>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-// =============================================================================
-// Activity + Telemetry
+// 02 / WORKSPACE — activity + sparkline + telemetry
 // =============================================================================
 
 interface Asset {
@@ -644,6 +702,63 @@ interface Asset {
   type: string;
   generatedAt: string;
   hasModel: boolean;
+}
+
+/**
+ * Tiny 7-day sparkline of generation activity. SVG, no library.
+ * Each bar is one day; the rightmost bar is today.
+ */
+function ActivitySparkline({ data }: { data: number[] }) {
+  const w = 200;
+  const h = 48;
+  const padX = 2;
+  const padY = 6;
+  const barW = (w - padX * 2) / data.length;
+  const max = Math.max(1, ...data);
+
+  return (
+    <svg
+      viewBox={`0 0 ${w} ${h}`}
+      preserveAspectRatio="none"
+      className="w-full h-12"
+      role="img"
+      aria-label={`7-day activity: ${data.join(", ")} generations`}
+    >
+      <title>7-day activity</title>
+      {/* Baseline */}
+      <line
+        x1={padX}
+        y1={h - padY}
+        x2={w - padX}
+        y2={h - padY}
+        stroke="rgba(28,30,34,0.9)"
+        strokeWidth={1}
+      />
+      {data.map((v, i) => {
+        const x = padX + i * barW + barW * 0.2;
+        const bw = barW * 0.6;
+        const bh = ((v / max) * (h - padY * 2)) | 0;
+        const y = h - padY - bh;
+        const isToday = i === data.length - 1;
+        return (
+          <rect
+            key={i}
+            x={x}
+            y={y}
+            width={bw}
+            height={Math.max(1, bh)}
+            fill={
+              v === 0
+                ? "rgba(58,61,69,0.6)"
+                : isToday
+                  ? "#D4AF37"
+                  : "rgba(212,175,55,0.45)"
+            }
+          />
+        );
+      })}
+    </svg>
+  );
 }
 
 function ActivityList({
@@ -768,10 +883,12 @@ function TelemetryRail({
   assetCount,
   projectCount,
   loading,
+  sparkline,
 }: {
   assetCount: number;
   projectCount: number;
   loading: boolean;
+  sparkline: number[];
 }) {
   const now = new Date();
   const timeStr = now.toLocaleTimeString([], {
@@ -780,10 +897,7 @@ function TelemetryRail({
     hour12: false,
   });
 
-  const libraryStats = [
-    { label: "Assets", value: assetCount },
-    { label: "Worlds", value: projectCount },
-  ];
+  const weekTotal = sparkline.reduce((a, b) => a + b, 0);
 
   const systemStats = [
     { label: "Renderer", value: "WebGPU + TSL", indicator: "online" as const },
@@ -797,37 +911,61 @@ function TelemetryRail({
 
   return (
     <div className="flex flex-col gap-5 h-full">
-      {/* Library */}
+      {/* Activity sparkline + week total */}
       <div className="rounded-lg bg-bg-tertiary border border-border-primary overflow-hidden">
-        <header className="px-6 py-4 border-b border-border-primary">
+        <header className="flex items-baseline justify-between px-6 py-4 border-b border-border-primary">
           <h3 className="font-display text-sm font-medium text-text-primary tracking-tight">
-            Your library
+            This week
           </h3>
+          <span className="text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
+            7-day activity
+          </span>
         </header>
-        <div className="grid grid-cols-2 divide-x divide-border-primary">
-          {libraryStats.map((s) => (
-            <div key={s.label} className="px-6 py-6">
-              <p className="text-[10px] font-medium text-text-tertiary uppercase tracking-[0.14em] mb-3">
-                {s.label}
-              </p>
-              <p className="font-display text-3xl font-medium text-text-primary tracking-tight tabular-nums leading-none">
-                {loading ? (
-                  <span
-                    className="inline-block w-12 h-7 bg-bg-secondary rounded"
-                    style={{
-                      animation: "celestial-pulse 2.4s ease-in-out infinite",
-                    }}
-                  />
-                ) : (
-                  s.value.toString().padStart(2, "0")
-                )}
-              </p>
-            </div>
-          ))}
+        <div className="p-6">
+          <div className="flex items-baseline justify-between mb-4">
+            <p className="font-display text-3xl font-medium text-text-primary tracking-tight tabular-nums leading-none">
+              {loading ? "—" : weekTotal.toString().padStart(2, "0")}
+            </p>
+            <p className="text-[10px] font-medium text-text-tertiary uppercase tracking-[0.14em]">
+              Generated
+            </p>
+          </div>
+          <ActivitySparkline data={sparkline} />
+          <div className="mt-2 flex items-center justify-between text-[10px] font-mono text-text-tertiary tabular-nums">
+            <span>7d ago</span>
+            <span className="text-primary">Today</span>
+          </div>
         </div>
       </div>
 
-      {/* Engine */}
+      {/* Library totals */}
+      <div className="rounded-lg bg-bg-tertiary border border-border-primary overflow-hidden">
+        <header className="px-6 py-4 border-b border-border-primary">
+          <h3 className="font-display text-sm font-medium text-text-primary tracking-tight">
+            Library
+          </h3>
+        </header>
+        <div className="grid grid-cols-2 divide-x divide-border-primary">
+          <div className="px-6 py-5">
+            <p className="text-[10px] font-medium text-text-tertiary uppercase tracking-[0.14em] mb-2">
+              Assets
+            </p>
+            <p className="font-display text-2xl font-medium text-text-primary tracking-tight tabular-nums leading-none">
+              {loading ? "—" : assetCount.toString().padStart(2, "0")}
+            </p>
+          </div>
+          <div className="px-6 py-5">
+            <p className="text-[10px] font-medium text-text-tertiary uppercase tracking-[0.14em] mb-2">
+              Worlds
+            </p>
+            <p className="font-display text-2xl font-medium text-text-primary tracking-tight tabular-nums leading-none">
+              {loading ? "—" : projectCount.toString().padStart(2, "0")}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Engine subsystem status */}
       <div className="rounded-lg bg-bg-tertiary border border-border-primary overflow-hidden flex-1">
         <header className="flex items-baseline justify-between px-6 py-4 border-b border-border-primary">
           <h3 className="font-display text-sm font-medium text-text-primary tracking-tight">
@@ -862,13 +1000,13 @@ function TelemetryRail({
 }
 
 // =============================================================================
-// Toolchain index — secondary nav
+// 03 / TOOLCHAIN — full module index
 // =============================================================================
 
 function ToolIndex() {
   return (
-    <section className="mb-20">
-      <SectionHeader title="Toolchain" meta="All modules" />
+    <section className="mb-24">
+      <SectionHeader number="03" title="Toolchain" meta="All modules" />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
         {TOOLS.map((group) => (
           <div key={group.title}>
@@ -963,50 +1101,62 @@ export function DashboardPage() {
     null;
 
   const greeting = getGreeting();
+  const sparkline = useMemo(() => buildActivitySparkline(assets), [assets]);
 
   return (
     <div className="relative min-h-full bg-bg-primary overflow-hidden">
       <AtmosphericScene />
 
       <div className="relative max-w-[1200px] mx-auto px-10 py-16">
-        {/* ============== HERO BAND ==============
-            Single column, left-aligned. Logo above text — vertical
-            rhythm reads as architectural masthead. */}
-        <header className="mb-20">
-          <div className="flex flex-col gap-7 max-w-3xl">
-            <div className="flex items-center gap-4">
-              <ForgeLogo size={56} />
-              <div className="flex items-center gap-3">
-                <p className="flex items-center gap-2 text-[11px] font-medium text-text-tertiary uppercase tracking-[0.18em]">
-                  <StatusDot tone="online" />
-                  HyperForge
-                </p>
-                <span className="text-text-tertiary/40">·</span>
-                <span className="text-[11px] font-mono text-text-tertiary tabular-nums">
-                  v0.1.0
-                </span>
-              </div>
-            </div>
+        {/* ====================================================================
+            00 / HERO — brand identity + AI compose prompt
+            ==================================================================== */}
+        <header className="mb-24">
+          <div className="flex items-baseline gap-4 mb-6">
+            <span className="font-mono text-[11px] text-text-tertiary tabular-nums tracking-[0.05em]">
+              00
+            </span>
+            <span className="font-display text-base font-medium text-text-primary tracking-tight">
+              HyperForge
+            </span>
+            <span className="flex items-center gap-2 text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
+              <StatusDot tone="online" />
+              v0.1.0
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-10 items-center mb-10">
+            <ForgeLogo size={96} />
             <div>
-              <h1 className="font-display text-4xl md:text-5xl font-medium text-text-primary tracking-tight leading-[1.05] mb-4">
+              <h1 className="font-display text-5xl md:text-6xl font-medium text-text-primary tracking-tight leading-[1.02] mb-4">
                 {displayName ? (
                   <>
-                    {greeting},{" "}
+                    {greeting},
+                    <br />
                     <span className="text-primary">{displayName}</span>
                   </>
                 ) : (
-                  <>The engine beneath infinite worlds.</>
+                  <>
+                    The engine beneath
+                    <br />
+                    <span className="text-primary">infinite worlds.</span>
+                  </>
                 )}
               </h1>
-              <p className="text-base text-text-tertiary leading-relaxed">
+              <p className="text-base text-text-tertiary leading-relaxed max-w-xl">
                 AI-driven authoring, procedural worldbuilding, and a unified
                 asset pipeline — all rendered on WebGPU.
               </p>
             </div>
           </div>
+
+          {/* AI compose prompt — the signature moment */}
+          <ComposePrompt />
         </header>
 
-        {/* ============== CONTINUE ============== */}
+        {/* ====================================================================
+            01 / CONTINUE — recent world projects
+            ==================================================================== */}
         <ContinueSection
           projects={projects}
           loading={projectsLoading}
@@ -1014,26 +1164,34 @@ export function DashboardPage() {
           teamId={teamId}
         />
 
-        {/* ============== QUICK START ============== */}
-        <QuickStartSection />
-
-        {/* ============== ACTIVITY + TELEMETRY ============== */}
-        <section className="mb-20">
-          <SectionHeader title="Workspace" meta="Activity & telemetry" />
-          <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-5 min-h-[480px]">
+        {/* ====================================================================
+            02 / WORKSPACE — activity feed + telemetry
+            ==================================================================== */}
+        <section className="mb-24">
+          <SectionHeader
+            number="02"
+            title="Workspace"
+            meta="Activity & telemetry"
+          />
+          <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-5 min-h-[560px]">
             <ActivityList assets={assets} loading={assetsLoading} />
             <TelemetryRail
               assetCount={assets.length}
               projectCount={projects.length}
               loading={assetsLoading || projectsLoading}
+              sparkline={sparkline}
             />
           </div>
         </section>
 
-        {/* ============== TOOLCHAIN ============== */}
+        {/* ====================================================================
+            03 / TOOLCHAIN
+            ==================================================================== */}
         <ToolIndex />
 
-        {/* ============== FOOTER ============== */}
+        {/* ====================================================================
+            FOOTER
+            ==================================================================== */}
         <footer className="pt-10 border-t border-border-primary">
           <div className="flex flex-wrap items-baseline justify-between gap-6">
             <div className="flex items-center gap-3">
