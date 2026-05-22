@@ -25,6 +25,7 @@ import { Avatar } from "../components/shared/Avatar";
 import { ForgeLogo } from "../components/shared/ForgeLogo";
 import { CreateTeamDialog } from "../components/teams/CreateTeamDialog";
 import { ROUTES, buildTeamDetailPath } from "../constants";
+import { isPersonalTeam } from "../utils/teamApi";
 import {
   fetchCurrentUser,
   type AuthTeamMembership,
@@ -170,6 +171,7 @@ export function TeamsPage() {
   const auth = useForgeAuth();
   const navigate = useNavigate();
   const [teams, setTeams] = useState<AuthTeamMembership[]>([]);
+  const [viewerUserId, setViewerUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -186,6 +188,7 @@ export function TeamsPage() {
         const me = await fetchCurrentUser();
         if (!cancelled) {
           setTeams(me.teams);
+          setViewerUserId(me.user.id);
           setError(null);
         }
       } catch (err) {
@@ -319,6 +322,10 @@ export function TeamsPage() {
               {teams.map((t) => {
                 const badge = roleBadge(t.role);
                 const BadgeIcon = badge.icon;
+                const personal = isPersonalTeam(
+                  { slug: t.teamSlug },
+                  viewerUserId,
+                );
                 return (
                   <Link
                     key={t.teamId}
@@ -331,11 +338,18 @@ export function TeamsPage() {
                     <Avatar size={48} rounded="md" name={t.teamName} />
 
                     <div className="min-w-0 flex-1">
-                      <p className="font-display text-lg font-medium text-text-primary tracking-tight truncate">
-                        {t.teamName}
-                      </p>
-                      <p className="text-[11px] text-text-tertiary uppercase tracking-[0.1em] mt-1 font-mono normal-case">
-                        {t.teamId}
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="font-display text-lg font-medium text-text-primary tracking-tight truncate">
+                          {t.teamName}
+                        </p>
+                        {personal && (
+                          <span className="flex-shrink-0 px-2 py-0.5 rounded bg-bg-primary border border-border-primary text-[9px] uppercase tracking-[0.14em] text-text-tertiary">
+                            Personal
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-text-tertiary uppercase tracking-[0.1em] font-mono normal-case">
+                        {t.teamSlug}
                       </p>
                     </div>
 
@@ -464,7 +478,12 @@ export function TeamsPage() {
           // Optimistically add to the visible list so back-nav shows it
           setTeams((prev) => [
             ...prev,
-            { teamId: team.id, teamName: team.name, role: "owner" },
+            {
+              teamId: team.id,
+              teamName: team.name,
+              teamSlug: team.slug,
+              role: "owner",
+            },
           ]);
           navigate(buildTeamDetailPath(team.id));
         }}

@@ -12,6 +12,7 @@ import { apiFetch } from "./api";
 export interface AuthTeamMembership {
   teamId: string;
   teamName: string;
+  teamSlug: string;
   role: string;
 }
 

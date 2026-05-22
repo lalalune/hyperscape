@@ -425,6 +425,27 @@ export class TeamService {
       );
   }
 
+  /**
+   * Pending invitations addressed to a specific email — used by the
+   * "Invitations TO me" surface on the user's profile. Matches case-
+   * insensitively against the email stored on the invite record.
+   */
+  async getPendingInvitesForEmail(email: string): Promise<TeamInvite[]> {
+    const db = getDb();
+    if (!isDatabaseEnabled() || !db) return [];
+
+    return db
+      .select()
+      .from(teamInvites)
+      .where(
+        and(
+          sql`LOWER(${teamInvites.email}) = LOWER(${email})`,
+          sql`${teamInvites.acceptedAt} IS NULL`,
+          sql`${teamInvites.expiresAt} > NOW()`,
+        ),
+      );
+  }
+
   async revokeInvite(inviteId: string): Promise<boolean> {
     const db = getDb();
     if (!isDatabaseEnabled() || !db) return false;

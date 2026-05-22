@@ -143,6 +143,10 @@ export const TeamInviteResponse = t.Object({
   acceptedAt: t.Nullable(t.String()),
 });
 
+export const UpdateMemberRoleBody = t.Object({
+  role: t.String({ minLength: 1, maxLength: 32 }),
+});
+
 export const AuditLogEntryResponse = t.Object({
   id: t.String(),
   teamId: t.Nullable(t.String()),

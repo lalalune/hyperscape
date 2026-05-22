@@ -22,6 +22,7 @@ import {
   Clock,
   Crown,
   Loader2,
+  LogOut,
   Mail,
   Plus,
   Save,
@@ -29,13 +30,21 @@ import {
   Settings,
   Shield,
   Sparkles,
+  Trash2,
   User as UserIcon,
   Users,
+  X,
 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import {
+  Link,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 
 import { useForgeAuth } from "../auth/ForgeAuthProvider";
+import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { Avatar } from "../components/shared/Avatar";
 import { ForgeLogo } from "../components/shared/ForgeLogo";
 import { InviteMemberDialog } from "../components/teams/InviteMemberDialog";
@@ -48,6 +57,12 @@ import {
   fetchTeamInvites,
   fetchTeamAuditLog,
   updateTeam,
+  updateMemberRole,
+  removeMember,
+  revokeInvite,
+  leaveTeam,
+  deleteTeam,
+  isPersonalTeam,
   type AuditLogEntryResponse,
   type TeamResponse,
   type TeamMemberResponse,
@@ -214,10 +229,16 @@ function PanelHeader({
 function GeneralPanel({
   team,
   canEdit,
+  viewerRole,
+  viewerUserId,
+  members,
   onUpdated,
 }: {
   team: TeamResponse;
   canEdit: boolean;
+  viewerRole: string | null;
+  viewerUserId: string | null;
+  members: TeamMemberResponse[];
   onUpdated: (team: TeamResponse) => void;
 }) {
   const { showNotification } = useApp();
@@ -433,20 +454,196 @@ function GeneralPanel({
           </div>
         </div>
       </section>
+
+      <DangerZonePanel
+        team={team}
+        viewerRole={viewerRole}
+        members={members}
+        viewerUserId={viewerUserId}
+      />
     </div>
   );
 }
 
+function DangerZonePanel({
+  team,
+  viewerRole,
+  viewerUserId,
+  members,
+}: {
+  team: TeamResponse;
+  viewerRole: string | null;
+  viewerUserId: string | null;
+  members: TeamMemberResponse[];
+}) {
+  const navigate = useNavigate();
+  const { showNotification } = useApp();
+  const [leaveOpen, setLeaveOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
+  const role = (viewerRole ?? "").toLowerCase();
+  const isOwner = role === "owner";
+  const isMember = !!viewerRole;
+  const ownerCount = members.filter(
+    (m) => m.role.toLowerCase() === "owner",
+  ).length;
+  const isOnlyOwner = isOwner && ownerCount <= 1;
+  const personal = isPersonalTeam({ slug: team.slug }, viewerUserId);
+
+  // Personal teams aren't deletable or leave-able — they're your default
+  // workspace and there's no second team to fall back to. Hide the
+  // entire Danger Zone for them; the user can still rename it via the
+  // form above.
+  if (personal) {
+    return (
+      <section className="mt-12 pt-8 border-t border-border-primary max-w-2xl">
+        <div className="rounded-lg bg-bg-tertiary border border-border-primary p-5 flex items-start gap-3">
+          <UserIcon
+            size={14}
+            strokeWidth={1.5}
+            className="text-text-tertiary flex-shrink-0 mt-0.5"
+          />
+          <p className="text-sm text-text-tertiary leading-relaxed">
+            This is your personal team. It can&apos;t be deleted or left —
+            it&apos;s your default workspace for solo projects.
+          </p>
+        </div>
+      </section>
+    );
+  }
+
+  const handleLeave = async () => {
+    await leaveTeam(team.id);
+    showNotification(`Left "${team.name}"`, "success");
+    navigate(ROUTES.TEAMS);
+  };
+
+  const handleDelete = async () => {
+    await deleteTeam(team.id);
+    showNotification(`Deleted "${team.name}"`, "success");
+    navigate(ROUTES.TEAMS);
+  };
+
+  return (
+    <section className="mt-12 pt-8 border-t border-border-primary max-w-2xl">
+      <PanelHeader
+        title="Danger zone"
+        description="Irreversible actions affecting this team."
+      />
+
+      <div className="rounded-lg bg-bg-tertiary border border-error/30 overflow-hidden">
+        {/* Leave team — visible to any member except a sole owner */}
+        {isMember && (
+          <div className="flex items-center justify-between gap-4 px-5 py-4 border-b border-border-primary">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-text-primary mb-1">
+                Leave team
+              </p>
+              <p className="text-xs text-text-tertiary leading-relaxed">
+                {isOnlyOwner
+                  ? "You're the only owner. Transfer ownership or delete the team to leave."
+                  : "Remove yourself from this team. You'll lose access to its worlds and assets."}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setLeaveOpen(true)}
+              disabled={isOnlyOwner}
+              className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-bg-primary border border-border-primary hover:border-error/60 text-[11px] text-text-secondary hover:text-error uppercase tracking-[0.12em] transition-colors duration-300 ease-out disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-border-primary disabled:hover:text-text-secondary"
+            >
+              <LogOut size={11} strokeWidth={1.5} />
+              Leave
+            </button>
+          </div>
+        )}
+
+        {/* Delete team — owner only */}
+        {isOwner && (
+          <div className="flex items-center justify-between gap-4 px-5 py-4">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-text-primary mb-1">
+                Delete team
+              </p>
+              <p className="text-xs text-text-tertiary leading-relaxed">
+                Permanently delete this team, its games, worlds, members, and
+                history. Cannot be undone.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setDeleteOpen(true)}
+              className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-error/10 border border-error/40 hover:border-error text-[11px] text-error uppercase tracking-[0.12em] transition-colors duration-300 ease-out"
+            >
+              <Trash2 size={11} strokeWidth={1.5} />
+              Delete
+            </button>
+          </div>
+        )}
+      </div>
+
+      <ConfirmDialog
+        open={leaveOpen}
+        onClose={() => setLeaveOpen(false)}
+        onConfirm={handleLeave}
+        title="Leave team?"
+        confirmLabel="Leave team"
+        message={
+          <>
+            You&apos;ll be removed from{" "}
+            <span className="text-text-primary font-medium">{team.name}</span>{" "}
+            and lose access to its worlds and asset library. You can rejoin if
+            invited again.
+          </>
+        }
+      />
+
+      <ConfirmDialog
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={handleDelete}
+        title="Delete team?"
+        confirmLabel="Delete forever"
+        confirmPhrase={team.slug}
+        message={
+          <>
+            This permanently deletes{" "}
+            <span className="text-text-primary font-medium">{team.name}</span>{" "}
+            and everything inside: games, worlds, member records, audit log, and
+            asset packs.{" "}
+            <strong className="text-error">There is no undo.</strong>
+          </>
+        }
+      />
+    </section>
+  );
+}
+
+const ROLE_OPTIONS = ["owner", "admin", "editor", "viewer"] as const;
+
 function MembersPanel({
+  teamId,
   members,
   loading,
   viewerUserId,
+  canManage,
+  viewerIsOwner,
+  onMembersChanged,
 }: {
+  teamId: string;
   members: TeamMemberResponse[];
   loading: boolean;
   viewerUserId: string | null;
+  canManage: boolean;
+  viewerIsOwner: boolean;
+  onMembersChanged: () => void;
 }) {
+  const { showNotification } = useApp();
   const [query, setQuery] = useState("");
+  const [updatingMemberId, setUpdatingMemberId] = useState<string | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<TeamMemberResponse | null>(
+    null,
+  );
+
   const filtered = useMemo(() => {
     if (!query.trim()) return members;
     const q = query.toLowerCase();
@@ -457,6 +654,36 @@ function MembersPanel({
         m.role.toLowerCase().includes(q),
     );
   }, [members, query]);
+
+  const handleRoleChange = async (member: TeamMemberResponse, role: string) => {
+    if (role === member.role) return;
+    setUpdatingMemberId(member.id);
+    try {
+      await updateMemberRole(teamId, member.userId, role);
+      showNotification(
+        `Updated ${member.displayName || member.email || "member"} to ${role}`,
+        "success",
+      );
+      onMembersChanged();
+    } catch (err) {
+      showNotification(
+        err instanceof Error ? err.message : "Failed to update role",
+        "error",
+      );
+    } finally {
+      setUpdatingMemberId(null);
+    }
+  };
+
+  const handleRemove = async () => {
+    if (!removeTarget) return;
+    await removeMember(teamId, removeTarget.userId);
+    showNotification(
+      `Removed ${removeTarget.displayName || removeTarget.email || "member"}`,
+      "success",
+    );
+    onMembersChanged();
+  };
 
   return (
     <div>
@@ -513,6 +740,15 @@ function MembersPanel({
               const BadgeIcon = badge.icon;
               const memberName = m.displayName || m.email || "Anonymous";
               const isYou = viewerUserId === m.userId;
+              // Owner role can only be assigned by another owner; admins
+              // can change any non-owner role.
+              const canEditThisRow =
+                canManage &&
+                !isYou &&
+                (viewerIsOwner || m.role.toLowerCase() !== "owner");
+              const canRemoveThisRow = canManage && !isYou;
+              const isUpdating = updatingMemberId === m.id;
+
               return (
                 <li key={m.id} className="flex items-center gap-4 px-5 py-4">
                   <Avatar
@@ -540,25 +776,64 @@ function MembersPanel({
                       )}
                     </p>
                   </div>
-                  <div className="hidden sm:block text-[10px] text-text-tertiary uppercase tracking-[0.1em] font-mono normal-case flex-shrink-0">
+                  <div className="hidden md:block text-[10px] text-text-tertiary uppercase tracking-[0.1em] font-mono normal-case flex-shrink-0">
                     Joined {timeAgo(m.joinedAt)}
                   </div>
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded bg-bg-primary border border-border-primary flex-shrink-0">
-                    <BadgeIcon
-                      size={11}
-                      strokeWidth={1.5}
-                      className={
-                        badge.isPrimary ? "text-primary" : "text-text-tertiary"
-                      }
-                    />
-                    <span
-                      className={`text-[11px] uppercase tracking-[0.12em] ${
-                        badge.isPrimary ? "text-primary" : "text-text-secondary"
-                      }`}
+
+                  {/* Role: editable select for admins+, static badge otherwise */}
+                  {canEditThisRow ? (
+                    <div className="flex-shrink-0">
+                      <select
+                        value={m.role.toLowerCase()}
+                        onChange={(e) => handleRoleChange(m, e.target.value)}
+                        disabled={isUpdating}
+                        className="input py-1.5 pl-3 pr-8 text-[11px] uppercase tracking-[0.1em] w-[110px]"
+                      >
+                        {ROLE_OPTIONS.map((r) => {
+                          // Only owners can promote someone to owner
+                          if (r === "owner" && !viewerIsOwner) return null;
+                          return (
+                            <option key={r} value={r}>
+                              {r}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded bg-bg-primary border border-border-primary flex-shrink-0">
+                      <BadgeIcon
+                        size={11}
+                        strokeWidth={1.5}
+                        className={
+                          badge.isPrimary
+                            ? "text-primary"
+                            : "text-text-tertiary"
+                        }
+                      />
+                      <span
+                        className={`text-[11px] uppercase tracking-[0.12em] ${
+                          badge.isPrimary
+                            ? "text-primary"
+                            : "text-text-secondary"
+                        }`}
+                      >
+                        {badge.label}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Remove member */}
+                  {canRemoveThisRow && (
+                    <button
+                      type="button"
+                      onClick={() => setRemoveTarget(m)}
+                      title="Remove from team"
+                      className="flex-shrink-0 p-1.5 rounded text-text-tertiary hover:text-error hover:bg-bg-primary transition-colors duration-300 ease-out"
                     >
-                      {badge.label}
-                    </span>
-                  </div>
+                      <Trash2 size={14} strokeWidth={1.5} />
+                    </button>
+                  )}
                 </li>
               );
             })}
@@ -566,9 +841,24 @@ function MembersPanel({
         </div>
       )}
 
-      <p className="mt-4 text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
-        Role changes & member removal coming soon
-      </p>
+      <ConfirmDialog
+        open={removeTarget !== null}
+        onClose={() => setRemoveTarget(null)}
+        onConfirm={handleRemove}
+        title="Remove member?"
+        confirmLabel="Remove"
+        message={
+          <>
+            <span className="text-text-primary font-medium">
+              {removeTarget?.displayName ||
+                removeTarget?.email ||
+                "This member"}
+            </span>{" "}
+            will lose access to this team and all its worlds. They can be
+            re-invited later.
+          </>
+        }
+      />
     </div>
   );
 }
@@ -580,6 +870,7 @@ function InvitationsPanel({
   viewerIsOwner,
   team,
   onInvited,
+  onRevoked,
 }: {
   invites: TeamInviteResponse[];
   loading: boolean;
@@ -587,8 +878,20 @@ function InvitationsPanel({
   viewerIsOwner: boolean;
   team: TeamResponse;
   onInvited: (invite: TeamInviteResponse) => void;
+  onRevoked: (inviteId: string) => void;
 }) {
+  const { showNotification } = useApp();
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [revokeTarget, setRevokeTarget] = useState<TeamInviteResponse | null>(
+    null,
+  );
+
+  const handleRevoke = async () => {
+    if (!revokeTarget) return;
+    await revokeInvite(team.id, revokeTarget.id);
+    showNotification(`Revoked invite to ${revokeTarget.email}`, "success");
+    onRevoked(revokeTarget.id);
+  };
 
   return (
     <div>
@@ -686,12 +989,40 @@ function InvitationsPanel({
                       {badge.label}
                     </span>
                   </div>
+                  {canManage && (
+                    <button
+                      type="button"
+                      onClick={() => setRevokeTarget(inv)}
+                      title="Revoke invite"
+                      className="flex-shrink-0 p-1.5 rounded text-text-tertiary hover:text-error hover:bg-bg-primary transition-colors duration-300 ease-out"
+                    >
+                      <X size={14} strokeWidth={1.5} />
+                    </button>
+                  )}
                 </li>
               );
             })}
           </ul>
         </div>
       )}
+
+      <ConfirmDialog
+        open={revokeTarget !== null}
+        onClose={() => setRevokeTarget(null)}
+        onConfirm={handleRevoke}
+        title="Revoke invitation?"
+        confirmLabel="Revoke"
+        message={
+          <>
+            The invite to{" "}
+            <span className="text-text-primary font-medium">
+              {revokeTarget?.email}
+            </span>{" "}
+            will be invalidated. The recipient won&apos;t be able to use the
+            existing link; you can send a new invite later.
+          </>
+        }
+      />
 
       <InviteMemberDialog
         open={inviteOpen}
@@ -1074,14 +1405,29 @@ export function TeamSettingsPage() {
               <GeneralPanel
                 team={team}
                 canEdit={canManage}
+                viewerRole={viewerRole}
+                viewerUserId={viewerUserId}
+                members={members}
                 onUpdated={(updated) => setTeam(updated)}
               />
             )}
             {activeTab === "members" && (
               <MembersPanel
+                teamId={team.id}
                 members={members}
                 loading={loadingMembers}
                 viewerUserId={viewerUserId}
+                canManage={canManage}
+                viewerIsOwner={(viewerRole ?? "").toLowerCase() === "owner"}
+                onMembersChanged={() => {
+                  // Refetch members + audit log so the change reflects
+                  fetchTeamMembers(team.id)
+                    .then(setMembers)
+                    .catch(() => {});
+                  fetchTeamAuditLog(team.id, { limit: 50 })
+                    .then(setAuditEntries)
+                    .catch(() => {});
+                }}
               />
             )}
             {activeTab === "invitations" && (
@@ -1092,6 +1438,9 @@ export function TeamSettingsPage() {
                 viewerIsOwner={(viewerRole ?? "").toLowerCase() === "owner"}
                 team={team}
                 onInvited={(inv) => setInvites((prev) => [inv, ...prev])}
+                onRevoked={(inviteId) =>
+                  setInvites((prev) => prev.filter((i) => i.id !== inviteId))
+                }
               />
             )}
             {activeTab === "audit" && (

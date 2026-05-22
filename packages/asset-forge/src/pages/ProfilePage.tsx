@@ -36,7 +36,13 @@ import { useForgeAuth } from "../auth/ForgeAuthProvider";
 import { EditProfileDialog } from "../components/profile/EditProfileDialog";
 import { Avatar } from "../components/shared/Avatar";
 import { ForgeLogo } from "../components/shared/ForgeLogo";
+import { useApp } from "../contexts/AppContext";
 import { ROUTES, buildTeamDetailPath } from "../constants";
+import {
+  acceptInvite,
+  fetchReceivedInvites,
+  type TeamInviteResponse,
+} from "../utils/teamApi";
 import {
   fetchCurrentUser,
   type AuthMeResponse,
@@ -297,7 +303,7 @@ function TeamMembershipsSection({
   return (
     <section className="mb-20">
       <SectionHeader
-        number="02"
+        number="03"
         title="Teams"
         meta={
           loading
@@ -408,10 +414,136 @@ function TeamMembershipsSection({
   );
 }
 
+function ReceivedInvitesSection({
+  invites,
+  loading,
+  onAccepted,
+}: {
+  invites: TeamInviteResponse[];
+  loading: boolean;
+  onAccepted: () => void;
+}) {
+  const { showNotification } = useApp();
+  const [acceptingId, setAcceptingId] = useState<string | null>(null);
+
+  if (!loading && invites.length === 0) return null;
+
+  const handleAccept = async (inv: TeamInviteResponse) => {
+    setAcceptingId(inv.id);
+    try {
+      await acceptInvite(inv.token);
+      showNotification("Invitation accepted", "success");
+      onAccepted();
+    } catch (err) {
+      showNotification(
+        err instanceof Error ? err.message : "Failed to accept invite",
+        "error",
+      );
+    } finally {
+      setAcceptingId(null);
+    }
+  };
+
+  return (
+    <section className="mb-20">
+      <SectionHeader
+        number="02"
+        title="Invitations"
+        meta={
+          loading
+            ? "Loading"
+            : `${invites.length} ${invites.length === 1 ? "pending" : "pending"}`
+        }
+      />
+
+      {loading && (
+        <div className="space-y-2">
+          {[0].map((i) => (
+            <div
+              key={i}
+              className="h-16 rounded-lg bg-bg-tertiary border border-border-primary"
+              style={{
+                animation: "celestial-pulse 2.4s ease-in-out infinite",
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      {!loading && invites.length > 0 && (
+        <div className="rounded-lg bg-bg-tertiary border border-primary/30 overflow-hidden relative">
+          {/* Gold left edge — these are "earned" pending actions */}
+          <span
+            aria-hidden
+            className="pointer-events-none absolute left-0 top-3 bottom-3 w-px bg-primary opacity-60"
+          />
+          <ul className="divide-y divide-border-primary">
+            {invites.map((inv) => {
+              const badge = roleBadge(inv.role);
+              const BadgeIcon = badge.icon;
+              return (
+                <li key={inv.id} className="flex items-center gap-4 px-5 py-4">
+                  <div className="w-10 h-10 rounded bg-bg-primary border border-border-primary flex items-center justify-center flex-shrink-0">
+                    <Mail
+                      size={14}
+                      strokeWidth={1.5}
+                      className="text-primary"
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-text-primary truncate">
+                      You&apos;ve been invited to join a team
+                    </p>
+                    <p className="text-[11px] text-text-tertiary uppercase tracking-[0.1em] font-mono normal-case mt-0.5">
+                      Expires {new Date(inv.expiresAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded bg-bg-primary border border-border-primary flex-shrink-0">
+                    <BadgeIcon
+                      size={11}
+                      strokeWidth={1.5}
+                      className={
+                        badge.tone === "primary"
+                          ? "text-primary"
+                          : "text-text-tertiary"
+                      }
+                    />
+                    <span
+                      className={`text-[11px] uppercase tracking-[0.12em] ${
+                        badge.tone === "primary"
+                          ? "text-primary"
+                          : "text-text-secondary"
+                      }`}
+                    >
+                      {badge.label}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleAccept(inv)}
+                    disabled={acceptingId === inv.id}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-bg-primary text-sm font-medium hover:bg-primary-dark transition-colors duration-300 ease-out flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {acceptingId === inv.id ? (
+                      <Loader2 size={13} className="animate-spin" />
+                    ) : (
+                      "Accept"
+                    )}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function SessionSection({ onSignOut }: { onSignOut: () => void }) {
   return (
     <section className="mb-20">
-      <SectionHeader number="03" title="Session" meta="Account actions" />
+      <SectionHeader number="04" title="Session" meta="Account actions" />
       <div className="rounded-lg bg-bg-tertiary border border-border-primary overflow-hidden">
         <button
           type="button"
@@ -456,19 +588,41 @@ export function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [receivedInvites, setReceivedInvites] = useState<TeamInviteResponse[]>(
+    [],
+  );
+  const [invitesLoading, setInvitesLoading] = useState(true);
+
+  // Load both /me and /invites/received in parallel + on demand
+  const loadReceivedInvites = async () => {
+    try {
+      setInvitesLoading(true);
+      const data = await fetchReceivedInvites();
+      setReceivedInvites(data);
+    } catch {
+      // swallow — empty list is the fallback
+    } finally {
+      setInvitesLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!auth.ready || !auth.authenticated) {
       setLoading(false);
+      setInvitesLoading(false);
       return;
     }
     let cancelled = false;
     async function load() {
       try {
         setLoading(true);
-        const res = await fetchCurrentUser();
+        const [meRes, invitesRes] = await Promise.all([
+          fetchCurrentUser(),
+          fetchReceivedInvites().catch(() => [] as TeamInviteResponse[]),
+        ]);
         if (!cancelled) {
-          setMe(res);
+          setMe(meRes);
+          setReceivedInvites(invitesRes);
           setError(null);
         }
       } catch (err) {
@@ -478,7 +632,10 @@ export function ProfilePage() {
           );
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          setInvitesLoading(false);
+        }
       }
     }
     load();
@@ -558,12 +715,30 @@ export function ProfilePage() {
         </section>
 
         {/* ====================================================================
-            02 / TEAMS
+            02 / INVITATIONS — pending invites addressed to me
+            ==================================================================== */}
+        <ReceivedInvitesSection
+          invites={receivedInvites}
+          loading={invitesLoading}
+          onAccepted={async () => {
+            // Refresh both — joining a team adds to memberships, and the
+            // invite is now accepted so the received list shrinks
+            await Promise.all([
+              fetchCurrentUser()
+                .then(setMe)
+                .catch(() => {}),
+              loadReceivedInvites(),
+            ]);
+          }}
+        />
+
+        {/* ====================================================================
+            03 / TEAMS
             ==================================================================== */}
         <TeamMembershipsSection teams={me?.teams ?? []} loading={loading} />
 
         {/* ====================================================================
-            03 / SESSION
+            04 / SESSION
             ==================================================================== */}
         <SessionSection onSignOut={auth.logout} />
 

@@ -407,6 +407,237 @@ export const createTeamRoutes = (
               security: [{ BearerAuth: [] }],
             },
           },
+        )
+
+        // ==================== Member mutations ====================
+        .put(
+          "/:teamId/members/:userId",
+          async ({ auth, params: { teamId, userId }, body, set }) => {
+            const viewer = auth.user!;
+            const hasPermission = await teamService.hasRoleLevel(
+              teamId,
+              viewer.id,
+              "admin",
+            );
+            if (!hasPermission) {
+              set.status = 403;
+              return { error: "Admin role required" };
+            }
+
+            // Block self-demotion if the user is the only owner — the
+            // service-level invariant of "at least one owner per team"
+            // can't be enforced by Drizzle. Skip if changing to owner.
+            if (viewer.id === userId && body.role.toLowerCase() !== "owner") {
+              const members = await teamService.getMembers(teamId);
+              const owners = members.filter(
+                (m) => m.role.toLowerCase() === "owner",
+              );
+              if (owners.length <= 1 && owners[0]?.userId === viewer.id) {
+                set.status = 409;
+                return {
+                  error: "Cannot change role: you are the only owner",
+                };
+              }
+            }
+
+            const ok = await teamService.updateMemberRole(
+              teamId,
+              userId,
+              body.role,
+            );
+            if (!ok) {
+              set.status = 404;
+              return { error: "Member not found" };
+            }
+
+            await auditLogService.log({
+              teamId,
+              userId: viewer.id,
+              action: "team:member_role_update",
+              targetType: "team_member",
+              targetId: userId,
+              details: { newRole: body.role },
+            });
+
+            return { success: true, message: "Role updated" };
+          },
+          {
+            params: t.Object({ teamId: t.String(), userId: t.String() }),
+            body: WS.UpdateMemberRoleBody,
+            response: {
+              200: Models.SuccessResponse,
+              403: Models.ErrorResponse,
+              404: Models.ErrorResponse,
+              409: Models.ErrorResponse,
+            },
+            detail: {
+              tags: ["Teams"],
+              summary: "Update a team member's role",
+              security: [{ BearerAuth: [] }],
+            },
+          },
+        )
+        .delete(
+          "/:teamId/members/:userId",
+          async ({ auth, params: { teamId, userId }, set }) => {
+            const viewer = auth.user!;
+            // Admin+ can remove other members. Anyone can remove themselves
+            // (i.e. "leave"), but that flow uses /leave instead — block
+            // self-removal here to keep the intent clear.
+            if (viewer.id === userId) {
+              set.status = 400;
+              return {
+                error: "Use POST /:teamId/leave to remove yourself",
+              };
+            }
+            const hasPermission = await teamService.hasRoleLevel(
+              teamId,
+              viewer.id,
+              "admin",
+            );
+            if (!hasPermission) {
+              set.status = 403;
+              return { error: "Admin role required" };
+            }
+
+            const ok = await teamService.removeMember(teamId, userId);
+            if (!ok) {
+              set.status = 404;
+              return { error: "Member not found" };
+            }
+
+            await auditLogService.log({
+              teamId,
+              userId: viewer.id,
+              action: "team:member_remove",
+              targetType: "team_member",
+              targetId: userId,
+              details: {},
+            });
+
+            return { success: true, message: "Member removed" };
+          },
+          {
+            params: t.Object({ teamId: t.String(), userId: t.String() }),
+            response: {
+              200: Models.SuccessResponse,
+              400: Models.ErrorResponse,
+              403: Models.ErrorResponse,
+              404: Models.ErrorResponse,
+            },
+            detail: {
+              tags: ["Teams"],
+              summary: "Remove a team member",
+              security: [{ BearerAuth: [] }],
+            },
+          },
+        )
+
+        // ==================== Leave team ====================
+        .post(
+          "/:teamId/leave",
+          async ({ auth, params: { teamId }, set }) => {
+            const viewer = auth.user!;
+
+            // Block the last-owner from leaving — they must transfer
+            // ownership or delete the team first.
+            const role = await teamService.getMemberRole(teamId, viewer.id);
+            if (!role) {
+              set.status = 404;
+              return { error: "Not a team member" };
+            }
+
+            if (role.toLowerCase() === "owner") {
+              const members = await teamService.getMembers(teamId);
+              const owners = members.filter(
+                (m) => m.role.toLowerCase() === "owner",
+              );
+              if (owners.length <= 1) {
+                set.status = 409;
+                return {
+                  error:
+                    "You are the only owner. Transfer ownership or delete the team to leave.",
+                };
+              }
+            }
+
+            const ok = await teamService.removeMember(teamId, viewer.id);
+            if (!ok) {
+              set.status = 404;
+              return { error: "Not a team member" };
+            }
+
+            await auditLogService.log({
+              teamId,
+              userId: viewer.id,
+              action: "team:leave",
+              targetType: "team_member",
+              targetId: viewer.id,
+              details: {},
+            });
+
+            return { success: true, message: "Left team" };
+          },
+          {
+            params: t.Object({ teamId: t.String() }),
+            response: {
+              200: Models.SuccessResponse,
+              404: Models.ErrorResponse,
+              409: Models.ErrorResponse,
+            },
+            detail: {
+              tags: ["Teams"],
+              summary: "Leave a team (self-remove)",
+              security: [{ BearerAuth: [] }],
+            },
+          },
+        )
+
+        // ==================== Invite mutations ====================
+        .delete(
+          "/:teamId/invites/:inviteId",
+          async ({ auth, params: { teamId, inviteId }, set }) => {
+            const viewer = auth.user!;
+            const hasPermission = await teamService.hasRoleLevel(
+              teamId,
+              viewer.id,
+              "admin",
+            );
+            if (!hasPermission) {
+              set.status = 403;
+              return { error: "Admin role required" };
+            }
+
+            const ok = await teamService.revokeInvite(inviteId);
+            if (!ok) {
+              set.status = 404;
+              return { error: "Invite not found" };
+            }
+
+            await auditLogService.log({
+              teamId,
+              userId: viewer.id,
+              action: "team:invite_revoke",
+              targetType: "team_invite",
+              targetId: inviteId,
+              details: {},
+            });
+
+            return { success: true, message: "Invite revoked" };
+          },
+          {
+            params: t.Object({ teamId: t.String(), inviteId: t.String() }),
+            response: {
+              200: Models.SuccessResponse,
+              403: Models.ErrorResponse,
+              404: Models.ErrorResponse,
+            },
+            detail: {
+              tags: ["Teams"],
+              summary: "Revoke a pending team invite",
+              security: [{ BearerAuth: [] }],
+            },
+          },
         ),
     );
 };
@@ -419,33 +650,72 @@ export const createInviteAcceptRoute = (teamService: TeamService) => {
   return new Elysia({ prefix: "/api/invites", name: "invite-accept-routes" })
     .derive(authDerive)
     .guard({ beforeHandle: [requireAuthGuard] }, (app) =>
-      app.post(
-        "/accept",
-        async ({ auth, body, set }) => {
-          const user = auth.user!;
-          const accepted = await teamService.acceptInvite(body.token, user.id);
+      app
+        .post(
+          "/accept",
+          async ({ auth, body, set }) => {
+            const user = auth.user!;
+            const accepted = await teamService.acceptInvite(
+              body.token,
+              user.id,
+            );
 
-          if (!accepted) {
-            set.status = 400;
-            return {
-              error: "Invalid, expired, or already accepted invite",
-            };
-          }
+            if (!accepted) {
+              set.status = 400;
+              return {
+                error: "Invalid, expired, or already accepted invite",
+              };
+            }
 
-          return { success: true, message: "Invite accepted" };
-        },
-        {
-          body: t.Object({ token: t.String() }),
-          response: {
-            200: Models.SuccessResponse,
-            400: Models.ErrorResponse,
+            return { success: true, message: "Invite accepted" };
           },
-          detail: {
-            tags: ["Teams"],
-            summary: "Accept a team invite",
-            security: [{ BearerAuth: [] }],
+          {
+            body: t.Object({ token: t.String() }),
+            response: {
+              200: Models.SuccessResponse,
+              400: Models.ErrorResponse,
+            },
+            detail: {
+              tags: ["Teams"],
+              summary: "Accept a team invite",
+              security: [{ BearerAuth: [] }],
+            },
           },
-        },
-      ),
+        )
+        /**
+         * List invitations addressed to the current user's email. Powers the
+         * "Invitations TO me" surface on the profile page. Users without an
+         * email on record (e.g. wallet-only auth) get an empty list.
+         */
+        .get(
+          "/received",
+          async ({ auth }) => {
+            const user = auth.user!;
+            if (!user.email) return [];
+
+            const invites = await teamService.getPendingInvitesForEmail(
+              user.email,
+            );
+            return invites.map((inv) => ({
+              id: inv.id,
+              teamId: inv.teamId,
+              email: inv.email,
+              role: inv.role,
+              token: inv.token,
+              expiresAt: inv.expiresAt.toISOString(),
+              acceptedAt: inv.acceptedAt?.toISOString() ?? null,
+            }));
+          },
+          {
+            response: {
+              200: t.Array(WS.TeamInviteResponse),
+            },
+            detail: {
+              tags: ["Teams"],
+              summary: "List invitations addressed to me",
+              security: [{ BearerAuth: [] }],
+            },
+          },
+        ),
     );
 };
