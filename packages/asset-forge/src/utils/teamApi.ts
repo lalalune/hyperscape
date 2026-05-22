@@ -89,3 +89,17 @@ export async function inviteToTeam(
   if (!res.ok) throw new Error(`Failed to invite: ${res.status}`);
   return res.json();
 }
+
+/**
+ * Slug a name client-side — basic kebab-case with ASCII-only chars.
+ * Server enforces uniqueness so collisions surface as a 409 / 4xx.
+ */
+export function slugifyTeamName(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "") // strip combining marks
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+}

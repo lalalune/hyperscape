@@ -32,6 +32,7 @@ import { PlantGenPage } from "./pages/PlantGenPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { TeamsPage } from "./pages/TeamsPage";
 import { TeamDetailPage } from "./pages/TeamDetailPage";
+import { GameDetailPage } from "./pages/GameDetailPage";
 import { RetargetAnimatePage } from "./pages/RetargetAnimatePage";
 import { RoadsGenPage } from "./pages/RoadsGenPage";
 import { RockGenPage } from "./pages/RockGenPage";
@@ -150,6 +151,7 @@ function AppLayout() {
             <Route path={ROUTES.PROFILE} element={<ProfilePage />} />
             <Route path={ROUTES.TEAMS} element={<TeamsPage />} />
             <Route path={ROUTES.TEAM_DETAIL} element={<TeamDetailPage />} />
+            <Route path={ROUTES.GAME_DETAIL} element={<GameDetailPage />} />
             <Route
               path={ROUTES.ARMOR_PIPELINE}
               element={<ArmorPipelinePage />}

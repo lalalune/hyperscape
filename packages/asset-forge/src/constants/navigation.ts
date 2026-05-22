@@ -69,6 +69,7 @@ export const ROUTES = {
   PROFILE: "/profile",
   TEAMS: "/teams",
   TEAM_DETAIL: "/teams/:teamId",
+  GAME_DETAIL: "/teams/:teamId/games/:gameId",
   /**
    * Asset-scoped UI layout editor route. The concrete URL is built by
    * `buildUILayoutEditorPath(teamId, layoutId)`; ROUTES.UI_LAYOUT_ASSET
@@ -80,6 +81,11 @@ export const ROUTES = {
 /** Build a concrete URL to view a team's detail page. */
 export function buildTeamDetailPath(teamId: string): string {
   return `/teams/${teamId}`;
+}
+
+/** Build a concrete URL to view a game's detail page within a team. */
+export function buildGameDetailPath(teamId: string, gameId: string): string {
+  return `/teams/${teamId}/games/${gameId}`;
 }
 
 /** Build a concrete URL to edit a persisted UI layout asset. */

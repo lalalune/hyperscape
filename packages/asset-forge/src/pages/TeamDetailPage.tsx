@@ -24,14 +24,21 @@ import {
   Loader2,
   ChevronRight,
   Sparkles,
+  Gamepad2,
+  ArrowUpRight,
 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { useForgeAuth } from "../auth/ForgeAuthProvider";
 import { ForgeLogo } from "../components/shared/ForgeLogo";
-import { ROUTES } from "../constants";
-import { fetchCurrentUser } from "../utils/worldProjectApi";
+import { InviteMemberDialog } from "../components/teams/InviteMemberDialog";
+import { ROUTES, buildGameDetailPath } from "../constants";
+import {
+  fetchCurrentUser,
+  fetchTeamGames,
+  type GameResponse,
+} from "../utils/worldProjectApi";
 import {
   fetchTeam,
   fetchTeamMembers,
@@ -230,9 +237,11 @@ export function TeamDetailPage() {
   const [team, setTeam] = useState<TeamResponse | null>(null);
   const [members, setMembers] = useState<TeamMemberResponse[]>([]);
   const [invites, setInvites] = useState<TeamInviteResponse[]>([]);
+  const [games, setGames] = useState<GameResponse[]>([]);
   const [viewerRole, setViewerRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   useEffect(() => {
     if (!teamId || !auth.ready || !auth.authenticated) {
@@ -246,10 +255,11 @@ export function TeamDetailPage() {
         setError(null);
 
         // Load viewer's role in parallel with team data
-        const [meRes, teamRes, membersRes] = await Promise.all([
+        const [meRes, teamRes, membersRes, gamesRes] = await Promise.all([
           fetchCurrentUser(),
           fetchTeam(teamId!),
           fetchTeamMembers(teamId!),
+          fetchTeamGames(teamId!),
         ]);
         if (cancelled) return;
 
@@ -257,6 +267,7 @@ export function TeamDetailPage() {
         setViewerRole(myMembership?.role ?? null);
         setTeam(teamRes);
         setMembers(membersRes);
+        setGames(gamesRes);
 
         // Invites only loadable by admin+ — try, ignore 403
         const role = (myMembership?.role ?? "").toLowerCase();
@@ -403,7 +414,12 @@ export function TeamDetailPage() {
         {/* OVERVIEW STATS */}
         <section className="mb-20">
           <SectionHeader number="01" title="Overview" meta="Team status" />
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard
+              label="Games"
+              value={games.length.toString().padStart(2, "0")}
+              sub={games.length === 1 ? "project" : "projects"}
+            />
             <StatCard
               label="Members"
               value={members.length.toString().padStart(2, "0")}
@@ -452,19 +468,104 @@ export function TeamDetailPage() {
           </div>
         </section>
 
-        {/* MEMBERS */}
+        {/* GAMES — projects within this team */}
         <section className="mb-20">
           <SectionHeader
             number="02"
-            title="Members"
-            meta={`${members.length} ${members.length === 1 ? "person" : "people"}`}
+            title="Games"
+            meta={`${games.length} ${games.length === 1 ? "project" : "projects"}`}
             action={
               canManage && (
                 <button
                   type="button"
                   disabled
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-bg-tertiary border border-border-primary text-[11px] text-text-tertiary uppercase tracking-[0.12em] cursor-not-allowed opacity-60"
-                  title="Invite member (coming soon)"
+                  title="New game (coming soon)"
+                >
+                  <Plus size={11} strokeWidth={2} />
+                  New game
+                </button>
+              )
+            }
+          />
+
+          {games.length === 0 ? (
+            <div className="rounded-lg bg-bg-tertiary border border-border-primary p-10 text-center">
+              <Gamepad2
+                size={28}
+                strokeWidth={1.25}
+                className="text-text-tertiary/60 mx-auto mb-4"
+              />
+              <p className="text-sm text-text-tertiary mb-2">No games yet.</p>
+              <p className="text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
+                Game creation coming soon
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {games.map((g) => (
+                <Link
+                  key={g.id}
+                  to={buildGameDetailPath(g.teamId, g.id)}
+                  className="group relative flex flex-col rounded-lg bg-bg-tertiary border border-border-primary hover:border-primary/40 transition-colors duration-500 ease-out overflow-hidden p-6"
+                >
+                  <span className="pointer-events-none absolute left-0 top-6 bottom-6 w-px bg-primary opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-out" />
+
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="w-10 h-10 rounded bg-bg-primary border border-border-primary flex items-center justify-center">
+                      <Gamepad2
+                        size={16}
+                        strokeWidth={1.5}
+                        className="text-text-secondary group-hover:text-primary transition-colors duration-500 ease-out"
+                      />
+                    </div>
+                    <ArrowUpRight
+                      size={14}
+                      strokeWidth={1.5}
+                      className="text-text-tertiary opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-out"
+                    />
+                  </div>
+
+                  <h3 className="font-display text-lg font-medium text-text-primary tracking-tight mb-2 truncate">
+                    {g.name}
+                  </h3>
+                  <p className="text-xs text-text-tertiary leading-relaxed line-clamp-2 mb-4 min-h-[2.5em]">
+                    {g.description || (
+                      <span className="italic text-text-tertiary/60">
+                        No description
+                      </span>
+                    )}
+                  </p>
+
+                  <div className="flex items-center justify-between pt-3 border-t border-border-primary text-[11px] text-text-tertiary uppercase tracking-[0.1em]">
+                    <span className="font-mono normal-case tracking-normal truncate">
+                      {g.slug}
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <StatusDot
+                        tone={g.productionServerUrl ? "online" : "idle"}
+                      />
+                      {g.productionServerUrl ? "Live" : "Draft"}
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* MEMBERS */}
+        <section className="mb-20">
+          <SectionHeader
+            number="03"
+            title="Members"
+            meta={`${members.length} ${members.length === 1 ? "person" : "people"}`}
+            action={
+              canManage && (
+                <button
+                  type="button"
+                  onClick={() => setInviteOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-bg-tertiary border border-border-primary hover:border-primary/40 text-[11px] text-text-secondary hover:text-primary uppercase tracking-[0.12em] transition-colors duration-300 ease-out"
                 >
                   <Plus size={11} strokeWidth={2} />
                   Invite
@@ -548,7 +649,7 @@ export function TeamDetailPage() {
         {canManage && invites.length > 0 && (
           <section className="mb-20">
             <SectionHeader
-              number="03"
+              number="04"
               title="Pending invites"
               meta={`${invites.length} outstanding`}
             />
@@ -608,7 +709,7 @@ export function TeamDetailPage() {
         {/* PERMISSIONS notice for non-admin viewers */}
         {!canManage && (
           <section className="mb-20">
-            <SectionHeader number="03" title="Permissions" meta="Your access" />
+            <SectionHeader number="04" title="Permissions" meta="Your access" />
             <div className="rounded-lg bg-bg-tertiary border border-border-primary p-6 flex items-start gap-4">
               <Shield
                 size={18}
@@ -650,6 +751,20 @@ export function TeamDetailPage() {
           </div>
         </footer>
       </div>
+
+      {/* Invite member modal */}
+      <InviteMemberDialog
+        open={inviteOpen}
+        onClose={() => setInviteOpen(false)}
+        teamId={team.id}
+        teamName={team.name}
+        viewerIsOwner={(viewerRole ?? "").toLowerCase() === "owner"}
+        onInvited={(invite) => {
+          // Optimistically append to the pending invites list so the
+          // user sees their action reflected immediately.
+          setInvites((prev) => [invite, ...prev]);
+        }}
+      />
     </div>
   );
 }

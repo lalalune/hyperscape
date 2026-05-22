@@ -18,10 +18,11 @@ import {
   Loader2,
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { useForgeAuth } from "../auth/ForgeAuthProvider";
 import { ForgeLogo } from "../components/shared/ForgeLogo";
+import { CreateTeamDialog } from "../components/teams/CreateTeamDialog";
 import { ROUTES, buildTeamDetailPath } from "../constants";
 import {
   fetchCurrentUser,
@@ -166,9 +167,11 @@ function roleBadge(role: string) {
 
 export function TeamsPage() {
   const auth = useForgeAuth();
+  const navigate = useNavigate();
   const [teams, setTeams] = useState<AuthTeamMembership[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
 
   useEffect(() => {
     if (!auth.ready || !auth.authenticated) {
@@ -251,9 +254,8 @@ export function TeamsPage() {
             action={
               <button
                 type="button"
-                disabled
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-bg-tertiary border border-border-primary text-[11px] text-text-tertiary uppercase tracking-[0.12em] cursor-not-allowed opacity-60"
-                title="Create team (coming soon)"
+                onClick={() => setCreateOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-bg-tertiary border border-border-primary hover:border-primary/40 text-[11px] text-text-secondary hover:text-primary uppercase tracking-[0.12em] transition-colors duration-300 ease-out"
               >
                 <Plus size={11} strokeWidth={2} />
                 New team
@@ -296,12 +298,17 @@ export function TeamsPage() {
                   No team memberships
                 </h3>
                 <p className="text-sm text-text-tertiary max-w-md mx-auto leading-relaxed mb-6">
-                  Teams are how you collaborate on worlds. You&apos;ll need a
-                  team membership to create projects.
+                  Teams are how you collaborate on worlds. Create your first
+                  team to start a game project.
                 </p>
-                <p className="text-[11px] text-text-tertiary uppercase tracking-[0.12em]">
-                  Team creation coming soon
-                </p>
+                <button
+                  type="button"
+                  onClick={() => setCreateOpen(true)}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md bg-primary text-bg-primary text-sm font-medium hover:bg-primary-dark transition-colors duration-500 ease-out"
+                >
+                  <Plus size={14} strokeWidth={2} />
+                  Create your first team
+                </button>
               </div>
             </div>
           )}
@@ -451,6 +458,13 @@ export function TeamsPage() {
           </div>
         </footer>
       </div>
+
+      {/* Create-team modal */}
+      <CreateTeamDialog
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={(team) => navigate(buildTeamDetailPath(team.id))}
+      />
     </div>
   );
 }
