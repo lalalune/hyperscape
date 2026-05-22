@@ -299,6 +299,24 @@
   }
 }
 
+/* Reduce atmospheric monolith opacity on narrow viewports so they
+   don't crowd content. Below 1024px the architectural columns aren't
+   adding visual depth — they're competing for space. */
+@media (max-width: 1023px) {
+  /* Architectural monoliths use `animation: drift-y ...` — opt them out
+     when the surrounding viewport doesn't have the headroom for them
+     to read as distant columns. */
+  [style*="drift-y"] {
+    opacity: 0.3;
+  }
+}
+
+@media (max-width: 640px) {
+  [style*="drift-y"] {
+    display: none;
+  }
+}
+
 /* Component Classes */
 @layer components {
   /* Layout Components */

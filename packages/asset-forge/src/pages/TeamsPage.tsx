@@ -21,6 +21,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { useForgeAuth } from "../auth/ForgeAuthProvider";
+import { Avatar } from "../components/shared/Avatar";
 import { ForgeLogo } from "../components/shared/ForgeLogo";
 import { CreateTeamDialog } from "../components/teams/CreateTeamDialog";
 import { ROUTES, buildTeamDetailPath } from "../constants";
@@ -327,12 +328,7 @@ export function TeamsPage() {
                     {/* Gold left-edge on hover */}
                     <span className="pointer-events-none absolute left-0 top-6 bottom-6 w-px bg-primary opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-out" />
 
-                    {/* Avatar */}
-                    <div className="w-12 h-12 rounded bg-bg-primary border border-border-primary flex items-center justify-center flex-shrink-0">
-                      <span className="font-display text-lg font-medium text-text-primary tracking-tight">
-                        {t.teamName.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
+                    <Avatar size={48} rounded="md" name={t.teamName} />
 
                     <div className="min-w-0 flex-1">
                       <p className="font-display text-lg font-medium text-text-primary tracking-tight truncate">
@@ -459,11 +455,19 @@ export function TeamsPage() {
         </footer>
       </div>
 
-      {/* Create-team modal */}
+      {/* Create-team modal — navigate to detail; the next mount of
+          this page will refetch from /api/auth/me with the new team. */}
       <CreateTeamDialog
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        onCreated={(team) => navigate(buildTeamDetailPath(team.id))}
+        onCreated={(team) => {
+          // Optimistically add to the visible list so back-nav shows it
+          setTeams((prev) => [
+            ...prev,
+            { teamId: team.id, teamName: team.name, role: "owner" },
+          ]);
+          navigate(buildTeamDetailPath(team.id));
+        }}
       />
     </div>
   );

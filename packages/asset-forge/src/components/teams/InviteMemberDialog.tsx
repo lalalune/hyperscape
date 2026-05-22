@@ -8,6 +8,8 @@
  */
 
 import {
+  Check,
+  Copy,
   Crown,
   Loader2,
   Mail,
@@ -18,6 +20,7 @@ import {
 } from "lucide-react";
 import React, { useState } from "react";
 
+import { useApp } from "../../contexts/AppContext";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "../common/Modal";
 import { inviteToTeam, type TeamInviteResponse } from "../../utils/teamApi";
 
@@ -63,10 +66,16 @@ export function InviteMemberDialog({
   viewerIsOwner,
   onInvited,
 }: InviteMemberDialogProps) {
+  const { showNotification } = useApp();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<string>("editor");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** When set, the invite was created — show the reveal step. */
+  const [createdInvite, setCreatedInvite] = useState<TeamInviteResponse | null>(
+    null,
+  );
+  const [copied, setCopied] = useState(false);
 
   const availableRoles = viewerIsOwner
     ? ([
@@ -86,12 +95,31 @@ export function InviteMemberDialog({
     setRole("editor");
     setError(null);
     setSubmitting(false);
+    setCreatedInvite(null);
+    setCopied(false);
   };
 
   const handleClose = () => {
     if (submitting) return;
     reset();
     onClose();
+  };
+
+  const buildInviteLink = (token: string): string => {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    return `${origin}/invites/accept?token=${encodeURIComponent(token)}`;
+  };
+
+  const handleCopy = async () => {
+    if (!createdInvite) return;
+    try {
+      await navigator.clipboard.writeText(buildInviteLink(createdInvite.token));
+      setCopied(true);
+      showNotification("Invite link copied to clipboard", "success");
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      showNotification("Failed to copy — copy the link manually", "error");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -106,14 +134,115 @@ export function InviteMemberDialog({
     try {
       const invite = await inviteToTeam(teamId, { email: trimmed, role });
       onInvited(invite);
-      reset();
-      onClose();
+      setCreatedInvite(invite);
+      showNotification(`Invited ${trimmed}`, "success");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to send invite");
+      const msg = err instanceof Error ? err.message : "Failed to send invite";
+      setError(msg);
+      showNotification(msg, "error");
     } finally {
       setSubmitting(false);
     }
   };
+
+  // === Reveal step — invite has been created, show link for copy === //
+  if (createdInvite) {
+    const inviteLink = buildInviteLink(createdInvite.token);
+    return (
+      <Modal open={open} onClose={handleClose} size="md">
+        <ModalHeader>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded bg-bg-primary border border-border-primary flex items-center justify-center flex-shrink-0">
+              <Check size={14} strokeWidth={2} className="text-success" />
+            </div>
+            <div>
+              <h2 className="font-display text-lg font-medium text-text-primary tracking-tight">
+                Invite sent
+              </h2>
+              <p className="text-[11px] text-text-tertiary uppercase tracking-[0.12em] mt-0.5">
+                {createdInvite.email}
+              </p>
+            </div>
+          </div>
+        </ModalHeader>
+
+        <ModalBody>
+          <div className="space-y-5">
+            <p className="text-sm text-text-tertiary leading-relaxed">
+              An invite was sent to{" "}
+              <span className="text-text-primary">{createdInvite.email}</span>.
+              You can also share the link below directly — it grants the same
+              access.
+            </p>
+
+            <div>
+              <span className="label">Invite link</span>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={inviteLink}
+                  className="input font-mono text-[12px]"
+                  onFocus={(e) => e.currentTarget.select()}
+                />
+                <button
+                  type="button"
+                  onClick={handleCopy}
+                  className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2.5 rounded-md bg-bg-tertiary border border-border-primary hover:border-primary/40 text-sm text-text-secondary hover:text-primary transition-colors duration-300 ease-out"
+                  title="Copy invite link"
+                >
+                  {copied ? (
+                    <>
+                      <Check
+                        size={14}
+                        strokeWidth={2}
+                        className="text-success"
+                      />
+                      Copied
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={14} strokeWidth={1.5} />
+                      Copy
+                    </>
+                  )}
+                </button>
+              </div>
+              <p className="helper-text">
+                Expires {new Date(createdInvite.expiresAt).toLocaleDateString()}{" "}
+                · Role:{" "}
+                <span className="uppercase tracking-wider">
+                  {createdInvite.role}
+                </span>
+              </p>
+            </div>
+          </div>
+        </ModalBody>
+
+        <ModalFooter>
+          <button
+            type="button"
+            onClick={() => {
+              // Reset to send another invite
+              setCreatedInvite(null);
+              setEmail("");
+              setRole("editor");
+            }}
+            className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors duration-300 ease-out"
+          >
+            Invite another
+          </button>
+          <button
+            type="button"
+            onClick={handleClose}
+            className="inline-flex items-center gap-2 px-5 py-2 rounded-md bg-primary text-bg-primary text-sm font-medium hover:bg-primary-dark transition-colors duration-300 ease-out"
+          >
+            Done
+          </button>
+        </ModalFooter>
+      </Modal>
+    );
+  }
 
   return (
     <Modal open={open} onClose={handleClose} size="md">

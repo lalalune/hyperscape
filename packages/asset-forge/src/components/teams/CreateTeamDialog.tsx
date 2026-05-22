@@ -10,6 +10,7 @@
 import { Loader2, Plus, Users } from "lucide-react";
 import React, { useState } from "react";
 
+import { useApp } from "../../contexts/AppContext";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "../common/Modal";
 import {
   createTeam,
@@ -28,6 +29,7 @@ export function CreateTeamDialog({
   onClose,
   onCreated,
 }: CreateTeamDialogProps) {
+  const { showNotification } = useApp();
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
@@ -78,11 +80,14 @@ export function CreateTeamDialog({
         slug: trimmedSlug,
         description: description.trim() || undefined,
       });
+      showNotification(`Created team "${team.name}"`, "success");
       onCreated(team);
       reset();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create team");
+      const msg = err instanceof Error ? err.message : "Failed to create team";
+      setError(msg);
+      showNotification(msg, "error");
     } finally {
       setSubmitting(false);
     }

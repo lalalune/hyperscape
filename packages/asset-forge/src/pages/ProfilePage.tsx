@@ -32,6 +32,7 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { useForgeAuth } from "../auth/ForgeAuthProvider";
+import { Avatar } from "../components/shared/Avatar";
 import { ForgeLogo } from "../components/shared/ForgeLogo";
 import { ROUTES, buildTeamDetailPath } from "../constants";
 import {
@@ -190,12 +191,7 @@ function IdentityCard({
   return (
     <div className="rounded-lg bg-bg-tertiary border border-border-primary overflow-hidden">
       <div className="p-7 flex items-start gap-6">
-        {/* Avatar block — large Graphite tile with first initial in Forge Gold */}
-        <div className="relative w-20 h-20 rounded-lg bg-bg-primary border border-border-primary flex items-center justify-center flex-shrink-0">
-          <span className="font-display text-3xl font-medium text-primary tracking-tight">
-            {displayName.charAt(0).toUpperCase()}
-          </span>
-        </div>
+        <Avatar size={80} rounded="lg" name={displayName} />
 
         <div className="flex flex-col gap-2 min-w-0 flex-1">
           <div className="flex items-baseline gap-3 flex-wrap">

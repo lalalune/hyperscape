@@ -26,12 +26,15 @@ import {
   Sparkles,
   Gamepad2,
   ArrowUpRight,
+  Search,
 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { useForgeAuth } from "../auth/ForgeAuthProvider";
+import { Avatar } from "../components/shared/Avatar";
 import { ForgeLogo } from "../components/shared/ForgeLogo";
+import { EditTeamDialog } from "../components/teams/EditTeamDialog";
 import { InviteMemberDialog } from "../components/teams/InviteMemberDialog";
 import { ROUTES, buildGameDetailPath } from "../constants";
 import {
@@ -51,6 +54,33 @@ import {
 // =============================================================================
 // Primitives
 // =============================================================================
+
+function FilterInput({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+}) {
+  return (
+    <div className="relative">
+      <Search
+        size={13}
+        strokeWidth={1.5}
+        className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-tertiary pointer-events-none"
+      />
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="input pl-10"
+      />
+    </div>
+  );
+}
 
 function StatusDot({
   tone = "online",
@@ -242,6 +272,9 @@ export function TeamDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [memberQuery, setMemberQuery] = useState("");
+  const [gameQuery, setGameQuery] = useState("");
 
   useEffect(() => {
     if (!teamId || !auth.ready || !auth.authenticated) {
@@ -297,6 +330,28 @@ export function TeamDetailPage() {
     const r = (viewerRole ?? "").toLowerCase();
     return r === "owner" || r === "admin";
   }, [viewerRole]);
+
+  const filteredMembers = useMemo(() => {
+    if (!memberQuery.trim()) return members;
+    const q = memberQuery.toLowerCase();
+    return members.filter(
+      (m) =>
+        (m.displayName ?? "").toLowerCase().includes(q) ||
+        (m.email ?? "").toLowerCase().includes(q) ||
+        m.role.toLowerCase().includes(q),
+    );
+  }, [members, memberQuery]);
+
+  const filteredGames = useMemo(() => {
+    if (!gameQuery.trim()) return games;
+    const q = gameQuery.toLowerCase();
+    return games.filter(
+      (g) =>
+        g.name.toLowerCase().includes(q) ||
+        g.slug.toLowerCase().includes(q) ||
+        (g.description ?? "").toLowerCase().includes(q),
+    );
+  }, [games, gameQuery]);
 
   const aiBudgetUsedPct = useMemo(() => {
     if (!team || team.aiBudgetMonthlyCents === 0) return 0;
@@ -371,11 +426,12 @@ export function TeamDetailPage() {
           </div>
 
           <div className="flex flex-col md:flex-row md:items-center gap-6 mb-6">
-            <div className="w-20 h-20 rounded-lg bg-bg-tertiary border border-border-primary flex items-center justify-center flex-shrink-0">
-              <span className="font-display text-3xl font-medium text-primary tracking-tight">
-                {team.name.charAt(0).toUpperCase()}
-              </span>
-            </div>
+            <Avatar
+              size={80}
+              rounded="lg"
+              src={team.avatarUrl}
+              name={team.name}
+            />
             <div className="min-w-0 flex-1">
               <h1 className="font-display text-4xl md:text-5xl font-medium text-text-primary tracking-tight leading-[1.05] mb-2">
                 {team.name}
@@ -386,28 +442,41 @@ export function TeamDetailPage() {
                 </p>
               )}
             </div>
-            {viewerRole && (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded bg-bg-tertiary border border-border-primary flex-shrink-0">
-                <ViewerBadgeIcon
-                  size={12}
-                  strokeWidth={1.5}
-                  className={
-                    viewerBadge.isPrimary
-                      ? "text-primary"
-                      : "text-text-tertiary"
-                  }
-                />
-                <span
-                  className={`text-[11px] uppercase tracking-[0.12em] ${
-                    viewerBadge.isPrimary
-                      ? "text-primary"
-                      : "text-text-secondary"
-                  }`}
+            <div className="flex items-center gap-3 flex-shrink-0">
+              {viewerRole && (
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded bg-bg-tertiary border border-border-primary">
+                  <ViewerBadgeIcon
+                    size={12}
+                    strokeWidth={1.5}
+                    className={
+                      viewerBadge.isPrimary
+                        ? "text-primary"
+                        : "text-text-tertiary"
+                    }
+                  />
+                  <span
+                    className={`text-[11px] uppercase tracking-[0.12em] ${
+                      viewerBadge.isPrimary
+                        ? "text-primary"
+                        : "text-text-secondary"
+                    }`}
+                  >
+                    You: {viewerBadge.label}
+                  </span>
+                </div>
+              )}
+              {canManage && (
+                <button
+                  type="button"
+                  onClick={() => setEditOpen(true)}
+                  title="Team settings"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-bg-tertiary border border-border-primary hover:border-primary/40 text-[11px] text-text-secondary hover:text-primary uppercase tracking-[0.12em] transition-colors duration-300 ease-out"
                 >
-                  You: {viewerBadge.label}
-                </span>
-              </div>
-            )}
+                  <Settings size={11} strokeWidth={1.5} />
+                  Settings
+                </button>
+              )}
+            </div>
           </div>
         </header>
 
@@ -502,55 +571,71 @@ export function TeamDetailPage() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {games.map((g) => (
-                <Link
-                  key={g.id}
-                  to={buildGameDetailPath(g.teamId, g.id)}
-                  className="group relative flex flex-col rounded-lg bg-bg-tertiary border border-border-primary hover:border-primary/40 transition-colors duration-500 ease-out overflow-hidden p-6"
-                >
-                  <span className="pointer-events-none absolute left-0 top-6 bottom-6 w-px bg-primary opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-out" />
+            <>
+              {games.length > 3 && (
+                <div className="mb-4">
+                  <FilterInput
+                    value={gameQuery}
+                    onChange={setGameQuery}
+                    placeholder="Filter games by name, slug, or description"
+                  />
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {filteredGames.length === 0 && (
+                  <div className="col-span-full rounded-lg bg-bg-tertiary border border-border-primary p-6 text-center text-sm text-text-tertiary">
+                    No games match &ldquo;{gameQuery}&rdquo;.
+                  </div>
+                )}
+                {filteredGames.map((g) => (
+                  <Link
+                    key={g.id}
+                    to={buildGameDetailPath(g.teamId, g.id)}
+                    className="group relative flex flex-col rounded-lg bg-bg-tertiary border border-border-primary hover:border-primary/40 transition-colors duration-500 ease-out overflow-hidden p-6"
+                  >
+                    <span className="pointer-events-none absolute left-0 top-6 bottom-6 w-px bg-primary opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-out" />
 
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-10 h-10 rounded bg-bg-primary border border-border-primary flex items-center justify-center">
-                      <Gamepad2
-                        size={16}
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="w-10 h-10 rounded bg-bg-primary border border-border-primary flex items-center justify-center">
+                        <Gamepad2
+                          size={16}
+                          strokeWidth={1.5}
+                          className="text-text-secondary group-hover:text-primary transition-colors duration-500 ease-out"
+                        />
+                      </div>
+                      <ArrowUpRight
+                        size={14}
                         strokeWidth={1.5}
-                        className="text-text-secondary group-hover:text-primary transition-colors duration-500 ease-out"
+                        className="text-text-tertiary opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-out"
                       />
                     </div>
-                    <ArrowUpRight
-                      size={14}
-                      strokeWidth={1.5}
-                      className="text-text-tertiary opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-out"
-                    />
-                  </div>
 
-                  <h3 className="font-display text-lg font-medium text-text-primary tracking-tight mb-2 truncate">
-                    {g.name}
-                  </h3>
-                  <p className="text-xs text-text-tertiary leading-relaxed line-clamp-2 mb-4 min-h-[2.5em]">
-                    {g.description || (
-                      <span className="italic text-text-tertiary/60">
-                        No description
+                    <h3 className="font-display text-lg font-medium text-text-primary tracking-tight mb-2 truncate">
+                      {g.name}
+                    </h3>
+                    <p className="text-xs text-text-tertiary leading-relaxed line-clamp-2 mb-4 min-h-[2.5em]">
+                      {g.description || (
+                        <span className="italic text-text-tertiary/60">
+                          No description
+                        </span>
+                      )}
+                    </p>
+
+                    <div className="flex items-center justify-between pt-3 border-t border-border-primary text-[11px] text-text-tertiary uppercase tracking-[0.1em]">
+                      <span className="font-mono normal-case tracking-normal truncate">
+                        {g.slug}
                       </span>
-                    )}
-                  </p>
-
-                  <div className="flex items-center justify-between pt-3 border-t border-border-primary text-[11px] text-text-tertiary uppercase tracking-[0.1em]">
-                    <span className="font-mono normal-case tracking-normal truncate">
-                      {g.slug}
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <StatusDot
-                        tone={g.productionServerUrl ? "online" : "idle"}
-                      />
-                      {g.productionServerUrl ? "Live" : "Draft"}
-                    </span>
-                  </div>
-                </Link>
-              ))}
-            </div>
+                      <span className="flex items-center gap-1.5">
+                        <StatusDot
+                          tone={g.productionServerUrl ? "online" : "idle"}
+                        />
+                        {g.productionServerUrl ? "Live" : "Draft"}
+                      </span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </>
           )}
         </section>
 
@@ -584,64 +669,81 @@ export function TeamDetailPage() {
               <p className="text-sm text-text-tertiary">No members yet.</p>
             </div>
           ) : (
-            <div className="rounded-lg bg-bg-tertiary border border-border-primary overflow-hidden">
-              <ul className="divide-y divide-border-primary">
-                {members.map((m) => {
-                  const badge = roleBadge(m.role);
-                  const BadgeIcon = badge.icon;
-                  const initial = (m.displayName || m.email || "?")
-                    .charAt(0)
-                    .toUpperCase();
-                  return (
-                    <li
-                      key={m.id}
-                      className="flex items-center gap-4 px-6 py-4"
-                    >
-                      <div className="w-10 h-10 rounded bg-bg-primary border border-border-primary flex items-center justify-center flex-shrink-0">
-                        <span className="font-display text-base font-medium text-text-primary tracking-tight">
-                          {initial}
-                        </span>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-text-primary truncate">
-                          {m.displayName || "Anonymous"}
-                        </p>
-                        <p className="text-[11px] text-text-tertiary truncate">
-                          {m.email || (
-                            <span className="font-mono normal-case tracking-normal">
-                              {m.userId.slice(0, 12)}…
-                            </span>
-                          )}
-                        </p>
-                      </div>
-                      <div className="hidden sm:block text-[11px] text-text-tertiary uppercase tracking-[0.1em] font-mono normal-case flex-shrink-0">
-                        Joined {timeAgo(m.joinedAt)}
-                      </div>
-                      <div className="flex items-center gap-2 px-3 py-1.5 rounded bg-bg-primary border border-border-primary flex-shrink-0">
-                        <BadgeIcon
-                          size={11}
-                          strokeWidth={1.5}
-                          className={
-                            badge.isPrimary
-                              ? "text-primary"
-                              : "text-text-tertiary"
-                          }
-                        />
-                        <span
-                          className={`text-[11px] uppercase tracking-[0.12em] ${
-                            badge.isPrimary
-                              ? "text-primary"
-                              : "text-text-secondary"
-                          }`}
+            <>
+              {members.length > 5 && (
+                <div className="mb-4">
+                  <FilterInput
+                    value={memberQuery}
+                    onChange={setMemberQuery}
+                    placeholder="Filter members by name, email, or role"
+                  />
+                </div>
+              )}
+              <div className="rounded-lg bg-bg-tertiary border border-border-primary overflow-hidden">
+                {filteredMembers.length === 0 ? (
+                  <p className="px-6 py-8 text-center text-sm text-text-tertiary">
+                    No members match &ldquo;{memberQuery}&rdquo;.
+                  </p>
+                ) : (
+                  <ul className="divide-y divide-border-primary">
+                    {filteredMembers.map((m) => {
+                      const badge = roleBadge(m.role);
+                      const BadgeIcon = badge.icon;
+                      const memberName =
+                        m.displayName || m.email || "Anonymous";
+                      return (
+                        <li
+                          key={m.id}
+                          className="flex items-center gap-4 px-6 py-4"
                         >
-                          {badge.label}
-                        </span>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
+                          <Avatar
+                            size={40}
+                            rounded="md"
+                            src={m.avatarUrl}
+                            name={memberName}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-text-primary truncate">
+                              {m.displayName || "Anonymous"}
+                            </p>
+                            <p className="text-[11px] text-text-tertiary truncate">
+                              {m.email || (
+                                <span className="font-mono normal-case tracking-normal">
+                                  {m.userId.slice(0, 12)}…
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                          <div className="hidden sm:block text-[11px] text-text-tertiary uppercase tracking-[0.1em] font-mono normal-case flex-shrink-0">
+                            Joined {timeAgo(m.joinedAt)}
+                          </div>
+                          <div className="flex items-center gap-2 px-3 py-1.5 rounded bg-bg-primary border border-border-primary flex-shrink-0">
+                            <BadgeIcon
+                              size={11}
+                              strokeWidth={1.5}
+                              className={
+                                badge.isPrimary
+                                  ? "text-primary"
+                                  : "text-text-tertiary"
+                              }
+                            />
+                            <span
+                              className={`text-[11px] uppercase tracking-[0.12em] ${
+                                badge.isPrimary
+                                  ? "text-primary"
+                                  : "text-text-secondary"
+                              }`}
+                            >
+                              {badge.label}
+                            </span>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </>
           )}
         </section>
 
@@ -760,10 +862,16 @@ export function TeamDetailPage() {
         teamName={team.name}
         viewerIsOwner={(viewerRole ?? "").toLowerCase() === "owner"}
         onInvited={(invite) => {
-          // Optimistically append to the pending invites list so the
-          // user sees their action reflected immediately.
           setInvites((prev) => [invite, ...prev]);
         }}
+      />
+
+      {/* Edit team settings modal */}
+      <EditTeamDialog
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        team={team}
+        onUpdated={(updated) => setTeam(updated)}
       />
     </div>
   );

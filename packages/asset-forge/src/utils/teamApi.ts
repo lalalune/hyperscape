@@ -78,6 +78,22 @@ export async function createTeam(input: {
   return res.json();
 }
 
+export async function updateTeam(
+  teamId: string,
+  input: {
+    name?: string;
+    description?: string | null;
+    avatarUrl?: string | null;
+  },
+): Promise<TeamResponse> {
+  const res = await apiFetch(`/api/teams/${teamId}`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(`Failed to update team: ${res.status}`);
+  return res.json();
+}
+
 export async function inviteToTeam(
   teamId: string,
   input: { email: string; role: string },

@@ -13,6 +13,7 @@ import Navigation from "./components/shared/Navigation";
 import NotificationBar from "./components/shared/NotificationBar";
 import { WorldStudioLanding } from "./components/WorldStudio/WorldStudioLanding";
 import { APP_BACKGROUND_STYLES, ROUTES } from "./constants";
+import { ActiveTeamProvider } from "./contexts/ActiveTeamContext";
 import { AppProvider } from "./contexts/AppContext";
 import { NavigationProvider } from "./contexts/NavigationContext";
 import { ArmorFittingPage } from "./pages/ArmorFittingPage";
@@ -29,6 +30,7 @@ import { HandRiggingPage } from "./pages/HandRiggingPage";
 // LeafClusterPage consolidated into TreeGenPage - clusters are now auto-generated
 import { ManifestsPage } from "./pages/ManifestsPage";
 import { PlantGenPage } from "./pages/PlantGenPage";
+import { NotFoundPage } from "./pages/NotFoundPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { TeamsPage } from "./pages/TeamsPage";
 import { TeamDetailPage } from "./pages/TeamDetailPage";
@@ -190,11 +192,8 @@ function AppLayout() {
               element={<WorldStudioPage />}
             />
 
-            {/* Catch-all redirect */}
-            <Route
-              path="*"
-              element={<Navigate to={ROUTES.DASHBOARD} replace />}
-            />
+            {/* Catch-all — branded 404 surface */}
+            <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </main>
       </div>
@@ -206,26 +205,28 @@ function App() {
   return (
     <ForgeAuthProvider>
       <AppProvider>
-        <ErrorBoundary>
-          <BrowserRouter>
-            <NavigationProvider>
-              <Routes>
-                {/* Sign-in page — public, redirects to dashboard if already auth'd */}
-                <Route path={ROUTES.SIGN_IN} element={<SignInRoute />} />
+        <ActiveTeamProvider>
+          <ErrorBoundary>
+            <BrowserRouter>
+              <NavigationProvider>
+                <Routes>
+                  {/* Sign-in page — public, redirects to dashboard if already auth'd */}
+                  <Route path={ROUTES.SIGN_IN} element={<SignInRoute />} />
 
-                {/* Everything else requires auth */}
-                <Route
-                  path="*"
-                  element={
-                    <RequireAuth>
-                      <AppLayout />
-                    </RequireAuth>
-                  }
-                />
-              </Routes>
-            </NavigationProvider>
-          </BrowserRouter>
-        </ErrorBoundary>
+                  {/* Everything else requires auth */}
+                  <Route
+                    path="*"
+                    element={
+                      <RequireAuth>
+                        <AppLayout />
+                      </RequireAuth>
+                    }
+                  />
+                </Routes>
+              </NavigationProvider>
+            </BrowserRouter>
+          </ErrorBoundary>
+        </ActiveTeamProvider>
       </AppProvider>
     </ForgeAuthProvider>
   );

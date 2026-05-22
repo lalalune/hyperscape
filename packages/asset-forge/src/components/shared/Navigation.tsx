@@ -28,6 +28,7 @@ import {
   Map,
   LogOut,
   User,
+  Users,
   Package,
 } from "lucide-react";
 import React, { useState, useRef, useEffect } from "react";
@@ -35,7 +36,9 @@ import { Link, useLocation } from "react-router-dom";
 
 import { useForgeAuth } from "../../auth/ForgeAuthProvider";
 import { ROUTES } from "../../constants";
+import { Avatar } from "./Avatar";
 import { ForgeLogo } from "./ForgeLogo";
+import { TeamSwitcher } from "./TeamSwitcher";
 
 // Procedural generator menu items
 // Note: Leaf Clusters consolidated into Trees
@@ -56,23 +59,34 @@ const GENERATOR_ITEMS = [
   { route: ROUTES.LANDMARK_GEN, label: "Landmarks", icon: Landmark },
 ] as const;
 
-const NAV_ITEMS = [
+const PRIMARY_NAV_ITEMS = [
   { route: ROUTES.DASHBOARD, label: "Dashboard", icon: Boxes },
+  { route: ROUTES.WORLD_STUDIO, label: "World Studio", icon: Map },
   { route: ROUTES.GENERATION, label: "Generate", icon: Wand2 },
   { route: ROUTES.ASSETS, label: "Assets", icon: Database },
+] as const;
+
+const WORKSPACE_NAV_ITEMS = [
+  { route: ROUTES.TEAMS, label: "Teams", icon: Users },
+  { route: ROUTES.PROFILE, label: "Profile", icon: User },
+] as const;
+
+const PIPELINE_NAV_ITEMS = [
   { route: ROUTES.HAND_RIGGING, label: "Hand Rigging", icon: Hand },
   { route: ROUTES.EQUIPMENT, label: "Equipment", icon: Wrench },
   { route: ROUTES.ARMOR_FITTING, label: "Armor Fitting", icon: Shield },
   { route: ROUTES.RETARGET_ANIMATE, label: "Retarget Animate", icon: Shuffle },
   { route: ROUTES.BATCH_SPRITES, label: "Batch Sprites", icon: Image },
   { route: ROUTES.VFX, label: "VFX", icon: Sparkles },
+  { route: ROUTES.ARMOR_PIPELINE, label: "Armor v2", icon: Gem },
+] as const;
+
+const SECONDARY_NAV_ITEMS = [
   { route: ROUTES.WORLD_BUILDER, label: "World Builder", icon: Globe },
   { route: ROUTES.WORLD_EDITOR, label: "World Editor", icon: Gamepad2 },
-  { route: ROUTES.WORLD_STUDIO, label: "World Studio", icon: Map },
   { route: ROUTES.UI_LAYOUT_EDITOR, label: "UI Layouts", icon: LayoutPanelTop },
   { route: ROUTES.ASSET_PACKS, label: "Asset Packs", icon: Package },
   { route: ROUTES.MANIFESTS, label: "Manifests", icon: FileJson },
-  { route: ROUTES.ARMOR_PIPELINE, label: "Armor v2", icon: Gem },
 ] as const;
 
 // Active state: subtle Graphite + earned Forge Gold left-edge accent.
@@ -146,12 +160,10 @@ const Navigation: React.FC = () => {
           HyperForge
         </span>
 
-        {/* User info */}
-        {auth.authenticated && auth.user?.email?.address && (
-          <span className="ml-auto text-xs text-text-tertiary truncate max-w-[200px]">
-            {auth.user.email.address}
-          </span>
-        )}
+        {/* Team switcher + user info — push to right */}
+        <div className="ml-auto flex items-center gap-3">
+          {auth.authenticated && <TeamSwitcher />}
+        </div>
       </div>
 
       {/* Backdrop — Obsidian dim, no glass blur */}
@@ -187,21 +199,90 @@ const Navigation: React.FC = () => {
           </button>
         </div>
 
-        {/* Navigation links */}
-        <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-1 scrollbar-thin">
-          {NAV_ITEMS.map((item) => {
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.route}
-                to={item.route}
-                className={navLinkClass(item.route)}
-              >
-                <Icon size={18} />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
+        {/* Navigation links — grouped with editorial section labels */}
+        <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-5 scrollbar-thin">
+          {/* PRIMARY — Dashboard, World Studio, Generate, Assets */}
+          <div className="space-y-0.5">
+            {PRIMARY_NAV_ITEMS.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.route}
+                  to={item.route}
+                  className={navLinkClass(item.route)}
+                >
+                  <Icon size={18} strokeWidth={1.5} />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* WORKSPACE — Teams, Profile */}
+          <div>
+            <p className="px-4 mb-2 text-[10px] font-medium text-text-tertiary uppercase tracking-[0.14em]">
+              Workspace
+            </p>
+            <div className="space-y-0.5">
+              {WORKSPACE_NAV_ITEMS.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.route}
+                    to={item.route}
+                    className={navLinkClass(item.route)}
+                  >
+                    <Icon size={18} strokeWidth={1.5} />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* PIPELINE — asset pipeline tools */}
+          <div>
+            <p className="px-4 mb-2 text-[10px] font-medium text-text-tertiary uppercase tracking-[0.14em]">
+              Pipeline
+            </p>
+            <div className="space-y-0.5">
+              {PIPELINE_NAV_ITEMS.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.route}
+                    to={item.route}
+                    className={navLinkClass(item.route)}
+                  >
+                    <Icon size={18} strokeWidth={1.5} />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* SECONDARY — Legacy editors + data */}
+          <div>
+            <p className="px-4 mb-2 text-[10px] font-medium text-text-tertiary uppercase tracking-[0.14em]">
+              Editors & Data
+            </p>
+            <div className="space-y-0.5">
+              {SECONDARY_NAV_ITEMS.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.route}
+                    to={item.route}
+                    className={navLinkClass(item.route)}
+                  >
+                    <Icon size={18} strokeWidth={1.5} />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
 
           {/* Generators section */}
           <div className="pt-2">
@@ -253,9 +334,15 @@ const Navigation: React.FC = () => {
               to={ROUTES.PROFILE}
               className="group flex items-center gap-3 px-4 py-3 hover:bg-bg-tertiary transition-colors duration-300 ease-out"
             >
-              <div className="w-8 h-8 rounded-full bg-bg-tertiary border border-border-primary flex items-center justify-center flex-shrink-0">
-                <User size={14} strokeWidth={1.5} className="text-primary" />
-              </div>
+              <Avatar
+                size={32}
+                rounded="full"
+                name={
+                  auth.user?.email?.address?.split("@")[0] ||
+                  auth.user?.wallet?.address?.slice(0, 8) ||
+                  "User"
+                }
+              />
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-text-primary truncate">
                   {auth.user?.email?.address?.split("@")[0] ||

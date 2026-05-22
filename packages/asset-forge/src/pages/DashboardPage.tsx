@@ -43,10 +43,10 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { useForgeAuth } from "../auth/ForgeAuthProvider";
 import { ForgeLogo } from "../components/shared/ForgeLogo";
+import { useActiveTeam } from "../contexts/ActiveTeamContext";
 import { ROUTES } from "../constants";
 import { useAssets } from "../hooks/useAssets";
 import {
-  fetchCurrentUser,
   fetchTeamGames,
   listWorldProjects,
   type WorldProjectSummary,
@@ -560,8 +560,10 @@ function ContinueSection({
 
       {!loading && !error && !teamId && (
         <EmptyHero
-          message="No team selected"
-          subtitle="Sign in or create a team to begin building worlds in HyperForge."
+          message="Create your first team"
+          subtitle="Teams group your worlds, asset libraries, and members. You need a team to start building games in HyperForge."
+          ctaLabel="Create a team"
+          ctaTo={ROUTES.TEAMS}
         />
       )}
 
@@ -944,17 +946,19 @@ function TelemetryRail({
 
 export function DashboardPage() {
   const auth = useForgeAuth();
+  const { activeTeam, loading: teamLoading } = useActiveTeam();
   const { assets, loading: assetsLoading } = useAssets();
 
-  const [teamId, setTeamId] = useState<string | null>(null);
+  const teamId = activeTeam?.teamId ?? null;
   const [_gameId, setGameId] = useState<string | null>(null);
   const [projects, setProjects] = useState<WorldProjectSummary[]>([]);
   const [projectsLoading, setProjectsLoading] = useState(true);
   const [projectsError, setProjectsError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!auth.ready || !auth.authenticated) {
+    if (!auth.ready || !auth.authenticated || !teamId) {
       setProjectsLoading(false);
+      setProjects([]);
       return;
     }
     let cancelled = false;
@@ -963,21 +967,16 @@ export function DashboardPage() {
         setProjectsLoading(true);
         setProjectsError(null);
 
-        const me = await fetchCurrentUser();
-        if (cancelled || me.teams.length === 0) return;
-
-        const firstTeam = me.teams[0].teamId;
-        const games = await fetchTeamGames(firstTeam);
+        const games = await fetchTeamGames(teamId!);
         if (cancelled || games.length === 0) {
-          if (!cancelled) setTeamId(firstTeam);
+          if (!cancelled) setProjects([]);
           return;
         }
 
         const firstGame = games[0].id;
-        const list = await listWorldProjects(firstTeam, firstGame);
+        const list = await listWorldProjects(teamId!, firstGame);
         if (cancelled) return;
 
-        setTeamId(firstTeam);
         setGameId(firstGame);
         setProjects(list);
       } catch (err) {
@@ -994,7 +993,7 @@ export function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [auth.ready, auth.authenticated]);
+  }, [auth.ready, auth.authenticated, teamId]);
 
   const displayName =
     auth.user?.email?.address?.split("@")[0] ||
@@ -1060,7 +1059,7 @@ export function DashboardPage() {
             ==================================================================== */}
         <ContinueSection
           projects={projects}
-          loading={projectsLoading}
+          loading={projectsLoading || teamLoading}
           error={projectsError}
           teamId={teamId}
         />
