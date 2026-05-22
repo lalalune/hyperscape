@@ -29,6 +29,16 @@ const Modal: React.FC<ModalProps> = ({
     full: "max-w-[95vw]",
   };
 
+  // Keep onClose in a ref so the focus-trap effect doesn't depend on it.
+  // Callers pass inline arrow functions (`onClose={() => setOpen(false)}`),
+  // so onClose changes reference on every parent render. If we depended on
+  // it directly, every keystroke inside a dialog would re-fire the focus
+  // trap and yank focus out of the active input.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   useEffect(() => {
     if (open) {
       previousActiveElement.current = document.activeElement as HTMLElement;
@@ -39,7 +49,7 @@ const Modal: React.FC<ModalProps> = ({
 
       const handleEscape = (e: KeyboardEvent) => {
         if (e.key === "Escape") {
-          onClose();
+          onCloseRef.current();
         }
       };
 
@@ -53,7 +63,7 @@ const Modal: React.FC<ModalProps> = ({
         focusManager.restoreFocus(previousActiveElement.current);
       };
     }
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
