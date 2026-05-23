@@ -34,6 +34,8 @@ import {
   Pause,
   Square,
   Gamepad2,
+  Camera,
+  User,
 } from "lucide-react";
 import React, { useState, useEffect } from "react";
 
@@ -418,6 +420,31 @@ export function MainToolbar({
                 <span className="hidden sm:inline">Pause</span>
               </button>
             )}
+            {/* UE5 PIE Eject / Possess — only meaningful in "play" mode
+                (simulate already runs the editor cam). Eject detaches
+                the camera from the pawn while the session keeps ticking;
+                Possess re-attaches. Phase 1.3.b of PLAN_AAA_UE5_PARITY. */}
+            {state.pie.mode === "play" ? (
+              state.pie.ejected ? (
+                <button
+                  className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-blue-500/15 text-blue-400 border border-blue-400/30 hover:bg-blue-500/25 transition-all ease-out"
+                  onClick={() => actions.piePossess()}
+                  title="Possess — re-attach camera to the player pawn"
+                >
+                  <User size={12} />
+                  <span className="hidden sm:inline">Possess</span>
+                </button>
+              ) : (
+                <button
+                  className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-blue-500/15 text-blue-400 border border-blue-400/30 hover:bg-blue-500/25 transition-all ease-out"
+                  onClick={() => actions.pieEject()}
+                  title="Eject — free-fly inspection camera; session keeps ticking"
+                >
+                  <Camera size={12} />
+                  <span className="hidden sm:inline">Eject</span>
+                </button>
+              )
+            ) : null}
             <button
               className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-red-500/15 text-red-400 border border-red-400/30 hover:bg-red-500/25 transition-all ease-out"
               onClick={() => actions.pieStop()}

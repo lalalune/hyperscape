@@ -282,6 +282,17 @@ export interface PIEState {
    * where it was. Phase 1.3.a of PLAN_AAA_UE5_PARITY.
    */
   paused: boolean;
+  /**
+   * UE5 PIE Eject — when true, the editor's free-fly camera takes
+   * over the viewport. The PIE session keeps ticking (mobs move,
+   * server-side AI advances, mode === "play" still semantically),
+   * but the camera detaches from the player pawn and the
+   * InteractionRouter / orbit controls activate so designers can fly
+   * around the live world without losing the session. Possess
+   * (pieEject → false) re-attaches the camera to the pawn.
+   * Phase 1.3.b of PLAN_AAA_UE5_PARITY.
+   */
+  ejected: boolean;
 }
 
 export const EMPTY_PIE_STATE: PIEState = {
@@ -290,6 +301,7 @@ export const EMPTY_PIE_STATE: PIEState = {
   error: null,
   mode: "simulate",
   paused: false,
+  ejected: false,
 };
 
 export interface WorldStudioState {
@@ -694,6 +706,8 @@ export type StudioSpecificAction =
   | { type: "PIE_SET_MODE"; mode: PIEMode }
   | { type: "PIE_PAUSE" }
   | { type: "PIE_RESUME" }
+  | { type: "PIE_EJECT" }
+  | { type: "PIE_POSSESS" }
 
   // Generic entity CRUD — schema-driven GameModule actions
   | {

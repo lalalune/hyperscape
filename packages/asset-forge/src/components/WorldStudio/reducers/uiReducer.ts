@@ -326,6 +326,7 @@ export function uiReducer(
           loading: true,
           error: null,
           paused: false,
+          ejected: false,
         },
       };
     case "PIE_STARTED":
@@ -337,6 +338,7 @@ export function uiReducer(
           loading: false,
           error: null,
           paused: false,
+          ejected: false,
         },
       };
     case "PIE_STOP":
@@ -348,6 +350,7 @@ export function uiReducer(
           loading: false,
           error: null,
           paused: false,
+          ejected: false,
         },
       };
     case "PIE_ERROR":
@@ -374,6 +377,17 @@ export function uiReducer(
     case "PIE_RESUME":
       if (!state.pie.paused) return state;
       return { ...state, pie: { ...state.pie, paused: false } };
+    case "PIE_EJECT":
+      // UE5 Eject — free-fly inspection. Only meaningful while PIE
+      // is active AND in "play" mode (simulate already has the
+      // editor cam, so eject is a no-op there). Phase 1.3.b of
+      // PLAN_AAA_UE5_PARITY.
+      if (!state.pie.active || state.pie.mode !== "play" || state.pie.ejected)
+        return state;
+      return { ...state, pie: { ...state.pie, ejected: true } };
+    case "PIE_POSSESS":
+      if (!state.pie.ejected) return state;
+      return { ...state, pie: { ...state.pie, ejected: false } };
 
     default:
       return null;

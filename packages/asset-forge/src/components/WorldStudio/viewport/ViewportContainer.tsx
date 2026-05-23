@@ -385,11 +385,36 @@ export function ViewportContainer() {
     return () => document.removeEventListener("mousedown", onMouseDown);
   }, [state.pie.active, interactAtCenter]);
 
+  // Phase 1.3.b — Eject / Possess. Watches state.pie.ejected and
+  // flips the viewport's player-mode toggle while keeping the PIE
+  // session alive. UE5 parity: Eject = camera detaches from pawn
+  // and editor free-fly takes over; Possess = re-attach camera.
+  // pieEjectedRef lets `handlePlayerModeChange` distinguish a
+  // programmatic eject (don't auto-stop PIE) from a user-driven
+  // ESC out of player mode (do stop PIE).
+  const pieEjectedRef = useRef(state.pie.ejected);
+  useEffect(() => {
+    pieEjectedRef.current = state.pie.ejected;
+    const refs = sceneRefsRef.current;
+    if (!refs || !state.pie.active) return;
+    if (state.pie.ejected) {
+      if (refs.isPlayerMode()) refs.exitPlayerMode();
+      refs.setInteractionMode("orbit");
+    } else if (state.pie.mode === "play") {
+      if (!refs.isPlayerMode()) refs.enterPlayerMode();
+      refs.setInteractionMode("tool");
+    }
+  }, [state.pie.active, state.pie.ejected, state.pie.mode]);
+
   // When player mode exits (ESC key in viewport), sync PIE state
   const handlePlayerModeChange = useCallback(
     (enabled: boolean) => {
       setPlayerMode(enabled);
-      // If player mode was exited while PIE is active, stop PIE
+      // Phase 1.3.b — if the exit was driven by an explicit eject
+      // (user clicked Eject button → effect above called
+      // exitPlayerMode), don't kill PIE; the session is meant to keep
+      // running with the editor cam. Genuine ESC-out → stop PIE.
+      if (pieEjectedRef.current) return;
       if (!enabled && state.pie.active) {
         actions.pieStop();
       }

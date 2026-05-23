@@ -597,6 +597,14 @@ interface WorldStudioContextValue {
     piePause: () => void;
     /** Resume from pause. */
     pieResume: () => void;
+    /**
+     * Eject — switch to UE5-style free-fly inspection. Session keeps
+     * ticking; camera detaches from the pawn so designers can fly the
+     * editor cam around the live world.
+     */
+    pieEject: () => void;
+    /** Possess — re-attach camera to the player pawn (inverse of Eject). */
+    piePossess: () => void;
   };
 
   /** Computed values */
@@ -1222,6 +1230,8 @@ export function WorldStudioProvider({
       pieSetMode: (mode: PIEMode) => dispatch({ type: "PIE_SET_MODE", mode }),
       piePause: () => dispatch({ type: "PIE_PAUSE" }),
       pieResume: () => dispatch({ type: "PIE_RESUME" }),
+      pieEject: () => dispatch({ type: "PIE_EJECT" }),
+      piePossess: () => dispatch({ type: "PIE_POSSESS" }),
     }),
     [],
   );
