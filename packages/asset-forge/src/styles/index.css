@@ -494,6 +494,13 @@
     box-shadow: 0 24px 48px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.02);
     max-height: 90vh;
     overflow: hidden;
+    /* `flex flex-col` is load-bearing for scrollable ModalBody.
+       Without it, the body's `flex-1 overflow-y-auto` has no defined
+       parent height to size against; the body grows to natural
+       content height, hits `overflow: hidden` here, and clips —
+       making any footer button below it unreachable. */
+    display: flex;
+    flex-direction: column;
   }
 }
 

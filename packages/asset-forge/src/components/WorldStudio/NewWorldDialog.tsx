@@ -416,29 +416,27 @@ function ModeCard({
       aria-checked={selected}
       onClick={onSelect}
       disabled={disabled}
-      className={`group relative text-left p-5 rounded-lg border transition-colors duration-300 ease-out disabled:opacity-50 disabled:cursor-not-allowed ${
+      className={`group relative text-left p-3.5 rounded-lg border transition-colors duration-300 ease-out disabled:opacity-50 disabled:cursor-not-allowed ${
         selected
           ? isHero
             ? "border-primary/60 bg-primary/10"
             : "border-primary/40 bg-primary/5"
-          : isHero
-            ? "border-border-primary bg-bg-tertiary hover:border-primary/40"
-            : "border-border-primary bg-bg-tertiary hover:border-primary/40"
+          : "border-border-primary bg-bg-tertiary hover:border-primary/40"
       }`}
     >
       {/* Forge Gold left edge on the hero card when selected */}
       {isHero && selected && (
         <span
           aria-hidden
-          className="pointer-events-none absolute left-0 top-5 bottom-5 w-px bg-primary"
+          className="pointer-events-none absolute left-0 top-3.5 bottom-3.5 w-px bg-primary"
         />
       )}
       {badge && (
-        <div className="absolute top-2 right-2 text-[10px] font-medium px-1.5 py-0.5 rounded bg-primary/15 text-primary uppercase tracking-[0.14em]">
+        <div className="absolute top-1.5 right-1.5 text-[9px] font-medium px-1.5 py-0.5 rounded bg-primary/15 text-primary uppercase tracking-[0.14em]">
           {badge}
         </div>
       )}
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-2.5">
         <div
           className={`mt-0.5 flex-shrink-0 transition-colors duration-300 ease-out ${
             selected
@@ -446,13 +444,13 @@ function ModeCard({
               : "text-text-tertiary group-hover:text-primary"
           }`}
         >
-          <Icon size={isHero ? 18 : 14} />
+          <Icon size={isHero ? 16 : 13} />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="font-display text-sm font-medium text-text-primary tracking-tight">
+          <div className="font-display text-[13px] font-medium text-text-primary tracking-tight leading-tight">
             {title}
           </div>
-          <div className="text-xs text-text-tertiary mt-1.5 leading-relaxed">
+          <div className="text-[11px] text-text-tertiary mt-1 leading-relaxed line-clamp-3">
             {description}
           </div>
         </div>
