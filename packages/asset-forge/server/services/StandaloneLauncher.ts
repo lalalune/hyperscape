@@ -186,7 +186,13 @@ export class StandaloneLauncher {
    * error state without restarting; the caller must `stop()` first.
    */
   async start(projectId: string): Promise<LauncherState> {
+    console.log(
+      `[StandaloneLauncher] start(${projectId}) called — currentState=${this._state.kind}, hasEnsureClientRunning=${Boolean(this._deps.ensureClientRunning)}`,
+    );
     if (this._state.kind === "ready" && this._state.projectId === projectId) {
+      console.log(
+        `[StandaloneLauncher] start(${projectId}) returning early: already ready for this project`,
+      );
       return this._state;
     }
     if (this._state.kind !== "idle" && this._state.kind !== "error") {

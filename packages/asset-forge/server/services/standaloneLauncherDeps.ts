@@ -22,6 +22,10 @@ import { validateProject } from "@hyperforge/manifest-schema";
 
 import type { WorldProjectService } from "./WorldProjectService";
 import { exportProjectManifest } from "./ProjectManifestExporter";
+console.log(
+  `[StandaloneLauncher] standaloneLauncherDeps module loaded (PID ${process.pid})`,
+);
+
 import {
   StandaloneLauncher,
   type LauncherOptions,
@@ -586,6 +590,9 @@ export function createProductionLauncher(
   service: Pick<WorldProjectService, "getById">,
   options: ProductionLauncherOptions = {},
 ): StandaloneLauncher {
+  console.log(
+    `[StandaloneLauncher] createProductionLauncher called (clientPort=${options.clientPort ?? 3333}, runtime=${options.runtime ?? "node"})`,
+  );
   const exportManifestToDisk = createExportManifestToDisk(service, {
     tmpDir: options.manifestTmpDir,
   });
@@ -648,6 +655,9 @@ export function getStandaloneLauncher(
   service: Pick<WorldProjectService, "getById">,
 ): StandaloneLauncher {
   if (!_singletonInstance) {
+    console.log(
+      `[StandaloneLauncher] getStandaloneLauncher building new singleton (factory=${_singletonFactory ? "configured" : "default"})`,
+    );
     const factory = _singletonFactory ?? ((s) => createProductionLauncher(s));
     _singletonInstance = factory(service);
   }
