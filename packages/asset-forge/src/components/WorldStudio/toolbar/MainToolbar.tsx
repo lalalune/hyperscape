@@ -39,6 +39,7 @@ import React, { useState, useEffect } from "react";
 import { commandHistory } from "../../../editor/commands";
 import { useWorldStudio, type StudioToolMode } from "../WorldStudioContext";
 import { GameSelector } from "./GameSelector";
+import { StandaloneLaunchButton } from "./StandaloneLaunchButton";
 import { useZoneAutoGen } from "../hooks/useZoneAutoGen";
 import {
   GenerationWizardDialog,
@@ -422,6 +423,14 @@ export function MainToolbar({
             <span className="hidden sm:inline">Play</span>
           </button>
         )}
+
+        {/* Standalone Launch — UE5's "Standalone Game" parity. Spawns a
+            separate game server process pointed at the project's
+            exported manifest and opens the real client in a new window.
+            Truth-test for the shipped game (PIE is the rapid-iteration
+            loop; Standalone is the decoupled production playthrough).
+            PLAN_AAA_UE5_PARITY Phase 2.3. */}
+        {!state.pie.active && <StandaloneLaunchButton />}
 
         {/* Transform mode buttons — only when select tool active */}
         {isSelectTool && !state.pie.active && (
