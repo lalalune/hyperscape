@@ -779,6 +779,31 @@ export function usePIESession({
     if (playerObject) {
       playerObject.name = "pie-player-pawn";
       playerObject.position.set(playerSpawn.x, playerSpawn.y, playerSpawn.z);
+      // Visible placeholder pawn mesh — gives the player a body to see
+      // while the camera follows, and a target for animations + later
+      // VRM swap-in.
+      //
+      // Production attaches the project's declared avatar (Hyperia
+      // ships avatar-male-01.vrm via PlayerLocal entity); PIE doesn't
+      // run the network `player:join` packet that triggers that
+      // pipeline, so we render a Forge-Gold capsule as a stand-in.
+      // The pawn body still routes controller input correctly — this
+      // is purely visual feedback so "Play" doesn't feel headless.
+      const pawnMesh = new THREE.Mesh(
+        new THREE.CapsuleGeometry(0.35, 1.1, 4, 12),
+        new THREE.MeshStandardMaterial({
+          color: 0xd4af37,
+          roughness: 0.55,
+          metalness: 0.15,
+        }),
+      );
+      pawnMesh.name = "pie-player-pawn-mesh";
+      // Capsule pivot is at its centre; lift it so feet sit on the
+      // ground plane (Y=0 of playerObject).
+      pawnMesh.position.y = 0.9;
+      pawnMesh.castShadow = true;
+      pawnMesh.receiveShadow = true;
+      playerObject.add(pawnMesh);
       refs.scene.add(playerObject);
     }
 
