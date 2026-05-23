@@ -440,6 +440,9 @@ export function createEnsureClientRunning(
   return async function ensureClientRunning(
     timeoutMs: number,
   ): Promise<SpawnedChild | null> {
+    console.log(
+      `[StandaloneLauncher] ensureClientRunning invoked (port=${port}, clientPkgDir=${clientPkgDir})`,
+    );
     // Always clear and respawn — earlier behavior tried to reuse an
     // already-listening Vite to avoid double-spawning, but in practice
     // the most common case is a stale Vite from a prior asset-forge
