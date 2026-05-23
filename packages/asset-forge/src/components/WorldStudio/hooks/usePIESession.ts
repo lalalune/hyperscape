@@ -512,17 +512,38 @@ function getCylinderGeom(): THREE.CylinderGeometry {
   return _cylinderGeom;
 }
 
-// Material cache — one per entity type
+// Material cache — one per (entity type, pieMode) pair.
+//
+// In `play` mode, markers are fully transparent (opacity 0, depthWrite
+// off) so they act as invisible click-test proxies only. The real
+// entity visuals come from plugin systems (MobEntity / NPCEntity /
+// ResourceEntity / InteractableEntity) that load VRM / GLB models in
+// their constructors and add them to `world.stage.scene` — those
+// render naturally on top once the markers stop masking them.
+//
+// In `simulate` mode the plugin client world isn't booted (no scene
+// passed into PIEEditorSession), so plugin visuals don't render.
+// Keep the placeholder coloured caps visible there so designers
+// still have something to look at while iterating on AI behaviour.
+//
+// Either way `transparent: true` is kept (not `visible: false`) so
+// the raycaster in `interactAtCenter` still picks them up.
 const _materials = new Map<string, THREE.MeshBasicMaterial>();
-function getMaterial(type: keyof typeof PIE_COLORS): THREE.MeshBasicMaterial {
-  let mat = _materials.get(type);
+function getMaterial(
+  type: keyof typeof PIE_COLORS,
+  pieMode: "play" | "simulate",
+): THREE.MeshBasicMaterial {
+  const key = `${type}:${pieMode}`;
+  let mat = _materials.get(key);
   if (!mat) {
+    const playMode = pieMode === "play";
     mat = new THREE.MeshBasicMaterial({
       color: PIE_COLORS[type],
       transparent: true,
-      opacity: 0.7,
+      opacity: playMode ? 0 : 0.7,
+      depthWrite: !playMode,
     });
-    _materials.set(type, mat);
+    _materials.set(key, mat);
   }
   return mat;
 }
@@ -819,7 +840,7 @@ export function usePIESession({
     for (const entity of world.entities.values()) {
       if (entity.type === "player") continue; // Player is the camera
 
-      const marker = createMarker(entity);
+      const marker = createMarker(entity, pieMode);
       if (marker) {
         markerGroup.add(marker);
         markers.set(entity.id, marker);
@@ -1305,7 +1326,10 @@ async function stopPIEInternal(
   console.log("[PIE] Session stopped");
 }
 
-function createMarker(entity: PIEEntity): THREE.Mesh | null {
+function createMarker(
+  entity: PIEEntity,
+  pieMode: "play" | "simulate",
+): THREE.Mesh | null {
   const type = entity.type;
   if (type === "player") return null;
 
@@ -1321,8 +1345,8 @@ function createMarker(entity: PIEEntity): THREE.Mesh | null {
     type === "npc" ||
     type === "resource" ||
     type === "station"
-      ? getMaterial(type)
-      : getMaterial("resource");
+      ? getMaterial(type, pieMode)
+      : getMaterial("resource", pieMode);
 
   const mesh = new THREE.Mesh(geom, mat);
   mesh.position.set(
