@@ -163,6 +163,7 @@ export class StandaloneLauncher {
       exportManifestToDisk: deps.exportManifestToDisk,
       spawnGameServer: deps.spawnGameServer,
       waitForReady: deps.waitForReady,
+      ensureClientRunning: deps.ensureClientRunning,
     };
     this._opts = {
       port: opts.port ?? DEFAULT_PORT,
