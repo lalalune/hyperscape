@@ -28,6 +28,7 @@ import type { FullProjectManifest } from "@hyperforge/manifest-schema";
 import { errMsg } from "../shared/errMsg.js";
 import {
   loadProjectManifestFromDisk,
+  parseEphemeralFlag,
   parseProjectManifestFlag,
 } from "./projectManifest.js";
 
@@ -245,6 +246,16 @@ export interface ServerConfig {
 
   /** Disk path the manifest was read from (logs + diagnostics). */
   projectManifestPath?: string;
+
+  /**
+   * Ephemeral session flag — set when the launcher passes `--ephemeral`.
+   * Phase 2.1 of PLAN_AAA_UE5_PARITY. Signals "this is an
+   * editor-launched throwaway session"; downstream consumers (DB
+   * layer's fresh-schema mode, shutdown cleanup) honor it. False
+   * when absent → durable session (default for `bun start` /
+   * `bun run dev`).
+   */
+  ephemeral: boolean;
 }
 
 /**
@@ -622,6 +633,7 @@ export async function loadConfig(): Promise<ServerConfig> {
     commitHash: COMMIT_HASH,
     projectManifest,
     projectManifestPath,
+    ephemeral: parseEphemeralFlag(process.argv),
   };
 }
 

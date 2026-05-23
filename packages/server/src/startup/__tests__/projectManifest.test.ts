@@ -15,7 +15,9 @@ import os from "os";
 import path from "path";
 
 import {
+  EPHEMERAL_FLAG,
   loadProjectManifestFromDisk,
+  parseEphemeralFlag,
   parseProjectManifestFlag,
   PROJECT_MANIFEST_FLAG,
 } from "../projectManifest.js";
@@ -69,6 +71,44 @@ describe("parseProjectManifestFlag", () => {
       `${PROJECT_MANIFEST_FLAG}=`,
     ]);
     expect(result).toBeUndefined();
+  });
+});
+
+describe("parseEphemeralFlag", () => {
+  it("returns false when the flag is absent", () => {
+    expect(parseEphemeralFlag([])).toBe(false);
+    expect(parseEphemeralFlag(["node", "server.js", "--port=5555"])).toBe(
+      false,
+    );
+  });
+
+  it("returns true when bare --ephemeral is present", () => {
+    expect(parseEphemeralFlag(["node", "server.js", EPHEMERAL_FLAG])).toBe(
+      true,
+    );
+  });
+
+  it("returns true for --ephemeral=true", () => {
+    expect(
+      parseEphemeralFlag(["node", "server.js", `${EPHEMERAL_FLAG}=true`]),
+    ).toBe(true);
+  });
+
+  it("returns false for --ephemeral=false (explicit opt-out)", () => {
+    expect(
+      parseEphemeralFlag(["node", "server.js", `${EPHEMERAL_FLAG}=false`]),
+    ).toBe(false);
+  });
+
+  it("position-independent in the argv list", () => {
+    expect(
+      parseEphemeralFlag([
+        EPHEMERAL_FLAG,
+        "node",
+        "server.js",
+        `${PROJECT_MANIFEST_FLAG}=/tmp/m.json`,
+      ]),
+    ).toBe(true);
   });
 });
 

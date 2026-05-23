@@ -35,6 +35,21 @@ import {
  */
 export const PROJECT_MANIFEST_FLAG = "--projectManifest";
 
+/**
+ * Boolean CLI flag — when set, the launcher is treating this process
+ * as an ephemeral session (editor-launched Standalone, automated
+ * playtest harness, etc.). Plumbed onto `ServerConfig.ephemeral` so
+ * downstream consumers can opt into clean-slate behavior: skip
+ * persistence, drop the DB schema on shutdown, etc.
+ *
+ * Phase 2.1 of PLAN_AAA_UE5_PARITY ships the flag plumbing; the DB
+ * layer's "fresh schema per launch" implementation is a follow-up.
+ * Until then, `ephemeral` is structural intent — the launcher sets
+ * it, the server records it, and tooling (status UIs, logs) can
+ * display it.
+ */
+export const EPHEMERAL_FLAG = "--ephemeral";
+
 export interface LoadProjectManifestOk {
   ok: true;
   manifest: FullProjectManifest;
@@ -82,6 +97,26 @@ export function parseProjectManifestFlag(
     }
   }
   return undefined;
+}
+
+/**
+ * Parse `--ephemeral` from a process.argv-shaped array. Boolean flag —
+ * presence sets it to true. Returns `false` when absent.
+ *
+ * Exported separately from `parseProjectManifestFlag` so callers can
+ * mix-and-match (e.g. `--projectManifest <path>` without `--ephemeral`,
+ * or `--ephemeral` alone for "blank canvas, no persistence").
+ */
+export function parseEphemeralFlag(argv: readonly string[]): boolean {
+  for (const arg of argv) {
+    if (arg === EPHEMERAL_FLAG || arg === `${EPHEMERAL_FLAG}=true`) {
+      return true;
+    }
+    if (arg === `${EPHEMERAL_FLAG}=false`) {
+      return false;
+    }
+  }
+  return false;
 }
 
 /**
