@@ -2903,11 +2903,36 @@ export class PIEEditorSession {
     // Mirror character-selection.ts:1044 — set `isLoading` on data
     // AFTER construction because the entity constructor doesn't
     // reliably copy every property into `entity.data`.
-    const dataHolder = spawnedPlayer as { data?: Record<string, unknown> };
+    const dataHolder = spawnedPlayer as {
+      data?: Record<string, unknown>;
+      serialize?: () => EntityData;
+    };
     if (dataHolder.data) {
       dataHolder.data.isLoading = true;
     }
     this._realPlayerId = entityId;
+
+    // Replicate the entity to the client over the loopback —
+    // ServerNetwork's `entities.add` does NOT auto-broadcast (the
+    // production path in character-selection.ts:1075 explicitly calls
+    // `sendToFn(socket.id, "entityAdded", snapshot)`). Without this,
+    // the client never sees the player, so PlayerLocal never
+    // instantiates and the engine stays headless on the client side.
+    // Prefer `serialize()` output (whatever shape the server-side
+    // entity class chose to broadcast) but fall back to the raw
+    // EntityData if the entity skipped overriding it.
+    try {
+      const snapshot =
+        typeof dataHolder.serialize === "function"
+          ? dataHolder.serialize()
+          : playerData;
+      this._server.network.sendTo(owner, "entityAdded", snapshot);
+    } catch (err) {
+      console.warn(
+        "[PIEEditorSession] _spawnRealPlayer: entityAdded broadcast failed:",
+        err,
+      );
+    }
 
     // Fire PLAYER_JOINED so PlayerSystem.onPlayerEnter (and combat /
     // skills / prayer subscribers) register against this entity. We

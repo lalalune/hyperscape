@@ -5335,6 +5335,49 @@ describe("PIEEditorSession", () => {
         }
       },
     );
+
+    it(
+      "replicates the player to the client over the loopback (real entityAdded round-trip)",
+      { timeout: LONG_TIMEOUT_MS },
+      async () => {
+        const unregister = registerPlayerStubs();
+        try {
+          session = new PIEEditorSession();
+
+          let capturedClientWorld: World | null = null;
+          await session.start({
+            plugins: {
+              bootClientPlugins: async (clientWorld) => {
+                capturedClientWorld = clientWorld as unknown as World;
+                return { async stop() {} };
+              },
+            },
+          });
+
+          // The bootClientPlugins hook fires DURING start(), before
+          // `_spawnRealPlayer`. After start, the entityAdded packet
+          // has crossed the loopback and sits in ClientNetwork's
+          // queue — flush() drains it synchronously so the client
+          // world's ECS holds the player.
+          expect(capturedClientWorld).not.toBeNull();
+          expect(session.realPlayerId).not.toBeNull();
+
+          await session.clientNetwork!.flush();
+
+          // The client-side world's entity collection lives on
+          // `world.entities.items` (same Entities system, client side).
+          const clientWorld = capturedClientWorld as unknown as {
+            entities: { items: Map<string, unknown> };
+          };
+          const clientEntity = clientWorld.entities.items.get(
+            session.realPlayerId!,
+          );
+          expect(clientEntity).toBeDefined();
+        } finally {
+          unregister();
+        }
+      },
+    );
   });
 
   describe("plugin hooks", () => {
