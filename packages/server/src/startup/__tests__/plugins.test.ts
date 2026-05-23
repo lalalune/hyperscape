@@ -297,6 +297,38 @@ describe("server plugin boot — alternate game id (shooter-demo)", () => {
     expect(shooterSet).toContain("com.hyperforge.plugin-shooter-demo");
   });
 
+  it("bootServerPlugins accepts a projectManifest argument and boots cleanly (Phase 0.2c)", async () => {
+    // Proves the new 4th argument is wired end-to-end without
+    // changing behavior when present. Downstream consumers
+    // (loadHyperiaManifestsSync) will read manifest.registries in
+    // a separate commit; this test pins the signature contract.
+    const projectManifest = {
+      meta: {
+        projectId: "test-project",
+        projectName: "Test",
+        schemaVersion: 1 as const,
+        exportedAt: 1_700_000_000_000,
+      },
+      boot: {
+        plugins: ["@hyperforge/combat"],
+        contentPacks: [],
+        assetPacks: [],
+      },
+      worldConfig: {},
+      content: {},
+      registries: {},
+    };
+    const session = await bootServerPlugins(
+      undefined,
+      ["@hyperforge/combat"],
+      [],
+      projectManifest,
+    );
+    expect(session.failedPackages).toEqual([]);
+    expect(session.records).toHaveLength(1);
+    await session.stop();
+  });
+
   it("resolveGamePluginSetIdFromEnv respects HYPERSCAPE_GAME_PLUGIN", () => {
     const save = process.env.HYPERSCAPE_GAME_PLUGIN;
     try {

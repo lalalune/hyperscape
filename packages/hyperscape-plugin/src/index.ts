@@ -31,6 +31,7 @@ import type {
   PluginContextBase,
   PluginFactory,
 } from "@hyperforge/gameplay-framework";
+import type { FullProjectManifest } from "@hyperforge/manifest-schema";
 import {
   lootTablesProvider,
   mobLootTableMappingsProvider,
@@ -1030,6 +1031,20 @@ export interface HyperscapeContext extends PluginContextBase {
    * content pack is also installed.
    */
   readonly projectContentPackIds?: ReadonlyArray<string>;
+  /**
+   * The full project manifest the runtime booted from, when launched
+   * via `--projectManifest <path>` (PLAN_AAA_UE5_PARITY Phase 0.2c).
+   *
+   * Plugins read `manifest.registries.*` to override their own data
+   * loading: e.g. `loadHyperiaManifestsSync` will consult
+   * `manifest.registries.worldAreas` before falling back to the
+   * default `world-areas.json` on disk.
+   *
+   * Undefined when the host booted via the legacy env-driven path
+   * (`bun run dev`, tests, smoke harnesses) — plugins fall back to
+   * their default data sources in that case.
+   */
+  readonly projectManifest?: FullProjectManifest;
 }
 
 /** Manifest id of the Hyperia content pack. */

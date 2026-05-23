@@ -29,6 +29,7 @@ import {
   startPluginSessionFromModules,
 } from "@hyperforge/gameplay-framework";
 import type { World } from "@hyperforge/shared";
+import type { FullProjectManifest } from "@hyperforge/manifest-schema";
 
 import {
   combatPluginFactory,
@@ -358,6 +359,7 @@ export async function bootServerPlugins(
     | GamePluginSetId
     | ReadonlyArray<string> = resolveGamePluginSetIdFromEnv(),
   projectContentPackIds?: ReadonlyArray<string>,
+  projectManifest?: FullProjectManifest,
 ): Promise<PluginSession<PluginContextBase>> {
   // R3.P11 — accept either the legacy gameId string OR a plugin
   // id list (manifest id or npm name). The latter goes through
@@ -444,6 +446,12 @@ export async function bootServerPlugins(
             scope,
             world: world ?? createNoopWorldStub(),
             projectContentPackIds: resolvedContentPackIds,
+            // Phase 0.2c — when the runtime booted with
+            // `--projectManifest <path>`, forward the full manifest
+            // so the plugin's onEnable can override its data
+            // loading (e.g. read manifest.registries.worldAreas
+            // before falling back to disk).
+            projectManifest,
           };
           return ctx as PluginContextBase;
         }

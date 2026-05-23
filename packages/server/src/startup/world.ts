@@ -159,6 +159,9 @@ export async function initializeWorld(
         world,
         manifestBoot.plugins,
         manifestBoot.contentPacks,
+        // Phase 0.2c — pass the full manifest through so plugins can
+        // read manifest.registries to override their data loading.
+        config.projectManifest,
       )
     : await bootServerPlugins(world);
   (world as { pluginSession?: typeof pluginSession }).pluginSession =
