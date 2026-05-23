@@ -23,6 +23,10 @@
  * files at boot.
  */
 
+import * as nodeFs from "node:fs";
+import * as nodePath from "node:path";
+import { fileURLToPath } from "node:url";
+
 import {
   biomesProvider,
   biomesRegistry,
@@ -38,6 +42,16 @@ import {
 } from "@hyperforge/manifest-schema";
 
 /**
+ * Module directory — works in both CJS (`__dirname`) and ESM
+ * (`fileURLToPath(import.meta.url)`) contexts. Phase 2.2 Standalone
+ * Launch surfaced the ESM gap: the asset-forge launcher spawns the
+ * server with pure Node ESM, where `__dirname` and bare `require()`
+ * are both undefined. `fileURLToPath` gives us the same answer in
+ * both worlds.
+ */
+const MODULE_DIR = fileURLToPath(new URL(".", import.meta.url));
+
+/**
  * Walk up from this module's directory looking for the workspace's
  * manifests directory. Mirrors the candidate-walk pattern in
  * `DataManager.loadManifestsFromFilesystem` so both paths agree on
@@ -51,14 +65,9 @@ function findManifestsDir(): string | null {
     return null;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const path = require("node:path") as typeof import("node:path");
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const fs = require("node:fs") as typeof import("node:fs");
-
-  // `__dirname` works in CJS contexts. For ESM the bundle is built
-  // with esbuild's CJS interop; `__dirname` is shimmed.
-  const startDir = typeof __dirname !== "undefined" ? __dirname : process.cwd();
+  const path = nodePath;
+  const fs = nodeFs;
+  const startDir = MODULE_DIR;
 
   const candidates: string[] = [];
   // Walk up to 8 levels looking for `packages/server/world/assets/manifests`.
@@ -101,10 +110,8 @@ function findManifestsDir(): string | null {
 export function loadHyperiaManifestsSync(): void {
   if (typeof process === "undefined" || !process.versions?.node) return;
 
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const path = require("node:path") as typeof import("node:path");
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const fs = require("node:fs") as typeof import("node:fs");
+  const path = nodePath;
+  const fs = nodeFs;
 
   const manifestsDir = findManifestsDir();
   if (!manifestsDir) {
