@@ -14,6 +14,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { apiFetch } from "../../../utils/api";
+
 /**
  * Tagged state mirror of `LauncherState` from the backend launcher.
  * Kept in this file rather than imported from the server side so the
@@ -72,9 +74,11 @@ export function useStandaloneLauncher(): UseStandaloneLauncherResult {
 
   const refresh = useCallback(async (): Promise<void> => {
     try {
-      const res = await fetch("/api/standalone/status", {
-        credentials: "include",
-      });
+      // apiFetch auto-injects the Bearer token from the Privy session.
+      // Raw fetch + credentials:"include" gets a 401 because the
+      // asset-forge auth middleware reads `Authorization: Bearer …`,
+      // not cookies.
+      const res = await apiFetch("/api/standalone/status");
       if (!res.ok) return;
       const body = (await res.json()) as LauncherStatusResponse;
       setState(body.state);
@@ -87,12 +91,9 @@ export function useStandaloneLauncher(): UseStandaloneLauncherResult {
   const launch = useCallback(async (projectId: string): Promise<void> => {
     setLastError(null);
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `/api/standalone/${encodeURIComponent(projectId)}/launch`,
-        {
-          method: "POST",
-          credentials: "include",
-        },
+        { method: "POST" },
       );
       const body = (await res.json()) as
         | LauncherStatusResponse
@@ -115,10 +116,7 @@ export function useStandaloneLauncher(): UseStandaloneLauncherResult {
   const stop = useCallback(async (): Promise<void> => {
     setLastError(null);
     try {
-      const res = await fetch("/api/standalone/stop", {
-        method: "POST",
-        credentials: "include",
-      });
+      const res = await apiFetch("/api/standalone/stop", { method: "POST" });
       const body = (await res.json()) as
         | LauncherStatusResponse
         | LauncherErrorResponse;
