@@ -209,17 +209,25 @@ export function createSpawnGameServer(
       );
     }
 
-    if (options.onLog) {
-      const onLog = options.onLog;
-      child.stdout?.setEncoding("utf8");
-      child.stderr?.setEncoding("utf8");
-      bindLineStream(child.stdout, (line) => onLog("stdout", line));
-      bindLineStream(child.stderr, (line) => onLog("stderr", line));
-    } else {
-      // Drain anyway — leaving pipes unread can backpressure the child.
-      child.stdout?.on("data", () => undefined);
-      child.stderr?.on("data", () => undefined);
-    }
+    // Always pipe stdout/stderr somewhere — leaving pipes unread can
+    // backpressure the child. When no caller-supplied sink is wired
+    // (the typical dev path), mirror to the asset-forge process's
+    // console with a `[standalone] ` prefix so spawn / boot errors are
+    // visible without users having to register an onLog explicitly.
+    // Without this, a child that crashes during boot disappears silently.
+    const onLog =
+      options.onLog ??
+      ((level: "stdout" | "stderr", line: string): void => {
+        if (level === "stderr") {
+          console.error(`[standalone] ${line}`);
+        } else {
+          console.log(`[standalone] ${line}`);
+        }
+      });
+    child.stdout?.setEncoding("utf8");
+    child.stderr?.setEncoding("utf8");
+    bindLineStream(child.stdout, (line) => onLog("stdout", line));
+    bindLineStream(child.stderr, (line) => onLog("stderr", line));
 
     const exited = new Promise<{
       code: number | null;
