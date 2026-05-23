@@ -66,13 +66,35 @@ export function createExportManifestToDisk(
     // both; copy through. Schema version pinned to 1 (Project schema
     // is `z.literal(1)` today). manifestSnapshot is opaque registry
     // overrides, separate from the validated project body.
+    //
+    // Seed coercion: ProjectConfigSchema strictly requires
+    // `config.seed: number` at the top level, but real project rows
+    // in the wild can have:
+    //   - seed at top level (canonical shape — newer projects)
+    //   - seed nested under `config.terrain` (legacy pre-D1 procgen)
+    //   - no seed at all (blank-canvas projects)
+    // Pull from the first available location; otherwise derive a
+    // deterministic 32-bit seed from the project id so repeated
+    // launches of the same project produce identical terrain even
+    // when the row itself never persisted one.
+    const rawConfig = (row.config ?? {}) as Record<string, unknown>;
+    const terrainBlock = rawConfig.terrain as { seed?: unknown } | undefined;
+    const seed =
+      typeof rawConfig.seed === "number" && Number.isFinite(rawConfig.seed)
+        ? rawConfig.seed
+        : typeof terrainBlock?.seed === "number" &&
+            Number.isFinite(terrainBlock.seed)
+          ? terrainBlock.seed
+          : seedFromProjectId(row.id);
+    const coercedConfig = { ...rawConfig, seed };
+
     const candidate = {
       id: row.id,
       name: row.name,
       ...(row.description ? { description: row.description } : {}),
       schemaVersion: 1 as const,
       ...(row.templateId ? { templateId: row.templateId } : {}),
-      config: (row.config ?? {}) as Record<string, unknown>,
+      config: coercedConfig,
       plugins: row.plugins ?? [],
       assetPacks: row.assetPacks ?? [],
       worldContent: (row.worldContent ?? {}) as Record<string, unknown>,
@@ -281,6 +303,26 @@ function bindLineStream(
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Deterministic 32-bit seed from a project id (UUID string). Same id
+ * → same seed across launches, so a project's terrain is reproducible
+ * even when the row never persisted a `seed` field. Uses a simple
+ * FNV-1a hash — good enough for procgen seeding (we only need
+ * uniformity across project ids, not cryptographic strength).
+ */
+function seedFromProjectId(projectId: string): number {
+  let hash = 0x811c9dc5; // FNV offset basis (32-bit)
+  for (let i = 0; i < projectId.length; i++) {
+    hash ^= projectId.charCodeAt(i);
+    // FNV prime (32-bit), squeezed into JS double via Math.imul to
+    // keep the result a stable signed 32-bit value.
+    hash = Math.imul(hash, 0x01000193);
+  }
+  // Return as a non-negative number — procgen seeds typically expect
+  // a positive int but accept any finite number.
+  return Math.abs(hash | 0);
 }
 
 /**

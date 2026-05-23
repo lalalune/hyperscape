@@ -189,6 +189,100 @@ describe("createExportManifestToDisk", () => {
     await exportFn("project-test");
     expect(service.calls).toEqual(["project-test"]);
   });
+
+  describe("seed coercion (real project row shapes)", () => {
+    it("uses top-level config.seed when present (canonical shape)", async () => {
+      const service = makeService({
+        "project-test": validRow({ config: { seed: 42 } }),
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      exportFn = createExportManifestToDisk(service as any, {
+        tmpDir,
+        now: fixedNow,
+      });
+
+      const filePath = await exportFn("project-test");
+      const raw = await fs.readJson(filePath);
+      expect(raw.worldConfig.terrainSeed).toBe(42);
+    });
+
+    it("falls back to config.terrain.seed (legacy pre-D1 nesting)", async () => {
+      const service = makeService({
+        "project-test": validRow({
+          config: { terrain: { seed: 7 } } as Record<string, unknown>,
+        }),
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      exportFn = createExportManifestToDisk(service as any, {
+        tmpDir,
+        now: fixedNow,
+      });
+
+      const filePath = await exportFn("project-test");
+      const raw = await fs.readJson(filePath);
+      expect(raw.worldConfig.terrainSeed).toBe(7);
+    });
+
+    it("derives a deterministic seed from project id when missing entirely", async () => {
+      // Real-world failure mode that originally surfaced this fix: the
+      // project row has no `seed` anywhere in config. Strict
+      // ProjectConfigSchema would reject; the exporter now derives one.
+      const service = makeService({
+        "project-test": validRow({ config: {} }),
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      exportFn = createExportManifestToDisk(service as any, {
+        tmpDir,
+        now: fixedNow,
+      });
+
+      const filePath = await exportFn("project-test");
+      const raw = await fs.readJson(filePath);
+      expect(typeof raw.worldConfig.terrainSeed).toBe("number");
+      expect(raw.worldConfig.terrainSeed).toBeGreaterThanOrEqual(0);
+    });
+
+    it("derived seed is stable across calls for the same project id", async () => {
+      const service = makeService({
+        "project-test": validRow({ config: {} }),
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      exportFn = createExportManifestToDisk(service as any, {
+        tmpDir,
+        now: () => 1,
+      });
+      const firstPath = await exportFn("project-test");
+      const first = (await fs.readJson(firstPath)).worldConfig.terrainSeed;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      exportFn = createExportManifestToDisk(service as any, {
+        tmpDir,
+        now: () => 2,
+      });
+      const secondPath = await exportFn("project-test");
+      const second = (await fs.readJson(secondPath)).worldConfig.terrainSeed;
+
+      expect(first).toBe(second);
+    });
+
+    it("derived seeds differ across different project ids", async () => {
+      const service = makeService({
+        "project-a": validRow({ id: "project-a", config: {} }),
+        "project-b": validRow({ id: "project-b", config: {} }),
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      exportFn = createExportManifestToDisk(service as any, {
+        tmpDir,
+        now: fixedNow,
+      });
+
+      const aPath = await exportFn("project-a");
+      const bPath = await exportFn("project-b");
+      const a = (await fs.readJson(aPath)).worldConfig.terrainSeed;
+      const b = (await fs.readJson(bPath)).worldConfig.terrainSeed;
+      expect(a).not.toBe(b);
+    });
+  });
 });
 
 describe("createSpawnGameServer", () => {
