@@ -214,35 +214,51 @@ export class StandaloneLauncher {
     this._watchAbort = new AbortController();
     this._watchChildExit(projectId, child, this._watchAbort.signal);
 
-    const ready = await this._deps.waitForReady(
-      this._opts.port,
-      this._opts.readyTimeoutMs,
-    );
-    if (!ready) {
-      // Health-check timeout — kill the child so we don't leak processes.
-      child.kill("SIGTERM");
-      this._child = null;
-      return this._setState({
-        kind: "error",
-        projectId,
-        message: `Server did not become healthy within ${this._opts.readyTimeoutMs}ms`,
-        at: this._deps.now(),
+    // Kick off health polling in the background and return "starting"
+    // immediately. The HTTP route can respond in <1s instead of
+    // blocking the connection for up to readyTimeoutMs — the client
+    // polls /status to pick up the eventual ready/error transition.
+    // Mirrors UE5's launch UX: button flips to "Booting…" right away,
+    // not after the server is fully up.
+    void this._deps
+      .waitForReady(this._opts.port, this._opts.readyTimeoutMs)
+      .then((ready) => {
+        // Bail if a stop() or unexpected child exit already moved us
+        // out of "starting" while we were waiting.
+        if (this._state.kind !== "starting") return;
+        if (!ready) {
+          // Health-check timeout — kill the child so we don't leak
+          // processes, then flip to error.
+          child.kill("SIGTERM");
+          this._child = null;
+          this._setState({
+            kind: "error",
+            projectId,
+            message: `Server did not become healthy within ${this._opts.readyTimeoutMs}ms`,
+            at: this._deps.now(),
+          });
+          return;
+        }
+        this._setState({
+          kind: "ready",
+          projectId,
+          pid: child.pid,
+          port: this._opts.port,
+          url: this._opts.clientUrl,
+          startedAt,
+          readyAt: this._deps.now(),
+        });
+      })
+      .catch((err) => {
+        this._deps.logger(
+          "error",
+          `[StandaloneLauncher] waitForReady threw: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
       });
-    }
-    // Bail if the child exited during waitForReady (race between health
-    // OK and crash). The watcher would already have flipped us to error;
-    // do not stomp it.
-    if (this._state.kind !== "starting") return this._state;
 
-    return this._setState({
-      kind: "ready",
-      projectId,
-      pid: child.pid,
-      port: this._opts.port,
-      url: this._opts.clientUrl,
-      startedAt,
-      readyAt: this._deps.now(),
-    });
+    return this._state;
   }
 
   /**

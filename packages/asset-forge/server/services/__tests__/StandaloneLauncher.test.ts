@@ -111,23 +111,41 @@ describe("StandaloneLauncher — state machine", () => {
     }
   });
 
+  /**
+   * Flush microtasks so the background `waitForReady().then(...)`
+   * callback runs. Phase 2 redesign: start() returns "starting"
+   * immediately and the ready/error transition happens on the next
+   * tick so the HTTP route can respond fast.
+   */
+  async function flushMicrotasks(): Promise<void> {
+    await Promise.resolve();
+    await Promise.resolve();
+  }
+
   it("starts in idle state", () => {
     expect(launcher.status()).toEqual({ kind: "idle" });
   });
 
-  it("happy path: idle → starting → ready", async () => {
-    const result = await launcher.start("project-a");
-    expect(result.kind).toBe("ready");
-    if (result.kind === "ready") {
-      expect(result.projectId).toBe("project-a");
-      expect(result.pid).toBe(12_345);
-      expect(result.port).toBe(5555);
-      expect(result.url).toBe("http://localhost:3333");
-    }
+  it("happy path: idle → starting → ready (async transition)", async () => {
+    // start() now returns "starting" immediately — waitForReady runs
+    // in background so HTTP routes can respond fast.
+    const initial = await launcher.start("project-a");
+    expect(initial.kind).toBe("starting");
     expect(deps.exportCalls).toEqual(["project-a"]);
     expect(deps.spawnCalls).toEqual([
       { manifestPath: "/tmp/manifest-project-a.json", ephemeral: true },
     ]);
+
+    // Wait one microtask cycle for the background promise to resolve.
+    await flushMicrotasks();
+    const ready = launcher.status();
+    expect(ready.kind).toBe("ready");
+    if (ready.kind === "ready") {
+      expect(ready.projectId).toBe("project-a");
+      expect(ready.pid).toBe(12_345);
+      expect(ready.port).toBe(5555);
+      expect(ready.url).toBe("http://localhost:3333");
+    }
   });
 
   it("manifest export failure → error state, no spawn attempted", async () => {
@@ -155,44 +173,49 @@ describe("StandaloneLauncher — state machine", () => {
 
   it("health timeout → SIGTERM + error state", async () => {
     deps.readyImpl = async () => false; // health never returns OK
-    const result = await launcher.start("project-a");
-    expect(result.kind).toBe("error");
-    if (result.kind === "error") {
-      expect(result.message).toContain("did not become healthy");
+    const initial = await launcher.start("project-a");
+    expect(initial.kind).toBe("starting");
+    await flushMicrotasks();
+    const final = launcher.status();
+    expect(final.kind).toBe("error");
+    if (final.kind === "error") {
+      expect(final.message).toContain("did not become healthy");
     }
     expect(active.killed).toContain("SIGTERM");
   });
 
   it("unexpected child exit during starting → error", async () => {
     deps.readyImpl = async () => {
-      // Simulate the child crashing mid-boot.
       active.exit(1, null);
-      // Give the exit watcher microtask priority to flip state.
       await Promise.resolve();
       return false;
     };
-    const result = await launcher.start("project-a");
-    expect(result.kind).toBe("error");
+    await launcher.start("project-a");
+    await flushMicrotasks();
+    expect(launcher.status().kind).toBe("error");
   });
 
   it("unexpected child exit after ready → flips ready → error", async () => {
     await launcher.start("project-a");
+    await flushMicrotasks();
     expect(launcher.status().kind).toBe("ready");
     active.exit(137, "SIGKILL"); // crash post-boot
     await new Promise((r) => setTimeout(r, 5));
     expect(launcher.status().kind).toBe("error");
-    if (launcher.status().kind === "error") {
-      const state = launcher.status();
-      if (state.kind === "error") {
-        expect(state.message).toContain("exited unexpectedly");
-      }
+    const state = launcher.status();
+    if (state.kind === "error") {
+      expect(state.message).toContain("exited unexpectedly");
     }
   });
 
   it("idempotent start for same projectId returns existing ready state", async () => {
-    const first = await launcher.start("project-a");
+    await launcher.start("project-a");
+    await flushMicrotasks();
+    const ready = launcher.status();
+    expect(ready.kind).toBe("ready");
+
     const second = await launcher.start("project-a");
-    expect(first).toEqual(second);
+    expect(second).toEqual(ready);
     // No second export / spawn.
     expect(deps.exportCalls).toEqual(["project-a"]);
     expect(deps.spawnCalls).toHaveLength(1);
@@ -200,6 +223,9 @@ describe("StandaloneLauncher — state machine", () => {
 
   it("start with a different project while ready → error (must stop first)", async () => {
     await launcher.start("project-a");
+    await flushMicrotasks();
+    expect(launcher.status().kind).toBe("ready");
+
     const result = await launcher.start("project-b");
     expect(result.kind).toBe("error");
     if (result.kind === "error") {
@@ -211,6 +237,7 @@ describe("StandaloneLauncher — state machine", () => {
 
   it("stop() → SIGTERM child, transition to idle", async () => {
     await launcher.start("project-a");
+    await flushMicrotasks();
     // Resolve child exit so stop's await doesn't hang on shutdown grace.
     const stopPromise = launcher.stop();
     active.exit(0, "SIGTERM");
@@ -221,6 +248,7 @@ describe("StandaloneLauncher — state machine", () => {
 
   it("stop() escalates to SIGKILL when child ignores SIGTERM", async () => {
     await launcher.start("project-a");
+    await flushMicrotasks();
     // Don't resolve active.exit — simulate hung child. shutdownGraceMs=50
     // in beforeEach so we don't wait long.
     const stopPromise = launcher.stop();
@@ -247,10 +275,13 @@ describe("StandaloneLauncher — state machine", () => {
     const second = makeChild(99);
     deps.spawnImpl = async () => second.child;
     result = await launcher.start("project-b");
-    expect(result.kind).toBe("ready");
-    if (result.kind === "ready") {
-      expect(result.projectId).toBe("project-b");
-      expect(result.pid).toBe(99);
+    expect(result.kind).toBe("starting");
+    await flushMicrotasks();
+    const ready = launcher.status();
+    expect(ready.kind).toBe("ready");
+    if (ready.kind === "ready") {
+      expect(ready.projectId).toBe("project-b");
+      expect(ready.pid).toBe(99);
     }
 
     // Clean up the recovered session before afterEach.
