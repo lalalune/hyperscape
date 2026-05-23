@@ -15,10 +15,15 @@ import os from "os";
 import path from "path";
 
 import {
+  _resetStandaloneLauncherSingletonForTests,
+  configureStandaloneLauncher,
   createExportManifestToDisk,
+  createProductionLauncher,
   createSpawnGameServer,
   createWaitForReady,
+  getStandaloneLauncher,
 } from "../standaloneLauncherDeps";
+import { StandaloneLauncher } from "../StandaloneLauncher";
 
 const FIXED_NOW = 1_716_500_000_000;
 const fixedNow = () => FIXED_NOW;
@@ -357,5 +362,68 @@ describe("createWaitForReady", () => {
     const waitForReady = createWaitForReady({ intervalMs: 25 });
     const ready = await waitForReady(port, 200);
     expect(ready).toBe(false);
+  });
+});
+
+describe("createProductionLauncher + singleton", () => {
+  const tmpDir = path.join(
+    os.tmpdir(),
+    `hf-prod-launcher-test-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2)}`,
+  );
+
+  beforeEach(() => {
+    _resetStandaloneLauncherSingletonForTests();
+  });
+
+  afterEach(async () => {
+    _resetStandaloneLauncherSingletonForTests();
+    await fs.remove(tmpDir).catch(() => undefined);
+  });
+
+  it("createProductionLauncher returns a StandaloneLauncher in idle state", () => {
+    const service = { getById: async () => null };
+    const launcher = createProductionLauncher(service, {
+      manifestTmpDir: tmpDir,
+    });
+    expect(launcher).toBeInstanceOf(StandaloneLauncher);
+    expect(launcher.status()).toEqual({ kind: "idle" });
+  });
+
+  it("getStandaloneLauncher returns the same instance across calls", () => {
+    const service = { getById: async () => null };
+    configureStandaloneLauncher({ manifestTmpDir: tmpDir });
+    const a = getStandaloneLauncher(service);
+    const b = getStandaloneLauncher(service);
+    expect(a).toBe(b);
+  });
+
+  it("configureStandaloneLauncher discards the prior singleton", () => {
+    const service = { getById: async () => null };
+    const a = getStandaloneLauncher(service);
+    configureStandaloneLauncher({ manifestTmpDir: tmpDir });
+    const b = getStandaloneLauncher(service);
+    expect(a).not.toBe(b);
+  });
+
+  it("_resetStandaloneLauncherSingletonForTests forces a rebuild", () => {
+    const service = { getById: async () => null };
+    const a = getStandaloneLauncher(service);
+    _resetStandaloneLauncherSingletonForTests();
+    const b = getStandaloneLauncher(service);
+    expect(a).not.toBe(b);
+  });
+
+  it("launcher built end-to-end can return its idle state without throwing", async () => {
+    // Smoke: every dep wires up without crashing on a "no-op" usage.
+    // start() is NOT called here — that requires a real bun + dist
+    // path, which isn't this test's concern (handled by 2.2.b.1+2's
+    // unit tests).
+    const service = { getById: async () => null };
+    const launcher = createProductionLauncher(service, {
+      manifestTmpDir: tmpDir,
+    });
+    expect(launcher.status()).toEqual({ kind: "idle" });
   });
 });

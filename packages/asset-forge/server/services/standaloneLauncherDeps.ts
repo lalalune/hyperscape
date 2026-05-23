@@ -22,7 +22,11 @@ import { validateProject } from "@hyperforge/manifest-schema";
 
 import type { WorldProjectService } from "./WorldProjectService";
 import { exportProjectManifest } from "./ProjectManifestExporter";
-import type { SpawnedChild } from "./StandaloneLauncher";
+import {
+  StandaloneLauncher,
+  type LauncherOptions,
+  type SpawnedChild,
+} from "./StandaloneLauncher";
 
 /**
  * Factory: build a real `exportManifestToDisk` function that reads a
@@ -277,4 +281,98 @@ function bindLineStream(
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Compose the three real deps into a configured StandaloneLauncher
+ * pointed at the production game server. The route layer's job is to
+ * call this once at boot and share the instance across all
+ * `/api/projects/:id/launch-standalone` requests — single-instance
+ * for MVP (D1=A in the plan).
+ *
+ * Pass-through hooks (`onLog`, `tmpDir`, `serverEntry`, …) let
+ * deployment-specific concerns (Docker volume for tmp, custom log
+ * sinks) be plumbed without surgery on this file.
+ */
+export interface ProductionLauncherOptions {
+  /** Where to write per-launch manifests. Default: os.tmpdir()/hyperforge-standalone. */
+  manifestTmpDir?: string;
+  /** Server entry override (default: packages/server/dist/index.js). */
+  serverEntry?: string;
+  /** Runtime override (default: "bun"). */
+  runtime?: string;
+  /** stdout/stderr line sink for the child. */
+  onLog?: (level: "stdout" | "stderr", line: string) => void;
+  /** Launcher-level options (port, ready timeout, shutdown grace). */
+  launcher?: LauncherOptions;
+}
+
+export function createProductionLauncher(
+  service: Pick<WorldProjectService, "getById">,
+  options: ProductionLauncherOptions = {},
+): StandaloneLauncher {
+  const exportManifestToDisk = createExportManifestToDisk(service, {
+    tmpDir: options.manifestTmpDir,
+  });
+  const spawnGameServer = createSpawnGameServer({
+    serverEntry: options.serverEntry,
+    runtime: options.runtime,
+    onLog: options.onLog,
+  });
+  const waitForReady = createWaitForReady();
+  return new StandaloneLauncher(
+    {
+      exportManifestToDisk,
+      spawnGameServer,
+      waitForReady,
+    },
+    options.launcher,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Module-level singleton
+//
+// Asset-forge boots once per process; the launcher is created lazily on
+// first access and reused across every route handler. Tests reset via
+// `_resetStandaloneLauncherSingletonForTests()`.
+// ---------------------------------------------------------------------------
+
+let _singletonInstance: StandaloneLauncher | null = null;
+let _singletonFactory:
+  | ((service: Pick<WorldProjectService, "getById">) => StandaloneLauncher)
+  | null = null;
+
+/**
+ * Configure how the singleton is built. The Elysia plugin (Phase 2.2.c)
+ * calls this once at boot with the service + any deployment-specific
+ * options. Subsequent `getStandaloneLauncher(service)` calls return
+ * the lazily-built instance.
+ */
+export function configureStandaloneLauncher(
+  options: ProductionLauncherOptions = {},
+): void {
+  _singletonFactory = (service) => createProductionLauncher(service, options);
+  _singletonInstance = null; // force rebuild on next access
+}
+
+/**
+ * Resolve the process-wide launcher singleton. Builds it lazily from
+ * whatever `configureStandaloneLauncher` last set (defaults to an
+ * empty-options production launcher).
+ */
+export function getStandaloneLauncher(
+  service: Pick<WorldProjectService, "getById">,
+): StandaloneLauncher {
+  if (!_singletonInstance) {
+    const factory = _singletonFactory ?? ((s) => createProductionLauncher(s));
+    _singletonInstance = factory(service);
+  }
+  return _singletonInstance;
+}
+
+/** Test seam — discards the singleton so the next access rebuilds. */
+export function _resetStandaloneLauncherSingletonForTests(): void {
+  _singletonInstance = null;
+  _singletonFactory = null;
 }
