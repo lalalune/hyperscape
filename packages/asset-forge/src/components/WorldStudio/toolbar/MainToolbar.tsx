@@ -31,6 +31,7 @@ import {
   Users,
   Trash2,
   Play,
+  Pause,
   Square,
   Gamepad2,
 } from "lucide-react";
@@ -394,14 +395,38 @@ export function MainToolbar({
 
         {/* Play-In-Editor button */}
         {state.pie.active ? (
-          <button
-            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-red-500/15 text-red-400 border border-red-400/30 hover:bg-red-500/25 transition-all ease-out"
-            onClick={() => actions.pieStop()}
-            title="Stop Play Test (Escape)"
-          >
-            <Square size={12} />
-            <span className="hidden sm:inline">Stop</span>
-          </button>
+          <>
+            {/* UE5 PIE Pause / Resume — gates world.tick() without
+                tearing down the session. Phase 1.3.a of
+                PLAN_AAA_UE5_PARITY. */}
+            {state.pie.paused ? (
+              <button
+                className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-400/30 hover:bg-emerald-500/25 transition-all ease-out"
+                onClick={() => actions.pieResume()}
+                title="Resume Play Test"
+              >
+                <Play size={12} />
+                <span className="hidden sm:inline">Resume</span>
+              </button>
+            ) : (
+              <button
+                className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-amber-500/15 text-amber-400 border border-amber-400/30 hover:bg-amber-500/25 transition-all ease-out"
+                onClick={() => actions.piePause()}
+                title="Pause Play Test — freezes simulation, input still captured"
+              >
+                <Pause size={12} />
+                <span className="hidden sm:inline">Pause</span>
+              </button>
+            )}
+            <button
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-red-500/15 text-red-400 border border-red-400/30 hover:bg-red-500/25 transition-all ease-out"
+              onClick={() => actions.pieStop()}
+              title="Stop Play Test (Escape)"
+            >
+              <Square size={12} />
+              <span className="hidden sm:inline">Stop</span>
+            </button>
+          </>
         ) : (
           <button
             className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all ${

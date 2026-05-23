@@ -622,6 +622,14 @@ export function usePIESession({
   const sceneRefsRef = useRef(sceneRefs);
   sceneRefsRef.current = sceneRefs;
 
+  // Mirror pause flag into a ref so the rAF tick loop reads the
+  // latest value without re-subscribing. Phase 1.3.a of
+  // PLAN_AAA_UE5_PARITY — when true, the tick loop skips
+  // world.tick() but keeps the rAF schedule so resume picks up
+  // smoothly without re-attaching the loop.
+  const pausedRef = useRef(state.pie.paused);
+  pausedRef.current = state.pie.paused;
+
   /**
    * Start the PIE session.
    * Creates the PIEEditorSession, spawns entities, enters player mode.
@@ -963,6 +971,19 @@ export function usePIESession({
     const tickLoop = (time: number) => {
       const s = sessionRef.current;
       if (!s.world || !s.world.isRunning) return;
+
+      // Phase 1.3.a — Pause gate. When the user clicks Pause in the
+      // toolbar, this flag flips true. We keep rAF running (so the
+      // loop resumes cleanly without re-attaching), but skip the
+      // world.tick() call so mob AI / NPC behavior / scripted events
+      // all freeze. Also reset `lastTime` so resume doesn't apply
+      // a giant dt for the pause duration (which would teleport
+      // moving entities).
+      if (pausedRef.current) {
+        s.lastTime = time;
+        s.animationId = requestAnimationFrame(tickLoop);
+        return;
+      }
 
       const dt = Math.min((time - s.lastTime) / 1000, 0.1); // Cap at 100ms
       s.lastTime = time;

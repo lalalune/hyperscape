@@ -275,6 +275,13 @@ export interface PIEState {
   error: string | null;
   /** Which PIE flavour the next pieStart() will launch. */
   mode: PIEMode;
+  /**
+   * UE5 PIE Pause — when true, the session's tick loop is gated: the
+   * server-side world stops advancing but the session itself stays
+   * alive, so input can be inspected and resuming picks up exactly
+   * where it was. Phase 1.3.a of PLAN_AAA_UE5_PARITY.
+   */
+  paused: boolean;
 }
 
 export const EMPTY_PIE_STATE: PIEState = {
@@ -282,6 +289,7 @@ export const EMPTY_PIE_STATE: PIEState = {
   loading: false,
   error: null,
   mode: "simulate",
+  paused: false,
 };
 
 export interface WorldStudioState {
@@ -684,6 +692,8 @@ export type StudioSpecificAction =
   | { type: "PIE_STOP" }
   | { type: "PIE_ERROR"; error: string }
   | { type: "PIE_SET_MODE"; mode: PIEMode }
+  | { type: "PIE_PAUSE" }
+  | { type: "PIE_RESUME" }
 
   // Generic entity CRUD — schema-driven GameModule actions
   | {

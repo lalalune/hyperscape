@@ -320,17 +320,35 @@ export function uiReducer(
     case "PIE_START":
       return {
         ...state,
-        pie: { ...state.pie, active: false, loading: true, error: null },
+        pie: {
+          ...state.pie,
+          active: false,
+          loading: true,
+          error: null,
+          paused: false,
+        },
       };
     case "PIE_STARTED":
       return {
         ...state,
-        pie: { ...state.pie, active: true, loading: false, error: null },
+        pie: {
+          ...state.pie,
+          active: true,
+          loading: false,
+          error: null,
+          paused: false,
+        },
       };
     case "PIE_STOP":
       return {
         ...state,
-        pie: { ...state.pie, active: false, loading: false, error: null },
+        pie: {
+          ...state.pie,
+          active: false,
+          loading: false,
+          error: null,
+          paused: false,
+        },
       };
     case "PIE_ERROR":
       return {
@@ -347,6 +365,15 @@ export function uiReducer(
       // require tearing down and re-attaching the controller stack.
       if (state.pie.active || state.pie.loading) return state;
       return { ...state, pie: { ...state.pie, mode: action.mode } };
+    case "PIE_PAUSE":
+      // No-op when PIE isn't running or is already paused. UE5 parity:
+      // pause is only meaningful mid-session. Phase 1.3.a of
+      // PLAN_AAA_UE5_PARITY.
+      if (!state.pie.active || state.pie.paused) return state;
+      return { ...state, pie: { ...state.pie, paused: true } };
+    case "PIE_RESUME":
+      if (!state.pie.paused) return state;
+      return { ...state, pie: { ...state.pie, paused: false } };
 
     default:
       return null;

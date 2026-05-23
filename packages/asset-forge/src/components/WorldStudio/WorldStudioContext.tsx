@@ -593,6 +593,10 @@ interface WorldStudioContextValue {
      * mid-session mode switches are rejected in the reducer.
      */
     pieSetMode: (mode: PIEMode) => void;
+    /** Pause the PIE session — gates the tick loop without tearing down. */
+    piePause: () => void;
+    /** Resume from pause. */
+    pieResume: () => void;
   };
 
   /** Computed values */
@@ -1216,6 +1220,8 @@ export function WorldStudioProvider({
       pieStop: () => dispatch({ type: "PIE_STOP" }),
       pieError: (error: string) => dispatch({ type: "PIE_ERROR", error }),
       pieSetMode: (mode: PIEMode) => dispatch({ type: "PIE_SET_MODE", mode }),
+      piePause: () => dispatch({ type: "PIE_PAUSE" }),
+      pieResume: () => dispatch({ type: "PIE_RESUME" }),
     }),
     [],
   );
