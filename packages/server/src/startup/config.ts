@@ -22,7 +22,14 @@ import dotenv from "dotenv";
 import fs from "fs-extra";
 import path from "path";
 import { fileURLToPath } from "url";
+
+import type { FullProjectManifest } from "@hyperforge/manifest-schema";
+
 import { errMsg } from "../shared/errMsg.js";
+import {
+  loadProjectManifestFromDisk,
+  parseProjectManifestFlag,
+} from "./projectManifest.js";
 
 /**
  * Determine whether to use local Docker-managed PostgreSQL.
@@ -227,6 +234,17 @@ export interface ServerConfig {
 
   /** Commit hash for deployment tracking */
   commitHash?: string;
+
+  /**
+   * Validated project manifest loaded from `--projectManifest <path>`.
+   * When present, drives plugin selection + registry overrides (Phase
+   * 0.2b/c of PLAN_AAA_UE5_PARITY). When absent, the server boots
+   * through the legacy env-driven path (preserves `bun run dev`).
+   */
+  projectManifest?: FullProjectManifest;
+
+  /** Disk path the manifest was read from (logs + diagnostics). */
+  projectManifestPath?: string;
 }
 
 /**
@@ -546,6 +564,42 @@ export async function loadConfig(): Promise<ServerConfig> {
   // Skip in development if manifests already exist locally
   await fetchManifestsFromCDN(CDN_URL, manifestsDir, NODE_ENV);
 
+  // Phase 0.2b — load the project manifest if launched with
+  // `--projectManifest <path>`. Fail fast with an actionable error
+  // when the file is missing / malformed / invalid; the operator
+  // sees the precise issue before any plugin or HTTP listener
+  // starts up. When the flag is absent, the runtime falls back to
+  // the legacy env-driven plugin path (preserves `bun run dev`).
+  let projectManifest: FullProjectManifest | undefined;
+  let projectManifestPath: string | undefined;
+  const projectManifestFlagValue = parseProjectManifestFlag(process.argv);
+  if (projectManifestFlagValue) {
+    const resolvedPath = path.isAbsolute(projectManifestFlagValue)
+      ? projectManifestFlagValue
+      : path.resolve(process.cwd(), projectManifestFlagValue);
+    const loadResult = await loadProjectManifestFromDisk(resolvedPath);
+    if (!loadResult.ok) {
+      const issuesDetail = loadResult.issues?.length
+        ? `\n  Issues:\n    - ${loadResult.issues
+            .map((i) => `${i.path}: ${i.message}`)
+            .join("\n    - ")}`
+        : "";
+      throw new Error(
+        `[Config] --projectManifest load failed (${loadResult.reason}): ` +
+          `${loadResult.message}${issuesDetail}`,
+      );
+    }
+    projectManifest = loadResult.manifest;
+    projectManifestPath = loadResult.source;
+    console.log(
+      `[Config] ✅ Loaded project manifest: ${projectManifest.meta.projectName} ` +
+        `(${projectManifest.meta.projectId}) — ` +
+        `${projectManifest.boot.plugins.length} plugin(s), ` +
+        `${projectManifest.boot.contentPacks.length} content pack(s), ` +
+        `${projectManifest.boot.assetPacks.length} asset pack(s)`,
+    );
+  }
+
   return {
     port: PORT,
     uwsPort: UWS_PORT,
@@ -566,6 +620,8 @@ export async function loadConfig(): Promise<ServerConfig> {
     saveInterval: SAVE_INTERVAL,
     nodeEnv: NODE_ENV,
     commitHash: COMMIT_HASH,
+    projectManifest,
+    projectManifestPath,
   };
 }
 

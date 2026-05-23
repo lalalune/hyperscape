@@ -146,7 +146,21 @@ export async function initializeWorld(
   // Session is stashed on the world so a graceful shutdown can call
   // `pluginSession.stop()` for clean disposer teardown.
   const { bootServerPlugins } = await import("./plugins.js");
-  const pluginSession = await bootServerPlugins(world);
+  // Phase 0.2b — when launched with `--projectManifest <path>`, the
+  // manifest's `boot.plugins` array drives the plugin set; the
+  // accepts-plugin-id-list overload of `bootServerPlugins` (added by
+  // R3.P11) handles both legacy gameId strings and plugin-id arrays.
+  // When no manifest is present, fall through to the env-driven
+  // default (`HYPERSCAPE_GAME_PLUGIN` → "hyperscape" | "shooter-demo")
+  // so `bun run dev` keeps working unchanged.
+  const manifestBoot = config.projectManifest?.boot;
+  const pluginSession = manifestBoot
+    ? await bootServerPlugins(
+        world,
+        manifestBoot.plugins,
+        manifestBoot.contentPacks,
+      )
+    : await bootServerPlugins(world);
   (world as { pluginSession?: typeof pluginSession }).pluginSession =
     pluginSession;
 

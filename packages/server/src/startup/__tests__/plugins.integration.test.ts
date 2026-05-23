@@ -169,4 +169,52 @@ describe("bootServerPlugins — integration against real createServerWorld()", (
       expect(world.getSystem("mob-death")).toBeFalsy();
     },
   );
+
+  it(
+    "manifest-shaped plugin id array boots a custom subset (Phase 0.2b)",
+    { timeout: 30_000 },
+    async () => {
+      // Mirrors what `initializeWorld` will pass when launched with
+      // `--projectManifest <path>` — the manifest's `boot.plugins`
+      // array drives the plugin set instead of the env-var gameId.
+      // Use the combat+skills subset (without hyperscape) to prove the
+      // manifest path drops into the existing plugin-id-array overload
+      // and obeys an arbitrary boot.plugins value — not pinned to the
+      // canonical hyperscape set.
+      world = await createServerWorld();
+      session = await bootServerPlugins(world, [
+        "@hyperforge/combat",
+        "@hyperforge/skills",
+      ]);
+
+      expect(session.failedPackages).toEqual([]);
+      expect(session.unresolvable).toEqual([]);
+      expect(session.records).toHaveLength(2);
+
+      // Hyperscape-only migrated systems are absent — proves the array
+      // is honored, not silently replaced with "hyperscape" defaults.
+      expect(world.getSystem("mob-death")).toBeFalsy();
+      expect(world.getSystem("tanning")).toBeFalsy();
+    },
+  );
+
+  it(
+    "manifest plugin id array boots an empty server when the list is empty (Phase 0.2b)",
+    { timeout: 30_000 },
+    async () => {
+      // Decoupling rule (PLAN_AAA_UE5_PARITY): an empty `boot.plugins`
+      // array MUST boot an empty-shell world — no Hyperia by default.
+      // Proves the runtime obeys a blank-canvas project manifest.
+      world = await createServerWorld();
+      session = await bootServerPlugins(world, []);
+
+      expect(session.failedPackages).toEqual([]);
+      expect(session.unresolvable).toEqual([]);
+      expect(session.records).toHaveLength(0);
+
+      // No hyperscape systems registered.
+      expect(world.getSystem("mob-death")).toBeFalsy();
+      expect(world.getSystem("tanning")).toBeFalsy();
+    },
+  );
 });
