@@ -92,6 +92,8 @@ interface ScriptingSystem {
   ): void;
 }
 import type { EntityData } from "../../types/core/base-types";
+import { EventType } from "../../types/events/event-types";
+import { uuid } from "../../utils/IdGenerator";
 import type { PIEEntity } from "./PIEEntity";
 import type { PIEDebugEntry, PIEDebugSink } from "../PIEScriptRunner";
 import {
@@ -945,6 +947,14 @@ export class PIEEditorSession {
       name: "Player",
     };
     this.entities.set(this.player.id, this.player);
+
+    // Spawn the real server-side player entity so the hyperscape plugin's
+    // PlayerSystem (PLAYER_JOINED listener), combat/skills/prayer
+    // subscribers, and PhysX hot-set see a live player. Mirror
+    // character-selection.ts:1011 — same fields, same `owner` = client
+    // socket id so when the entity replicates over the loopback the
+    // client's `Entities.add` dispatches `playerLocal` (not `playerRemote`).
+    this._spawnRealPlayer(spawn);
 
     if (options.mobSpawns) {
       for (const ms of options.mobSpawns) {
@@ -2796,6 +2806,131 @@ export class PIEEditorSession {
   }
 
   // ---- server-spawn helpers --------------------------------------------
+
+  /**
+   * Server-side id of the live player entity. `null` until
+   * `_spawnRealPlayer` succeeds. Used by tests + future callers that
+   * need to reference the player by id without going through the
+   * synthetic PIEEntity placeholder.
+   */
+  private _realPlayerId: string | null = null;
+
+  /** The real server-side player entity id (null until spawned). */
+  get realPlayerId(): string | null {
+    return this._realPlayerId;
+  }
+
+  /**
+   * Spawn the real server-side player entity that the hyperscape plugin's
+   * PlayerSystem + combat/skills/prayer subscribers register against.
+   *
+   * Mirrors `character-selection.ts:1011` — same `type: "player"`, same
+   * field set, `owner` = the loopback client socket id. When the server
+   * broadcasts `entityAdded` over the loopback, ClientNetwork's
+   * `Entities.add` sees `data.owner === network.id` and dispatches the
+   * `playerLocal` constructor. Without this, PIE has only the synthetic
+   * `pie-player` PIEEntity placeholder — no PhysX capsule, no hot-set,
+   * no input wiring, no stat hydration.
+   *
+   * Best-effort: if the server-side player class isn't registered (no
+   * hyperscape plugin), or the constructor throws (missing dep), we
+   * log + continue. The PIE marker still exists so the viewport keeps
+   * rendering.
+   */
+  private _spawnRealPlayer(spawn: { x: number; y: number; z: number }): void {
+    if (!this._server) return;
+    // The owner field must equal the server-issued socket id for this
+    // loopback connection — when the entity replicates over the
+    // loopback, ClientNetwork's `Entities.add` checks
+    // `data.owner === network.id` to decide between `playerLocal` and
+    // `playerRemote`. In PIE there is exactly one loopback connection,
+    // so the first (and only) socket in `network.sockets` is the
+    // editor's. The id is generated inside
+    // `PIELoopbackConnectionHandler.handleConnection`, so we read it
+    // back from the registry rather than guessing.
+    const sockets = this._server.network.sockets;
+    const owner = sockets.keys().next().value;
+    if (!owner) {
+      console.warn(
+        "[PIEEditorSession] _spawnRealPlayer: no loopback socket registered yet; skipping",
+      );
+      return;
+    }
+    const world = this._server.world;
+    const entityId = uuid();
+    const playerData: EntityData = {
+      id: entityId,
+      type: "player",
+      position: [spawn.x, spawn.y, spawn.z],
+      quaternion: [0, 0, 0, 1],
+      owner,
+      userId: "pie-editor-host",
+      name: "Editor",
+      health: 100,
+      maxHealth: 100,
+      avatar: "asset://avatars/avatar-male-01.vrm",
+      sessionAvatar: undefined,
+      roles: [],
+      skills: {},
+      autoRetaliate: true,
+      // Immune to aggro until PIE finishes booting; flipped to false
+      // once the editor's "ready" signal lands (follow-up).
+      isLoading: true,
+    } as unknown as EntityData;
+
+    let spawnedPlayer: unknown = null;
+    try {
+      spawnedPlayer = world.entities.add(playerData, true);
+    } catch (err) {
+      console.warn(
+        `[PIEEditorSession] _spawnRealPlayer: world.entities.add failed:`,
+        err,
+      );
+      return;
+    }
+    if (!spawnedPlayer) {
+      // Most likely cause: "player" entity type not registered (the
+      // hyperscape plugin's `registerHyperiaEntityTypes` didn't run).
+      // The editor's session continues with just the PIE marker;
+      // future work can register a generic Player class for
+      // non-Hyperia plugins.
+      console.warn(
+        "[PIEEditorSession] _spawnRealPlayer: entities.add returned null (player type not registered?)",
+      );
+      return;
+    }
+
+    // Mirror character-selection.ts:1044 — set `isLoading` on data
+    // AFTER construction because the entity constructor doesn't
+    // reliably copy every property into `entity.data`.
+    const dataHolder = spawnedPlayer as { data?: Record<string, unknown> };
+    if (dataHolder.data) {
+      dataHolder.data.isLoading = true;
+    }
+    this._realPlayerId = entityId;
+
+    // Fire PLAYER_JOINED so PlayerSystem.onPlayerEnter (and combat /
+    // skills / prayer subscribers) register against this entity. We
+    // pass `equipment` + `inventory` as undefined — those systems fall
+    // back to DB query if absent, which in PIE's no-DB world means
+    // empty defaults. Same shape as character-selection.ts:1173.
+    try {
+      world.emit(EventType.PLAYER_JOINED, {
+        playerId: entityId,
+        userId: "pie-editor-host",
+        player: spawnedPlayer,
+        equipment: undefined,
+        inventory: undefined,
+        isLoadTestBot: false,
+        isAgent: false,
+      });
+    } catch (err) {
+      console.warn(
+        `[PIEEditorSession] _spawnRealPlayer: PLAYER_JOINED emit threw:`,
+        err,
+      );
+    }
+  }
 
   /** Station type → server entity-type registry key. */
   private static _stationServerType(type: string): string {

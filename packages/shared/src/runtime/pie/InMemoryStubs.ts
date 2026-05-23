@@ -246,6 +246,29 @@ export class PIEInMemoryDatabaseSystem implements IDatabaseSystem {
   getDb(): unknown | null {
     return createPIEStubSystemDatabase();
   }
+
+  // Session methods — PIE has no persistence, so these are no-ops.
+  // Without them, PersistenceSystem.onPlayerEnter (subscribed to
+  // PLAYER_JOINED) crashes with "createPlayerSessionAsync is not a
+  // function" as soon as PIE fires the event from `_spawnRealPlayer`.
+  // Returning a fake session id keeps the subscriber's await chain
+  // valid; everything downstream of persistence treats PIE as
+  // ephemeral so the id is never read.
+  async createPlayerSessionAsync(
+    _sessionData: unknown,
+    sessionId?: string,
+  ): Promise<string> {
+    return sessionId ?? `pie-session-${uuid()}`;
+  }
+  async getActivePlayerSessionsAsync(): Promise<unknown[]> {
+    return [];
+  }
+  async endPlayerSessionAsync(
+    _sessionId: string,
+    _reason?: string,
+  ): Promise<void> {
+    // No-op.
+  }
 }
 
 /**

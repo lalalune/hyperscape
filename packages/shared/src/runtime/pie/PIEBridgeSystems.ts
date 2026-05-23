@@ -131,6 +131,26 @@ export class PIEDatabaseBridge extends SystemBase implements IDatabaseSystem {
   getDb(): unknown | null {
     return this.impl.getDb();
   }
+
+  // PersistenceSystem subscribes to PLAYER_JOINED / PLAYER_LEFT and
+  // calls these on the database bridge. Without delegating them,
+  // `_spawnRealPlayer`'s PLAYER_JOINED emit unhandled-rejects with
+  // "createPlayerSessionAsync is not a function". The impl returns
+  // no-ops since PIE has no persistence.
+  createPlayerSessionAsync(
+    sessionData: Parameters<
+      PIEInMemoryDatabaseSystem["createPlayerSessionAsync"]
+    >[0],
+    sessionId?: string,
+  ): Promise<string> {
+    return this.impl.createPlayerSessionAsync(sessionData, sessionId);
+  }
+  getActivePlayerSessionsAsync(): Promise<unknown[]> {
+    return this.impl.getActivePlayerSessionsAsync();
+  }
+  endPlayerSessionAsync(sessionId: string, reason?: string): Promise<void> {
+    return this.impl.endPlayerSessionAsync(sessionId, reason);
+  }
 }
 
 // ---------------------------------------------------------------------------

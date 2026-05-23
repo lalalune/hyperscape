@@ -15,6 +15,14 @@ import { afterEach, describe, expect, it } from "vitest";
 import { PIEEditorSession } from "../PIEEditorSession";
 import type { RuntimeScriptGraph } from "../../../systems/shared/scripting/ScriptGraphInterpreter";
 import type { PIEDebugEntry } from "../../PIEScriptRunner";
+import {
+  registerEntityType,
+  getEntityType,
+} from "../../../systems/shared/entities/Entities";
+import { Entity } from "../../../entities/Entity";
+import { EventType } from "../../../types/events/event-types";
+import type { World } from "../../../core/World";
+import type { EntityData } from "../../../types/core/base-types";
 
 function makeOnReadyGraph(id: string): RuntimeScriptGraph {
   return {
@@ -5220,6 +5228,114 @@ describe("PIEEditorSession", () => {
       npcDefinitionsRegistry._unloadForTests();
     },
   );
+
+  describe("spawnRealPlayer", () => {
+    // Minimal PlayerEntity stand-in. Production registers a real
+    // PlayerEntity via the hyperscape plugin's `registerHyperiaEntityTypes`;
+    // for an isolated PIE-runtime test we just need a constructor that
+    // satisfies Entities.add's dispatch (server picks "player", client
+    // picks "playerLocal"/"playerRemote" — see Entities.ts:276).
+    class StubPlayer extends Entity {
+      constructor(world: World, data: EntityData, local?: boolean) {
+        super(world, data, local);
+      }
+    }
+
+    function registerPlayerStubs(): () => void {
+      const prev = {
+        player: getEntityType("player"),
+        playerLocal: getEntityType("playerLocal"),
+        playerRemote: getEntityType("playerRemote"),
+      };
+      registerEntityType("player", StubPlayer);
+      registerEntityType("playerLocal", StubPlayer);
+      registerEntityType("playerRemote", StubPlayer);
+      return () => {
+        // Restore (or wipe) so other tests run on a clean registry.
+        if (prev.player) registerEntityType("player", prev.player);
+        if (prev.playerLocal)
+          registerEntityType("playerLocal", prev.playerLocal);
+        if (prev.playerRemote)
+          registerEntityType("playerRemote", prev.playerRemote);
+      };
+    }
+
+    it(
+      "realPlayerId stays null when the 'player' entity type is unregistered (best-effort, no crash)",
+      { timeout: LONG_TIMEOUT_MS },
+      async () => {
+        // No plugin = no registerEntityType("player", ...). _spawnRealPlayer
+        // hits the catch branch silently and the session boots cleanly.
+        session = new PIEEditorSession();
+        await session.start({});
+        expect(session.isRunning).toBe(true);
+        expect(session.realPlayerId).toBeNull();
+        // Synthetic PIE marker still exists for pawn/controller path.
+        expect(session.entities.get("pie-player")?.type).toBe("player");
+      },
+    );
+
+    it(
+      "spawns a real type:'player' entity on the server world with owner=socket id",
+      { timeout: LONG_TIMEOUT_MS },
+      async () => {
+        const unregister = registerPlayerStubs();
+        try {
+          session = new PIEEditorSession();
+          await session.start({ playerSpawn: { x: 4, y: 5, z: 6 } });
+
+          // Server-issued socket id = the canonical owner.
+          const sockets = session.server!.network.sockets;
+          const socketId = sockets.keys().next().value;
+          expect(socketId).toBeTruthy();
+
+          expect(session.realPlayerId).not.toBeNull();
+          const serverEntity = session.server!.world.entities.items.get(
+            session.realPlayerId!,
+          );
+          expect(serverEntity).toBeDefined();
+          expect(serverEntity!.data.type).toBe("player");
+          expect(serverEntity!.data.owner).toBe(socketId);
+          expect(serverEntity!.data.isLoading).toBe(true);
+          // Spawn position passes through.
+          expect(serverEntity!.data.position).toEqual([4, 5, 6]);
+        } finally {
+          unregister();
+        }
+      },
+    );
+
+    it(
+      "emits EventType.PLAYER_JOINED with the spawned player in the payload",
+      { timeout: LONG_TIMEOUT_MS },
+      async () => {
+        const unregister = registerPlayerStubs();
+        try {
+          session = new PIEEditorSession();
+
+          // Subscribe BEFORE start so the listener catches the emit
+          // fired during the seeding pass.
+          const events: Array<{ playerId: string; userId?: string }> = [];
+          await session.start({
+            plugins: {
+              bootServerPlugins: async (serverWorld) => {
+                serverWorld.on(EventType.PLAYER_JOINED, (payload: unknown) => {
+                  const p = payload as { playerId: string; userId?: string };
+                  events.push({ playerId: p.playerId, userId: p.userId });
+                });
+                return { async stop() {} };
+              },
+            },
+          });
+
+          expect(events.length).toBe(1);
+          expect(events[0].playerId).toBe(session.realPlayerId);
+        } finally {
+          unregister();
+        }
+      },
+    );
+  });
 
   describe("plugin hooks", () => {
     it(
