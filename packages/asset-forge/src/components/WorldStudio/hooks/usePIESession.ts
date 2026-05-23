@@ -12,8 +12,10 @@
  * Play button via the PIE state in the World Studio context.
  */
 
+import { VRMLoaderPlugin, VRMUtils, type VRM } from "@pixiv/three-vrm";
 import { useRef, useCallback, useEffect } from "react";
 import * as THREE from "three/webgpu";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 // PIE world + script runtime live in @hyperforge/shared.
 // The runtime uses the same ScriptGraphInterpreter as the production server
@@ -854,6 +856,63 @@ export function usePIESession({
         : {}),
     };
     await world.start(startOptions);
+
+    // ─── Avatar load (stopgap for missing PlayerLocal entity) ─────
+    //
+    // Production's PlayerLocal entity loads the project's declared
+    // avatar via ClientLoader on construction. PIE skips that
+    // pipeline because no `player:join` network packet fires in the
+    // loopback server.
+    //
+    // Until we wire `entities.add({type: 'playerLocal'})` in PIE,
+    // load the default Hyperia avatar directly here so the player
+    // has a real character body (not just a Forge-Gold capsule).
+    // The capsule stays as a "loading" placeholder until the VRM
+    // fetch resolves, then we swap it out.
+    //
+    // This is intentionally simple — no animation mixer, no
+    // equipment rig, no expression blending. Production's
+    // PlayerLocal handles all that; bringing those to PIE needs the
+    // entity wired properly. For now we just want a visible body.
+    if (playerObject && pieMode === "play") {
+      const loader = new GLTFLoader();
+      loader.register((parser) => new VRMLoaderPlugin(parser));
+      loader
+        .loadAsync("/game-assets/avatars/avatar-male-01.vrm")
+        .then((gltf) => {
+          // Bail if PIE was stopped before the load completed
+          const stillActive =
+            sessionRef.current.world === world && playerObject.parent !== null;
+          if (!stillActive) return;
+          const vrm = gltf.userData.vrm as VRM | undefined;
+          if (!vrm) {
+            console.warn("[PIE] VRM avatar loaded but no VRM data found");
+            return;
+          }
+          // VRM 0.0 models face +Z; rotate to face -Z (engine
+          // convention) so the player faces the camera correctly.
+          const isV0 =
+            vrm.meta &&
+            "metaVersion" in vrm.meta &&
+            (vrm.meta as { metaVersion?: string }).metaVersion === "0";
+          if (isV0) VRMUtils.rotateVRM0(vrm);
+          // Hide the placeholder capsule now that the real model is
+          // ready (don't remove — leaves a re-attach path if a swap
+          // is needed later).
+          const placeholder = playerObject.getObjectByName(
+            "pie-player-pawn-mesh",
+          );
+          if (placeholder) placeholder.visible = false;
+          vrm.scene.name = "pie-player-vrm";
+          playerObject.add(vrm.scene);
+        })
+        .catch((err) => {
+          console.warn(
+            "[PIE] VRM avatar load failed, keeping placeholder pawn:",
+            err,
+          );
+        });
+    }
 
     // Create a group to hold all PIE markers
     const markerGroup = new THREE.Group();
