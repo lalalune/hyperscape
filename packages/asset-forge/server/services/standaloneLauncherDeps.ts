@@ -330,6 +330,134 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
+ * Factory: build a real `ensureClientRunning` function — Phase 2.3.1.
+ * Probes the Vite client dev server's port; if it responds, returns
+ * null (user already has `bun run dev:client` going — leave it alone).
+ * Otherwise spawns `bun run dev` in `packages/client/` as a detached
+ * child, polls the port until ready, and returns the SpawnedChild so
+ * the launcher can SIGTERM it on stop().
+ *
+ * One-click UX win: clicking Launch boots BOTH the game server and the
+ * client dev server in parallel. The user never needs a second
+ * terminal.
+ */
+export interface EnsureClientRunningOptions {
+  /** Port the client serves on. Default 3333 (Vite default). */
+  port?: number;
+  /** Absolute path to packages/client directory. */
+  clientPkgDir?: string;
+  /** Runtime to invoke. Default "bun". */
+  runtime?: string;
+  /** Optional log sink for the client child's stdio. */
+  onLog?: (level: "stdout" | "stderr", line: string) => void;
+}
+
+export function createEnsureClientRunning(
+  options: EnsureClientRunningOptions = {},
+): (timeoutMs: number) => Promise<SpawnedChild | null> {
+  const port = options.port ?? 3333;
+  const clientPkgDir =
+    options.clientPkgDir ?? path.resolve(__dirname, "../../../client");
+  const runtime = options.runtime ?? "bun";
+  const probeUrl = `http://127.0.0.1:${port}/`;
+
+  async function isUp(): Promise<boolean> {
+    try {
+      const res = await fetch(probeUrl, { method: "GET" });
+      // Vite returns 200 on / when serving. Any 2xx counts.
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  return async function ensureClientRunning(
+    timeoutMs: number,
+  ): Promise<SpawnedChild | null> {
+    if (await isUp()) {
+      // User already has Vite running — don't touch it.
+      return null;
+    }
+
+    if (!(await fs.pathExists(clientPkgDir))) {
+      throw new Error(
+        `Client package not found at ${clientPkgDir}. ` +
+          `Set ensureClientRunning.clientPkgDir or run dev:client manually.`,
+      );
+    }
+
+    // Same line-buffered + console mirror pattern as the game server
+    // spawn (Phase 2.2.b.2). Prefix the lines so user can tell the two
+    // children apart in the asset-forge log stream.
+    const onLog =
+      options.onLog ??
+      ((level: "stdout" | "stderr", line: string): void => {
+        if (level === "stderr") {
+          console.error(`[client] ${line}`);
+        } else {
+          console.log(`[client] ${line}`);
+        }
+      });
+
+    const child = spawnProcess(runtime, ["run", "dev"], {
+      cwd: clientPkgDir,
+      env: { ...process.env },
+      detached: true,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    child.unref();
+
+    if (!child.pid) {
+      throw new Error(
+        `Failed to spawn client dev server (no PID — spawn failed sync)`,
+      );
+    }
+
+    child.stdout?.setEncoding("utf8");
+    child.stderr?.setEncoding("utf8");
+    bindLineStream(child.stdout, (line) => onLog("stdout", line));
+    bindLineStream(child.stderr, (line) => onLog("stderr", line));
+
+    const exited = new Promise<{
+      code: number | null;
+      signal: NodeJS.Signals | null;
+    }>((resolve) => {
+      child.once("exit", (code, signal) => resolve({ code, signal }));
+    });
+
+    // Poll until ready or timeout.
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      if (await isUp()) {
+        return {
+          pid: child.pid,
+          exited,
+          kill(signal) {
+            try {
+              return child.kill(signal);
+            } catch {
+              return false;
+            }
+          },
+        };
+      }
+      await sleep(500);
+    }
+
+    // Timeout — kill what we spawned and surface the error so the
+    // launcher transitions to error state.
+    try {
+      child.kill("SIGTERM");
+    } catch {
+      // best-effort
+    }
+    throw new Error(
+      `Client dev server did not become ready on port ${port} within ${timeoutMs}ms`,
+    );
+  };
+}
+
+/**
  * Deterministic 32-bit seed from a project id (UUID string). Same id
  * → same seed across launches, so a project's terrain is reproducible
  * even when the row never persisted a `seed` field. Uses a simple
@@ -367,8 +495,15 @@ export interface ProductionLauncherOptions {
   serverEntry?: string;
   /** Runtime override (default: "bun"). */
   runtime?: string;
-  /** stdout/stderr line sink for the child. */
+  /** stdout/stderr line sink for the spawned children. */
   onLog?: (level: "stdout" | "stderr", line: string) => void;
+  /** Client dev server port. Default 3333. */
+  clientPort?: number;
+  /**
+   * Override packages/client path (resolved relative to this file by
+   * default). Useful for tests or non-standard monorepo layouts.
+   */
+  clientPkgDir?: string;
   /** Launcher-level options (port, ready timeout, shutdown grace). */
   launcher?: LauncherOptions;
 }
@@ -386,11 +521,19 @@ export function createProductionLauncher(
     onLog: options.onLog,
   });
   const waitForReady = createWaitForReady();
+  // Phase 2.3.1 — also wire the client-spawn dep so Launch is one
+  // click. Defaults check :3333 first and only spawn if absent.
+  const ensureClientRunning = createEnsureClientRunning({
+    port: options.clientPort,
+    clientPkgDir: options.clientPkgDir,
+    runtime: options.runtime,
+  });
   return new StandaloneLauncher(
     {
       exportManifestToDisk,
       spawnGameServer,
       waitForReady,
+      ensureClientRunning,
     },
     options.launcher,
   );

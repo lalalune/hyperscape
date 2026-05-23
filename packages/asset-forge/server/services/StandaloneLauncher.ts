@@ -94,6 +94,19 @@ export interface LauncherDeps {
    */
   waitForReady(port: number, timeoutMs: number): Promise<boolean>;
 
+  /**
+   * Phase 2.3.1 — Ensure the Vite client dev server is up before Launch
+   * transitions to "ready" (without it, clicking Open opens a dead tab).
+   * Probes the client port; if already responding, returns null (don't
+   * touch a server the user started). If not responding, spawns
+   * `bun run dev` in packages/client/, waits for the port to respond,
+   * and returns the SpawnedChild handle so stop() can kill it.
+   *
+   * Optional — when undefined, the launcher skips this step (tests +
+   * environments where the client is externally managed).
+   */
+  ensureClientRunning?(timeoutMs: number): Promise<SpawnedChild | null>;
+
   /** Logger seam — defaults to console.* */
   logger?: (level: "info" | "warn" | "error", msg: string) => void;
 
@@ -132,6 +145,12 @@ const DEFAULT_SHUTDOWN_GRACE_MS = 5_000;
 export class StandaloneLauncher {
   private _state: LauncherState = { kind: "idle" };
   private _child: SpawnedChild | null = null;
+  /**
+   * Phase 2.3.1 — Vite client dev server we spawned (null if the user
+   * had it running already, or if ensureClientRunning isn't wired).
+   * Killed in stop().
+   */
+  private _clientChild: SpawnedChild | null = null;
   private _watchAbort: AbortController | null = null;
   private readonly _deps: Required<Pick<LauncherDeps, "logger" | "now">> &
     LauncherDeps;
@@ -218,51 +237,102 @@ export class StandaloneLauncher {
     this._watchAbort = new AbortController();
     this._watchChildExit(projectId, child, this._watchAbort.signal);
 
-    // Kick off health polling in the background and return "starting"
+    // Kick off readiness checks in the background and return "starting"
     // immediately. The HTTP route can respond in <1s instead of
     // blocking the connection for up to readyTimeoutMs — the client
     // polls /status to pick up the eventual ready/error transition.
     // Mirrors UE5's launch UX: button flips to "Booting…" right away,
     // not after the server is fully up.
-    void this._deps
-      .waitForReady(this._opts.port, this._opts.readyTimeoutMs)
-      .then((ready) => {
-        // Bail if a stop() or unexpected child exit already moved us
-        // out of "starting" while we were waiting.
-        if (this._state.kind !== "starting") return;
-        if (!ready) {
-          // Health-check timeout — kill the child so we don't leak
-          // processes, then flip to error.
-          child.kill("SIGTERM");
-          this._child = null;
-          this._setState({
-            kind: "error",
-            projectId,
-            message: `Server did not become healthy within ${this._opts.readyTimeoutMs}ms`,
-            at: this._deps.now(),
-          });
-          return;
-        }
-        this._setState({
-          kind: "ready",
-          projectId,
-          pid: child.pid,
-          port: this._opts.port,
-          url: this._opts.clientUrl,
-          startedAt,
-          readyAt: this._deps.now(),
-        });
-      })
-      .catch((err) => {
-        this._deps.logger(
-          "error",
-          `[StandaloneLauncher] waitForReady threw: ${
-            err instanceof Error ? err.message : String(err)
-          }`,
-        );
-      });
+    //
+    // Phase 2.3.1 — also ensure the Vite client dev server is up in
+    // parallel with the game server, so clicking Open lands on a live
+    // tab without the user manually starting a second terminal.
+    void this._readyChain(projectId, child, startedAt).catch((err) => {
+      this._deps.logger(
+        "error",
+        `[StandaloneLauncher] ready chain threw: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    });
 
     return this._state;
+  }
+
+  /**
+   * Background chain that resolves both the Vite client server's
+   * readiness and the game server's `/health` check, then transitions
+   * the state machine to `ready` (or `error` on either failure).
+   * Runs in parallel so the two boots overlap.
+   */
+  private async _readyChain(
+    projectId: string,
+    gameChild: SpawnedChild,
+    startedAt: number,
+  ): Promise<void> {
+    const clientPromise = this._deps.ensureClientRunning
+      ? this._deps
+          .ensureClientRunning(this._opts.readyTimeoutMs)
+          .then((child) => ({ ok: true as const, child }))
+          .catch((err) => ({ ok: false as const, err }))
+      : Promise.resolve({ ok: true as const, child: null });
+
+    const gamePromise = this._deps.waitForReady(
+      this._opts.port,
+      this._opts.readyTimeoutMs,
+    );
+
+    const [clientResult, gameReady] = await Promise.all([
+      clientPromise,
+      gamePromise,
+    ]);
+
+    // Bail if a stop() or unexpected child exit already moved us out
+    // of "starting" while we were waiting.
+    if (this._state.kind !== "starting") return;
+
+    if (!clientResult.ok) {
+      gameChild.kill("SIGTERM");
+      this._child = null;
+      this._setState({
+        kind: "error",
+        projectId,
+        message: `Client dev server failed to start: ${
+          clientResult.err instanceof Error
+            ? clientResult.err.message
+            : String(clientResult.err)
+        }`,
+        at: this._deps.now(),
+      });
+      return;
+    }
+    this._clientChild = clientResult.child;
+
+    if (!gameReady) {
+      // Health-check timeout — kill the child so we don't leak
+      // processes, then flip to error.
+      gameChild.kill("SIGTERM");
+      this._clientChild?.kill("SIGTERM");
+      this._child = null;
+      this._clientChild = null;
+      this._setState({
+        kind: "error",
+        projectId,
+        message: `Server did not become healthy within ${this._opts.readyTimeoutMs}ms`,
+        at: this._deps.now(),
+      });
+      return;
+    }
+
+    this._setState({
+      kind: "ready",
+      projectId,
+      pid: gameChild.pid,
+      port: this._opts.port,
+      url: this._opts.clientUrl,
+      startedAt,
+      readyAt: this._deps.now(),
+    });
   }
 
   /**
@@ -296,6 +366,12 @@ export class StandaloneLauncher {
     this._watchAbort = null;
 
     child.kill("SIGTERM");
+    // Phase 2.3.1 — also tear down the client dev server child if the
+    // launcher spawned it. Null when the user had Vite running
+    // externally; in that case we leave it alone.
+    const clientChild = this._clientChild;
+    clientChild?.kill("SIGTERM");
+
     const exited = await Promise.race([
       child.exited,
       sleep(this._opts.shutdownGraceMs).then(() => null),
@@ -310,7 +386,22 @@ export class StandaloneLauncher {
       await child.exited.catch(() => undefined);
     }
 
+    if (clientChild) {
+      // Best-effort — don't block stop on the Vite child since it
+      // sometimes lingers on uncaught file watcher events. SIGKILL
+      // after grace as well.
+      const clientExited = await Promise.race([
+        clientChild.exited,
+        sleep(this._opts.shutdownGraceMs).then(() => null),
+      ]);
+      if (clientExited === null) {
+        clientChild.kill("SIGKILL");
+        await clientChild.exited.catch(() => undefined);
+      }
+    }
+
     this._child = null;
+    this._clientChild = null;
     return this._setState({ kind: "idle" });
   }
 
