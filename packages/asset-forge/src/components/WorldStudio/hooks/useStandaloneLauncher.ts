@@ -100,16 +100,21 @@ export function useStandaloneLauncher(): UseStandaloneLauncherResult {
         | LauncherErrorResponse;
       if (!res.ok) {
         const err = body as LauncherErrorResponse;
-        setLastError(err.error ?? `Launch failed (${res.status})`);
+        const msg = err.error ?? `Launch failed (${res.status})`;
+        // Loud in the console so the dev-tools network panel isn't
+        // the only place the actual failure reason is visible.
+        console.error("[StandaloneLaunch] launch failed:", msg, err);
+        setLastError(msg);
         if (err.state) setState(err.state);
         return;
       }
       const ok = body as LauncherStatusResponse;
       setState(ok.state);
     } catch (err) {
-      setLastError(
-        err instanceof Error ? err.message : "Network error launching",
-      );
+      const msg =
+        err instanceof Error ? err.message : "Network error launching";
+      console.error("[StandaloneLaunch] launch threw:", msg, err);
+      setLastError(msg);
     }
   }, []);
 
