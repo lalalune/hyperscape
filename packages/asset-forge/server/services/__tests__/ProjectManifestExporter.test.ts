@@ -43,7 +43,7 @@ function hyperiaProject(): Project {
     schemaVersion: 1,
     templateId: "hyperia",
     config: {
-      terrain: { seed: 12345 },
+      seed: 12345,
       // Per-theme override that should round-trip via passthrough.
       terrainHeightmapPreset: { kind: "hyperia-canyon" },
     },
@@ -74,7 +74,7 @@ function arcticProject(): Project {
     schemaVersion: 1,
     templateId: "arctic-survival",
     config: {
-      terrain: { seed: 99 },
+      seed: 99,
     },
     plugins: ["@hyperforge/plugin-arctic-survival"],
     assetPacks: [

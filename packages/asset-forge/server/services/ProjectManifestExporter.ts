@@ -77,13 +77,16 @@ export function exportProjectManifest(
     }
   }
 
-  // Hoist terrain seed to a typed top-level field so the runtime CLI can
-  // read it without walking the full passthrough config blob. The
-  // original config still passes through verbatim so per-theme
-  // procgen overrides (heightmap presets, vegetationByBiome) round-trip.
+  // Hoist terrain seed to a typed top-level field on `worldConfig` so
+  // the runtime CLI can read it without walking the full passthrough
+  // config blob. `ProjectConfigSchema` declares `seed` at the top
+  // level (a procgen world parameter, not a terrain sub-config knob),
+  // so that's where we read from. The original config still passes
+  // through verbatim so per-theme procgen overrides (heightmap
+  // presets, vegetationByBiome) round-trip via passthrough.
   const projectConfig = project.config as Record<string, unknown>;
-  const terrainSection = projectConfig.terrain as { seed?: number } | undefined;
-  const terrainSeed = terrainSection?.seed;
+  const terrainSeed =
+    typeof projectConfig.seed === "number" ? projectConfig.seed : undefined;
 
   const worldConfig: FullProjectManifestWorldConfig = {
     ...(terrainSeed !== undefined ? { terrainSeed } : {}),
