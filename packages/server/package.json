@@ -74,6 +74,7 @@
     "@hyperforge/combat": "workspace:*",
     "@hyperforge/gameplay-framework": "workspace:*",
     "@hyperforge/hyperscape": "workspace:*",
+    "@hyperforge/manifest-schema": "workspace:*",
     "@hyperforge/plugin-arctic-survival": "workspace:*",
     "@hyperforge/plugin-hyperia": "workspace:*",
     "@hyperforge/plugin-shooter-demo": "workspace:*",
