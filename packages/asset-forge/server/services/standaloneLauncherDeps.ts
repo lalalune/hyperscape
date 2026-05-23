@@ -440,10 +440,15 @@ export function createEnsureClientRunning(
   return async function ensureClientRunning(
     timeoutMs: number,
   ): Promise<SpawnedChild | null> {
-    if (await isUp()) {
-      // User already has Vite running — don't touch it.
-      return null;
-    }
+    // Always clear and respawn — earlier behavior tried to reuse an
+    // already-listening Vite to avoid double-spawning, but in practice
+    // the most common case is a stale Vite from a prior asset-forge
+    // hot-reload cycle. The launcher would probe it (alive), return
+    // "ready" — then the stale Vite dies seconds later and clicking
+    // Open lands on a dead port. Owning the lifecycle uniformly
+    // eliminates the race. `--strictPort` in the client's dev script
+    // means we MUST clear the port first or spawn fails.
+    await killPortListeners(clientPort);
 
     if (!(await fs.pathExists(clientPkgDir))) {
       throw new Error(
