@@ -448,7 +448,7 @@ export function createEnsureClientRunning(
     // Open lands on a dead port. Owning the lifecycle uniformly
     // eliminates the race. `--strictPort` in the client's dev script
     // means we MUST clear the port first or spawn fails.
-    await killPortListeners(clientPort);
+    await killPortListeners(port);
 
     if (!(await fs.pathExists(clientPkgDir))) {
       throw new Error(
