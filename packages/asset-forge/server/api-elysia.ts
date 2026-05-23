@@ -193,6 +193,11 @@ const app = new Elysia()
           return true;
         // Only skip rate limiting for READ operations on world data
         if (path.startsWith("/api/world/") && method === "GET") return true;
+        // Phase 2.3.1 — Standalone Launch endpoints are polled by
+        // design (500ms cadence during boot, 5s once stable) so the
+        // user sees state transitions promptly. The default 100/min
+        // budget caps cleanly under that polling rate.
+        if (path.startsWith("/api/standalone")) return true;
         return false;
       },
     }),
