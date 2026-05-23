@@ -1227,6 +1227,29 @@ export class PIEEditorSession {
     this._server.tick(timeMs);
     this._tickCount += 1;
 
+    // Phase 1.1.a — Camera follows the real PlayerLocal entity.
+    //
+    // Pre-1.1: controllers attached to a synthetic pawn whose Object3D
+    // sat wherever the editor put `options.playerObject`, with no
+    // connection to the real PlayerLocal we spawn over the loopback
+    // (Phase 0). Result: WASD didn't move; the camera tracked a static
+    // mesh; the real engine player was invisible. UE5-parity Phase 1.1
+    // fix is the full controller migration (1.1.b/c retire the shims
+    // and route input through the real engine InteractionRouter); this
+    // first cut just bridges the position so the camera at least
+    // follows whatever the real engine thinks is happening — AI move
+    // commands, script-driven teleports, physics gravity all flow
+    // through. Input wiring is still on the shim until 1.1.c.
+    if (this._realPlayerId && this._pawn) {
+      const realPlayer = this._server.world.entities.items.get(
+        this._realPlayerId,
+      );
+      const realPos = realPlayer?.position;
+      if (realPos) {
+        this._pawn.object.position.set(realPos.x, realPos.y, realPos.z);
+      }
+    }
+
     // Mirror server-side entity positions into the façade `entities` map
     // so the editor's marker sync (`usePIESession` rAF loop) picks up
     // AI/script-driven movement. Same-process ECS read — direct and
