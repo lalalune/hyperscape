@@ -109,6 +109,7 @@ export * from "./prefab.js";
 export * from "./processing.js";
 export * from "./profiler.js";
 export * from "./project.js";
+export * from "./project-manifest.js";
 export * from "./project-pack.js";
 export * from "./project-settings.js";
 export * from "./push-notifications.js";
