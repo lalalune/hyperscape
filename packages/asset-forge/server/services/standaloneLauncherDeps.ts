@@ -22,10 +22,6 @@ import { validateProject } from "@hyperforge/manifest-schema";
 
 import type { WorldProjectService } from "./WorldProjectService";
 import { exportProjectManifest } from "./ProjectManifestExporter";
-console.log(
-  `[StandaloneLauncher] standaloneLauncherDeps module loaded (PID ${process.pid})`,
-);
-
 import {
   StandaloneLauncher,
   type LauncherOptions,
@@ -444,9 +440,6 @@ export function createEnsureClientRunning(
   return async function ensureClientRunning(
     timeoutMs: number,
   ): Promise<SpawnedChild | null> {
-    console.log(
-      `[StandaloneLauncher] ensureClientRunning invoked (port=${port}, clientPkgDir=${clientPkgDir})`,
-    );
     // Always clear and respawn — earlier behavior tried to reuse an
     // already-listening Vite to avoid double-spawning, but in practice
     // the most common case is a stale Vite from a prior asset-forge
@@ -590,9 +583,6 @@ export function createProductionLauncher(
   service: Pick<WorldProjectService, "getById">,
   options: ProductionLauncherOptions = {},
 ): StandaloneLauncher {
-  console.log(
-    `[StandaloneLauncher] createProductionLauncher called (clientPort=${options.clientPort ?? 3333}, runtime=${options.runtime ?? "node"})`,
-  );
   const exportManifestToDisk = createExportManifestToDisk(service, {
     tmpDir: options.manifestTmpDir,
   });
@@ -654,13 +644,7 @@ export function configureStandaloneLauncher(
 export function getStandaloneLauncher(
   service: Pick<WorldProjectService, "getById">,
 ): StandaloneLauncher {
-  console.log(
-    `[StandaloneLauncher] getStandaloneLauncher called (cached=${Boolean(_singletonInstance)}, factory=${_singletonFactory ? "configured" : "default"})`,
-  );
   if (!_singletonInstance) {
-    console.log(
-      `[StandaloneLauncher] getStandaloneLauncher building new singleton (factory=${_singletonFactory ? "configured" : "default"})`,
-    );
     const factory = _singletonFactory ?? ((s) => createProductionLauncher(s));
     _singletonInstance = factory(service);
   }
