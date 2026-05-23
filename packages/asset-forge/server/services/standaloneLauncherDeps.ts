@@ -174,8 +174,15 @@ export function createSpawnGameServer(
   const serverEntry =
     options.serverEntry ??
     path.resolve(__dirname, "../../../server/dist/index.js");
-  const runtime = options.runtime ?? "bun";
-  const cwd = options.cwd ?? process.cwd();
+  // Default runtime is `node` (not `bun`) — packages/server depends on
+  // `uWebSockets.js`, a native Node-API module that Bun can't load
+  // (Bun's N-API has gaps as of 1.3). Mirrors the server's own
+  // package.json start script: `node --import ./scripts/register-hooks.mjs dist/index.js`.
+  const runtime = options.runtime ?? "node";
+  // CWD defaults to the server package so the `--import` hook path
+  // below resolves correctly. Callers can override for special cases.
+  const serverPkgDir = path.resolve(__dirname, "../../../server");
+  const cwd = options.cwd ?? serverPkgDir;
 
   return async function spawnGameServer(args): Promise<SpawnedChild> {
     if (!(await fs.pathExists(serverEntry))) {
@@ -185,7 +192,16 @@ export function createSpawnGameServer(
       );
     }
 
+    // Match the server's package.json start script exactly so Standalone
+    // boots through the same loader pipeline production uses. The
+    // register-hooks.mjs script wires Node's module resolution hook
+    // before the server entry executes; skipping it breaks the build's
+    // path-mapping shim.
+    const hookPath = path.join(serverPkgDir, "scripts", "register-hooks.mjs");
     const childArgs = [
+      ...(runtime === "node" && (await fs.pathExists(hookPath))
+        ? ["--import", hookPath]
+        : []),
       serverEntry,
       "--projectManifest",
       args.manifestPath,
