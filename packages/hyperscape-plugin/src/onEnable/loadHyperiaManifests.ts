@@ -23,10 +23,6 @@
  * files at boot.
  */
 
-import * as nodeFs from "node:fs";
-import * as nodePath from "node:path";
-import { fileURLToPath } from "node:url";
-
 import {
   biomesProvider,
   biomesRegistry,
@@ -42,14 +38,86 @@ import {
 } from "@hyperforge/manifest-schema";
 
 /**
- * Module directory — works in both CJS (`__dirname`) and ESM
- * (`fileURLToPath(import.meta.url)`) contexts. Phase 2.2 Standalone
- * Launch surfaced the ESM gap: the asset-forge launcher spawns the
- * server with pure Node ESM, where `__dirname` and bare `require()`
- * are both undefined. `fileURLToPath` gives us the same answer in
- * both worlds.
+ * Module-private holders for the Node-only deps. Populated lazily on
+ * first server call via `loadNodeDeps()` so static imports of
+ * `node:fs` / `node:path` / `node:url` never appear at parse time —
+ * critical because this file is also imported by the asset-forge
+ * frontend bundle (Vite), which externalizes any `node:*` static
+ * import and crashes the browser entry.
  */
-const MODULE_DIR = fileURLToPath(new URL(".", import.meta.url));
+type NodeDeps = {
+  fs: typeof import("node:fs");
+  path: typeof import("node:path");
+  moduleDir: string;
+};
+let _nodeDeps: NodeDeps | null = null;
+
+/**
+ * Pull `node:fs` / `node:path` / `node:url.fileURLToPath` at runtime
+ * via a Function-constructor-built dynamic require. The Function
+ * constructor body is opaque to Vite's static analyzer, so the
+ * externalization step doesn't trip on the literal `"node:*"`
+ * strings; the browser never executes the body because the typeof
+ * `process` guard short-circuits first.
+ *
+ * Phase 2.2 Standalone Launch (in pure Node ESM) needs this to work;
+ * the asset-forge frontend (Vite browser bundle) needs it to never
+ * be executed. Lazy + opaque solves both.
+ */
+function loadNodeDeps(): NodeDeps | null {
+  if (_nodeDeps) return _nodeDeps;
+  if (typeof process === "undefined" || !process.versions?.node) return null;
+  try {
+    // Function constructor — bundlers can't statically analyze the
+    // body. Uses globalThis.require (CJS) or
+    // node:module.createRequire (ESM) to manufacture a runtime
+    // `require` that works in either world.
+    const getRequire = new Function(`
+      if (typeof require === "function") return require;
+      // ESM path — createRequire from node:module. node:module is a
+      // builtin and resolvable via createRequire's bootstrap.
+      // eslint-disable-next-line global-require
+      const { createRequire: cr } = globalThis.process.getBuiltinModule
+        ? globalThis.process.getBuiltinModule("node:module")
+        : globalThis.process.binding
+          ? null
+          : null;
+      if (cr) {
+        // Use any local file URL — createRequire just needs a base
+        // for relative resolution, and we always pass absolute
+        // "node:*" specifiers.
+        return cr("file://" + globalThis.process.cwd() + "/__loader__.js");
+      }
+      return null;
+    `) as () => ((id: string) => unknown) | null;
+    const req = getRequire();
+    if (!req) return null;
+
+    const fs = req("node:fs") as typeof import("node:fs");
+    const path = req("node:path") as typeof import("node:path");
+    const url = req("node:url") as typeof import("node:url");
+
+    // Module dir works in both worlds: CJS has __dirname; ESM gets it
+    // via fileURLToPath(import.meta.url). When import.meta isn't
+    // available (CJS interop), fall back to process.cwd().
+    let moduleDir = "";
+    try {
+      // import.meta.url is syntactically only valid in ESM modules,
+      // but this file IS ESM-compiled, so this is fine at the source
+      // level. Vite still leaves it alone because we're in a regular
+      // function body.
+      moduleDir = url.fileURLToPath(new URL(".", import.meta.url));
+    } catch {
+      moduleDir = process.cwd();
+    }
+
+    _nodeDeps = { fs, path, moduleDir };
+    return _nodeDeps;
+  } catch (err) {
+    console.warn("[hyperscape-plugin] loadNodeDeps failed:", err);
+    return null;
+  }
+}
 
 /**
  * Walk up from this module's directory looking for the workspace's
@@ -60,14 +128,10 @@ const MODULE_DIR = fileURLToPath(new URL(".", import.meta.url));
  * Returns the resolved manifests directory or null when not found.
  */
 function findManifestsDir(): string | null {
-  // Server-only guard — node fs APIs aren't available in the browser.
-  if (typeof process === "undefined" || !process.versions?.node) {
-    return null;
-  }
-
-  const path = nodePath;
-  const fs = nodeFs;
-  const startDir = MODULE_DIR;
+  const deps = loadNodeDeps();
+  if (!deps) return null;
+  const { fs, path, moduleDir } = deps;
+  const startDir = moduleDir;
 
   const candidates: string[] = [];
   // Walk up to 8 levels looking for `packages/server/world/assets/manifests`.
@@ -108,10 +172,9 @@ function findManifestsDir(): string | null {
  * shape DataManager produces on the same failure.
  */
 export function loadHyperiaManifestsSync(): void {
-  if (typeof process === "undefined" || !process.versions?.node) return;
-
-  const path = nodePath;
-  const fs = nodeFs;
+  const deps = loadNodeDeps();
+  if (!deps) return;
+  const { fs, path } = deps;
 
   const manifestsDir = findManifestsDir();
   if (!manifestsDir) {
