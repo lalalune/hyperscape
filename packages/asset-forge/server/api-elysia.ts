@@ -74,6 +74,7 @@ import { createAuthRoutes } from "./routes/auth";
 import { createTeamRoutes, createInviteAcceptRoute } from "./routes/teams";
 import { createGameRoutes } from "./routes/games";
 import { createWorldProjectRoutes } from "./routes/world-projects";
+import { createStandaloneRoutes } from "./routes/standalone";
 import { createPluginRegistryRoutes } from "./routes/plugin-registry";
 import { createAssetPackRoutes } from "./routes/asset-packs";
 import { createContentPackRoutes } from "./routes/content-packs";
@@ -470,6 +471,7 @@ const app = new Elysia()
   .use(
     createWorldProjectRoutes(teamService, worldProjectService, auditLogService),
   )
+  .use(createStandaloneRoutes(teamService, worldProjectService))
   .use(createPluginRegistryRoutes(pluginRegistryService))
   .use(createAssetPackRoutes(assetPackService, teamService))
   .use(createContentPackRoutes(assetPackService, worldProjectService))
