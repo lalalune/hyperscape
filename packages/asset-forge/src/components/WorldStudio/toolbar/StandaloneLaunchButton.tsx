@@ -17,8 +17,8 @@
  * Phase 2.3 of PLAN_AAA_UE5_PARITY.
  */
 
-import { Loader2, Rocket, Square } from "lucide-react";
-import React, { useEffect, useRef } from "react";
+import { ExternalLink, Loader2, Rocket, Square } from "lucide-react";
+import React from "react";
 
 import { useWorldStudio } from "../WorldStudioContext";
 import { useStandaloneLauncher } from "../hooks/useStandaloneLauncher";
@@ -29,38 +29,36 @@ export function StandaloneLaunchButton() {
   const projectId = studio.project.currentProjectId;
   const projectDirty = studio.builder.editing.hasUnsavedChanges;
 
-  // When the launcher transitions to `ready`, pop the game window open
-  // exactly once. Re-running this effect on every poll would spawn
-  // duplicate tabs; pin the open to a single "ready" id boundary.
-  const openedForReadyKey = useRef<string | null>(null);
-  useEffect(() => {
-    if (state.kind === "ready") {
-      const key = `${state.projectId}:${state.readyAt}`;
-      if (openedForReadyKey.current !== key) {
-        openedForReadyKey.current = key;
-        // Match the backend's clientUrl default (localhost:3333). Future:
-        // include a session token in the URL so the client knows which
-        // server to connect to in multi-session mode (Phase 4).
-        window.open(state.url, "_blank", "noopener,noreferrer");
-      }
-    } else if (state.kind === "idle") {
-      openedForReadyKey.current = null;
-    }
-  }, [state]);
-
   const launchDisabled = !projectId;
 
   if (state.kind === "ready") {
+    // Two buttons in this state: an "Open" link that the user can
+    // click to (re-)launch the game tab (a real user-gesture click,
+    // not blocked by popup blockers like a setInterval window.open
+    // would be), and a Stop button to tear down the session.
     return (
-      <button
-        type="button"
-        className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-accent-green/15 text-accent-green border border-accent-green/30 hover:bg-accent-green/25 transition-all ease-out"
-        onClick={() => void stop()}
-        title={`Stop Standalone (PID ${state.pid}, port ${state.port})`}
-      >
-        <Square size={12} />
-        <span className="hidden sm:inline">Standalone</span>
-      </button>
+      <>
+        <button
+          type="button"
+          className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-400/30 hover:bg-emerald-500/25 transition-all ease-out"
+          onClick={() => {
+            window.open(state.url, "_blank", "noopener,noreferrer");
+          }}
+          title={`Open game tab (${state.url})`}
+        >
+          <ExternalLink size={12} />
+          <span className="hidden sm:inline">Open</span>
+        </button>
+        <button
+          type="button"
+          className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-red-500/15 text-red-400 border border-red-400/30 hover:bg-red-500/25 transition-all ease-out"
+          onClick={() => void stop()}
+          title={`Stop Standalone (PID ${state.pid}, port ${state.port})`}
+        >
+          <Square size={12} />
+          <span className="hidden sm:inline">Stop</span>
+        </button>
+      </>
     );
   }
 

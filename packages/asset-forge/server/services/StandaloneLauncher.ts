@@ -122,7 +122,11 @@ export interface LauncherOptions {
 
 const DEFAULT_PORT = 5555;
 const DEFAULT_CLIENT_URL = "http://localhost:3333";
-const DEFAULT_READY_TIMEOUT_MS = 30_000;
+// 90s ready timeout — empirically the Hyperia server's cold boot
+// stalls the event loop for ~22s during plugin onEnable + world
+// init (mob spawners, town generation, etc.) before the HTTP
+// listener binds. 30s was too tight even on a fast machine.
+const DEFAULT_READY_TIMEOUT_MS = 90_000;
 const DEFAULT_SHUTDOWN_GRACE_MS = 5_000;
 
 export class StandaloneLauncher {
