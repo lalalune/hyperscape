@@ -81,6 +81,14 @@ bun run dev
 # Start game server (production mode)
 bun start               # or: cd packages/server && bun run start
 
+# Start game server with a project manifest (Standalone Launch path)
+# The manifest drives plugin selection + content pack gating + registry
+# overrides. Exported from the editor by ProjectManifestExporter
+# (asset-forge/server/services/ProjectManifestExporter.ts). Absent flag
+# = legacy env-driven boot (preserves `bun run dev`).
+bun start -- --projectManifest /path/to/manifest.json
+# or equivalent:  --projectManifest=/path/to/manifest.json
+
 # Run all tests
 npm test
 
@@ -384,6 +392,58 @@ This project uses **Bun** (v1.1.38+) as the package manager and runtime.
 - Install: `bun install` (NOT `npm install`)
 - Run scripts: `bun run <script>` or `bun <file>`
 - Some commands use `npm` prefix for Turbo workspace filtering
+
+## Project Manifest Architecture (Phase 0 of PLAN_AAA_UE5_PARITY)
+
+The game runtime can boot from a project manifest — the runtime-ready
+shape produced by exporting a World Studio project. This is how PIE
+and Standalone Launch hand off authored data to the game server
+without coupling the runtime to the editor or to the asset-forge DB.
+
+**The contract:**
+
+- **Persistence shape** — `Project` type in `@hyperforge/manifest-schema`'s
+  `src/project.ts`. Stored in the `world_projects` DB table with
+  `config + plugins + assetPacks + worldContent + manifestSnapshot`.
+
+- **Runtime shape** — `FullProjectManifest` type in the same package's
+  `src/project-manifest.ts`. What the game server actually consumes.
+  Contains `meta + boot + worldConfig + content + registries`.
+
+- **Exporter** — `exportProjectManifest()` in
+  `packages/asset-forge/server/services/ProjectManifestExporter.ts`.
+  Pure function: `Project + manifestSnapshot → FullProjectManifest`.
+  Buckets installed packs into `boot.contentPacks` vs `boot.assetPacks`
+  by id prefix, renames `worldContent.spawns → content.mobs` at the
+  boundary, passes per-theme procgen overrides through via passthrough.
+
+- **Runtime loader** — `loadProjectManifestFromDisk()` in
+  `packages/server/src/startup/projectManifest.ts`. Parses
+  `--projectManifest <path>` from argv, reads + validates the JSON.
+  Tagged ok/fail result so loadConfig fails fast with an actionable
+  error message.
+
+- **Boot wiring** — `loadConfig()` attaches the validated manifest to
+  `ServerConfig.projectManifest`. `initializeWorld()` passes it to
+  `bootServerPlugins(world, manifest.boot.plugins, manifest.boot.contentPacks, manifest)`.
+  The HyperscapeContext receives the full manifest via `ctx.projectManifest`;
+  plugins read `manifest.registries.*` to override their own data loading
+  (replaces disk reads for items / dialogue / stores / gathering / etc.).
+
+**Decoupling rules (non-negotiable):**
+
+1. **Disk handoff only.** Editor writes manifest to disk; runtime reads
+   from disk. No live state push. No DB read from the runtime side.
+2. **Game runtime is editor-unaware.** No `if (isEditorLaunched)`
+   branches in `packages/server` or `packages/client`. The
+   `--projectManifest` flag is just config.
+3. **Hyperia is NOT the default.** An empty `boot.plugins` array boots
+   a terrain-only world. Hyperia content only appears when the project
+   declares `@hyperforge/content-pack-hyperia-v1` in `boot.contentPacks`
+   AND `@hyperforge/hyperscape` in `boot.plugins`.
+4. **`bun run dev` still works.** Without the flag, the runtime falls
+   back to the legacy env-driven path (`HYPERSCAPE_GAME_PLUGIN` →
+   "hyperscape" | "shooter-demo"). All existing dev workflows preserved.
 
 ## Tech Stack
 
