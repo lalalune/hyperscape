@@ -654,6 +654,9 @@ export function configureStandaloneLauncher(
 export function getStandaloneLauncher(
   service: Pick<WorldProjectService, "getById">,
 ): StandaloneLauncher {
+  console.log(
+    `[StandaloneLauncher] getStandaloneLauncher called (cached=${Boolean(_singletonInstance)}, factory=${_singletonFactory ? "configured" : "default"})`,
+  );
   if (!_singletonInstance) {
     console.log(
       `[StandaloneLauncher] getStandaloneLauncher building new singleton (factory=${_singletonFactory ? "configured" : "default"})`,
