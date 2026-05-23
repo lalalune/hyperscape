@@ -192,6 +192,16 @@ export function createSpawnGameServer(
       );
     }
 
+    // Clear any stale listener on the game server port (5555 default).
+    // This catches the common dev-loop case where asset-forge hot-
+    // reloaded mid-session — the singleton launcher lost its reference
+    // to a detached child that's still bound to 5555. Without this,
+    // every subsequent Launch fails with EADDRINUSE. Best-effort:
+    // failures here log and continue; the spawn will then surface a
+    // proper error if it's a real conflict.
+    await killPortListeners(5555);
+    await killPortListeners(5556);
+
     // Match the server's package.json start script exactly so Standalone
     // boots through the same loader pipeline production uses. The
     // register-hooks.mjs script wires Node's module resolution hook
@@ -327,6 +337,62 @@ function bindLineStream(
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Best-effort: kill any process holding the given TCP port. Used
+ * before spawning the game server child so a stale child from a
+ * previous Launch (or an asset-forge hot-reload that lost the
+ * reference) doesn't trip EADDRINUSE on the new spawn.
+ *
+ * macOS / Linux: uses `lsof -ti:<port>` to enumerate PIDs, then
+ * SIGTERMs them with a SIGKILL fallback after a brief grace.
+ * Windows: skipped — the launcher surfaces EADDRINUSE through the
+ * normal spawn error path on that platform. (Windows users can stop
+ * the stale process manually via Task Manager.)
+ */
+async function killPortListeners(port: number): Promise<void> {
+  if (process.platform === "win32") return;
+  let pids: number[] = [];
+  try {
+    const { execSync } = await import("node:child_process");
+    const out = execSync(`lsof -ti:${port}`, {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    pids = out
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .map((s) => Number.parseInt(s, 10))
+      .filter((n) => Number.isFinite(n) && n > 0);
+  } catch {
+    // lsof exits non-zero when nothing matches — that's the happy
+    // path (port is free).
+    return;
+  }
+  if (pids.length === 0) return;
+  console.log(
+    `[StandaloneLauncher] Clearing stale listener(s) on port ${port}: PIDs ${pids.join(", ")}`,
+  );
+  for (const pid of pids) {
+    try {
+      process.kill(pid, "SIGTERM");
+    } catch {
+      // Already dead or no permission — ignore.
+    }
+  }
+  await sleep(500);
+  for (const pid of pids) {
+    try {
+      // signal 0 = alive check
+      process.kill(pid, 0);
+      // Still alive — force kill.
+      process.kill(pid, "SIGKILL");
+    } catch {
+      // Dead, good.
+    }
+  }
 }
 
 /**
