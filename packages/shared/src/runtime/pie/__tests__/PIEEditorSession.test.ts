@@ -5391,7 +5391,7 @@ describe("PIEEditorSession", () => {
     // ("the camera target tracks the engine's authoritative position")
     // is what we're pinning.
     it(
-      "tick() copies the real PlayerLocal's server-side position into the pawn's Object3D",
+      "tick() copies the real PlayerLocal's server-side position and rotation into the pawn's Object3D",
       { timeout: LONG_TIMEOUT_MS },
       async () => {
         const unregister = registerPlayerStubs();
@@ -5417,15 +5417,22 @@ describe("PIEEditorSession", () => {
           );
           expect(realPlayer).toBeDefined();
 
-          // Move the server-side player. The bridge fires inside
-          // session.tick() after the server world ticks, so a single
-          // tick is enough to propagate.
+          // Move and rotate the server-side player. The bridge fires
+          // inside session.tick() after the server world ticks, so a
+          // single tick is enough to propagate both.
           realPlayer!.position.set(10, 5, 20);
+          // 180° yaw — quaternion (0, sin(π/2), 0, cos(π/2)) = (0, 1, 0, 0)
+          realPlayer!.rotation.set(0, 1, 0, 0);
           session.tick(16);
 
           expect(playerObject.position.x).toBe(10);
           expect(playerObject.position.y).toBe(5);
           expect(playerObject.position.z).toBe(20);
+
+          expect(playerObject.quaternion.x).toBeCloseTo(0);
+          expect(playerObject.quaternion.y).toBeCloseTo(1);
+          expect(playerObject.quaternion.z).toBeCloseTo(0);
+          expect(playerObject.quaternion.w).toBeCloseTo(0);
         } finally {
           unregister();
         }

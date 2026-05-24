@@ -1248,6 +1248,21 @@ export class PIEEditorSession {
       if (realPos) {
         this._pawn.object.position.set(realPos.x, realPos.y, realPos.z);
       }
+      // Rotation bridge — server-driven facing changes (NPC dialog
+      // turn-to-face, scripted look-at, combat orient-to-target) leave
+      // the synthetic pawn's quaternion stale and the avatar visibly
+      // diverges from authoritative state. Pulling quaternion in
+      // lockstep with position keeps the camera target's full
+      // transform consistent with the engine's authoritative one.
+      const realRot = realPlayer?.rotation;
+      if (realRot) {
+        this._pawn.object.quaternion.set(
+          realRot.x,
+          realRot.y,
+          realRot.z,
+          realRot.w,
+        );
+      }
     }
 
     // Mirror server-side entity positions into the façade `entities` map
