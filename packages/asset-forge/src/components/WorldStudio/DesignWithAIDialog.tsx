@@ -243,6 +243,11 @@ import {
 } from "./utils/onboardingPlan";
 import { restoreOnboardingPlan } from "./utils/restoreOnboardingPlan";
 import {
+  normalizeInstallablePlugin,
+  type InstallablePlugin,
+  type PluginRegistryEntry,
+} from "./utils/installablePlugins";
+import {
   collectSecondarySlotEntries,
   getEmptyPrompt,
   secondarySlotCount,
@@ -352,32 +357,7 @@ export function DesignWithAIDialog({
   // Same fetch as BuildingBlocksPanel below; kept here at the
   // dialog scope so the chat handler has access to it.
   const [installablePlugins, setInstallablePlugins] = useState<
-    Array<{
-      id: string;
-      npmName: string | null;
-      name: string;
-      description: string;
-      tags: string[];
-      entityTypeContributions?: Array<{
-        kind: "npc" | "mobSpawn" | "resource" | "station";
-        type: string;
-        description: string;
-        requiredFields: string[];
-        acceptedAssetTypes: string[];
-      }>;
-      // Phase 3.1 of PLAN_AAA_MASTER_AUDIT — 6 uniform string-
-      // array contribution kinds the plugin's `plugin.json`
-      // declares. Forwarded to agent-server so `LIST_COMMANDS`
-      // and `LIST_CONTRIBUTIONS` return real plugin-declared
-      // identifiers the agent can reference.
-      commandContributions?: string[];
-      systemContributions?: string[];
-      entityContributions?: string[];
-      widgetContributions?: string[];
-      manifestSchemaContributions?: string[];
-      paletteCategoryContributions?: string[];
-      toolbarToolContributions?: string[];
-    }>
+    InstallablePlugin[]
   >([]);
   useEffect(() => {
     let cancelled = false;
@@ -415,70 +395,9 @@ export function DesignWithAIDialog({
           credentials: "same-origin",
         });
         if (!res.ok) return;
-        type RegistryEntry = {
-          id: string;
-          npmName: string | null;
-          name: string;
-          description: string;
-          tags: string[];
-          contributions?: {
-            entityTypes?: Array<{
-              kind: "npc" | "mobSpawn" | "resource" | "station";
-              type: string;
-              description: string;
-              requiredFields: string[];
-              acceptedAssetTypes: string[];
-            }>;
-            commands?: string[];
-            systems?: string[];
-            entities?: string[];
-            widgets?: string[];
-            manifestSchemas?: string[];
-            paletteCategories?: string[];
-            toolbarTools?: string[];
-          };
-        };
-        const json = (await res.json()) as ReadonlyArray<RegistryEntry>;
+        const json = (await res.json()) as ReadonlyArray<PluginRegistryEntry>;
         if (cancelled) return;
-        setInstallablePlugins(
-          json.map((p) => ({
-            id: p.id,
-            npmName: p.npmName,
-            name: p.name,
-            description: p.description,
-            tags: [...p.tags],
-            entityTypeContributions: p.contributions?.entityTypes
-              ? p.contributions.entityTypes.map((e) => ({
-                  kind: e.kind,
-                  type: e.type,
-                  description: e.description,
-                  requiredFields: [...e.requiredFields],
-                  acceptedAssetTypes: [...e.acceptedAssetTypes],
-                }))
-              : undefined,
-            commandContributions: p.contributions?.commands
-              ? [...p.contributions.commands]
-              : undefined,
-            systemContributions: p.contributions?.systems
-              ? [...p.contributions.systems]
-              : undefined,
-            entityContributions: p.contributions?.entities
-              ? [...p.contributions.entities]
-              : undefined,
-            widgetContributions: p.contributions?.widgets
-              ? [...p.contributions.widgets]
-              : undefined,
-            manifestSchemaContributions: p.contributions?.manifestSchemas
-              ? [...p.contributions.manifestSchemas]
-              : undefined,
-            paletteCategoryContributions: p.contributions?.paletteCategories
-              ? [...p.contributions.paletteCategories]
-              : undefined,
-            toolbarToolContributions: p.contributions?.toolbarTools
-              ? [...p.contributions.toolbarTools]
-              : undefined,
-          })),
-        );
+        setInstallablePlugins(json.map(normalizeInstallablePlugin));
       } catch (err) {
         // eslint-disable-next-line no-console
         console.warn(
