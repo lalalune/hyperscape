@@ -241,6 +241,7 @@ import {
   createEmptyOnboardingPlan,
   type OnboardingPlan,
 } from "./utils/onboardingPlan";
+import { restoreOnboardingPlan } from "./utils/restoreOnboardingPlan";
 import {
   collectSecondarySlotEntries,
   getEmptyPrompt,
@@ -323,65 +324,7 @@ export function DesignWithAIDialog({
    * Build uses this state, not the latest message's plan.
    */
   const [effectivePlan, setEffectivePlan] = useState<OnboardingPlan>(() =>
-    restored
-      ? {
-          terrainConfig: restored.plan.terrainConfig ?? null,
-          pluginIds: restored.plan.pluginIds ?? null,
-          assetPackIds: Array.isArray(restored.plan.assetPackIds)
-            ? [...restored.plan.assetPackIds]
-            : null,
-          npcs: Array.isArray(restored.plan.npcs)
-            ? [...restored.plan.npcs]
-            : [],
-          mobSpawns: Array.isArray(restored.plan.mobSpawns)
-            ? [...restored.plan.mobSpawns]
-            : [],
-          quests: Array.isArray(restored.plan.quests)
-            ? [...restored.plan.quests]
-            : [],
-          assets: Array.isArray(restored.plan.assets)
-            ? [...restored.plan.assets]
-            : [],
-          zones: Array.isArray(restored.plan.zones)
-            ? [...restored.plan.zones]
-            : [],
-          resources: Array.isArray(restored.plan.resources)
-            ? [...restored.plan.resources]
-            : [],
-          stations: Array.isArray(restored.plan.stations)
-            ? [...restored.plan.stations]
-            : [],
-          teleports: Array.isArray(restored.plan.teleports)
-            ? [...restored.plan.teleports]
-            : [],
-          roads: Array.isArray(restored.plan.roads)
-            ? [...restored.plan.roads]
-            : [],
-          pois: Array.isArray(restored.plan.pois)
-            ? [...restored.plan.pois]
-            : [],
-          dangerSources: Array.isArray(restored.plan.dangerSources)
-            ? [...restored.plan.dangerSources]
-            : [],
-          waterBodies: Array.isArray(restored.plan.waterBodies)
-            ? [...restored.plan.waterBodies]
-            : [],
-          musicZones: Array.isArray(restored.plan.musicZones)
-            ? [...restored.plan.musicZones]
-            : [],
-          ambientZones: Array.isArray(restored.plan.ambientZones)
-            ? [...restored.plan.ambientZones]
-            : [],
-          sfxTriggers: Array.isArray(restored.plan.sfxTriggers)
-            ? [...restored.plan.sfxTriggers]
-            : [],
-          mines: Array.isArray(restored.plan.mines)
-            ? [...restored.plan.mines]
-            : [],
-          wildernessBoundary: restored.plan.wildernessBoundary ?? null,
-          uiPack: restored.plan.uiPack ?? null,
-        }
-      : createEmptyOnboardingPlan(),
+    restoreOnboardingPlan(restored?.plan ?? null),
   );
   const [rightTab, setRightTab] = useState<"plan" | "blocks">("plan");
   const abortRef = useRef<AbortController | null>(null);
