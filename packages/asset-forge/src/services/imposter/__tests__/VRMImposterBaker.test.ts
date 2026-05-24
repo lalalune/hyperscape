@@ -10,8 +10,22 @@
 import * as THREE from "three";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 
-// Check if we're in a browser environment
-const isBrowser = typeof document !== "undefined";
+// VRMImposterBaker's constructor instantiates a real
+// `THREE.WebGLRenderer`, which needs a working WebGL context.
+// jsdom defines `document` + canvas elements but does NOT provide
+// WebGL — so the old `typeof document !== "undefined"` check
+// passed in vitest and every test hit "Error creating WebGL
+// context". Probe for an actual WebGL context to discriminate
+// jsdom from a real browser.
+const isBrowser = (() => {
+  if (typeof document === "undefined") return false;
+  try {
+    const c = document.createElement("canvas");
+    return Boolean(c.getContext("webgl") ?? c.getContext("webgl2"));
+  } catch {
+    return false;
+  }
+})();
 
 // ============================================================================
 // TEST HELPERS
