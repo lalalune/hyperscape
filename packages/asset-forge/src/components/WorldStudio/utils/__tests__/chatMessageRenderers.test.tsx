@@ -19,17 +19,21 @@ import {
 } from "../chatMessageRenderers";
 
 describe("AgentAvatar", () => {
-  it("renders a sparkle icon by default (not pulsing)", () => {
+  it("renders a sparkle icon by default", () => {
     const { container } = render(<AgentAvatar />);
     const sparkle = container.querySelector("svg");
     expect(sparkle).not.toBeNull();
+    // FORGE design pass killed the bouncy / pulsing animations
+    // (#374 / #383). The `pulsing` prop is kept as a no-op so
+    // callers don't have to change; the class is not applied.
     expect(sparkle?.classList.toString()).not.toContain("animate-pulse");
   });
 
-  it("adds animate-pulse when pulsing=true", () => {
+  it("accepts pulsing=true without rendering a pulse class (design-system pass killed the animation)", () => {
     const { container } = render(<AgentAvatar pulsing />);
     const sparkle = container.querySelector("svg");
-    expect(sparkle?.classList.toString()).toContain("animate-pulse");
+    expect(sparkle).not.toBeNull();
+    expect(sparkle?.classList.toString()).not.toContain("animate-pulse");
   });
 });
 
@@ -80,26 +84,28 @@ describe("ChatBubble — agent message", () => {
 });
 
 describe("TypingIndicator", () => {
-  it("renders an avatar with pulsing animation", () => {
+  it("renders an avatar", () => {
+    // FORGE design pass killed the pulse animation; the avatar
+    // still renders, just without the animate-pulse class.
     const { container } = render(<TypingIndicator status={null} />);
     const sparkle = container.querySelector("svg");
-    expect(sparkle?.classList.toString()).toContain("animate-pulse");
+    expect(sparkle).not.toBeNull();
   });
 
-  it("renders three animated bounce dots", () => {
+  it("renders three dot elements with staggered animation delays", () => {
+    // FORGE design pass killed `animate-bounce` (#374). The dots
+    // still exist with their staggered animationDelay style hooks
+    // so a future motion treatment can re-attach an animation
+    // without changing the structure. Select by the inline-style
+    // hook since that's the stable contract.
     const { container } = render(<TypingIndicator status={null} />);
-    const bouncers = container.querySelectorAll(".animate-bounce");
-    expect(bouncers).toHaveLength(3);
-  });
-
-  it("staggers the bounce dots with 0/150/300ms delays", () => {
-    const { container } = render(<TypingIndicator status={null} />);
-    const bouncers = Array.from(
-      container.querySelectorAll<HTMLElement>(".animate-bounce"),
+    const dots = Array.from(
+      container.querySelectorAll<HTMLElement>("span[style*='animation-delay']"),
     );
-    expect(bouncers[0].style.animationDelay).toBe("0ms");
-    expect(bouncers[1].style.animationDelay).toBe("150ms");
-    expect(bouncers[2].style.animationDelay).toBe("300ms");
+    expect(dots).toHaveLength(3);
+    expect(dots[0]!.style.animationDelay).toBe("0ms");
+    expect(dots[1]!.style.animationDelay).toBe("150ms");
+    expect(dots[2]!.style.animationDelay).toBe("300ms");
   });
 
   it("does NOT render a status label when status=null", () => {
