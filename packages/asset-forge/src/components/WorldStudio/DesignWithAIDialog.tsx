@@ -262,9 +262,8 @@ import {
   findLatestAgentIndex,
   summariseConversation,
 } from "./utils/chatMessageHelpers";
-import { inferThemedPackFromCatalog } from "./utils/inferThemedPack";
 import { buildWorldContentPatch } from "./utils/buildWorldContentPatch";
-import { resolvePlanPackIds } from "./utils/collectAssetPackRefs";
+import { resolvePackIdsWithFallback } from "./utils/resolvePackIdsWithFallback";
 import {
   extractThemedPackOverrides,
   type ThemedPackManifestLike,
@@ -882,21 +881,11 @@ export function DesignWithAIDialog({
       // to look up the active themed pack's heightmap preset
       // BEFORE procgen runs. The post-creation pass below adds
       // declared deps on top of this base set.
-      const resolvedPackIds = resolvePlanPackIds(effectivePlan);
-      // Tag-based fallback if no themed pack was proposed.
-      const alreadyHasThemedPack = Array.from(resolvedPackIds).some((id) =>
-        isContentPackId(id),
+      const resolvedPackIds = resolvePackIdsWithFallback(
+        effectivePlan,
+        messages,
+        installablePacks,
       );
-      if (!alreadyHasThemedPack) {
-        const inferredPack = inferThemedPackFromCatalog(
-          messages,
-          installablePacks.map((p) => ({
-            manifestId: p.manifestId,
-            tags: p.tags,
-          })),
-        );
-        resolvedPackIds.add(inferredPack ?? HYPERIA_CONTENT_PACK_ID);
-      }
 
       const projectIsHyperiaThemed = resolvedPackIds.has(
         HYPERIA_CONTENT_PACK_ID,
