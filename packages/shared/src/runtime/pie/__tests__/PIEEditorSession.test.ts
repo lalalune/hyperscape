@@ -12,6 +12,7 @@
  */
 
 import { afterEach, describe, expect, it } from "vitest";
+import * as THREE from "three";
 import { PIEEditorSession } from "../PIEEditorSession";
 import type { RuntimeScriptGraph } from "../../../systems/shared/scripting/ScriptGraphInterpreter";
 import type { PIEDebugEntry } from "../../PIEScriptRunner";
@@ -5373,6 +5374,58 @@ describe("PIEEditorSession", () => {
             session.realPlayerId!,
           );
           expect(clientEntity).toBeDefined();
+        } finally {
+          unregister();
+        }
+      },
+    );
+
+    // Phase 1.1.a regression guard. Before this cut the synthetic pawn
+    // sat wherever `options.playerObject` was placed with no link to
+    // the real PlayerLocal — AI moves, script teleports, and PhysX
+    // gravity were invisible because the camera tracked the static
+    // mesh. The fix copies the real entity's server-side position
+    // into the pawn's Object3D every tick. If a future refactor drops
+    // the bridge (e.g. a 1.1.b retargeting that uses the real entity
+    // directly), this test must be updated or replaced — the intent
+    // ("the camera target tracks the engine's authoritative position")
+    // is what we're pinning.
+    it(
+      "tick() copies the real PlayerLocal's server-side position into the pawn's Object3D",
+      { timeout: LONG_TIMEOUT_MS },
+      async () => {
+        const unregister = registerPlayerStubs();
+        try {
+          session = new PIEEditorSession();
+          const camera = new THREE.PerspectiveCamera(70, 1, 0.1, 1000);
+          const playerObject = new THREE.Object3D();
+          // Initial pawn position somewhere obviously different from
+          // both the spawn point and the post-move target, so a stale
+          // bridge can't accidentally pass the assertion.
+          playerObject.position.set(-999, -999, -999);
+
+          await session.start({
+            mode: "play",
+            camera,
+            playerObject,
+            playerSpawn: { x: 0, y: 0, z: 0 },
+          });
+
+          expect(session.realPlayerId).not.toBeNull();
+          const realPlayer = session.server!.world.entities.items.get(
+            session.realPlayerId!,
+          );
+          expect(realPlayer).toBeDefined();
+
+          // Move the server-side player. The bridge fires inside
+          // session.tick() after the server world ticks, so a single
+          // tick is enough to propagate.
+          realPlayer!.position.set(10, 5, 20);
+          session.tick(16);
+
+          expect(playerObject.position.x).toBe(10);
+          expect(playerObject.position.y).toBe(5);
+          expect(playerObject.position.z).toBe(20);
         } finally {
           unregister();
         }
