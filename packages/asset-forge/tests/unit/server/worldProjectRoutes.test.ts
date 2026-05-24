@@ -84,9 +84,14 @@ describe("CreateWorldProjectBody — POST /api/world/projects", () => {
     expect(Value.Check(CreateWorldProjectBody, invalid)).toBe(false);
   });
 
-  it("rejects missing worldData", () => {
-    const invalid = { name: "Test", gameId: UUID };
-    expect(Value.Check(CreateWorldProjectBody, invalid)).toBe(false);
+  it("accepts a body without worldData (template-based creation path is valid at the schema layer)", () => {
+    // Phase B0'.B made `worldData` optional alongside `templateId` —
+    // either is sufficient to create a project. The "must have one"
+    // rule lives in the route handler, not the schema. So a body
+    // with neither is schema-valid; it will fail later when the
+    // route picks neither path.
+    const body = { name: "Test", gameId: UUID };
+    expect(Value.Check(CreateWorldProjectBody, body)).toBe(true);
   });
 
   it("rejects non-object worldData", () => {
@@ -153,6 +158,11 @@ describe("WorldProjectResponse — response shape", () => {
     lockedAt: null,
     createdAt: "2024-01-01T00:00:00.000Z",
     updatedAt: "2024-01-01T00:00:00.000Z",
+    // ── B0'.A typed project layers required by WorldProjectResponse ──
+    schemaVersion: 1,
+    templateId: null,
+    plugins: [],
+    assetPacks: [],
   };
 
   it("validates a response with null optional fields", () => {
@@ -195,6 +205,14 @@ describe("WorldProjectDetailResponse — GET /api/world/projects/:id", () => {
     lockedAt: null,
     createdAt: "2024-01-01T00:00:00.000Z",
     updatedAt: "2024-03-15T08:30:00.000Z",
+    // ── B0'.A typed project layers required by WorldProjectResponse ──
+    schemaVersion: 1,
+    templateId: null,
+    plugins: [],
+    assetPacks: [],
+    // ── B0'.A typed layers added on the Detail variant ──
+    config: null,
+    worldContent: {},
     worldData: {
       mode: "editing",
       editing: {

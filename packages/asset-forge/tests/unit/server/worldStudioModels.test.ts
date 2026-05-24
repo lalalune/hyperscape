@@ -129,6 +129,13 @@ describe("WorldProjectDetailResponse schema", () => {
     lockedAt: null,
     createdAt: "2026-01-01T00:00:00Z",
     updatedAt: "2026-01-01T00:00:00Z",
+    // ── B0'.A typed project layers required by the schema ──
+    schemaVersion: 1,
+    templateId: null,
+    plugins: [],
+    assetPacks: [],
+    config: null,
+    worldContent: {},
   };
 
   it("accepts valid detail response with worldData object", () => {
