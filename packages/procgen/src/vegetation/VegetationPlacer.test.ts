@@ -395,7 +395,10 @@ describe("VegetationPlacer", () => {
 
       expect(provider.getHeightAt(0, 0)).toBe(15);
       expect(provider.getBiomeAt(0, 0)).toBe("plains"); // Default
-      expect(provider.getWaterThreshold()).toBe(5.4); // Default
+      // Default water threshold tracks DEFAULT_WATER_THRESHOLD in
+      // terrain/constants.ts — was 5.4 before the height pass that
+      // raised maxHeight to 50 (waterLevelNormalized = 16/50 = 0.32).
+      expect(provider.getWaterThreshold()).toBe(16);
     });
   });
 

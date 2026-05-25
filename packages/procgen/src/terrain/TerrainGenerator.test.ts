@@ -60,7 +60,10 @@ describe("TerrainGenerator", () => {
       expect(gen.getConfig().seed).toBe(0);
       expect(gen.getTileSize()).toBe(100);
       expect(gen.getTileResolution()).toBe(64);
-      expect(gen.getMaxHeight()).toBe(30);
+      // DEFAULT_MAX_HEIGHT is 50 (constants.ts:14) — was 30 before
+      // the height pass that raised it; comment in waterLevelNormalized
+      // (16/50) corroborates the current value.
+      expect(gen.getMaxHeight()).toBe(50);
     });
 
     it("should create generator with custom config", () => {

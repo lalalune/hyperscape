@@ -160,11 +160,17 @@ function createSimpleNoise(seed: number): NoiseProvider {
   };
 }
 
-// Simple terrain fallback (flat terrain)
+// Simple terrain fallback (flat terrain). Returns height comfortably
+// above the current `DEFAULT_WATER_THRESHOLD` (16) so callers that
+// construct a TownGenerator without their own terrain still produce
+// land — not ocean. The previous value (10) pre-dated the height-
+// pass that raised the threshold from 5.4 to 16; with the old
+// constant the fallback was above water, with the new one it
+// silently drowned every spawn candidate.
 function createFlatTerrain(): TerrainProvider {
   return {
     getHeightAt(_x: number, _z: number): number {
-      return 10; // Default height above water
+      return 25;
     },
     getBiomeAt(_x: number, _z: number): string {
       return "plains";
