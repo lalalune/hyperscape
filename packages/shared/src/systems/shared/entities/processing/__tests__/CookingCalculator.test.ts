@@ -301,12 +301,19 @@ describe("CookingCalculator", () => {
       expect(rangeChance).toBeLessThanOrEqual(fireChance);
     });
 
-    it("returns 1 at exact level requirement (highest burn rate)", () => {
-      // At exactly level 1 for shrimp, burn chance is 100%
-      // (at the start of the interpolation range)
-      expect(calculateBurnChance(1, "raw_shrimp", "fire")).toBe(1);
-      // One level above requirement should have slightly less burn chance
-      expect(calculateBurnChance(2, "raw_shrimp", "fire")).toBeLessThan(1);
+    it("returns the capped MAX_BURN_CHANCE at exact level requirement", () => {
+      // At exactly the level requirement the burn chance is clamped
+      // to MAX_BURN_CHANCE (0.55) — meeting the requirement should
+      // always carry some chance of success. The 1.0 expectation
+      // pre-dated that cap (see CookingCalculator.ts:65 — "~55% burn
+      // at minimum level (classic MMORPG-like)").
+      expect(calculateBurnChance(1, "raw_shrimp", "fire")).toBeCloseTo(0.55, 2);
+      // Levels close to the requirement stay at the cap (raw chance
+      // > cap so the clamp keeps the cap in effect). The chance only
+      // drops below MAX once linear interpolation crosses the cap —
+      // for shrimp/fire (range = 33) that's around level 16+. Pick
+      // level 20 to land safely in the declining zone.
+      expect(calculateBurnChance(20, "raw_shrimp", "fire")).toBeLessThan(0.55);
     });
   });
 
