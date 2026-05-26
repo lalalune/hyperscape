@@ -1,0 +1,43 @@
+{
+  "name": "@hyperforge/asset-pack-hyperia-trees-v1",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Hyperia trees asset pack — bakes the 3D tree-species models the Hyperia content pack (and other themed packs) reference from their `vegetationSpecies` arrays. Phase 3.3 of PLAN_AAA_UE5_PARITY: the pack was previously declared as a dep id string with no resolvable package; this is the structural skeleton, content fills follow.",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./manifest": {
+      "types": "./dist/manifest.d.ts",
+      "import": "./dist/manifest.js"
+    }
+  },
+  "files": [
+    "dist/",
+    "pack.json"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+  },
+  "dependencies": {
+    "@hyperforge/manifest-schema": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.6"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "GPL-3.0"
+}

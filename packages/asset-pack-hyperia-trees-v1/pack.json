@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "id": "@hyperforge/asset-pack-hyperia-trees-v1",
+  "name": "Hyperia Trees",
+  "description": "Tree-species models the Hyperia content pack and other themed packs reference from their vegetationSpecies arrays. Skeleton — content entries to be populated in a follow-up cut once the model bake pipeline is wired.",
+  "packVersion": "0.1.0",
+  "author": {
+    "name": "Hyperforge"
+  },
+  "license": "GPL-3.0",
+  "tags": ["asset-pack", "trees", "vegetation", "hyperia"],
+  "assets": [],
+  "biomes": [],
+  "terrainShaders": [],
+  "terrainHeightmapPresets": [],
+  "terrainNoiseFunctions": [],
+  "waterShaders": [],
+  "waterAnimations": [],
+  "vegetationSpecies": [],
+  "vegetationDensityRules": []
+}
