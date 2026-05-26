@@ -76,10 +76,13 @@ describe("FollowManager", () => {
   beforeEach(() => {
     world = createMockWorld();
     tileMovementManager = createMockTileMovementManager();
-    manager = new FollowManager(
-      world as never, // Type assertion for mock
-      tileMovementManager as never,
-    );
+    // Phase C (PLAN_ENGINE_API_EXTRACTION 2026-04-26): the manager
+    // resolves tileMovement from `world.tileMovement` rather than
+    // taking it as a constructor arg. Pin our mock before construction.
+    (
+      world as unknown as { tileMovement: typeof tileMovementManager }
+    ).tileMovement = tileMovementManager;
+    manager = new FollowManager(world as never);
   });
 
   describe("startFollowing", () => {

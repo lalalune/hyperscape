@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { TileMovementManager } from "../tile-movement";
-import { BuildingCollisionService } from "@hyperforge/shared";
-import { EntityOccupancyMap } from "@hyperforge/shared/systems/shared/movement/EntityOccupancyMap";
+import {
+  BuildingCollisionService,
+  EntityOccupancyMap,
+} from "@hyperforge/shared";
 
 // Mocks
 const createMockWorld = () => ({

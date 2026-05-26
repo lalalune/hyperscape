@@ -818,7 +818,10 @@ export {
   getMaxHealAmount,
   getMovementSlerpSpeed,
 } from "./data/live/combat-live";
-export type { IEntityOccupancy } from "./systems/shared/movement/EntityOccupancyMap";
+export {
+  EntityOccupancyMap,
+  type IEntityOccupancy,
+} from "./systems/shared/movement/EntityOccupancyMap";
 export { getEntityPosition } from "./utils/game/EntityPositionUtils";
 export { resolveStarterTownArea } from "./world-areas";
 export type {
