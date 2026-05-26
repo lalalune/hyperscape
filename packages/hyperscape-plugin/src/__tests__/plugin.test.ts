@@ -55,14 +55,24 @@ describe("@hyperforge/hyperscape", () => {
     ]);
   });
 
-  it("starts with empty contribution buckets (composition is via deps, not contributions)", () => {
-    // Phase I4 cut #1: the meta-plugin doesn't directly contribute
-    // anything — its constituent plugins do. Future cuts may add
-    // cross-plugin contributions (e.g. quest references) but today
-    // the surface is empty by design.
+  it("declares its runtime widget contributions in the manifest", () => {
+    // Phase I4 cut #1 declared "the meta-plugin doesn't directly
+    // contribute anything." That was true for systems + commands
+    // (those are composed via deps) but never for widgets — the
+    // plugin's `onEnable` registers ~52 widgets via
+    // `registerHyperiaWidgets(ctx.widgets)`. Phase 3.1 of
+    // PLAN_AAA_UE5_PARITY closes the gap: the manifest now
+    // declares what the runtime actually ships, so the agent /
+    // editor's plugin-registry surface sees the same widget set
+    // a player would.
+    //
+    // systems + commands remain empty by design — those genuinely
+    // route through constituent dep plugins.
     expect(manifest.contributions.systems).toEqual([]);
-    expect(manifest.contributions.widgets).toEqual([]);
     expect(manifest.contributions.commands).toEqual([]);
+    expect(manifest.contributions.widgets.length).toBeGreaterThan(0);
+    // See widgetContributions.test.ts for the full id-set parity
+    // assertion against the runtime registration list.
   });
 
   it("re-exports combatPluginFactory for one-import callers", () => {
