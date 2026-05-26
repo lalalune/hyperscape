@@ -1,0 +1,43 @@
+{
+  "name": "@hyperforge/content-pack-arctic-v1",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Arctic content pack — frozen / snowy / mountainous biomes, glacier shore terrain, evergreen + pine-dead vegetation rules. Phase 3.3 of PLAN_AAA_UE5_PARITY: previously declared as a string id with the content living inline inside asset-forge/server/builtins/content-packs.ts; this is the package skeleton, content migration follows.",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./manifest": {
+      "types": "./dist/manifest.d.ts",
+      "import": "./dist/manifest.js"
+    }
+  },
+  "files": [
+    "dist/",
+    "pack.json"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+  },
+  "dependencies": {
+    "@hyperforge/manifest-schema": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.6"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "GPL-3.0"
+}

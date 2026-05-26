@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "id": "@hyperforge/content-pack-arctic-v1",
+  "name": "Arctic",
+  "description": "Frozen / snowy / mountainous biomes. Install for a snowy mountain map, glacier exploration, or polar expedition theme.",
+  "packVersion": "1.0.0",
+  "author": {
+    "name": "Hyperforge"
+  },
+  "license": "GPL-3.0",
+  "tags": ["arctic", "snow", "frozen", "mountain", "cold", "content-pack"],
+  "assets": [],
+  "biomes": [],
+  "terrainShaders": [],
+  "terrainHeightmapPresets": [],
+  "terrainNoiseFunctions": [],
+  "waterShaders": [],
+  "waterAnimations": [],
+  "vegetationSpecies": [],
+  "vegetationDensityRules": []
+}
