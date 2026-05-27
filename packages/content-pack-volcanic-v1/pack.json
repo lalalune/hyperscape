@@ -16,7 +16,23 @@
     { "id": "obsidian_flow", "name": "Obsidian Flow", "color": 1184276, "terrainMultiplier": 0.8, "difficultyLevel": 3, "heightRange": [0.2, 0.55], "maxSlope": 1.2, "resourceDensity": 0.5 }
   ],
   "terrainShaders": [],
-  "terrainHeightmapPresets": [],
+  "terrainHeightmapPresets": [
+    {
+      "id": "volcanic-rugged-peak",
+      "name": "Volcanic central peak",
+      "description": "Mid-sized landmass with one dominant tall central peak and rugged slopes. Tall max height (volcano cone); mid-strength edge noise (rocky coasts, lava-cooled flows).",
+      "params": {
+        "terrain": { "maxHeight": 75, "waterThreshold": 14 },
+        "island": {
+          "enabled": true,
+          "maxWorldSizeTiles": 900,
+          "falloffTiles": 4,
+          "edgeNoiseScale": 0.007,
+          "edgeNoiseStrength": 0.18
+        }
+      }
+    }
+  ],
   "terrainNoiseFunctions": [],
   "waterShaders": [],
   "waterAnimations": [],

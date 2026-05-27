@@ -259,22 +259,11 @@ export const BUILTIN_CONTENT_PACKS: ReadonlyArray<BuiltinPack> = Object.freeze([
     packVersion: "1.0.0",
     biomes: HYPERIA_BIOMES,
     assetPackDeps: ["@hyperforge/asset-pack-hyperia-trees-v1"],
-    terrainHeightmapPreset: {
-      id: "hyperia-default",
-      name: "Hyperia island",
-      description:
-        "The canonical Hyperia heightmap — single circular landmass, mid-elevation peaks, gentle coastline irregularity. Matches the reference Hyperia world.",
-      params: {
-        terrain: { maxHeight: 50, waterThreshold: 16 },
-        island: {
-          enabled: true,
-          maxWorldSizeTiles: 1000,
-          falloffTiles: 4,
-          edgeNoiseScale: 0.005,
-          edgeNoiseStrength: 0.12,
-        },
-      },
-    },
+    // Phase 3.3 follow-up: heightmap preset migrated to
+    // content-pack-hyperia-v1's pack.json. See arctic block above
+    // for the singular-vs-plural shape detail.
+    terrainHeightmapPreset:
+      hyperiaContentPackManifest.terrainHeightmapPresets[0],
     // Phase 3.5 — the 8 procgen tree presets the engine has
     // shipped since the original hardcoded `TREE_PRESETS`
     // array. Hyperia maps each preset onto its tree-id
@@ -436,22 +425,10 @@ export const BUILTIN_CONTENT_PACKS: ReadonlyArray<BuiltinPack> = Object.freeze([
     packVersion: "1.0.0",
     biomes: TROPICAL_BIOMES,
     assetPackDeps: ["@hyperforge/asset-pack-hyperia-trees-v1"],
-    terrainHeightmapPreset: {
-      id: "tropical-atoll",
-      name: "Tropical atoll",
-      description:
-        "Smaller landmass with lower peaks and wildly irregular coastline — atoll-like silhouette with many bays and inlets. Lower max height keeps mountains absent; high edge noise gives the coast its irregular shape.",
-      params: {
-        terrain: { maxHeight: 30, waterThreshold: 12 },
-        island: {
-          enabled: true,
-          maxWorldSizeTiles: 800,
-          falloffTiles: 3,
-          edgeNoiseScale: 0.012,
-          edgeNoiseStrength: 0.28,
-        },
-      },
-    },
+    // Phase 3.3 follow-up: heightmap preset migrated to
+    // content-pack-tropical-v1's pack.json.
+    terrainHeightmapPreset:
+      tropicalContentPackManifest.terrainHeightmapPresets[0],
     vegetationByBiome: {
       tropical_beach: {
         enabled: true,
@@ -652,22 +629,10 @@ export const BUILTIN_CONTENT_PACKS: ReadonlyArray<BuiltinPack> = Object.freeze([
     packVersion: "1.0.0",
     biomes: DESERT_BIOMES,
     assetPackDeps: ["@hyperforge/asset-pack-hyperia-trees-v1"],
-    terrainHeightmapPreset: {
-      id: "desert-mesa-flatlands",
-      name: "Desert mesa flatlands",
-      description:
-        "Wide flat landmass with sharp mesa relief — low base elevation but with dramatic mesa peaks. Larger world size; smoother edges (deserts don't have rocky coasts).",
-      params: {
-        terrain: { maxHeight: 45, waterThreshold: 10 },
-        island: {
-          enabled: true,
-          maxWorldSizeTiles: 1300,
-          falloffTiles: 5,
-          edgeNoiseScale: 0.006,
-          edgeNoiseStrength: 0.1,
-        },
-      },
-    },
+    // Phase 3.3 follow-up: heightmap preset migrated to
+    // content-pack-desert-v1's pack.json.
+    terrainHeightmapPreset:
+      desertContentPackManifest.terrainHeightmapPresets[0],
     vegetationByBiome: {
       sand_dune: {
         enabled: true,
@@ -746,22 +711,10 @@ export const BUILTIN_CONTENT_PACKS: ReadonlyArray<BuiltinPack> = Object.freeze([
     packVersion: "1.0.0",
     biomes: VOLCANIC_BIOMES,
     assetPackDeps: ["@hyperforge/asset-pack-hyperia-trees-v1"],
-    terrainHeightmapPreset: {
-      id: "volcanic-rugged-peak",
-      name: "Volcanic central peak",
-      description:
-        "Mid-sized landmass with one dominant tall central peak and rugged slopes. Tall max height (volcano cone); mid-strength edge noise (rocky coasts, lava-cooled flows).",
-      params: {
-        terrain: { maxHeight: 75, waterThreshold: 14 },
-        island: {
-          enabled: true,
-          maxWorldSizeTiles: 900,
-          falloffTiles: 4,
-          edgeNoiseScale: 0.007,
-          edgeNoiseStrength: 0.18,
-        },
-      },
-    },
+    // Phase 3.3 follow-up: heightmap preset migrated to
+    // content-pack-volcanic-v1's pack.json.
+    terrainHeightmapPreset:
+      volcanicContentPackManifest.terrainHeightmapPresets[0],
     vegetationByBiome: {
       lava_field: {
         enabled: false,
@@ -822,22 +775,10 @@ export const BUILTIN_CONTENT_PACKS: ReadonlyArray<BuiltinPack> = Object.freeze([
     packVersion: "1.0.0",
     biomes: WETLAND_BIOMES,
     assetPackDeps: ["@hyperforge/asset-pack-hyperia-trees-v1"],
-    terrainHeightmapPreset: {
-      id: "wetland-low-delta",
-      name: "Wetland delta",
-      description:
-        "Low flat landmass with very high water level and many water cuts — feels like a river delta or expansive marsh. Very low max height; high edge noise strength carves the coast into many fingers.",
-      params: {
-        terrain: { maxHeight: 22, waterThreshold: 16 },
-        island: {
-          enabled: true,
-          maxWorldSizeTiles: 950,
-          falloffTiles: 3,
-          edgeNoiseScale: 0.014,
-          edgeNoiseStrength: 0.32,
-        },
-      },
-    },
+    // Phase 3.3 follow-up: heightmap preset migrated to
+    // content-pack-wetland-v1's pack.json.
+    terrainHeightmapPreset:
+      wetlandContentPackManifest.terrainHeightmapPresets[0],
     vegetationByBiome: {
       marsh: {
         enabled: true,

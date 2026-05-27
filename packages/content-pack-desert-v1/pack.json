@@ -16,7 +16,23 @@
     { "id": "badlands", "name": "Badlands", "color": 8011557, "terrainMultiplier": 1.2, "difficultyLevel": 3, "heightRange": [0.3, 0.7], "maxSlope": 1.8, "resourceDensity": 0.15 }
   ],
   "terrainShaders": [],
-  "terrainHeightmapPresets": [],
+  "terrainHeightmapPresets": [
+    {
+      "id": "desert-mesa-flatlands",
+      "name": "Desert mesa flatlands",
+      "description": "Wide flat landmass with sharp mesa relief — low base elevation but with dramatic mesa peaks. Larger world size; smoother edges (deserts don't have rocky coasts).",
+      "params": {
+        "terrain": { "maxHeight": 45, "waterThreshold": 10 },
+        "island": {
+          "enabled": true,
+          "maxWorldSizeTiles": 1300,
+          "falloffTiles": 5,
+          "edgeNoiseScale": 0.006,
+          "edgeNoiseStrength": 0.1
+        }
+      }
+    }
+  ],
   "terrainNoiseFunctions": [],
   "waterShaders": [],
   "waterAnimations": [],

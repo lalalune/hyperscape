@@ -16,7 +16,23 @@
     { "id": "river_delta", "name": "River Delta", "color": 6981718, "terrainMultiplier": 0.4, "difficultyLevel": 0, "heightRange": [0.0, 0.2], "maxSlope": 0.3, "resourceDensity": 1.2 }
   ],
   "terrainShaders": [],
-  "terrainHeightmapPresets": [],
+  "terrainHeightmapPresets": [
+    {
+      "id": "wetland-low-delta",
+      "name": "Wetland delta",
+      "description": "Low flat landmass with very high water level and many water cuts — feels like a river delta or expansive marsh. Very low max height; high edge noise strength carves the coast into many fingers.",
+      "params": {
+        "terrain": { "maxHeight": 22, "waterThreshold": 16 },
+        "island": {
+          "enabled": true,
+          "maxWorldSizeTiles": 950,
+          "falloffTiles": 3,
+          "edgeNoiseScale": 0.014,
+          "edgeNoiseStrength": 0.32
+        }
+      }
+    }
+  ],
   "terrainNoiseFunctions": [],
   "waterShaders": [],
   "waterAnimations": [],

@@ -43,7 +43,23 @@
     }
   ],
   "terrainShaders": [],
-  "terrainHeightmapPresets": [],
+  "terrainHeightmapPresets": [
+    {
+      "id": "hyperia-default",
+      "name": "Hyperia island",
+      "description": "The canonical Hyperia heightmap — single circular landmass, mid-elevation peaks, gentle coastline irregularity. Matches the reference Hyperia world.",
+      "params": {
+        "terrain": { "maxHeight": 50, "waterThreshold": 16 },
+        "island": {
+          "enabled": true,
+          "maxWorldSizeTiles": 1000,
+          "falloffTiles": 4,
+          "edgeNoiseScale": 0.005,
+          "edgeNoiseStrength": 0.12
+        }
+      }
+    }
+  ],
   "terrainNoiseFunctions": [],
   "waterShaders": [],
   "waterAnimations": [],

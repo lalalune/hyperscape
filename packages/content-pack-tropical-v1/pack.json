@@ -16,7 +16,23 @@
     { "id": "lagoon", "name": "Lagoon", "color": 5099745, "terrainMultiplier": 0.2, "difficultyLevel": 0, "heightRange": [0.0, 0.1], "maxSlope": 0.2, "resourceDensity": 0.6 }
   ],
   "terrainShaders": [],
-  "terrainHeightmapPresets": [],
+  "terrainHeightmapPresets": [
+    {
+      "id": "tropical-atoll",
+      "name": "Tropical atoll",
+      "description": "Smaller landmass with lower peaks and wildly irregular coastline — atoll-like silhouette with many bays and inlets. Lower max height keeps mountains absent; high edge noise gives the coast its irregular shape.",
+      "params": {
+        "terrain": { "maxHeight": 30, "waterThreshold": 12 },
+        "island": {
+          "enabled": true,
+          "maxWorldSizeTiles": 800,
+          "falloffTiles": 3,
+          "edgeNoiseScale": 0.012,
+          "edgeNoiseStrength": 0.28
+        }
+      }
+    }
+  ],
   "terrainNoiseFunctions": [],
   "waterShaders": [],
   "waterAnimations": [],
