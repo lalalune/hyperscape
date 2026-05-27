@@ -26,13 +26,43 @@ describe("@hyperforge/asset-pack-hyperia-trees-v1", () => {
     expect(manifest.tags).toContain("trees");
   });
 
-  it("starts with empty content sections (Phase 3.3 skeleton)", () => {
-    // Phase 3.3 of PLAN_AAA_UE5_PARITY established the package
-    // structure first; content entries land in a follow-up cut
-    // once the model bake pipeline is wired. Until then every
-    // section is an empty array.
+  it("ships the 13 canonical Hyperia tree species", () => {
+    // Phase 3.3 follow-up: vegetationSpecies populated. Every
+    // species id matches a Hyperia TreeId enum value and points
+    // at a model in the assets repo's models/trees/<species>/
+    // directory.
+    const ids = manifest.vegetationSpecies.map((s) => s.id);
+    expect(ids).toEqual([
+      "tree_pine",
+      "tree_oak",
+      "tree_maple",
+      "tree_palm",
+      "tree_banana",
+      "tree_dead",
+      "tree_pineDead",
+      "tree_bamboo",
+      "tree_eucalyptus",
+      "tree_general",
+      "tree_magic",
+      "tree_mahogany",
+      "tree_wood",
+    ]);
+  });
+
+  it("every species declares category=tree and an asset:// modelRef", () => {
+    for (const s of manifest.vegetationSpecies) {
+      expect(s.category).toBe("tree");
+      expect(s.modelRef.startsWith("asset://models/trees/")).toBe(true);
+    }
+  });
+
+  it("still-empty sections (density rules + asset entries follow)", () => {
+    // The species catalog above is the schema's "what species
+    // exist." Density rules ("scatter this species in biome X
+    // at rate Y") live in the themed content packs, not in the
+    // shared trees asset pack. Asset bake entries are populated
+    // by the build pipeline once it lands.
     expect(manifest.assets).toEqual([]);
-    expect(manifest.vegetationSpecies).toEqual([]);
     expect(manifest.vegetationDensityRules).toEqual([]);
     expect(manifest.biomes).toEqual([]);
     expect(manifest.terrainShaders).toEqual([]);

@@ -2,7 +2,7 @@
   "version": 1,
   "id": "@hyperforge/asset-pack-hyperia-trees-v1",
   "name": "Hyperia Trees",
-  "description": "Tree-species models the Hyperia content pack and other themed packs reference from their vegetationSpecies arrays. Skeleton — content entries to be populated in a follow-up cut once the model bake pipeline is wired.",
+  "description": "Tree-species catalog the Hyperia content pack and other themed packs reference from their vegetationSpecies arrays. 13 canonical tree species declared with model refs into the assets repo (assets://models/trees/<species>/<variant>.glb).",
   "packVersion": "0.1.0",
   "author": {
     "name": "Hyperforge"
@@ -16,6 +16,111 @@
   "terrainNoiseFunctions": [],
   "waterShaders": [],
   "waterAnimations": [],
-  "vegetationSpecies": [],
+  "vegetationSpecies": [
+    {
+      "id": "tree_pine",
+      "name": "Pine",
+      "description": "Sturdy evergreen pine.",
+      "category": "tree",
+      "modelRef": "asset://models/trees/pine/pine_01.glb",
+      "tags": ["evergreen", "conifer"]
+    },
+    {
+      "id": "tree_oak",
+      "name": "Oak",
+      "description": "Broad-canopy oak.",
+      "category": "tree",
+      "modelRef": "asset://models/trees/oak/oak_01.glb",
+      "tags": ["deciduous"]
+    },
+    {
+      "id": "tree_maple",
+      "name": "Maple",
+      "description": "Maple with red-gold autumn canopy.",
+      "category": "tree",
+      "modelRef": "asset://models/trees/maple/maple_01.glb",
+      "tags": ["deciduous"]
+    },
+    {
+      "id": "tree_palm",
+      "name": "Palm",
+      "description": "Tropical palm.",
+      "category": "tree",
+      "modelRef": "asset://models/trees/palm/palm_01.glb",
+      "tags": ["tropical", "palm"]
+    },
+    {
+      "id": "tree_banana",
+      "name": "Banana",
+      "description": "Banana tree.",
+      "category": "tree",
+      "modelRef": "asset://models/trees/banana/banana_01.glb",
+      "tags": ["tropical"]
+    },
+    {
+      "id": "tree_dead",
+      "name": "Dead Tree",
+      "description": "Bare-branched dead tree — works as cactus substitute.",
+      "category": "tree",
+      "modelRef": "asset://models/trees/dead/dead_01.glb",
+      "tags": ["bare", "desert"]
+    },
+    {
+      "id": "tree_pineDead",
+      "name": "Dead Pine",
+      "description": "Bare-trunk dead pine.",
+      "category": "tree",
+      "modelRef": "asset://models/trees/pine_dead/pine_dead_01.glb",
+      "tags": ["bare", "evergreen"]
+    },
+    {
+      "id": "tree_bamboo",
+      "name": "Bamboo",
+      "description": "Bamboo cluster.",
+      "category": "tree",
+      "modelRef": "asset://models/trees/bamboo/bamboo_01.glb",
+      "tags": ["tropical", "cluster"]
+    },
+    {
+      "id": "tree_eucalyptus",
+      "name": "Eucalyptus",
+      "description": "Tall eucalyptus.",
+      "category": "tree",
+      "modelRef": "asset://models/trees/eucalyptus/eucalyptus_01.glb",
+      "tags": ["evergreen"]
+    },
+    {
+      "id": "tree_general",
+      "name": "Generic Tree",
+      "description": "Generic tree fallback.",
+      "category": "tree",
+      "modelRef": "asset://models/trees/general/general_01.glb",
+      "tags": ["fallback"]
+    },
+    {
+      "id": "tree_magic",
+      "name": "Magic Tree",
+      "description": "High-level magic tree.",
+      "category": "tree",
+      "modelRef": "asset://models/trees/magic/magic_01.glb",
+      "tags": ["magic", "rare"]
+    },
+    {
+      "id": "tree_mahogany",
+      "name": "Mahogany",
+      "description": "Rich-grain mahogany.",
+      "category": "tree",
+      "modelRef": "asset://models/trees/mahogany/mahogany_01.glb",
+      "tags": ["deciduous", "tropical"]
+    },
+    {
+      "id": "tree_wood",
+      "name": "Wood Tree",
+      "description": "Generic-purpose wood tree (alias for `tree_general` model bucket).",
+      "category": "tree",
+      "modelRef": "asset://models/trees/wood-tree/wood-tree_01.glb",
+      "tags": ["fallback"]
+    }
+  ],
   "vegetationDensityRules": []
 }
