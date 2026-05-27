@@ -10,7 +10,58 @@
   "license": "GPL-3.0",
   "tags": ["arctic", "snow", "frozen", "mountain", "cold", "content-pack"],
   "assets": [],
-  "biomes": [],
+  "biomes": [
+    {
+      "id": "frozen_tundra",
+      "name": "Frozen Tundra",
+      "color": 14082280,
+      "terrainMultiplier": 0.8,
+      "difficultyLevel": 1,
+      "heightRange": [0.2, 0.6],
+      "maxSlope": 1.2,
+      "resourceDensity": 0.3
+    },
+    {
+      "id": "snow_plain",
+      "name": "Snow Plain",
+      "color": 16054266,
+      "terrainMultiplier": 0.5,
+      "difficultyLevel": 0,
+      "heightRange": [0.1, 0.4],
+      "maxSlope": 0.6,
+      "resourceDensity": 0.2
+    },
+    {
+      "id": "glacial_peak",
+      "name": "Glacial Peak",
+      "color": 11980256,
+      "terrainMultiplier": 1.6,
+      "difficultyLevel": 3,
+      "heightRange": [0.6, 1.0],
+      "maxSlope": 2.5,
+      "resourceDensity": 0.1
+    },
+    {
+      "id": "frozen_lake",
+      "name": "Frozen Lake",
+      "color": 11061464,
+      "terrainMultiplier": 0.3,
+      "difficultyLevel": 1,
+      "heightRange": [0.0, 0.15],
+      "maxSlope": 0.3,
+      "resourceDensity": 0.2
+    },
+    {
+      "id": "ice_field",
+      "name": "Ice Field",
+      "color": 13162728,
+      "terrainMultiplier": 0.7,
+      "difficultyLevel": 2,
+      "heightRange": [0.3, 0.7],
+      "maxSlope": 1.0,
+      "resourceDensity": 0.15
+    }
+  ],
   "terrainShaders": [],
   "terrainHeightmapPresets": [],
   "terrainNoiseFunctions": [],
