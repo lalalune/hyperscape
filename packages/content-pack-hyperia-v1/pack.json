@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "id": "@hyperforge/content-pack-hyperia-v1",
+  "name": "Hyperia",
+  "description": "Canonical fantasy RPG starter. Tundra, forest, and canyon biomes — the default a blank Hyperia project clones unless an alternate theme is picked.",
+  "packVersion": "1.0.0",
+  "author": {
+    "name": "Hyperforge"
+  },
+  "license": "GPL-3.0",
+  "tags": ["hyperia", "fantasy", "rpg", "starter", "content-pack"],
+  "assets": [],
+  "biomes": [
+    {
+      "id": "tundra",
+      "name": "Tundra",
+      "color": 15262944,
+      "terrainMultiplier": 1,
+      "difficultyLevel": 1,
+      "heightRange": [0.3, 0.8],
+      "maxSlope": 1.5,
+      "resourceDensity": 0.4
+    },
+    {
+      "id": "forest",
+      "name": "Forest",
+      "color": 3706428,
+      "terrainMultiplier": 1,
+      "difficultyLevel": 0,
+      "heightRange": [0, 0.5],
+      "maxSlope": 0.8,
+      "resourceDensity": 1.0
+    },
+    {
+      "id": "canyon",
+      "name": "Canyon",
+      "color": 9268835,
+      "terrainMultiplier": 1,
+      "difficultyLevel": 2,
+      "heightRange": [0.2, 1.0],
+      "maxSlope": 2.0,
+      "resourceDensity": 0.6
+    }
+  ],
+  "terrainShaders": [],
+  "terrainHeightmapPresets": [],
+  "terrainNoiseFunctions": [],
+  "waterShaders": [],
+  "waterAnimations": [],
+  "vegetationSpecies": [],
+  "vegetationDensityRules": []
+}

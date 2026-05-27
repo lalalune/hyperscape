@@ -53,6 +53,7 @@
     "@hyperforge/asset-pack-hyperia-trees-v1": "workspace:*",
     "@hyperforge/combat": "workspace:*",
     "@hyperforge/content-pack-arctic-v1": "workspace:*",
+    "@hyperforge/content-pack-hyperia-v1": "workspace:*",
     "@hyperforge/decimation": "workspace:*",
     "@hyperforge/gameplay-framework": "workspace:*",
     "@hyperforge/hyperscape": "workspace:*",

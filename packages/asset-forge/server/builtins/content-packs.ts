@@ -35,12 +35,12 @@
 
 import { Pool } from "pg";
 
-// Phase 3.3 of PLAN_AAA_UE5_PARITY: arctic biomes now live in
-// the separate @hyperforge/content-pack-arctic-v1 package. The
-// import below is the runtime data consumed below in the
-// BUILTIN_CONTENT_PACKS literal; the previous inline
-// ARCTIC_BIOMES constant was deleted as part of the migration.
+// Phase 3.3 of PLAN_AAA_UE5_PARITY: themed biome catalogs now
+// live in their own packages. Each `manifest.biomes` array is
+// the source-of-truth for that pack; the BUILTIN_CONTENT_PACKS
+// literal below consumes them via passthrough.
 import { manifest as arcticContentPackManifest } from "@hyperforge/content-pack-arctic-v1";
+import { manifest as hyperiaContentPackManifest } from "@hyperforge/content-pack-hyperia-v1";
 
 interface BiomeContribution {
   id: string;
@@ -195,38 +195,11 @@ interface BuiltinPack {
 // ────────────────────────────────────────────────────────────
 // Hyperia — the canonical fantasy RPG starter
 // ────────────────────────────────────────────────────────────
-const HYPERIA_BIOMES: ReadonlyArray<BiomeContribution> = [
-  {
-    id: "tundra",
-    name: "Tundra",
-    color: 0xe8e4e0,
-    terrainMultiplier: 1,
-    difficultyLevel: 1,
-    heightRange: [0.3, 0.8],
-    maxSlope: 1.5,
-    resourceDensity: 0.4,
-  },
-  {
-    id: "forest",
-    name: "Forest",
-    color: 0x388e3c,
-    terrainMultiplier: 1,
-    difficultyLevel: 0,
-    heightRange: [0, 0.5],
-    maxSlope: 0.8,
-    resourceDensity: 1.0,
-  },
-  {
-    id: "canyon",
-    name: "Canyon",
-    color: 0x8d6e63,
-    terrainMultiplier: 1,
-    difficultyLevel: 2,
-    heightRange: [0.2, 1.0],
-    maxSlope: 2.0,
-    resourceDensity: 0.6,
-  },
-];
+// Phase 3.3: hyperia biomes now live in @hyperforge/
+// content-pack-hyperia-v1's pack.json. Same passthrough
+// pattern as ARCTIC_BIOMES above.
+const HYPERIA_BIOMES: ReadonlyArray<BiomeContribution> =
+  hyperiaContentPackManifest.biomes;
 
 // ────────────────────────────────────────────────────────────
 // Arctic — frozen / snowy / mountainous
