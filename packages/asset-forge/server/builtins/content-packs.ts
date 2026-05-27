@@ -303,22 +303,13 @@ export const BUILTIN_CONTENT_PACKS: ReadonlyArray<BuiltinPack> = Object.freeze([
     packVersion: "1.0.0",
     biomes: ARCTIC_BIOMES,
     assetPackDeps: ["@hyperforge/asset-pack-hyperia-trees-v1"],
-    terrainHeightmapPreset: {
-      id: "arctic-mountain-range",
-      name: "Arctic mountain range",
-      description:
-        "Larger landmass with taller jagged peaks and smoother glacial coastlines. Higher max elevation = visible mountain ranges; lower edge noise strength = smooth glacier shores.",
-      params: {
-        terrain: { maxHeight: 90, waterThreshold: 14 },
-        island: {
-          enabled: true,
-          maxWorldSizeTiles: 1200,
-          falloffTiles: 6,
-          edgeNoiseScale: 0.004,
-          edgeNoiseStrength: 0.08,
-        },
-      },
-    },
+    // Phase 3.3 follow-up: heightmap preset now lives in
+    // content-pack-arctic-v1's pack.json. The asset-forge inline
+    // BuiltinPack shape uses the singular `terrainHeightmapPreset`
+    // field; the manifest holds an array (schema's plural form);
+    // pull the first (and only) preset back into the singular slot.
+    terrainHeightmapPreset:
+      arcticContentPackManifest.terrainHeightmapPresets[0],
     vegetationByBiome: {
       frozen_tundra: {
         enabled: true,

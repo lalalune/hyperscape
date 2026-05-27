@@ -63,7 +63,23 @@
     }
   ],
   "terrainShaders": [],
-  "terrainHeightmapPresets": [],
+  "terrainHeightmapPresets": [
+    {
+      "id": "arctic-mountain-range",
+      "name": "Arctic mountain range",
+      "description": "Larger landmass with taller jagged peaks and smoother glacial coastlines. Higher max elevation = visible mountain ranges; lower edge noise strength = smooth glacier shores.",
+      "params": {
+        "terrain": { "maxHeight": 90, "waterThreshold": 14 },
+        "island": {
+          "enabled": true,
+          "maxWorldSizeTiles": 1200,
+          "falloffTiles": 6,
+          "edgeNoiseScale": 0.004,
+          "edgeNoiseStrength": 0.08
+        }
+      }
+    }
+  ],
   "terrainNoiseFunctions": [],
   "waterShaders": [],
   "waterAnimations": [],

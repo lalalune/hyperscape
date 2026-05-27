@@ -61,16 +61,28 @@ describe("@hyperforge/content-pack-arctic-v1", () => {
     }
   });
 
-  it("still-empty sections (Phase 3.3 in-progress — terrain/vegetation follow)", () => {
-    // The terrainHeightmapPreset + vegetationByBiome rules use a
-    // different shape than the schema's terrainHeightmapPresets[]
-    // and vegetationDensityRules[] arrays. Mapping them is a
-    // separate cut; until then these stay empty in the manifest
+  it("ships the arctic-mountain-range heightmap preset", () => {
+    // Phase 3.3 follow-up: terrainHeightmapPreset migrated from
+    // asset-forge inline data. Schema uses an array; asset-forge's
+    // existing wrapping path (terrainHeightmapPresets = [preset])
+    // is now a passthrough from manifest.terrainHeightmapPresets[0].
+    expect(manifest.terrainHeightmapPresets).toHaveLength(1);
+    const preset = manifest.terrainHeightmapPresets[0]!;
+    expect(preset.id).toBe("arctic-mountain-range");
+    expect(preset.params.terrain).toEqual({
+      maxHeight: 90,
+      waterThreshold: 14,
+    });
+  });
+
+  it("still-empty sections (vegetation follow-up)", () => {
+    // The vegetationByBiome rules use a different shape than the
+    // schema's vegetationDensityRules[] array. Mapping is a
+    // separate cut; until then this stays empty in the manifest
     // and the asset-forge inline BuiltinPack literal continues to
     // own those concerns.
     expect(manifest.assets).toEqual([]);
     expect(manifest.terrainShaders).toEqual([]);
-    expect(manifest.terrainHeightmapPresets).toEqual([]);
     expect(manifest.terrainNoiseFunctions).toEqual([]);
     expect(manifest.waterShaders).toEqual([]);
     expect(manifest.waterAnimations).toEqual([]);
