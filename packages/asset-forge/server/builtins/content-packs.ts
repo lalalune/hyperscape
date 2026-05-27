@@ -40,7 +40,11 @@ import { Pool } from "pg";
 // the source-of-truth for that pack; the BUILTIN_CONTENT_PACKS
 // literal below consumes them via passthrough.
 import { manifest as arcticContentPackManifest } from "@hyperforge/content-pack-arctic-v1";
+import { manifest as desertContentPackManifest } from "@hyperforge/content-pack-desert-v1";
 import { manifest as hyperiaContentPackManifest } from "@hyperforge/content-pack-hyperia-v1";
+import { manifest as tropicalContentPackManifest } from "@hyperforge/content-pack-tropical-v1";
+import { manifest as volcanicContentPackManifest } from "@hyperforge/content-pack-volcanic-v1";
+import { manifest as wetlandContentPackManifest } from "@hyperforge/content-pack-wetland-v1";
 
 interface BiomeContribution {
   id: string;
@@ -221,226 +225,26 @@ const ARCTIC_BIOMES: ReadonlyArray<BiomeContribution> =
 // ────────────────────────────────────────────────────────────
 // Tropical — beach / jungle / mangrove
 // ────────────────────────────────────────────────────────────
-const TROPICAL_BIOMES: ReadonlyArray<BiomeContribution> = [
-  {
-    id: "tropical_beach",
-    name: "Tropical Beach",
-    color: 0xf5deb3,
-    terrainMultiplier: 0.4,
-    difficultyLevel: 0,
-    heightRange: [0.0, 0.15],
-    maxSlope: 0.4,
-    resourceDensity: 0.5,
-  },
-  {
-    id: "jungle",
-    name: "Jungle",
-    color: 0x1b5e20,
-    terrainMultiplier: 1.1,
-    difficultyLevel: 2,
-    heightRange: [0.15, 0.55],
-    maxSlope: 1.4,
-    resourceDensity: 1.4,
-  },
-  {
-    id: "mangrove",
-    name: "Mangrove",
-    color: 0x4e6b3a,
-    terrainMultiplier: 0.5,
-    difficultyLevel: 1,
-    heightRange: [0.05, 0.25],
-    maxSlope: 0.6,
-    resourceDensity: 0.9,
-  },
-  {
-    id: "palm_grove",
-    name: "Palm Grove",
-    color: 0x66a866,
-    terrainMultiplier: 0.6,
-    difficultyLevel: 0,
-    heightRange: [0.1, 0.35],
-    maxSlope: 0.7,
-    resourceDensity: 1.0,
-  },
-  {
-    id: "lagoon",
-    name: "Lagoon",
-    color: 0x4dd0e1,
-    terrainMultiplier: 0.2,
-    difficultyLevel: 0,
-    heightRange: [0.0, 0.1],
-    maxSlope: 0.2,
-    resourceDensity: 0.6,
-  },
-];
+const TROPICAL_BIOMES: ReadonlyArray<BiomeContribution> =
+  tropicalContentPackManifest.biomes;
 
 // ────────────────────────────────────────────────────────────
 // Desert — sand / mesa / oasis
 // ────────────────────────────────────────────────────────────
-const DESERT_BIOMES: ReadonlyArray<BiomeContribution> = [
-  {
-    id: "sand_dune",
-    name: "Sand Dune",
-    color: 0xeacb8a,
-    terrainMultiplier: 0.9,
-    difficultyLevel: 1,
-    heightRange: [0.1, 0.5],
-    maxSlope: 1.1,
-    resourceDensity: 0.2,
-  },
-  {
-    id: "mesa",
-    name: "Mesa",
-    color: 0xa0522d,
-    terrainMultiplier: 1.4,
-    difficultyLevel: 2,
-    heightRange: [0.5, 0.9],
-    maxSlope: 2.2,
-    resourceDensity: 0.3,
-  },
-  {
-    id: "salt_flat",
-    name: "Salt Flat",
-    color: 0xf2eecb,
-    terrainMultiplier: 0.2,
-    difficultyLevel: 0,
-    heightRange: [0.0, 0.15],
-    maxSlope: 0.2,
-    resourceDensity: 0.1,
-  },
-  {
-    id: "oasis",
-    name: "Oasis",
-    color: 0x4ea66a,
-    terrainMultiplier: 0.5,
-    difficultyLevel: 0,
-    heightRange: [0.05, 0.3],
-    maxSlope: 0.5,
-    resourceDensity: 1.5,
-  },
-  {
-    id: "badlands",
-    name: "Badlands",
-    color: 0x7a3f25,
-    terrainMultiplier: 1.2,
-    difficultyLevel: 3,
-    heightRange: [0.3, 0.7],
-    maxSlope: 1.8,
-    resourceDensity: 0.15,
-  },
-];
+const DESERT_BIOMES: ReadonlyArray<BiomeContribution> =
+  desertContentPackManifest.biomes;
 
 // ────────────────────────────────────────────────────────────
 // Volcanic — lava / ash / basalt
 // ────────────────────────────────────────────────────────────
-const VOLCANIC_BIOMES: ReadonlyArray<BiomeContribution> = [
-  {
-    id: "lava_field",
-    name: "Lava Field",
-    color: 0x4a0e0e,
-    terrainMultiplier: 1.0,
-    difficultyLevel: 4,
-    heightRange: [0.1, 0.4],
-    maxSlope: 1.4,
-    resourceDensity: 0.1,
-  },
-  {
-    id: "ash_plain",
-    name: "Ash Plain",
-    color: 0x3d3a36,
-    terrainMultiplier: 0.6,
-    difficultyLevel: 2,
-    heightRange: [0.05, 0.3],
-    maxSlope: 0.7,
-    resourceDensity: 0.2,
-  },
-  {
-    id: "basalt_peak",
-    name: "Basalt Peak",
-    color: 0x2a2a2e,
-    terrainMultiplier: 1.7,
-    difficultyLevel: 3,
-    heightRange: [0.6, 1.0],
-    maxSlope: 2.6,
-    resourceDensity: 0.4,
-  },
-  {
-    id: "sulfur_pool",
-    name: "Sulfur Pool",
-    color: 0xc8b04a,
-    terrainMultiplier: 0.3,
-    difficultyLevel: 3,
-    heightRange: [0.0, 0.15],
-    maxSlope: 0.4,
-    resourceDensity: 0.25,
-  },
-  {
-    id: "obsidian_flow",
-    name: "Obsidian Flow",
-    color: 0x121214,
-    terrainMultiplier: 0.8,
-    difficultyLevel: 3,
-    heightRange: [0.2, 0.55],
-    maxSlope: 1.2,
-    resourceDensity: 0.5,
-  },
-];
+const VOLCANIC_BIOMES: ReadonlyArray<BiomeContribution> =
+  volcanicContentPackManifest.biomes;
 
 // ────────────────────────────────────────────────────────────
 // Wetland — marsh / swamp / bog / delta
 // ────────────────────────────────────────────────────────────
-const WETLAND_BIOMES: ReadonlyArray<BiomeContribution> = [
-  {
-    id: "marsh",
-    name: "Marsh",
-    color: 0x6b7a3d,
-    terrainMultiplier: 0.4,
-    difficultyLevel: 1,
-    heightRange: [0.05, 0.25],
-    maxSlope: 0.5,
-    resourceDensity: 0.8,
-  },
-  {
-    id: "swamp",
-    name: "Swamp",
-    color: 0x3d5a3a,
-    terrainMultiplier: 0.5,
-    difficultyLevel: 2,
-    heightRange: [0.0, 0.2],
-    maxSlope: 0.5,
-    resourceDensity: 0.9,
-  },
-  {
-    id: "bog",
-    name: "Bog",
-    color: 0x4a3e2a,
-    terrainMultiplier: 0.3,
-    difficultyLevel: 1,
-    heightRange: [0.0, 0.15],
-    maxSlope: 0.3,
-    resourceDensity: 0.6,
-  },
-  {
-    id: "fen",
-    name: "Fen",
-    color: 0x7a8a4a,
-    terrainMultiplier: 0.4,
-    difficultyLevel: 0,
-    heightRange: [0.05, 0.2],
-    maxSlope: 0.4,
-    resourceDensity: 0.85,
-  },
-  {
-    id: "river_delta",
-    name: "River Delta",
-    color: 0x6a8856,
-    terrainMultiplier: 0.4,
-    difficultyLevel: 0,
-    heightRange: [0.0, 0.2],
-    maxSlope: 0.3,
-    resourceDensity: 1.2,
-  },
-];
+const WETLAND_BIOMES: ReadonlyArray<BiomeContribution> =
+  wetlandContentPackManifest.biomes;
 
 // ────────────────────────────────────────────────────────────
 // Pack catalog — exported as a frozen array

@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "id": "@hyperforge/content-pack-wetland-v1",
+  "name": "Wetland",
+  "description": "Marsh / swamp / bog / fen / river-delta biomes. Install for a swampland, marshland, or river-delta theme.",
+  "packVersion": "1.0.0",
+  "author": { "name": "Hyperforge" },
+  "license": "GPL-3.0",
+  "tags": ["wetland", "swamp", "marsh", "bog", "delta", "content-pack"],
+  "assets": [],
+  "biomes": [
+    { "id": "marsh", "name": "Marsh", "color": 7043645, "terrainMultiplier": 0.4, "difficultyLevel": 1, "heightRange": [0.05, 0.25], "maxSlope": 0.5, "resourceDensity": 0.8 },
+    { "id": "swamp", "name": "Swamp", "color": 4020794, "terrainMultiplier": 0.5, "difficultyLevel": 2, "heightRange": [0.0, 0.2], "maxSlope": 0.5, "resourceDensity": 0.9 },
+    { "id": "bog", "name": "Bog", "color": 4865578, "terrainMultiplier": 0.3, "difficultyLevel": 1, "heightRange": [0.0, 0.15], "maxSlope": 0.3, "resourceDensity": 0.6 },
+    { "id": "fen", "name": "Fen", "color": 8030794, "terrainMultiplier": 0.4, "difficultyLevel": 0, "heightRange": [0.05, 0.2], "maxSlope": 0.4, "resourceDensity": 0.85 },
+    { "id": "river_delta", "name": "River Delta", "color": 6981718, "terrainMultiplier": 0.4, "difficultyLevel": 0, "heightRange": [0.0, 0.2], "maxSlope": 0.3, "resourceDensity": 1.2 }
+  ],
+  "terrainShaders": [],
+  "terrainHeightmapPresets": [],
+  "terrainNoiseFunctions": [],
+  "waterShaders": [],
+  "waterAnimations": [],
+  "vegetationSpecies": [],
+  "vegetationDensityRules": []
+}

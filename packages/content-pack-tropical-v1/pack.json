@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "id": "@hyperforge/content-pack-tropical-v1",
+  "name": "Tropical",
+  "description": "Beach / jungle / mangrove / palm-grove / lagoon biomes. Install for an island or tropical-archipelago theme.",
+  "packVersion": "1.0.0",
+  "author": { "name": "Hyperforge" },
+  "license": "GPL-3.0",
+  "tags": ["tropical", "island", "jungle", "beach", "content-pack"],
+  "assets": [],
+  "biomes": [
+    { "id": "tropical_beach", "name": "Tropical Beach", "color": 16113331, "terrainMultiplier": 0.4, "difficultyLevel": 0, "heightRange": [0.0, 0.15], "maxSlope": 0.4, "resourceDensity": 0.5 },
+    { "id": "jungle", "name": "Jungle", "color": 1793568, "terrainMultiplier": 1.1, "difficultyLevel": 2, "heightRange": [0.15, 0.55], "maxSlope": 1.4, "resourceDensity": 1.4 },
+    { "id": "mangrove", "name": "Mangrove", "color": 5139258, "terrainMultiplier": 0.5, "difficultyLevel": 1, "heightRange": [0.05, 0.25], "maxSlope": 0.6, "resourceDensity": 0.9 },
+    { "id": "palm_grove", "name": "Palm Grove", "color": 6727782, "terrainMultiplier": 0.6, "difficultyLevel": 0, "heightRange": [0.1, 0.35], "maxSlope": 0.7, "resourceDensity": 1.0 },
+    { "id": "lagoon", "name": "Lagoon", "color": 5099745, "terrainMultiplier": 0.2, "difficultyLevel": 0, "heightRange": [0.0, 0.1], "maxSlope": 0.2, "resourceDensity": 0.6 }
+  ],
+  "terrainShaders": [],
+  "terrainHeightmapPresets": [],
+  "terrainNoiseFunctions": [],
+  "waterShaders": [],
+  "waterAnimations": [],
+  "vegetationSpecies": [],
+  "vegetationDensityRules": []
+}

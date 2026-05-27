@@ -1,0 +1,40 @@
+{
+  "name": "@hyperforge/content-pack-volcanic-v1",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Volcanic content pack — lava-field / ash-plain / basalt-peak / sulfur-pool / obsidian-flow biomes. Install for a hellscape, volcanic-island, or magma-cavern theme.",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./manifest": {
+      "types": "./dist/manifest.d.ts",
+      "import": "./dist/manifest.js"
+    }
+  },
+  "files": ["dist/", "pack.json"],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+  },
+  "dependencies": {
+    "@hyperforge/manifest-schema": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.6"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "GPL-3.0"
+}

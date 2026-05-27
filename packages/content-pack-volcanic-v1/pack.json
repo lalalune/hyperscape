@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "id": "@hyperforge/content-pack-volcanic-v1",
+  "name": "Volcanic",
+  "description": "Lava-field / ash-plain / basalt-peak / sulfur-pool / obsidian-flow biomes. Install for a hellscape, volcanic-island, or magma-cavern theme.",
+  "packVersion": "1.0.0",
+  "author": { "name": "Hyperforge" },
+  "license": "GPL-3.0",
+  "tags": ["volcanic", "lava", "ash", "basalt", "content-pack"],
+  "assets": [],
+  "biomes": [
+    { "id": "lava_field", "name": "Lava Field", "color": 4853262, "terrainMultiplier": 1.0, "difficultyLevel": 4, "heightRange": [0.1, 0.4], "maxSlope": 1.4, "resourceDensity": 0.1 },
+    { "id": "ash_plain", "name": "Ash Plain", "color": 4012598, "terrainMultiplier": 0.6, "difficultyLevel": 2, "heightRange": [0.05, 0.3], "maxSlope": 0.7, "resourceDensity": 0.2 },
+    { "id": "basalt_peak", "name": "Basalt Peak", "color": 2763310, "terrainMultiplier": 1.7, "difficultyLevel": 3, "heightRange": [0.6, 1.0], "maxSlope": 2.6, "resourceDensity": 0.4 },
+    { "id": "sulfur_pool", "name": "Sulfur Pool", "color": 13152330, "terrainMultiplier": 0.3, "difficultyLevel": 3, "heightRange": [0.0, 0.15], "maxSlope": 0.4, "resourceDensity": 0.25 },
+    { "id": "obsidian_flow", "name": "Obsidian Flow", "color": 1184276, "terrainMultiplier": 0.8, "difficultyLevel": 3, "heightRange": [0.2, 0.55], "maxSlope": 1.2, "resourceDensity": 0.5 }
+  ],
+  "terrainShaders": [],
+  "terrainHeightmapPresets": [],
+  "terrainNoiseFunctions": [],
+  "waterShaders": [],
+  "waterAnimations": [],
+  "vegetationSpecies": [],
+  "vegetationDensityRules": []
+}

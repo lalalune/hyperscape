@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "id": "@hyperforge/content-pack-desert-v1",
+  "name": "Desert",
+  "description": "Sand-dune / mesa / salt-flat / oasis / badlands biomes. Install for an arid or desert-survival theme.",
+  "packVersion": "1.0.0",
+  "author": { "name": "Hyperforge" },
+  "license": "GPL-3.0",
+  "tags": ["desert", "arid", "sand", "mesa", "content-pack"],
+  "assets": [],
+  "biomes": [
+    { "id": "sand_dune", "name": "Sand Dune", "color": 15387530, "terrainMultiplier": 0.9, "difficultyLevel": 1, "heightRange": [0.1, 0.5], "maxSlope": 1.1, "resourceDensity": 0.2 },
+    { "id": "mesa", "name": "Mesa", "color": 10506797, "terrainMultiplier": 1.4, "difficultyLevel": 2, "heightRange": [0.5, 0.9], "maxSlope": 2.2, "resourceDensity": 0.3 },
+    { "id": "salt_flat", "name": "Salt Flat", "color": 15920843, "terrainMultiplier": 0.2, "difficultyLevel": 0, "heightRange": [0.0, 0.15], "maxSlope": 0.2, "resourceDensity": 0.1 },
+    { "id": "oasis", "name": "Oasis", "color": 5154410, "terrainMultiplier": 0.5, "difficultyLevel": 0, "heightRange": [0.05, 0.3], "maxSlope": 0.5, "resourceDensity": 1.5 },
+    { "id": "badlands", "name": "Badlands", "color": 8011557, "terrainMultiplier": 1.2, "difficultyLevel": 3, "heightRange": [0.3, 0.7], "maxSlope": 1.8, "resourceDensity": 0.15 }
+  ],
+  "terrainShaders": [],
+  "terrainHeightmapPresets": [],
+  "terrainNoiseFunctions": [],
+  "waterShaders": [],
+  "waterAnimations": [],
+  "vegetationSpecies": [],
+  "vegetationDensityRules": []
+}
