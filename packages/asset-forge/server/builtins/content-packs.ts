@@ -35,6 +35,13 @@
 
 import { Pool } from "pg";
 
+// Phase 3.3 of PLAN_AAA_UE5_PARITY: arctic biomes now live in
+// the separate @hyperforge/content-pack-arctic-v1 package. The
+// import below is the runtime data consumed below in the
+// BUILTIN_CONTENT_PACKS literal; the previous inline
+// ARCTIC_BIOMES constant was deleted as part of the migration.
+import { manifest as arcticContentPackManifest } from "@hyperforge/content-pack-arctic-v1";
+
 interface BiomeContribution {
   id: string;
   name: string;
@@ -224,58 +231,19 @@ const HYPERIA_BIOMES: ReadonlyArray<BiomeContribution> = [
 // ────────────────────────────────────────────────────────────
 // Arctic — frozen / snowy / mountainous
 // ────────────────────────────────────────────────────────────
-const ARCTIC_BIOMES: ReadonlyArray<BiomeContribution> = [
-  {
-    id: "frozen_tundra",
-    name: "Frozen Tundra",
-    color: 0xd6e0e8,
-    terrainMultiplier: 0.8,
-    difficultyLevel: 1,
-    heightRange: [0.2, 0.6],
-    maxSlope: 1.2,
-    resourceDensity: 0.3,
-  },
-  {
-    id: "snow_plain",
-    name: "Snow Plain",
-    color: 0xf4f7fa,
-    terrainMultiplier: 0.5,
-    difficultyLevel: 0,
-    heightRange: [0.1, 0.4],
-    maxSlope: 0.6,
-    resourceDensity: 0.2,
-  },
-  {
-    id: "glacial_peak",
-    name: "Glacial Peak",
-    color: 0xb6cde0,
-    terrainMultiplier: 1.6,
-    difficultyLevel: 3,
-    heightRange: [0.6, 1.0],
-    maxSlope: 2.5,
-    resourceDensity: 0.1,
-  },
-  {
-    id: "frozen_lake",
-    name: "Frozen Lake",
-    color: 0xa8c8d8,
-    terrainMultiplier: 0.3,
-    difficultyLevel: 1,
-    heightRange: [0.0, 0.15],
-    maxSlope: 0.3,
-    resourceDensity: 0.2,
-  },
-  {
-    id: "ice_field",
-    name: "Ice Field",
-    color: 0xc8d8e8,
-    terrainMultiplier: 0.7,
-    difficultyLevel: 2,
-    heightRange: [0.3, 0.7],
-    maxSlope: 1.0,
-    resourceDensity: 0.15,
-  },
-];
+// Phase 3.3 of PLAN_AAA_UE5_PARITY migrated the arctic biome
+// catalog into @hyperforge/content-pack-arctic-v1's pack.json.
+// Asset-forge's BUILTIN_CONTENT_PACKS literal now consumes the
+// manifest's biomes array directly — the inline ARCTIC_BIOMES
+// constant that used to live here is gone. Future biome adds
+// land in the content pack's pack.json and propagate here
+// automatically on bump.
+//
+// The local `BiomeContribution` interface and the manifest's
+// `BiomeContributionSchema` are structurally identical, so a
+// straight passthrough is type-safe.
+const ARCTIC_BIOMES: ReadonlyArray<BiomeContribution> =
+  arcticContentPackManifest.biomes;
 
 // ────────────────────────────────────────────────────────────
 // Tropical — beach / jungle / mangrove
