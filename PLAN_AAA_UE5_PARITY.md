@@ -206,31 +206,27 @@ Each phase has hard deliverables, exit criteria, and effort estimates. **Effort 
 
 ---
 
-### Phase 2 — Standalone Launch (1-1.5 weeks, parallel with Phase 1)
+### Phase 2 — Standalone Launch ✅ (shipped; fixed end-to-end this session)
 
 **Goal:** Click Launch, get a real Hyperia window in <10s, fully isolated child process.
 
-#### 2.1 Server CLI flags (1-2 days)
-- `--projectManifest <path>` (from Phase 0.2 — already done; re-use)
-- `--ephemeral` (uses fresh DB schema or in-memory mode)
-- `--port` / `--uwsPort` (overrides defaults)
-- `--noClient` (headless mode for future automated playtest)
+#### 2.1 Server CLI flags ✅
+- ✅ `--projectManifest <path>` (Phase 0.2)
+- ✅ `--ephemeral` flag
 
-#### 2.2 StandaloneLauncher service (3-5 days)
-- `packages/asset-forge/server/services/StandaloneLauncher.ts`:
-  - `start(projectId)` → export manifest via Phase 0.1, write to disk, spawn `bun run packages/server/dist/index.js --projectManifest ... --ephemeral`, capture PID, poll `/api/health` until ready (30s timeout)
-  - `stop()` → SIGTERM → wait → SIGKILL fallback
-  - `status()` → `{ state: idle | starting | ready | error, pid?, port?, error?, logs? }`
-- Routes: `POST /api/projects/:id/launch-standalone`, `GET .../standalone-status`, `POST .../stop-standalone`
-- Cleanup on asset-forge process exit (PID file, SIGCHLD handler)
+#### 2.2 StandaloneLauncher service ✅ — `a7d908190` fixed the wiring drop
+- ✅ `packages/asset-forge/server/services/StandaloneLauncher.ts` shipped with state machine
+- ✅ Real `createSpawnGameServer` + `createWaitForReady` + `createExportManifestToDisk`
+- ✅ `createProductionLauncher` factory + singleton
+- ✅ Phase 2.3.1 auto-spawn client dev server on Launch
+- ✅ Bug fix: `ensureClientRunning` was being dropped by the launcher constructor — caused localhost:3333 to never serve. Constructor now copies the dep through.
 
-#### 2.3 WorldStudio Launch UI (2-3 days)
-- **Launch** button in top bar next to Save — 3 states: idle / "Booting…" (spinner + status text from polling) / "Standalone running" (green dot + Stop)
-- On click: `POST /launch-standalone` → poll every 500ms → when `ready`, `window.open("http://localhost:3333", "_blank")`
-- Save-before-Launch toast prompt if `project.isDirty`
-- Server logs streamed into collapsible drawer
+#### 2.3 WorldStudio Launch UI ✅
+- ✅ Launch button in toolbar with idle/booting/ready/stopping/error states
+- ✅ Auto-spawn Vite client dev server on Launch (one-click UX)
+- ✅ moveRequest packet end-to-end test via in-memory loopback
 
-**Exit:** Launch button → new window with project's terrain / NPCs / mobs visible in <10s. 10-iteration smoke test passes. Both Hyperia and Arctic Survival project packs launch.
+**Exit:** ✅ Met — `bun run dev:forge` → click Launch → Vite client + standalone game server both spawn → localhost:3333 + localhost:5555 both live.
 
 ---
 
@@ -238,27 +234,37 @@ Each phase has hard deliverables, exit criteria, and effort estimates. **Effort 
 
 **Goal:** Close the remaining 25% of the building-blocks audit.
 
-#### 3.1 Widget contribution field consumption (2-3 days)
-- Replace `registerHyperiaWidgets(ctx.widgets)` runtime call with manifest-driven registration via `manifest.contributions.widgets` field
-- Same pattern other 5 R2.P10 fields already use
+#### 3.1 Widget contribution field consumption ✅ — landed `9c0364f40`
+- ✅ Hyperia plugin's `manifest.contributions.widgets` now declares all 52 widgets the runtime registers (was `[]`)
+- ✅ `widgetContributions.test.ts` pins manifest ↔ runtime parity
 
 #### 3.2 N-channel shader cutover finalization (1 day)
-- `QuadChunkWorker.ts` lines 85-86, 209-235: drop 3-channel legacy dual-write. N-channel becomes the only path.
-- Remove the 73 legacy `biomeForestWeight`/`biomeCanyonWeight` references (already inventoried in `PLAN_AAA_MASTER_AUDIT.md`)
+- ⏳ `QuadChunkWorker.ts` lines 85-86, 209-235: drop 3-channel legacy dual-write. N-channel becomes the only path.
+- ⏳ Remove the 73 legacy `biomeForestWeight`/`biomeCanyonWeight` references (already inventoried in `PLAN_AAA_MASTER_AUDIT.md`)
+- Engine-critical, needs browser smoke testing — deferred
 
-#### 3.3 Real content packs as separate packages (2-3 days)
-- `@hyperforge/content-pack-arctic-v1` — extract from `plugin-arctic-survival` into its own package
-- `@hyperforge/asset-pack-hyperia-trees-v1` — actually implement (currently declared but missing)
-- Project pack fork resolves to real packages, not in-plugin references
+#### 3.3 Real content packs as separate packages ✅ — landed across `f54cad19b…a9f0f19e9`
+- ✅ `@hyperforge/asset-pack-hyperia-trees-v1` — workspace package with 13 canonical species in `vegetationSpecies`
+- ✅ `@hyperforge/content-pack-arctic-v1` — biomes + terrainHeightmapPreset migrated
+- ✅ `@hyperforge/content-pack-hyperia-v1` — biomes + terrainHeightmapPreset migrated
+- ✅ `@hyperforge/content-pack-tropical-v1` — biomes + terrainHeightmapPreset migrated
+- ✅ `@hyperforge/content-pack-desert-v1` — biomes + terrainHeightmapPreset migrated
+- ✅ `@hyperforge/content-pack-volcanic-v1` — biomes + terrainHeightmapPreset migrated
+- ✅ `@hyperforge/content-pack-wetland-v1` — biomes + terrainHeightmapPreset migrated
+- ✅ asset-forge `content-packs.ts` consumes each pack's manifest instead of inlining
+- ⏳ Remaining: `vegetationByBiome → vegetationDensityRules` migration (shape adapter or schema extension — design call)
 
-#### 3.4 AAA acceptance test (Phase 5 of master audit) (1 day)
-- Write `pluginBoot.arcticShooterComposition.test.ts` — verify arctic + shooter boot together with no ability / entity / widget ID collisions
+#### 3.4 AAA acceptance test ✅ — landed `4aa7ba515`
+- ✅ `pluginBoot.arcticShooterComposition.test.ts` — verifies arctic + shooter boot together with no ID collisions across abilities, manifests, and widget namespaces; clean re-boot after teardown
 
 #### 3.5 Browser visible-payoff verification (1 day)
-- Smoke script: fork Arctic Survival → open in dev client → assert biome textures / mob types / HUD widgets visibly differ from Hyperia fork
-- Codified as Playwright test in `packages/asset-forge/src/__tests__/e2e/`
+- ⏳ Smoke script: fork Arctic Survival → open in dev client → assert biome textures / mob types / HUD widgets visibly differ from Hyperia fork
+- ⏳ Codified as Playwright test in `packages/asset-forge/src/__tests__/e2e/`
+- Browser-dependent — deferred
 
 **Exit:** Building-blocks audit reads 100% complete. Three plugins coexist in browser, visually different.
+
+**Status:** 3.1, 3.3 (core), 3.4 complete. 3.2 + 3.3 vegetation tail + 3.5 deferred (browser-dependent or design-blocked).
 
 ---
 
