@@ -11,8 +11,27 @@ import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import { schema } from "./schema";
 import type { Sql } from "postgres";
 
+function getDatabaseUrl(): string | undefined {
+  if (process.env.DATABASE_URL) {
+    return process.env.DATABASE_URL;
+  }
+
+  const host = process.env.ASSET_FORGE_POSTGRES_HOST;
+  const password = process.env.ASSET_FORGE_POSTGRES_PASSWORD;
+
+  if (!host || !password) {
+    return undefined;
+  }
+
+  const user = process.env.ASSET_FORGE_POSTGRES_USER || "assetforge";
+  const port = process.env.ASSET_FORGE_POSTGRES_PORT || "5432";
+  const database = process.env.ASSET_FORGE_POSTGRES_DB || "assetforge";
+
+  return `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/${database}`;
+}
+
 // Check if database is available
-const DATABASE_URL = process.env.DATABASE_URL;
+const DATABASE_URL = getDatabaseUrl();
 const isDatabaseEnabled = Boolean(DATABASE_URL);
 
 // Create postgres client only if DATABASE_URL is provided

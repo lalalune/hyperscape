@@ -28,14 +28,13 @@ import {
 } from "lucide-react";
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { MeshStandardNodeMaterial } from "three/webgpu";
 
 import { notify } from "@/utils/notify";
 import {
   THREE,
-  createWebGPURenderer,
-  type AssetForgeRenderer,
-} from "@/utils/webgpu-renderer";
+  createPreviewRenderer,
+  type PreviewRenderer,
+} from "@/utils/preview-renderer";
 
 // ============================================================================
 // LOCAL CONFIG (UI-specific, maps to procgen types)
@@ -172,7 +171,7 @@ function uiConfigToProcgenConfig(
 
 export const GrassGenPage: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const rendererRef = useRef<AssetForgeRenderer | null>(null);
+  const rendererRef = useRef<PreviewRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
@@ -191,7 +190,7 @@ export const GrassGenPage: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
 
-  // Initialize scene with WebGPU
+  // Initialize scene with WebGL so the hosted preview works in ordinary browsers.
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -225,7 +224,7 @@ export const GrassGenPage: React.FC = () => {
 
     // Ground plane
     const groundGeometry = new THREE.PlaneGeometry(50, 50);
-    const groundMaterial = new MeshStandardNodeMaterial();
+    const groundMaterial = new THREE.MeshStandardMaterial();
     groundMaterial.color = new THREE.Color(isDarkMode ? 0x2d4a1c : 0x3d5a2c);
     groundMaterial.roughness = 1;
     const ground = new THREE.Mesh(groundGeometry, groundMaterial);
@@ -239,9 +238,8 @@ export const GrassGenPage: React.FC = () => {
     gridHelper.position.y = 0.01;
     scene.add(gridHelper);
 
-    // Async WebGPU renderer initialization
-    const initRenderer = async () => {
-      const renderer = await createWebGPURenderer({
+    const initRenderer = () => {
+      const renderer = createPreviewRenderer({
         antialias: true,
         alpha: true,
       });
@@ -358,6 +356,18 @@ export const GrassGenPage: React.FC = () => {
         seed: Date.now(),
       });
 
+      const fallbackMaterial = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(config.baseColor),
+        roughness: 0.9,
+        side: THREE.DoubleSide,
+      });
+      if (Array.isArray(field.lod0Mesh.material)) {
+        field.lod0Mesh.material.forEach((material) => material.dispose());
+      } else {
+        field.lod0Mesh.material.dispose();
+      }
+      field.lod0Mesh.material = fallbackMaterial;
+
       sceneRef.current.add(field.lod0Mesh);
       grassFieldRef.current = field;
 
@@ -436,7 +446,7 @@ export const GrassGenPage: React.FC = () => {
           {/* Info Box */}
           <div className="bg-bg-tertiary rounded-md p-3 text-xs text-text-secondary">
             <p>
-              <strong>WebGPU Preview:</strong> Uses shared @hyperscape/procgen
+              <strong>WebGL Preview:</strong> Uses shared @hyperscape/procgen
               grass generation for consistency with the game engine.
             </p>
           </div>

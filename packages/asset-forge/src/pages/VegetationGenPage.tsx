@@ -13,7 +13,6 @@
  * This page shares code with the game engine to ensure visual consistency.
  */
 
-import { GrassGen, FlowerGen } from "@hyperscape/procgen";
 import {
   Leaf,
   Flower2,
@@ -29,15 +28,10 @@ import {
   EyeOff,
 } from "lucide-react";
 import React, { useRef, useEffect, useState, useCallback } from "react";
+import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { MeshStandardNodeMaterial } from "three/webgpu";
 
 import { notify } from "@/utils/notify";
-import {
-  THREE,
-  createWebGPURenderer,
-  type AssetForgeRenderer,
-} from "@/utils/webgpu-renderer";
 
 // ============================================================================
 // CONFIGURATION
@@ -144,25 +138,15 @@ function createGrassSystem(
   scene: THREE.Scene,
 ): {
   mesh: THREE.InstancedMesh;
-  uniforms: ReturnType<typeof GrassGen.createGameGrassUniforms>;
+  material: THREE.MeshStandardMaterial;
+  phase: Float32Array;
   dispose: () => void;
 } {
-  const uniforms = GrassGen.createGameGrassUniforms();
-
-  // Update uniforms from config
-  uniforms.uWindStrength.value = config.windStrength;
-  uniforms.uWindSpeed.value = config.windSpeed;
-  uniforms.uDayNightMix.value = config.dayNightMix;
-
-  const baseColor = hexToColor(config.grassBaseColor);
-  const tipColor = hexToColor(config.grassTipColor);
-  uniforms.uBaseColor.value.copy(baseColor);
-  uniforms.uTipColor.value.copy(tipColor);
-
-  // Create grass material using game-accurate shader
-  const { material } = GrassGen.createGameGrassMaterial({ uniforms });
-
-  // Create instanced geometry
+  const material = new THREE.MeshStandardMaterial({
+    color: hexToColor(config.grassTipColor),
+    roughness: 0.9,
+    side: THREE.DoubleSide,
+  });
   const bladeGeometry = new THREE.PlaneGeometry(
     config.grassBladeWidth,
     config.grassBladeHeight,
@@ -182,12 +166,24 @@ function createGrassSystem(
   mesh.frustumCulled = false;
   mesh.name = "GrassPreview";
 
-  // Set up instance matrices (positions will be handled by shader)
   const dummy = new THREE.Object3D();
+  const phase = new Float32Array(instanceCount);
+  const halfTile = config.grassTileSize / 2;
   for (let i = 0; i < instanceCount; i++) {
-    dummy.position.set(0, 0, 0);
+    const x = (i % config.grassDensity) / Math.max(1, config.grassDensity - 1);
+    const z =
+      Math.floor(i / config.grassDensity) /
+      Math.max(1, config.grassDensity - 1);
+    dummy.position.set(
+      x * config.grassTileSize - halfTile,
+      0,
+      z * config.grassTileSize - halfTile,
+    );
+    dummy.rotation.y = pseudoRandom(i) * Math.PI;
+    dummy.scale.y = 0.75 + pseudoRandom(i + 97) * 0.5;
     dummy.updateMatrix();
     mesh.setMatrixAt(i, dummy.matrix);
+    phase[i] = pseudoRandom(i + 193) * Math.PI * 2;
   }
   mesh.instanceMatrix.needsUpdate = true;
 
@@ -195,11 +191,12 @@ function createGrassSystem(
 
   return {
     mesh,
-    uniforms,
+    material,
+    phase,
     dispose: () => {
       scene.remove(mesh);
       mesh.geometry.dispose();
-      (mesh.material as THREE.Material).dispose();
+      material.dispose();
     },
   };
 }
@@ -213,49 +210,56 @@ function createFlowerSystem(
   scene: THREE.Scene,
 ): {
   mesh: THREE.InstancedMesh;
-  uniforms: FlowerGen.FlowerMaterialUniforms;
+  material: THREE.MeshStandardMaterial;
+  phase: Float32Array;
   dispose: () => void;
 } {
-  const patchData = FlowerGen.generateFlowerPatch({
-    flowersPerSide: config.flowerDensity,
-    tileSize: config.flowerTileSize,
-    appearance: {
-      minScale: config.flowerMinScale,
-      maxScale: config.flowerMaxScale,
-      width: 0.5,
-      height: 1.0,
-    },
-    seed: Date.now(),
+  const geometry = new THREE.ConeGeometry(0.08, 0.25, 5);
+  geometry.translate(0, 0.125, 0);
+  const material = new THREE.MeshStandardMaterial({
+    color: 0xff6fb1,
+    roughness: 0.75,
   });
+  const instanceCount = config.flowerDensity * config.flowerDensity;
 
-  const geometry = FlowerGen.createFlowerGeometry();
-  const instancedGeometry = FlowerGen.attachFlowerInstanceAttributes(
-    geometry,
-    patchData,
-  );
-
-  const { material, uniforms } = FlowerGen.createFlowerMaterial({
-    proceduralColors: true,
-  });
-
-  const mesh = new THREE.InstancedMesh(
-    instancedGeometry,
-    material,
-    patchData.count,
-  );
+  const mesh = new THREE.InstancedMesh(geometry, material, instanceCount);
   mesh.frustumCulled = false;
   mesh.name = "FlowerPreview";
-  mesh.position.y = 0.1; // Slightly above ground
+
+  const dummy = new THREE.Object3D();
+  const phase = new Float32Array(instanceCount);
+  const halfTile = config.flowerTileSize / 2;
+  for (let i = 0; i < instanceCount; i++) {
+    const x = (i % config.flowerDensity) / Math.max(1, config.flowerDensity - 1);
+    const z =
+      Math.floor(i / config.flowerDensity) /
+      Math.max(1, config.flowerDensity - 1);
+    const scale =
+      config.flowerMinScale +
+      pseudoRandom(i + 311) * (config.flowerMaxScale - config.flowerMinScale);
+    dummy.position.set(
+      x * config.flowerTileSize - halfTile,
+      0.03,
+      z * config.flowerTileSize - halfTile,
+    );
+    dummy.rotation.y = pseudoRandom(i + 509) * Math.PI * 2;
+    dummy.scale.setScalar(scale);
+    dummy.updateMatrix();
+    mesh.setMatrixAt(i, dummy.matrix);
+    phase[i] = pseudoRandom(i + 727) * Math.PI * 2;
+  }
+  mesh.instanceMatrix.needsUpdate = true;
 
   scene.add(mesh);
 
   return {
     mesh,
-    uniforms,
+    material,
+    phase,
     dispose: () => {
       scene.remove(mesh);
       mesh.geometry.dispose();
-      (mesh.material as THREE.Material).dispose();
+      material.dispose();
     },
   };
 }
@@ -268,13 +272,44 @@ function hexToColor(hex: string): THREE.Color {
   return new THREE.Color(hex);
 }
 
+function pseudoRandom(seed: number): number {
+  const x = Math.sin(seed * 12.9898) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+function animateWind(
+  system:
+    | {
+        mesh: THREE.InstancedMesh;
+        phase: Float32Array;
+      }
+    | null,
+  elapsed: number,
+  config: VegetationConfig,
+): void {
+  if (!system || config.windStrength <= 0) return;
+
+  const dummy = new THREE.Object3D();
+  for (let i = 0; i < system.mesh.count; i++) {
+    system.mesh.getMatrixAt(i, dummy.matrix);
+    dummy.matrix.decompose(dummy.position, dummy.quaternion, dummy.scale);
+    const sway =
+      Math.sin(elapsed * config.windSpeed * 6 + system.phase[i]) *
+      config.windStrength;
+    dummy.rotation.set(sway, dummy.rotation.y, sway * 0.35);
+    dummy.updateMatrix();
+    system.mesh.setMatrixAt(i, dummy.matrix);
+  }
+  system.mesh.instanceMatrix.needsUpdate = true;
+}
+
 // ============================================================================
 // COMPONENT
 // ============================================================================
 
 export const VegetationGenPage: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const rendererRef = useRef<AssetForgeRenderer | null>(null);
+  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
@@ -291,6 +326,7 @@ export const VegetationGenPage: React.FC = () => {
   const generateRef = useRef<(() => void) | null>(null);
 
   const [config, setConfig] = useState<VegetationConfig>(DEFAULT_CONFIG);
+  const configRef = useRef(config);
   const [selectedBiome, setSelectedBiome] = useState<string>("plains");
   const [stats, setStats] = useState<{
     grassBlades: number;
@@ -299,6 +335,10 @@ export const VegetationGenPage: React.FC = () => {
   } | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
+
+  useEffect(() => {
+    configRef.current = config;
+  }, [config]);
 
   // Initialize scene with WebGPU
   useEffect(() => {
@@ -333,9 +373,10 @@ export const VegetationGenPage: React.FC = () => {
 
     // Ground plane
     const groundGeometry = new THREE.PlaneGeometry(100, 100);
-    const groundMaterial = new MeshStandardNodeMaterial();
-    groundMaterial.color = new THREE.Color(isDarkMode ? 0x2d4a1c : 0x3d5a2c);
-    groundMaterial.roughness = 1;
+    const groundMaterial = new THREE.MeshStandardMaterial({
+      color: isDarkMode ? 0x2d4a1c : 0x3d5a2c,
+      roughness: 1,
+    });
     const ground = new THREE.Mesh(groundGeometry, groundMaterial);
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = -0.01;
@@ -346,20 +387,15 @@ export const VegetationGenPage: React.FC = () => {
     gridHelper.position.y = 0.005;
     scene.add(gridHelper);
 
-    // Async WebGPU renderer initialization
-    const initRenderer = async () => {
-      const renderer = await createWebGPURenderer({
+    const initRenderer = () => {
+      const renderer = new THREE.WebGLRenderer({
         antialias: true,
         alpha: true,
       });
 
-      if (!mounted) {
-        renderer.dispose();
-        return;
-      }
-
       renderer.setSize(width, height);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
       container.appendChild(renderer.domElement);
       rendererRef.current = renderer;
 
@@ -384,13 +420,9 @@ export const VegetationGenPage: React.FC = () => {
 
         const delta = clockRef.current.getDelta();
 
-        // Update flower animation
-        if (flowerSystemRef.current) {
-          FlowerGen.updateFlowerTime(
-            flowerSystemRef.current.uniforms,
-            clockRef.current.getElapsedTime(),
-          );
-        }
+        const elapsed = clockRef.current.getElapsedTime();
+        animateWind(grassSystemRef.current, elapsed, configRef.current);
+        animateWind(flowerSystemRef.current, elapsed, configRef.current);
 
         controls.update();
         renderer.render(scene, camera);
@@ -498,17 +530,9 @@ export const VegetationGenPage: React.FC = () => {
   // Update uniforms when config changes (without regenerating)
   useEffect(() => {
     if (grassSystemRef.current) {
-      const u = grassSystemRef.current.uniforms;
-      u.uWindStrength.value = config.windStrength;
-      u.uWindSpeed.value = config.windSpeed;
-      u.uDayNightMix.value = config.dayNightMix;
-      u.uBaseColor.value.set(config.grassBaseColor);
-      u.uTipColor.value.set(config.grassTipColor);
+      grassSystemRef.current.material.color.set(config.grassTipColor);
     }
   }, [
-    config.windStrength,
-    config.windSpeed,
-    config.dayNightMix,
     config.grassBaseColor,
     config.grassTipColor,
   ]);

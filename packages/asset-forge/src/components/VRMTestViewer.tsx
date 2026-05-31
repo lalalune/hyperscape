@@ -10,10 +10,8 @@ import styled from "styled-components";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { WebGPURenderer } from "three/webgpu";
 
 import { retargetAnimation } from "../services/retargeting/AnimationRetargeting";
-import { createWebGPURenderer } from "../utils/webgpu-renderer";
 
 const Container = styled.div`
   width: 100%;
@@ -152,7 +150,7 @@ export const VRMTestViewer: React.FC<VRMTestViewerProps> = ({ vrmUrl }) => {
   const cdnUrl =
     import.meta.env.VITE_CDN_URL ||
     import.meta.env.PUBLIC_CDN_URL ||
-    "http://localhost:8080";
+    "https://hyperscape.flobots.xyz/game-assets";
   const animations = {
     idle: `${cdnUrl}/emotes/emote-idle.glb`,
     walk: `${cdnUrl}/emotes/emote-walk.glb`,
@@ -185,9 +183,14 @@ export const VRMTestViewer: React.FC<VRMTestViewerProps> = ({ vrmUrl }) => {
     controls.target.set(0, 1, 0);
     controls.update();
 
-    // WebGPU Renderer (initialized asynchronously)
-    let renderer: WebGPURenderer | null = null;
-    let rendererReady = false;
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: true,
+      alpha: true,
+    });
+    renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     // Lighting
     const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
@@ -200,25 +203,6 @@ export const VRMTestViewer: React.FC<VRMTestViewerProps> = ({ vrmUrl }) => {
     // Ground plane
     const gridHelper = new THREE.GridHelper(10, 10);
     scene.add(gridHelper);
-
-    // Initialize WebGPU renderer
-    const initRenderer = async () => {
-      renderer = await createWebGPURenderer({
-        canvas,
-        antialias: true,
-      });
-
-      if (!mounted) {
-        renderer.dispose();
-        return;
-      }
-
-      renderer.setSize(canvas.clientWidth, canvas.clientHeight);
-      renderer.setPixelRatio(window.devicePixelRatio);
-      rendererReady = true;
-    };
-
-    initRenderer();
 
     // Load VRM
     const loader = new GLTFLoader();
@@ -653,7 +637,7 @@ export const VRMTestViewer: React.FC<VRMTestViewerProps> = ({ vrmUrl }) => {
       }
 
       controls.update();
-      if (rendererReady && renderer) {
+      if (mounted) {
         renderer.render(scene, camera);
       }
     };
@@ -663,9 +647,7 @@ export const VRMTestViewer: React.FC<VRMTestViewerProps> = ({ vrmUrl }) => {
     const handleResize = () => {
       camera.aspect = canvas.clientWidth / canvas.clientHeight;
       camera.updateProjectionMatrix();
-      if (renderer) {
-        renderer.setSize(canvas.clientWidth, canvas.clientHeight);
-      }
+      renderer.setSize(canvas.clientWidth, canvas.clientHeight);
     };
     window.addEventListener("resize", handleResize);
 
@@ -674,9 +656,7 @@ export const VRMTestViewer: React.FC<VRMTestViewerProps> = ({ vrmUrl }) => {
       mounted = false;
       window.removeEventListener("resize", handleResize);
       cancelAnimationFrame(animationId);
-      if (renderer) {
-        renderer.dispose();
-      }
+      renderer.dispose();
       scene.traverse((obj) => {
         if (obj instanceof THREE.Mesh) {
           obj.geometry.dispose();

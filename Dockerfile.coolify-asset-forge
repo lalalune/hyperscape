@@ -108,4 +108,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=5 \
     CMD curl -fsS http://localhost:${ASSET_FORGE_API_PORT:-3401}/api/health >/dev/null || exit 1
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["bun", "server/api-elysia.ts"]
+CMD ["sh", "-lc", "bun server/db/migrate.ts && exec bun server/api-elysia.ts"]

@@ -34,6 +34,7 @@ import Fastify, {
 } from "fastify";
 import fs from "fs-extra";
 import path from "path";
+import { Readable } from "stream";
 import type { ServerConfig } from "./config.js";
 import {
   getDefaultElizaOsApiUrl,
@@ -536,6 +537,8 @@ async function registerStaticFiles(
   });
   console.log(`[HTTP] ✅ Registered /live/ → ${hlsDir}`);
 
+  registerConjureAssetProxyRoute(fastify);
+
   // Check if client assets exist in public/assets (built frontend)
   // If they do, we DON'T want to register /assets/ for world assets as it would conflict
   const hasClientAssets = await fs.pathExists(publicInfo.assetsPath);
@@ -787,6 +790,67 @@ function setAssetHeaders(
   // browser) can fetch assets served from :5555 without triggering CORP blocks.
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+}
+
+function registerConjureAssetProxyRoute(fastify: FastifyInstance): void {
+  const bucket = process.env.S3_BUCKET_CONJURES || "hyperscape-conjures";
+  const endpoint = (
+    process.env.CONJURE_STORAGE_ENDPOINT ||
+    process.env.S3_ENDPOINT ||
+    "http://minio:9000"
+  ).replace(/\/+$/, "");
+
+  const proxy = async (request: FastifyRequest, reply: FastifyReply) => {
+    const params = request.params as { "*": string };
+    const key = params["*"] || "";
+    const parts = key.split("/").filter(Boolean);
+
+    if (!parts.length || parts.some((part) => part === "..")) {
+      return reply.code(400).send({ error: "Invalid conjure asset path" });
+    }
+
+    const encodedKey = parts.map((part) => encodeURIComponent(part)).join("/");
+    const upstreamUrl = `${endpoint}/${encodeURIComponent(bucket)}/${encodedKey}`;
+    const headers: Record<string, string> = {};
+    if (request.headers.range) {
+      headers.Range = request.headers.range;
+    }
+
+    const response = await fetch(upstreamUrl, {
+      method: request.method === "HEAD" ? "HEAD" : "GET",
+      headers,
+    });
+
+    reply.code(response.status);
+    for (const header of [
+      "accept-ranges",
+      "cache-control",
+      "content-length",
+      "content-range",
+      "content-type",
+      "etag",
+      "last-modified",
+    ]) {
+      const value = response.headers.get(header);
+      if (value) reply.header(header, value);
+    }
+    reply.header("Access-Control-Allow-Origin", "*");
+    reply.header("Cross-Origin-Resource-Policy", "cross-origin");
+
+    if (request.method === "HEAD") {
+      return reply.send();
+    }
+    if (!response.body) {
+      return reply.send();
+    }
+
+    return reply.send(Readable.fromWeb(response.body));
+  };
+
+  fastify.get("/conjure-assets/*", proxy);
+  console.log(
+    `[HTTP] ✅ Registered /conjure-assets/ proxy → ${endpoint}/${bucket}`,
+  );
 }
 
 /**

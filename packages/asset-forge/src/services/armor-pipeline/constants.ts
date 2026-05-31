@@ -1,12 +1,21 @@
 import type { EquipmentSlotName, BulkClass, AttachmentSlotDef } from "./types";
 
-/** Available VRM avatars (served from /game-assets/avatars/) */
+/** Available VRM avatars.
+ * Use Asset Forge asset URLs here because the Hyperscape /game-assets avatar
+ * files can be Git LFS pointers in deploy artifacts.
+ */
 export const AVATAR_OPTIONS: { label: string; url: string }[] = [
-  { label: "Male 01", url: "/game-assets/avatars/avatar-male-01.vrm" },
-  { label: "Male 02", url: "/game-assets/avatars/avatar-male-02.vrm" },
-  { label: "Female 01", url: "/game-assets/avatars/avatar-female-01.vrm" },
-  { label: "Female 02", url: "/game-assets/avatars/avatar-female-02.vrm" },
-  { label: "Steve", url: "/game-assets/avatars/steve.vrm" },
+  {
+    label: "Avatar Sample Blue",
+    url: "/api/assets/avatarsample-dblue/avatarsample-dblue.vrm",
+  },
+  { label: "Red Peach", url: "/api/assets/redpeach/redpeach.vrm" },
+  { label: "Goldie", url: "/api/assets/goldie/goldie.vrm" },
+  { label: "Zelda", url: "/api/assets/zelda/zelda.vrm" },
+  {
+    label: "Avatar Sample EN",
+    url: "/api/assets/avatarsample-en/avatarsample-en.vrm",
+  },
 ];
 
 export const ALL_SLOTS: EquipmentSlotName[] = [

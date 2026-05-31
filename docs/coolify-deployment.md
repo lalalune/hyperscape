@@ -117,3 +117,25 @@ CONJURE_STORAGE_PREFIX=conjures
 self-hosted options are Caddy or nginx in front of MinIO, or Cloudflare proxying
 that asset domain. Without a public base URL, Asset Forge leaves object storage
 disabled and the caller should keep using its existing asset URL path.
+
+## Asset Forge Production Notes
+
+Asset Forge is deployed as its own Coolify app at the Asset Forge domain. Keep
+its browser API same-origin:
+
+```env
+VITE_GENERATION_API_URL=/api
+```
+
+Do not point hosted Asset Forge previews at Hyperscape `/game-assets` unless the
+file is known to be a real GLB/VRM in the deployed server image. Some old
+avatar paths are Git LFS pointer files in production. Default preview avatars
+and generated models should resolve through Asset Forge `/api/assets/...`, a
+configured object-storage public URL, or a verified Hyperscape
+`/game-assets/...` runtime asset.
+
+Editor previews for vegetation, plants, rocks, grass, flowers, terrain,
+retargeting, and armor fitting should use WebGL-safe preview renderers. WebGPU
+and TSL materials are still valid for Hyperscape runtime systems and offline
+bakers, but a hosted editor route should not crash when `navigator.gpu` is
+missing or blocked by the browser/GPU policy.

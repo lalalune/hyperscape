@@ -1,7 +1,7 @@
 /**
  * TerrainPreview - Real-time terrain visualization using @hyperscape/procgen
  *
- * Uses WebGPU renderer for TSL/node materials compatibility.
+ * Uses a WebGL preview renderer for production browser compatibility.
  */
 
 import { TerrainGen, BuildingGen } from "@hyperscape/procgen";
@@ -13,13 +13,12 @@ import React, {
   useMemo,
 } from "react";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { MeshStandardNodeMaterial, MeshBasicNodeMaterial } from "three/webgpu";
 
 import {
   THREE,
-  createWebGPURenderer,
-  type AssetForgeRenderer,
-} from "@/utils/webgpu-renderer";
+  createPreviewRenderer,
+  type PreviewRenderer,
+} from "@/utils/preview-renderer";
 
 export interface TerrainPreviewConfig {
   seed: number;
@@ -211,7 +210,7 @@ export const TerrainPreview: React.FC<TerrainPreviewProps> = ({
   className = "",
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const rendererRef = useRef<AssetForgeRenderer | null>(null);
+  const rendererRef = useRef<PreviewRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
@@ -231,7 +230,7 @@ export const TerrainPreview: React.FC<TerrainPreviewProps> = ({
     [configOverrides],
   );
 
-  // Initialize Three.js scene with WebGPU
+  // Initialize Three.js scene with WebGL.
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -265,9 +264,8 @@ export const TerrainPreview: React.FC<TerrainPreviewProps> = ({
     scene.add(directionalLight);
     directionalLightRef.current = directionalLight;
 
-    // Async WebGPU initialization
-    const initRenderer = async () => {
-      const renderer = await createWebGPURenderer({
+    const initRenderer = () => {
+      const renderer = createPreviewRenderer({
         antialias: true,
         alpha: true,
       });
@@ -457,7 +455,7 @@ export const TerrainPreview: React.FC<TerrainPreviewProps> = ({
     geometry.computeVertexNormals();
 
     // Create material
-    const material = new MeshStandardNodeMaterial();
+    const material = new THREE.MeshStandardMaterial();
     material.vertexColors = true;
     material.flatShading = false;
     material.wireframe = config.wireframe;
@@ -475,7 +473,7 @@ export const TerrainPreview: React.FC<TerrainPreviewProps> = ({
         worldSizeMeters,
       );
       waterGeom.rotateX(-Math.PI / 2);
-      const waterMat = new MeshStandardNodeMaterial();
+      const waterMat = new THREE.MeshStandardMaterial();
       waterMat.color = new THREE.Color(0x4a90d9);
       waterMat.transparent = true;
       waterMat.opacity = 0.6;
@@ -523,7 +521,7 @@ export const TerrainPreview: React.FC<TerrainPreviewProps> = ({
         const { x, y, z } = town.position;
 
         // Cone marker
-        const markerMat = new MeshBasicNodeMaterial();
+        const markerMat = new THREE.MeshBasicMaterial();
         markerMat.color = new THREE.Color(color);
         const marker = new THREE.Mesh(
           new THREE.ConeGeometry(10, 30, 8),
@@ -534,7 +532,7 @@ export const TerrainPreview: React.FC<TerrainPreviewProps> = ({
         townMarkersRef.current.add(marker);
 
         // Safe zone ring
-        const ringMat = new MeshBasicNodeMaterial();
+        const ringMat = new THREE.MeshBasicMaterial();
         ringMat.color = new THREE.Color(color);
         ringMat.side = THREE.DoubleSide;
         ringMat.transparent = true;
@@ -565,7 +563,7 @@ export const TerrainPreview: React.FC<TerrainPreviewProps> = ({
       }
 
       const grassGeometry = createGrassGeometry();
-      const grassMaterial = new MeshStandardNodeMaterial();
+      const grassMaterial = new THREE.MeshStandardMaterial();
       grassMaterial.color = new THREE.Color(0x4d8c26); // Match terrain grass green
       grassMaterial.side = THREE.DoubleSide;
 
