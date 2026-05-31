@@ -22,6 +22,7 @@ import type { ModelProviderConfig } from "./ModelAgentSpawner.js";
 
 /** Default cheap/fast models for TEXT_SMALL per provider */
 export const DEFAULT_SMALL_MODELS: Record<string, string> = {
+  hyades: "nemotron3-omni",
   openai: "gpt-5-nano",
   anthropic: "claude-haiku-4-5-20251001",
   groq: "qwen/qwen3-32b",
@@ -64,6 +65,11 @@ export const MODEL_SETTING_KEYS: Record<
     small: "ELIZAOS_CLOUD_SMALL_MODEL",
     large: "ELIZAOS_CLOUD_LARGE_MODEL",
     apiKey: "ELIZAOS_CLOUD_API_KEY",
+  },
+  hyades: {
+    small: "OPENAI_SMALL_MODEL",
+    large: "OPENAI_LARGE_MODEL",
+    apiKey: "OPENAI_API_KEY",
   },
 };
 
@@ -195,23 +201,47 @@ export function buildModelSecrets(
   smallModel?: string,
 ): Record<string, string> {
   const small =
-    smallModel || DEFAULT_SMALL_MODELS[config.provider] || "gpt-5-nano";
+    smallModel ||
+    (config.provider === "hyades"
+      ? process.env.HYADES_LLM_SMALL_MODEL?.trim()
+      : undefined) ||
+    DEFAULT_SMALL_MODELS[config.provider] ||
+    "gpt-5-nano";
   const keys = MODEL_SETTING_KEYS[config.provider];
-
-  return {
+  const providerKey = process.env[config.apiKeyEnv] || "";
+  const secrets: Record<string, string> = {
     // Pass the provider's API key
-    [config.apiKeyEnv]: process.env[config.apiKeyEnv] || "",
+    [config.apiKeyEnv]: providerKey,
     // Generic model overrides
     SMALL_MODEL: small,
     LARGE_MODEL: config.model,
-    // Provider-specific overrides
-    ...(keys
-      ? {
-          [keys.small]: small,
-          [keys.large]: config.model,
-        }
-      : {}),
   };
+
+  if (keys) {
+    secrets[keys.small] = small;
+    secrets[keys.large] = config.model;
+  }
+
+  if (config.provider === "hyades") {
+    const explicitEndpoint = process.env.HYADES_LLM_ENDPOINT?.trim();
+    const runtimeUrl = process.env.HYADES_RUNTIME_URL?.trim();
+    const baseUrl =
+      explicitEndpoint ||
+      (runtimeUrl
+        ? runtimeUrl.replace(/\/+$/, "").endsWith("/v1")
+          ? runtimeUrl.replace(/\/+$/, "")
+          : `${runtimeUrl.replace(/\/+$/, "")}/v1`
+        : undefined);
+
+    secrets.OPENAI_API_KEY = providerKey;
+    secrets.OPENAI_SMALL_MODEL = small;
+    secrets.OPENAI_LARGE_MODEL = config.model;
+    if (baseUrl) {
+      secrets.OPENAI_BASE_URL = baseUrl;
+    }
+  }
+
+  return secrets;
 }
 
 /**
@@ -251,6 +281,9 @@ export function createAgentCharacter(
 
   const modelSecrets = buildModelSecrets(config, overrides.smallModel);
 
+  const characterModelProvider =
+    config.provider === "hyades" ? "openai" : config.provider;
+
   const character: Character = {
     id: stringToUuid(agentId),
     name: overrides.name || config.displayName,
@@ -263,7 +296,7 @@ export function createAgentCharacter(
     topics: ["combat strategy", "PvP tactics", "duel techniques"],
     adjectives: ["competitive", "ruthless", "strategic", "adaptive"],
     // @ts-ignore - modelProvider not in core Character type yet
-    modelProvider: config.provider,
+    modelProvider: characterModelProvider,
     settings: {
       model: config.model,
       secrets: {

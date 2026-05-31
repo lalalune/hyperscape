@@ -42,18 +42,26 @@ function getBunRuntime(): BunRuntime | undefined {
   return (globalThis as typeof globalThis & { Bun?: BunRuntime }).Bun;
 }
 
+export type ModelProviderName =
+  | "hyades"
+  | "openai"
+  | "anthropic"
+  | "groq"
+  | "xai"
+  | "openrouter"
+  | "elizacloud";
+
+function optionalEnv(name: string): string | undefined {
+  const value = process.env[name]?.trim();
+  return value && value.length > 0 ? value : undefined;
+}
+
 /**
  * Model provider configuration
  */
 export interface ModelProviderConfig {
-  /** Provider name (openai, anthropic, groq, xai, elizacloud) */
-  provider:
-    | "openai"
-    | "anthropic"
-    | "groq"
-    | "xai"
-    | "openrouter"
-    | "elizacloud";
+  /** Provider name (hyades, openai, anthropic, groq, xai, openrouter, elizacloud) */
+  provider: ModelProviderName;
   /** Specific model to use */
   model: string;
   /** Display name for the agent */
@@ -71,6 +79,14 @@ export interface ModelProviderConfig {
  */
 export const MODEL_AGENTS: ModelProviderConfig[] = [
   // Interleaved so slice(0, N) always gets a mix of providers
+  {
+    provider: "hyades",
+    model: optionalEnv("HYADES_LLM_MODEL") || "nemotron3-omni",
+    displayName: "Hyades Nemotron",
+    apiKeyEnv: "HYADES_LLM_API_KEY",
+    pluginModule: "@elizaos/plugin-openai",
+    pluginExport: "openaiPlugin",
+  },
   {
     provider: "anthropic",
     model: "claude-sonnet-4-6",
@@ -246,9 +262,7 @@ export async function spawnModelAgents(
     /** Maximum number of agents to spawn */
     maxAgents?: number;
     /** Specific providers to spawn (if empty, spawns all available) */
-    providers?: Array<
-      "openai" | "anthropic" | "groq" | "xai" | "openrouter" | "elizacloud"
-    >;
+    providers?: ModelProviderName[];
   } = {},
 ): Promise<number> {
   const { maxAgents = 10, providers = [] } = options;

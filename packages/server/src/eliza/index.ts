@@ -74,6 +74,7 @@ export {
 import type { World } from "@hyperscape/shared";
 import { AgentManager, setAgentManager } from "./AgentManager.js";
 import { spawnModelAgents, getAvailableModels } from "./ModelAgentSpawner.js";
+import type { ModelProviderName } from "./ModelAgentSpawner.js";
 
 /**
  * Server configuration type (partial, for what we need)
@@ -84,10 +85,33 @@ interface ServerConfig {
   spawnModelAgents?: boolean;
   /** Maximum number of model agents to spawn */
   maxModelAgents?: number;
-  /** Specific providers to spawn (openai, anthropic, groq, xai, elizacloud) */
-  modelProviders?: Array<
-    "openai" | "anthropic" | "groq" | "xai" | "openrouter" | "elizacloud"
-  >;
+  /** Specific providers to spawn (hyades, openai, anthropic, groq, xai, openrouter, elizacloud) */
+  modelProviders?: ModelProviderName[];
+}
+
+const MODEL_PROVIDER_NAMES = new Set<ModelProviderName>([
+  "hyades",
+  "openai",
+  "anthropic",
+  "groq",
+  "xai",
+  "openrouter",
+  "elizacloud",
+]);
+
+function parseModelProvidersEnv(): ModelProviderName[] | undefined {
+  const raw =
+    process.env.MODEL_AGENT_PROVIDERS || process.env.MODEL_AGENT_PROVIDER;
+  if (!raw?.trim()) return undefined;
+
+  const providers = raw
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter((value): value is ModelProviderName =>
+      MODEL_PROVIDER_NAMES.has(value as ModelProviderName),
+    );
+
+  return providers.length > 0 ? providers : undefined;
 }
 
 /**
@@ -141,10 +165,11 @@ export async function initializeAgents(
       const maxAgents =
         config?.maxModelAgents ??
         parseInt(process.env.MAX_MODEL_AGENTS || "25", 10);
+      const modelProviders = config?.modelProviders ?? parseModelProvidersEnv();
 
       await spawnModelAgents(world, {
         maxAgents,
-        providers: config?.modelProviders,
+        providers: modelProviders,
       });
     }
   }
