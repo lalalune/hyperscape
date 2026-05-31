@@ -1,0 +1,1795 @@
+[
+  {
+    "id": "goblin",
+    "name": "Goblin",
+    "description": "A weak goblin creature, perfect for beginners",
+    "category": "mob",
+    "faction": "monster",
+    "levelRange": [
+      1,
+      2
+    ],
+    "stats": {
+      "level": 2,
+      "health": 5,
+      "attack": 1,
+      "strength": 1,
+      "defense": 1,
+      "defenseBonus": 0,
+      "ranged": 1,
+      "magic": 1
+    },
+    "combat": {
+      "attackable": true,
+      "aggressive": false,
+      "retaliates": true,
+      "aggroRange": 4,
+      "combatRange": 1,
+      "leashRange": 7,
+      "attackSpeedTicks": 4,
+      "respawnTicks": 35
+    },
+    "movement": {
+      "type": "wander",
+      "speed": 3.33,
+      "wanderRadius": 5
+    },
+    "drops": {
+      "defaultDrop": {
+        "enabled": true,
+        "itemId": "bones",
+        "quantity": 1
+      },
+      "always": [],
+      "common": [
+        {
+          "itemId": "coins",
+          "minQuantity": 3,
+          "maxQuantity": 12,
+          "chance": 1.0,
+          "rarity": "common"
+        }
+      ],
+      "uncommon": [
+        {
+          "itemId": "bronze_shortsword",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.1,
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "bronze_dagger",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.1,
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "bronze_longsword",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.08,
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "bronze_full_helm",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.08,
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "bronze_platelegs",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.05,
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "bronze_kiteshield",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.06,
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "leather_boots",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.08,
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "leather_gloves",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.08,
+          "rarity": "uncommon"
+        }
+      ],
+      "rare": [
+        {
+          "itemId": "cape",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.02,
+          "rarity": "rare"
+        },
+        {
+          "itemId": "gold_ring",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.015,
+          "rarity": "rare"
+        },
+        {
+          "itemId": "uncut_sapphire",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.02,
+          "rarity": "rare"
+        }
+      ],
+      "veryRare": [
+        {
+          "itemId": "uncut_emerald",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.005,
+          "rarity": "very_rare"
+        }
+      ]
+    },
+    "appearance": {
+      "modelPath": "asset://models/mobs/goblin/goblin.vrm",
+      "iconPath": "asset://icons/npcs/goblin.png",
+      "scale": 0.75
+    },
+    "spawnBiomes": [
+      "forest",
+      "plains"
+    ]
+  },
+  {
+    "id": "bank_clerk",
+    "name": "Bank Clerk",
+    "description": "A helpful bank clerk who manages deposits and withdrawals",
+    "category": "neutral",
+    "faction": "town",
+    "combat": {
+      "attackable": false
+    },
+    "movement": {
+      "type": "stationary",
+      "speed": 0,
+      "wanderRadius": 0
+    },
+    "services": {
+      "enabled": true,
+      "types": [
+        "bank"
+      ]
+    },
+    "dialogue": {
+      "entryNodeId": "greeting",
+      "nodes": [
+        {
+          "id": "greeting",
+          "text": "Welcome to the bank! How may I help you today?",
+          "responses": [
+            {
+              "text": "I'd like to access my bank.",
+              "nextNodeId": "open_bank",
+              "effect": "openBank"
+            },
+            {
+              "text": "What services do you offer?",
+              "nextNodeId": "services_info"
+            },
+            {
+              "text": "Goodbye.",
+              "nextNodeId": "farewell"
+            }
+          ]
+        },
+        {
+          "id": "open_bank",
+          "text": "Of course! Here are your belongings."
+        },
+        {
+          "id": "services_info",
+          "text": "We offer secure storage for your items. You can deposit items to keep them safe, and withdraw them whenever you need.",
+          "responses": [
+            {
+              "text": "I'd like to access my bank.",
+              "nextNodeId": "open_bank",
+              "effect": "openBank"
+            },
+            {
+              "text": "Thanks for the information.",
+              "nextNodeId": "farewell"
+            }
+          ]
+        },
+        {
+          "id": "farewell",
+          "text": "Take care, adventurer!"
+        }
+      ]
+    },
+    "appearance": {
+      "modelPath": "asset://models/npcs/banker/banker.vrm",
+      "iconPath": "asset://icons/npcs/shopkeeper.png",
+      "scale": 1.0
+    }
+  },
+  {
+    "id": "shopkeeper",
+    "name": "Shopkeeper",
+    "description": "A friendly merchant who buys and sells goods",
+    "category": "neutral",
+    "faction": "town",
+    "combat": {
+      "attackable": false
+    },
+    "movement": {
+      "type": "stationary",
+      "speed": 0,
+      "wanderRadius": 0
+    },
+    "services": {
+      "enabled": true,
+      "types": [
+        "shop"
+      ]
+    },
+    "dialogue": {
+      "entryNodeId": "greeting",
+      "nodes": [
+        {
+          "id": "greeting",
+          "text": "Can I help you at all?",
+          "responses": [
+            {
+              "text": "Yes, what are you selling?",
+              "nextNodeId": "trade",
+              "effect": "openStore"
+            },
+            {
+              "text": "No thanks.",
+              "nextNodeId": "farewell"
+            }
+          ]
+        },
+        {
+          "id": "trade",
+          "text": "Take a look!"
+        },
+        {
+          "id": "farewell",
+          "text": "Come back anytime."
+        }
+      ]
+    },
+    "appearance": {
+      "modelPath": "asset://models/npcs/shopkeeper/shopkeeper.vrm",
+      "iconPath": "asset://icons/npcs/shopkeeper.png",
+      "scale": 1.0
+    }
+  },
+  {
+    "id": "captain_rowan",
+    "name": "Captain Rowan",
+    "description": "The captain of the town guard, concerned about the goblin threat",
+    "category": "neutral",
+    "faction": "town",
+    "combat": {
+      "attackable": false
+    },
+    "movement": {
+      "type": "stationary",
+      "speed": 0,
+      "wanderRadius": 0
+    },
+    "services": {
+      "enabled": true,
+      "types": ["quest"],
+      "questIds": ["goblin_slayer"]
+    },
+    "dialogue": {
+      "entryNodeId": "greeting",
+      "questOverrides": {
+        "goblin_slayer": {
+          "in_progress": "progress_check",
+          "ready_to_complete": "quest_complete",
+          "completed": "post_quest"
+        }
+      },
+      "nodes": [
+        {
+          "id": "greeting",
+          "text": "Halt, traveler! The roads aren't safe. Goblins have been attacking anyone who ventures outside town.",
+          "responses": [
+            {
+              "text": "Is there anything I can do to help?",
+              "nextNodeId": "quest_offer"
+            },
+            {
+              "text": "I'll be careful. Goodbye.",
+              "nextNodeId": "farewell"
+            }
+          ]
+        },
+        {
+          "id": "quest_offer",
+          "text": "You look capable enough. If you could thin their numbers - say, fifteen of the wretches - it would make the roads safer for everyone. I can offer you a sword and a reward for your trouble.",
+          "responses": [
+            {
+              "text": "I'll do it.",
+              "nextNodeId": "quest_accepted",
+              "effect": "startQuest:goblin_slayer"
+            },
+            {
+              "text": "Maybe later.",
+              "nextNodeId": "farewell"
+            }
+          ]
+        },
+        {
+          "id": "quest_accepted",
+          "text": "Excellent! Take this sword. Return to me once you've slain fifteen goblins. Good luck, adventurer."
+        },
+        {
+          "id": "progress_check",
+          "text": "How goes the goblin hunt? Have you slain fifteen of them yet?",
+          "responses": [
+            {
+              "text": "Not yet, but I'm working on it.",
+              "nextNodeId": "encouragement"
+            },
+            {
+              "text": "Where can I find goblins?",
+              "nextNodeId": "goblin_location"
+            }
+          ]
+        },
+        {
+          "id": "encouragement",
+          "text": "Keep at it. The town is counting on you."
+        },
+        {
+          "id": "goblin_location",
+          "text": "They've set up camp east of town, near the old ruins. Be careful out there."
+        },
+        {
+          "id": "quest_complete",
+          "text": "You've done it! Fifteen goblins slain. The roads will be safer thanks to you. Here's your reward - you've earned it.",
+          "effect": "completeQuest:goblin_slayer"
+        },
+        {
+          "id": "post_quest",
+          "text": "The town owes you a debt, adventurer. The goblin attacks have decreased since your efforts."
+        },
+        {
+          "id": "farewell",
+          "text": "Stay safe out there, traveler."
+        }
+      ]
+    },
+    "appearance": {
+      "modelPath": "asset://models/npcs/captain-rowan/captain-rowan.vrm",
+      "iconPath": "asset://icons/npcs/captain.png",
+      "scale": 1.0
+    }
+  },
+  {
+    "id": "forester_wilma",
+    "name": "Forester Wilma",
+    "description": "A skilled woodcutter who maintains the forest near town",
+    "category": "neutral",
+    "faction": "town",
+    "combat": {
+      "attackable": false
+    },
+    "movement": {
+      "type": "stationary",
+      "speed": 0,
+      "wanderRadius": 0
+    },
+    "services": {
+      "enabled": true,
+      "types": ["quest"],
+      "questIds": ["lumberjacks_first_lesson"]
+    },
+    "dialogue": {
+      "entryNodeId": "greeting",
+      "questOverrides": {
+        "lumberjacks_first_lesson": {
+          "in_progress": "progress_check",
+          "ready_to_complete": "quest_complete",
+          "completed": "post_quest"
+        }
+      },
+      "nodes": [
+        {
+          "id": "greeting",
+          "text": "Hello there! The village needs firewood, but I've hurt my back. Could you help?",
+          "responses": [
+            {
+              "text": "Sure, what do you need?",
+              "nextNodeId": "quest_offer"
+            },
+            {
+              "text": "Not right now.",
+              "nextNodeId": "farewell"
+            }
+          ]
+        },
+        {
+          "id": "quest_offer",
+          "text": "Chop 6 logs from the trees nearby, then light them on fire to prove you can do it. Here's a hatchet and tinderbox.",
+          "responses": [
+            {
+              "text": "I'll help.",
+              "nextNodeId": "quest_accepted",
+              "effect": "startQuest:lumberjacks_first_lesson"
+            },
+            {
+              "text": "Maybe later.",
+              "nextNodeId": "farewell"
+            }
+          ]
+        },
+        {
+          "id": "quest_accepted",
+          "text": "Thank you! The trees are just outside town. Use the tinderbox on the logs to light a fire."
+        },
+        {
+          "id": "progress_check",
+          "text": "How's it going? Chopped and burned those logs yet?",
+          "responses": [
+            {
+              "text": "Still working on it.",
+              "nextNodeId": "encouragement"
+            }
+          ]
+        },
+        {
+          "id": "encouragement",
+          "text": "Keep at it! Chop trees for logs, then use the tinderbox on the logs to light fires."
+        },
+        {
+          "id": "quest_complete",
+          "text": "Wonderful! You've proven you can gather and use firewood. Here's your reward.",
+          "effect": "completeQuest:lumberjacks_first_lesson"
+        },
+        {
+          "id": "post_quest",
+          "text": "Thanks again for the help! Feel free to keep chopping trees anytime."
+        },
+        {
+          "id": "farewell",
+          "text": "Come back if you change your mind."
+        }
+      ]
+    },
+    "appearance": {
+      "modelPath": "asset://models/npcs/forester-wilma/forester-wilma.vrm",
+      "iconPath": "asset://icons/npcs/forester.png",
+      "scale": 1.0
+    }
+  },
+  {
+    "id": "fisherman_pete",
+    "name": "Fisherman Pete",
+    "description": "A weathered fisherman who supplies the local market",
+    "category": "neutral",
+    "faction": "town",
+    "combat": {
+      "attackable": false
+    },
+    "movement": {
+      "type": "stationary",
+      "speed": 0,
+      "wanderRadius": 0
+    },
+    "services": {
+      "enabled": true,
+      "types": [
+        "shop",
+        "quest"
+      ],
+      "questIds": ["fresh_catch"]
+    },
+    "dialogue": {
+      "entryNodeId": "greeting",
+      "questOverrides": {
+        "fresh_catch": {
+          "in_progress": "progress_check",
+          "ready_to_complete": "quest_complete",
+          "completed": "post_quest"
+        }
+      },
+      "nodes": [
+        {
+          "id": "greeting",
+          "text": "Ahoy! The tavern needs cooked shrimp. Care to help an old fisherman?",
+          "responses": [
+            {
+              "text": "What do you need?",
+              "nextNodeId": "quest_offer"
+            },
+            {
+              "text": "I'd like to see your fishing supplies.",
+              "nextNodeId": "trade",
+              "effect": "openStore"
+            },
+            {
+              "text": "Not today.",
+              "nextNodeId": "farewell"
+            }
+          ]
+        },
+        {
+          "id": "quest_offer",
+          "text": "Catch 6 shrimp from the fishing spots, then cook them on a fire or range. Here's a net.",
+          "responses": [
+            {
+              "text": "I'll do it.",
+              "nextNodeId": "quest_accepted",
+              "effect": "startQuest:fresh_catch"
+            },
+            {
+              "text": "Maybe another time.",
+              "nextNodeId": "farewell"
+            }
+          ]
+        },
+        {
+          "id": "quest_accepted",
+          "text": "Excellent! The fishing spots are by the water. Cook the shrimp on a fire when you're done."
+        },
+        {
+          "id": "progress_check",
+          "text": "Any luck with the fishing and cooking?",
+          "responses": [
+            {
+              "text": "Still working on it.",
+              "nextNodeId": "encouragement"
+            }
+          ]
+        },
+        {
+          "id": "encouragement",
+          "text": "Use the net at fishing spots for shrimp, then cook them on any fire."
+        },
+        {
+          "id": "quest_complete",
+          "text": "Perfect! Those shrimp look delicious. The tavern will be pleased. Here's your reward.",
+          "effect": "completeQuest:fresh_catch"
+        },
+        {
+          "id": "post_quest",
+          "text": "Thanks for the help! Come back anytime you want to fish."
+        },
+        {
+          "id": "trade",
+          "text": "Here's what I've got - fresh fish and all the gear you need!"
+        },
+        {
+          "id": "farewell",
+          "text": "Come back if you want to help."
+        }
+      ]
+    },
+    "appearance": {
+      "modelPath": "asset://models/npcs/fisherman-pete/fisherman-pete.vrm",
+      "iconPath": "asset://icons/npcs/fisherman.png",
+      "scale": 1.0
+    }
+  },
+  {
+    "id": "torvin",
+    "name": "Torvin",
+    "description": "A gruff dwarven smith who runs the local forge",
+    "category": "neutral",
+    "faction": "town",
+    "combat": {
+      "attackable": false
+    },
+    "movement": {
+      "type": "stationary",
+      "speed": 0,
+      "wanderRadius": 0
+    },
+    "services": {
+      "enabled": true,
+      "types": [
+        "shop",
+        "quest"
+      ],
+      "questIds": ["torvins_tools"]
+    },
+    "dialogue": {
+      "entryNodeId": "greeting",
+      "questOverrides": {
+        "torvins_tools": {
+          "in_progress": "progress_check",
+          "ready_to_complete": "quest_complete",
+          "completed": "post_quest"
+        }
+      },
+      "nodes": [
+        {
+          "id": "greeting",
+          "text": "Hail, traveler! I've got orders piling up and not enough hands. Care to learn the trade?",
+          "responses": [
+            {
+              "text": "What do you need?",
+              "nextNodeId": "quest_offer"
+            },
+            {
+              "text": "I'd like to buy some weapons.",
+              "nextNodeId": "trade",
+              "effect": "openStore"
+            },
+            {
+              "text": "Not right now.",
+              "nextNodeId": "farewell"
+            }
+          ]
+        },
+        {
+          "id": "quest_offer",
+          "text": "I need a full set of bronze tools - a sword, hatchet, and pickaxe. Mine the ore, smelt the bars, and forge them yourself. Here's a pickaxe and hammer to get started.",
+          "responses": [
+            {
+              "text": "I'll do it.",
+              "nextNodeId": "quest_accepted",
+              "effect": "startQuest:torvins_tools"
+            },
+            {
+              "text": "That sounds like a lot of work.",
+              "nextNodeId": "farewell"
+            }
+          ]
+        },
+        {
+          "id": "quest_accepted",
+          "text": "Good! You'll need 4 copper and 4 tin ore. Smelt them at the furnace, then use the anvil to forge the tools."
+        },
+        {
+          "id": "progress_check",
+          "text": "How's the smithing coming along?",
+          "responses": [
+            {
+              "text": "Still working on it.",
+              "nextNodeId": "encouragement"
+            }
+          ]
+        },
+        {
+          "id": "encouragement",
+          "text": "Copper rocks are orange, tin is grey. Smelt the ore at the furnace, then hammer the bars into shape at the anvil."
+        },
+        {
+          "id": "quest_complete",
+          "text": "Ha! Fine work for a beginner. You've got the makings of a smith. Keep the tools - you've earned them.",
+          "effect": "completeQuest:torvins_tools"
+        },
+        {
+          "id": "post_quest",
+          "text": "Good to see you again! Feel free to use the forge anytime."
+        },
+        {
+          "id": "trade",
+          "text": "Fine blades, every one of them. Take your pick!"
+        },
+        {
+          "id": "farewell",
+          "text": "Come back when you're ready to work."
+        }
+      ]
+    },
+    "appearance": {
+      "modelPath": "asset://models/npcs/torvin/torvin.vrm",
+      "iconPath": "asset://icons/npcs/smith.png",
+      "scale": 0.9
+    }
+  },
+  {
+    "id": "tanner",
+    "name": "Ellis",
+    "description": "A tanner who can turn hides into leather",
+    "category": "neutral",
+    "faction": "town",
+    "combat": {
+      "attackable": false
+    },
+    "movement": {
+      "type": "stationary",
+      "speed": 0,
+      "wanderRadius": 0
+    },
+    "dialogue": {
+      "entryNodeId": "greeting",
+      "nodes": [
+        {
+          "id": "greeting",
+          "text": "Greetings, friend. I'm a tanner — I can tan any hides you bring me.",
+          "responses": [
+            {
+              "text": "I'd like some leather, please.",
+              "nextNodeId": "tanning",
+              "effect": "openTanner"
+            },
+            {
+              "text": "No thanks.",
+              "nextNodeId": "farewell"
+            }
+          ]
+        },
+        {
+          "id": "tanning",
+          "text": "Let me see what you've got."
+        },
+        {
+          "id": "farewell",
+          "text": "Come back if you need any leather."
+        }
+      ]
+    },
+    "appearance": {
+      "modelPath": "asset://models/npcs/tanner-ellis/tanner-ellis.vrm",
+      "iconPath": "asset://icons/npcs/tanner.png",
+      "scale": 1.0
+    }
+  },
+  {
+    "id": "cow",
+    "name": "Cow",
+    "description": "A docile cow grazing in the field",
+    "category": "mob",
+    "faction": "animal",
+    "levelRange": [
+      1,
+      2
+    ],
+    "stats": {
+      "level": 2,
+      "health": 8,
+      "attack": 1,
+      "strength": 1,
+      "defense": 1,
+      "defenseBonus": 0,
+      "ranged": 1,
+      "magic": 1
+    },
+    "combat": {
+      "attackable": true,
+      "aggressive": false,
+      "retaliates": true,
+      "aggroRange": 0,
+      "combatRange": 1,
+      "leashRange": 6,
+      "attackSpeedTicks": 4,
+      "respawnTicks": 25
+    },
+    "movement": {
+      "type": "wander",
+      "speed": 2.5,
+      "wanderRadius": 4
+    },
+    "drops": {
+      "defaultDrop": {
+        "enabled": true,
+        "itemId": "bones",
+        "quantity": 1
+      },
+      "always": [
+        {
+          "itemId": "cowhide",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 1.0,
+          "rarity": "always"
+        }
+      ],
+      "common": [],
+      "uncommon": [],
+      "rare": [],
+      "veryRare": []
+    },
+    "appearance": {
+      "modelPath": "asset://models/cow/cow.vrm",
+      "iconPath": "asset://icons/npcs/cow.png",
+      "scale": 1.0
+    },
+    "spawnBiomes": [
+      "plains",
+      "forest"
+    ]
+  },
+  {
+    "id": "dark_wizard",
+    "name": "Dark Wizard",
+    "description": "A sinister wizard who attacks with Wind Strike magic",
+    "category": "mob",
+    "faction": "zamorak",
+    "levelRange": [
+      40,
+      44
+    ],
+    "stats": {
+      "level": 42,
+      "health": 42,
+      "attack": 1,
+      "strength": 1,
+      "defense": 20,
+      "defenseBonus": 0,
+      "ranged": 1,
+      "magic": 42
+    },
+    "combat": {
+      "attackable": true,
+      "aggressive": true,
+      "retaliates": true,
+      "aggroRange": 5,
+      "combatRange": 10,
+      "leashRange": 8,
+      "attackSpeedTicks": 5,
+      "respawnTicks": 50,
+      "attackType": "magic",
+      "spellId": "wind_strike"
+    },
+    "movement": {
+      "type": "wander",
+      "speed": 2.0,
+      "wanderRadius": 4
+    },
+    "drops": {
+      "defaultDrop": {
+        "enabled": true,
+        "itemId": "bones",
+        "quantity": 1
+      },
+      "always": [],
+      "common": [
+        {
+          "itemId": "air_rune",
+          "minQuantity": 5,
+          "maxQuantity": 18,
+          "chance": 0.25,
+          "rarity": "common"
+        },
+        {
+          "itemId": "mind_rune",
+          "minQuantity": 3,
+          "maxQuantity": 12,
+          "chance": 0.2,
+          "rarity": "common"
+        },
+        {
+          "itemId": "water_rune",
+          "minQuantity": 2,
+          "maxQuantity": 9,
+          "chance": 0.15,
+          "rarity": "common"
+        },
+        {
+          "itemId": "earth_rune",
+          "minQuantity": 2,
+          "maxQuantity": 9,
+          "chance": 0.15,
+          "rarity": "common"
+        },
+        {
+          "itemId": "coins",
+          "minQuantity": 3,
+          "maxQuantity": 60,
+          "chance": 0.5,
+          "rarity": "common"
+        }
+      ],
+      "uncommon": [
+        {
+          "itemId": "wizard_hat",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.05,
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "staff",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.04,
+          "rarity": "uncommon"
+        }
+      ],
+      "rare": [],
+      "veryRare": []
+    },
+    "appearance": {
+      "modelPath": "asset://models/mobs/dark-wizard/dark-wizard.vrm",
+      "iconPath": "asset://icons/npcs/dark_wizard.png",
+      "scale": 1.0,
+      "heldWeaponModel": "asset://models/magic-staffs/air-staff/air-staff-aligned.glb"
+    },
+    "spawnBiomes": [
+      "plains",
+      "forest"
+    ]
+  },
+  {
+    "id": "dark_ranger",
+    "name": "Dark Ranger",
+    "description": "A shadowy archer who fires bronze arrows from the darkness",
+    "category": "mob",
+    "faction": "zamorak",
+    "levelRange": [
+      30,
+      33
+    ],
+    "stats": {
+      "level": 33,
+      "health": 33,
+      "attack": 1,
+      "strength": 1,
+      "defense": 15,
+      "defenseBonus": 0,
+      "ranged": 33,
+      "magic": 1
+    },
+    "combat": {
+      "attackable": true,
+      "aggressive": true,
+      "retaliates": true,
+      "aggroRange": 5,
+      "combatRange": 7,
+      "leashRange": 8,
+      "attackSpeedTicks": 4,
+      "respawnTicks": 50,
+      "attackType": "ranged",
+      "arrowId": "bronze_arrow"
+    },
+    "movement": {
+      "type": "wander",
+      "speed": 2.0,
+      "wanderRadius": 4
+    },
+    "drops": {
+      "defaultDrop": {
+        "enabled": true,
+        "itemId": "bones",
+        "quantity": 1
+      },
+      "always": [],
+      "common": [
+        {
+          "itemId": "bronze_arrow",
+          "minQuantity": 5,
+          "maxQuantity": 20,
+          "chance": 0.4,
+          "rarity": "common"
+        },
+        {
+          "itemId": "coins",
+          "minQuantity": 3,
+          "maxQuantity": 40,
+          "chance": 0.5,
+          "rarity": "common"
+        }
+      ],
+      "uncommon": [
+        {
+          "itemId": "shortbow",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.05,
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "leather_body",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.04,
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "leather_chaps",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.04,
+          "rarity": "uncommon"
+        }
+      ],
+      "rare": [],
+      "veryRare": []
+    },
+    "appearance": {
+      "modelPath": "asset://models/mobs/dark-ranger/dark-ranger.vrm",
+      "iconPath": "asset://icons/npcs/dark_ranger.png",
+      "scale": 1.0,
+      "heldWeaponModel": "asset://models/bows/bow-wood/bow-wood-aligned.glb"
+    },
+    "spawnBiomes": [
+      "plains",
+      "forest"
+    ]
+  },
+  {
+    "id": "wizard_zamorin",
+    "name": "Zamorin",
+    "description": "A mysterious wizard who deals in runes, staves, and magical equipment",
+    "category": "neutral",
+    "faction": "town",
+    "combat": {
+      "attackable": false
+    },
+    "movement": {
+      "type": "stationary",
+      "speed": 0,
+      "wanderRadius": 0
+    },
+    "services": {
+      "enabled": true,
+      "types": [
+        "shop",
+        "quest"
+      ],
+      "questIds": ["rune_mysteries"]
+    },
+    "dialogue": {
+      "entryNodeId": "greeting",
+      "questOverrides": {
+        "rune_mysteries": {
+          "in_progress": "progress_check",
+          "ready_to_complete": "quest_complete",
+          "completed": "post_quest"
+        }
+      },
+      "nodes": [
+        {
+          "id": "greeting",
+          "text": "Greetings, seeker of the arcane. The runecrafting altars nearby hold great power, but I lack the essence to fuel them. Could you assist me?",
+          "responses": [
+            {
+              "text": "What do you need help with?",
+              "nextNodeId": "quest_offer"
+            },
+            {
+              "text": "I'd like to browse your wares.",
+              "nextNodeId": "trade",
+              "effect": "openStore"
+            },
+            {
+              "text": "Not right now.",
+              "nextNodeId": "farewell"
+            }
+          ]
+        },
+        {
+          "id": "quest_offer",
+          "text": "The essence rocks near the altars contain rune essence - the raw material for crafting runes. Mine 25 essence, then use them at the air altar to craft air runes. Here's a pickaxe to get you started.",
+          "responses": [
+            {
+              "text": "I'll do it.",
+              "nextNodeId": "quest_accepted",
+              "effect": "startQuest:rune_mysteries"
+            },
+            {
+              "text": "Maybe later.",
+              "nextNodeId": "farewell"
+            }
+          ]
+        },
+        {
+          "id": "quest_accepted",
+          "text": "Excellent! The essence rocks are just south of here, near the runecrafting altars. Mine the essence, then use it at the air altar to craft air runes."
+        },
+        {
+          "id": "progress_check",
+          "text": "How goes the runecrafting? Have you mined the essence and crafted the air runes?",
+          "responses": [
+            {
+              "text": "Still working on it.",
+              "nextNodeId": "encouragement"
+            },
+            {
+              "text": "I'd like to browse your wares.",
+              "nextNodeId": "trade",
+              "effect": "openStore"
+            }
+          ]
+        },
+        {
+          "id": "encouragement",
+          "text": "The essence rocks are near the altars to the south. Mine the essence, then use it at the air altar."
+        },
+        {
+          "id": "quest_complete",
+          "text": "Wonderful! You've grasped the fundamentals of runecrafting. The arcane arts are now open to you. Here's your reward.",
+          "effect": "completeQuest:rune_mysteries"
+        },
+        {
+          "id": "post_quest",
+          "text": "Ah, my star pupil returns. Feel free to browse my wares or continue crafting runes at the altars.",
+          "responses": [
+            {
+              "text": "I'd like to browse your wares.",
+              "nextNodeId": "trade",
+              "effect": "openStore"
+            },
+            {
+              "text": "Goodbye.",
+              "nextNodeId": "farewell"
+            }
+          ]
+        },
+        {
+          "id": "trade",
+          "text": "Runes, staves, robes... everything a mage could desire."
+        },
+        {
+          "id": "farewell",
+          "text": "May the arcane guide your path."
+        }
+      ]
+    },
+    "appearance": {
+      "modelPath": "asset://models/npcs/Zamorin/Zamorin.vrm",
+      "iconPath": "asset://icons/npcs/shopkeeper.png",
+      "scale": 1.0
+    }
+  },
+  {
+    "id": "bowyer",
+    "name": "Lowe",
+    "description": "A skilled bowyer and fletcher who sells ranged weapons and supplies",
+    "category": "neutral",
+    "faction": "town",
+    "combat": {
+      "attackable": false
+    },
+    "movement": {
+      "type": "stationary",
+      "speed": 0,
+      "wanderRadius": 0
+    },
+    "services": {
+      "enabled": true,
+      "types": [
+        "shop",
+        "quest"
+      ],
+      "questIds": ["fletchers_introduction"]
+    },
+    "dialogue": {
+      "entryNodeId": "greeting",
+      "questOverrides": {
+        "fletchers_introduction": {
+          "in_progress": "progress_check",
+          "ready_to_complete": "quest_complete",
+          "completed": "post_quest"
+        }
+      },
+      "nodes": [
+        {
+          "id": "greeting",
+          "text": "Looking for ranged gear? I sell the finest bows and arrows, but I could also teach you to make your own. Interested?",
+          "responses": [
+            {
+              "text": "Teach me to fletch.",
+              "nextNodeId": "quest_offer"
+            },
+            {
+              "text": "Let me see your stock.",
+              "nextNodeId": "trade",
+              "effect": "openStore"
+            },
+            {
+              "text": "Not right now.",
+              "nextNodeId": "farewell"
+            }
+          ]
+        },
+        {
+          "id": "quest_offer",
+          "text": "A good ranger makes their own ammunition. Use a knife on logs to cut arrow shafts, add feathers to make headless arrows, then string a shortbow. Here's everything you need.",
+          "responses": [
+            {
+              "text": "I'll give it a try.",
+              "nextNodeId": "quest_accepted",
+              "effect": "startQuest:fletchers_introduction"
+            },
+            {
+              "text": "Maybe another time.",
+              "nextNodeId": "farewell"
+            }
+          ]
+        },
+        {
+          "id": "quest_accepted",
+          "text": "Good! Use the knife on the logs for arrow shafts, combine shafts with feathers for headless arrows, then use the knife on logs again and add a bowstring to make a shortbow."
+        },
+        {
+          "id": "progress_check",
+          "text": "How's the fletching coming along?",
+          "responses": [
+            {
+              "text": "Still working on it.",
+              "nextNodeId": "encouragement"
+            },
+            {
+              "text": "I'd like to buy some supplies.",
+              "nextNodeId": "trade",
+              "effect": "openStore"
+            }
+          ]
+        },
+        {
+          "id": "encouragement",
+          "text": "Knife on logs for shafts, feathers on shafts for headless arrows. For the bow, cut a shortbow from logs and add a bowstring."
+        },
+        {
+          "id": "quest_complete",
+          "text": "Well done! You've got a natural talent for fletching. Keep it up and you'll be crafting magic shortbows in no time. Here's your reward.",
+          "effect": "completeQuest:fletchers_introduction"
+        },
+        {
+          "id": "post_quest",
+          "text": "My best student! Need any supplies for your fletching?",
+          "responses": [
+            {
+              "text": "Let me see your stock.",
+              "nextNodeId": "trade",
+              "effect": "openStore"
+            },
+            {
+              "text": "Goodbye.",
+              "nextNodeId": "farewell"
+            }
+          ]
+        },
+        {
+          "id": "trade",
+          "text": "Take your pick - finest bows and arrows around!"
+        },
+        {
+          "id": "farewell",
+          "text": "Come back if you need any ranged supplies."
+        }
+      ]
+    },
+    "appearance": {
+      "modelPath": "asset://models/npcs/Lowe/Lowe.vrm",
+      "iconPath": "asset://icons/npcs/shopkeeper.png",
+      "scale": 1.0
+    }
+  },
+  {
+    "id": "armorer",
+    "name": "Horvik",
+    "description": "A burly armorer who sells helms, platebodies, shields, and other protective gear",
+    "category": "neutral",
+    "faction": "town",
+    "combat": {
+      "attackable": false
+    },
+    "movement": {
+      "type": "stationary",
+      "speed": 0,
+      "wanderRadius": 0
+    },
+    "services": {
+      "enabled": true,
+      "types": [
+        "shop"
+      ]
+    },
+    "dialogue": {
+      "entryNodeId": "greeting",
+      "nodes": [
+        {
+          "id": "greeting",
+          "text": "Need some armour? I've got the best protection in town.",
+          "responses": [
+            {
+              "text": "Show me your armour.",
+              "nextNodeId": "trade",
+              "effect": "openStore"
+            },
+            {
+              "text": "No thanks.",
+              "nextNodeId": "farewell"
+            }
+          ]
+        },
+        {
+          "id": "trade",
+          "text": "Helms, platebodies, shields - take a look!"
+        },
+        {
+          "id": "farewell",
+          "text": "Stay safe out there."
+        }
+      ]
+    },
+    "appearance": {
+      "modelPath": "asset://models/npcs/horvik/Horvik.vrm",
+      "iconPath": "asset://icons/npcs/shopkeeper.png",
+      "scale": 1.0
+    }
+  },
+  {
+    "id": "crafting_supplier",
+    "name": "Dommik",
+    "description": "A crafting supplier who sells leather, gems, moulds, and other crafting materials",
+    "category": "neutral",
+    "faction": "town",
+    "combat": {
+      "attackable": false
+    },
+    "movement": {
+      "type": "stationary",
+      "speed": 0,
+      "wanderRadius": 0
+    },
+    "services": {
+      "enabled": true,
+      "types": [
+        "shop",
+        "quest"
+      ],
+      "questIds": ["crafting_basics"]
+    },
+    "dialogue": {
+      "entryNodeId": "greeting",
+      "questOverrides": {
+        "crafting_basics": {
+          "in_progress": "progress_check",
+          "ready_to_complete": "quest_complete",
+          "completed": "post_quest"
+        }
+      },
+      "nodes": [
+        {
+          "id": "greeting",
+          "text": "Welcome! I stock everything you need for crafting. Say, you look like you could learn a thing or two about leatherwork. Interested?",
+          "responses": [
+            {
+              "text": "Teach me about crafting.",
+              "nextNodeId": "quest_offer"
+            },
+            {
+              "text": "Let me see your supplies.",
+              "nextNodeId": "trade",
+              "effect": "openStore"
+            },
+            {
+              "text": "No thanks.",
+              "nextNodeId": "farewell"
+            }
+          ]
+        },
+        {
+          "id": "quest_offer",
+          "text": "Use a needle and thread on leather to craft gloves and boots. Make 5 of each and I'll know you've got the basics down. Here's a needle, some thread, and leather to get started.",
+          "responses": [
+            {
+              "text": "I'll give it a go.",
+              "nextNodeId": "quest_accepted",
+              "effect": "startQuest:crafting_basics"
+            },
+            {
+              "text": "Maybe later.",
+              "nextNodeId": "farewell"
+            }
+          ]
+        },
+        {
+          "id": "quest_accepted",
+          "text": "Great! Use the needle on the leather with thread in your inventory. Craft 5 leather gloves and 5 leather boots, then come back to me."
+        },
+        {
+          "id": "progress_check",
+          "text": "How's the crafting going? Finished those gloves and boots?",
+          "responses": [
+            {
+              "text": "Still working on it.",
+              "nextNodeId": "encouragement"
+            },
+            {
+              "text": "I need more supplies.",
+              "nextNodeId": "trade",
+              "effect": "openStore"
+            }
+          ]
+        },
+        {
+          "id": "encouragement",
+          "text": "Use the needle on leather to craft. You need 5 leather gloves and 5 leather boots. If you run out of materials, you can buy more from me."
+        },
+        {
+          "id": "quest_complete",
+          "text": "Excellent work! Those stitches are nice and tight. You're a natural crafter. Here's your reward.",
+          "effect": "completeQuest:crafting_basics"
+        },
+        {
+          "id": "post_quest",
+          "text": "Good to see you again! Need any more crafting supplies?",
+          "responses": [
+            {
+              "text": "Let me see your supplies.",
+              "nextNodeId": "trade",
+              "effect": "openStore"
+            },
+            {
+              "text": "Goodbye.",
+              "nextNodeId": "farewell"
+            }
+          ]
+        },
+        {
+          "id": "trade",
+          "text": "Here's what I've got - all the finest crafting supplies!"
+        },
+        {
+          "id": "farewell",
+          "text": "Come back when you need crafting materials."
+        }
+      ]
+    },
+    "appearance": {
+      "modelPath": "asset://models/npcs/dommik/Dommik.vrm",
+      "iconPath": "asset://icons/npcs/shopkeeper.png",
+      "scale": 1.0
+    }
+  },
+  {
+    "id": "guard",
+    "name": "Guard",
+    "description": "A town guard armed with an iron longsword, tasked with keeping the peace",
+    "category": "mob",
+    "faction": "town",
+    "levelRange": [
+      20,
+      22
+    ],
+    "stats": {
+      "level": 21,
+      "health": 22,
+      "attack": 19,
+      "strength": 18,
+      "defense": 18,
+      "defenseBonus": 5,
+      "ranged": 1,
+      "magic": 1
+    },
+    "combat": {
+      "attackable": true,
+      "aggressive": false,
+      "retaliates": true,
+      "aggroRange": 4,
+      "combatRange": 1,
+      "leashRange": 7,
+      "attackSpeedTicks": 4,
+      "respawnTicks": 50
+    },
+    "movement": {
+      "type": "wander",
+      "speed": 3.33,
+      "wanderRadius": 4
+    },
+    "drops": {
+      "defaultDrop": {
+        "enabled": true,
+        "itemId": "bones",
+        "quantity": 1
+      },
+      "always": [],
+      "common": [
+        {
+          "itemId": "coins",
+          "minQuantity": 15,
+          "maxQuantity": 60,
+          "chance": 1.0,
+          "rarity": "common"
+        },
+        {
+          "itemId": "iron_arrow",
+          "minQuantity": 1,
+          "maxQuantity": 5,
+          "chance": 0.15,
+          "rarity": "common"
+        }
+      ],
+      "uncommon": [
+        {
+          "itemId": "iron_shortsword",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.05,
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "iron_dagger",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.04,
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "iron_longsword",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.03,
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "iron_full_helm",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.04,
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "iron_platebody",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.03,
+          "rarity": "uncommon"
+        }
+      ],
+      "rare": [
+        {
+          "itemId": "steel_shortsword",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.02,
+          "rarity": "rare"
+        },
+        {
+          "itemId": "steel_dagger",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.015,
+          "rarity": "rare"
+        },
+        {
+          "itemId": "steel_longsword",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.01,
+          "rarity": "rare"
+        },
+        {
+          "itemId": "steel_full_helm",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.015,
+          "rarity": "rare"
+        }
+      ],
+      "veryRare": []
+    },
+    "appearance": {
+      "modelPath": "asset://models/mobs/gaurd/gaurd.vrm",
+      "iconPath": "asset://icons/npcs/shopkeeper.png",
+      "scale": 1.0,
+      "heldWeaponModel": "asset://models/swords/long-swords/longsword-iron-aligned.glb"
+    },
+    "spawnBiomes": [
+      "plains",
+      "forest"
+    ]
+  },
+  {
+    "id": "bandit",
+    "name": "Bandit",
+    "description": "A cunning outlaw who preys on unwary travelers",
+    "category": "mob",
+    "faction": "monster",
+    "levelRange": [
+      5,
+      8
+    ],
+    "stats": {
+      "level": 7,
+      "health": 10,
+      "attack": 5,
+      "strength": 5,
+      "defense": 4,
+      "defenseBonus": 0,
+      "ranged": 1,
+      "magic": 1
+    },
+    "combat": {
+      "attackable": true,
+      "aggressive": true,
+      "retaliates": true,
+      "aggroRange": 4,
+      "combatRange": 1,
+      "leashRange": 7,
+      "attackSpeedTicks": 4,
+      "respawnTicks": 40
+    },
+    "movement": {
+      "type": "wander",
+      "speed": 3.33,
+      "wanderRadius": 5
+    },
+    "drops": {
+      "defaultDrop": {
+        "enabled": true,
+        "itemId": "bones",
+        "quantity": 1
+      },
+      "always": [],
+      "common": [
+        {
+          "itemId": "coins",
+          "minQuantity": 5,
+          "maxQuantity": 25,
+          "chance": 1.0,
+          "rarity": "common"
+        }
+      ],
+      "uncommon": [
+        {
+          "itemId": "bronze_scimitar",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.1,
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "bronze_dagger",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.08,
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "bronze_shortsword",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.06,
+          "rarity": "uncommon"
+        }
+      ],
+      "rare": [
+        {
+          "itemId": "iron_scimitar",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.02,
+          "rarity": "rare"
+        },
+        {
+          "itemId": "iron_dagger",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.02,
+          "rarity": "rare"
+        }
+      ],
+      "veryRare": []
+    },
+    "appearance": {
+      "modelPath": "asset://models/mobs/bandit/bandit.vrm",
+      "iconPath": "asset://icons/npcs/shopkeeper.png",
+      "scale": 1.0,
+      "heldWeaponModel": "asset://models/swords/scimitars/scimitar-bronze-aligned.glb"
+    },
+    "spawnBiomes": [
+      "forest",
+      "desert",
+      "swamp"
+    ]
+  },
+  {
+    "id": "barbarian",
+    "name": "Barbarian",
+    "description": "A fierce warrior from the desert lands",
+    "category": "mob",
+    "faction": "monster",
+    "levelRange": [
+      12,
+      15
+    ],
+    "stats": {
+      "level": 14,
+      "health": 17,
+      "attack": 11,
+      "strength": 12,
+      "defense": 10,
+      "defenseBonus": 2,
+      "ranged": 1,
+      "magic": 1
+    },
+    "combat": {
+      "attackable": true,
+      "aggressive": true,
+      "retaliates": true,
+      "aggroRange": 4,
+      "combatRange": 1,
+      "leashRange": 7,
+      "attackSpeedTicks": 4,
+      "respawnTicks": 45
+    },
+    "movement": {
+      "type": "wander",
+      "speed": 3.33,
+      "wanderRadius": 5
+    },
+    "drops": {
+      "defaultDrop": {
+        "enabled": true,
+        "itemId": "bones",
+        "quantity": 1
+      },
+      "always": [],
+      "common": [
+        {
+          "itemId": "coins",
+          "minQuantity": 10,
+          "maxQuantity": 45,
+          "chance": 1.0,
+          "rarity": "common"
+        }
+      ],
+      "uncommon": [
+        {
+          "itemId": "iron_scimitar",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.1,
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "iron_dagger",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.08,
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "iron_shortsword",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.06,
+          "rarity": "uncommon"
+        },
+        {
+          "itemId": "iron_full_helm",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.08,
+          "rarity": "uncommon"
+        }
+      ],
+      "rare": [
+        {
+          "itemId": "steel_scimitar",
+          "minQuantity": 1,
+          "maxQuantity": 1,
+          "chance": 0.02,
+          "rarity": "rare"
+        }
+      ],
+      "veryRare": []
+    },
+    "appearance": {
+      "modelPath": "asset://models/mobs/barbarian/barbarian.vrm",
+      "iconPath": "asset://icons/npcs/shopkeeper.png",
+      "scale": 1.0,
+      "heldWeaponModel": "asset://models/swords/scimitars/scimitar-iron-aligned.glb"
+    },
+    "spawnBiomes": [
+      "desert"
+    ]
+  }
+]

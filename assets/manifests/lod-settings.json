@@ -1,0 +1,25 @@
+{
+    "version": 1,
+    "distanceThresholds": {
+        "default": {
+            "lod1": 60,
+            "imposter": 120,
+            "fadeOut": 200
+        },
+        "large_tree": {
+            "lod1": 80,
+            "imposter": 160,
+            "fadeOut": 250
+        },
+        "small_bush": {
+            "lod1": 40,
+            "imposter": 80,
+            "fadeOut": 150
+        }
+    },
+    "dissolve": {
+        "closeRangeStart": 2,
+        "closeRangeEnd": 5,
+        "transitionDuration": 0.5
+    }
+}

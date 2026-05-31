@@ -32,6 +32,7 @@ COPY packages/impostors ./packages/impostors
 COPY packages/procgen ./packages/procgen
 COPY packages/shared ./packages/shared
 COPY packages/asset-forge ./packages/asset-forge
+COPY assets ./assets
 COPY packages/server/package.json ./packages/server/package.json
 COPY packages/client/public/web/physx-js-webidl.js ./packages/client/public/web/
 COPY packages/client/public/web/physx-js-webidl.wasm ./packages/client/public/web/
@@ -88,6 +89,7 @@ COPY --from=builder /app/packages/impostors ./packages/impostors
 COPY --from=builder /app/packages/procgen ./packages/procgen
 COPY --from=builder /app/packages/shared ./packages/shared
 COPY --from=builder /app/packages/asset-forge ./packages/asset-forge
+COPY --from=builder /app/assets ./assets
 COPY --from=builder /app/packages/asset-forge/node_modules ./packages/asset-forge/node_modules
 COPY --from=builder /app/packages/physx-js-webidl/node_modules ./packages/physx-js-webidl/node_modules
 COPY --from=builder /app/packages/decimation/node_modules ./packages/decimation/node_modules

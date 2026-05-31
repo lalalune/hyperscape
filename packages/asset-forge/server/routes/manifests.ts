@@ -54,8 +54,16 @@ export const createManifestRoutes = (manifestService: ManifestService) => {
               return { error: `Unknown manifest: ${name}` };
             }
 
-            const manifest = await manifestService.readManifest(name);
-            return manifest;
+            try {
+              const manifest = await manifestService.readManifest(name);
+              return manifest;
+            } catch (error) {
+              const message =
+                error instanceof Error ? error.message : String(error);
+              console.error(`[Manifests] Failed to read ${name}:`, message);
+              set.status = 404;
+              return { error: message };
+            }
           },
           {
             params: t.Object({

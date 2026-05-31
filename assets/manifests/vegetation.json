@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "description": "Vegetation asset definitions for procedural world generation",
+  "assets": [
+    {
+      "id": "mushroom",
+      "model": "trees/mushroom.glb",
+      "category": "mushroom",
+      "baseScale": 0.15,
+      "scaleVariation": [0.8, 1.2],
+      "randomRotation": true,
+      "weight": 5,
+      "maxSlope": 0.5,
+      "alignToNormal": true,
+      "yOffset": 0
+    },
+    {
+      "id": "cherry-tree-lod-test",
+      "model": "vegetation/cherry-trees/cherry-tree-lod-test.glb",
+      "lod1Model": "vegetation/cherry-trees/cherry-tree-lod-test_lod1.glb",
+      "lod2Model": "vegetation/cherry-trees/cherry-tree-lod-test_lod2.glb",
+      "category": "tree",
+      "baseScale": 1.0,
+      "scaleVariation": [0.9, 1.15],
+      "randomRotation": true,
+      "weight": 1,
+      "maxSlope": 0.5,
+      "alignToNormal": false,
+      "yOffset": 0
+    }
+  ]
+}

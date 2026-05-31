@@ -1,0 +1,422 @@
+{
+  "goblin_slayer": {
+    "id": "goblin_slayer",
+    "name": "Goblin Slayer",
+    "description": "Captain Rowan needs help dealing with the goblin threat.",
+    "difficulty": "novice",
+    "questPoints": 1,
+    "replayable": false,
+    "requirements": {
+      "quests": [],
+      "skills": {},
+      "items": []
+    },
+    "startNpc": "captain_rowan",
+    "stages": [
+      {
+        "id": "start",
+        "type": "dialogue",
+        "description": "Speak to Captain Rowan in Central Haven",
+        "npcId": "captain_rowan"
+      },
+      {
+        "id": "kill_goblins",
+        "type": "kill",
+        "description": "Kill 15 goblins",
+        "target": "goblin",
+        "count": 15
+      },
+      {
+        "id": "return",
+        "type": "dialogue",
+        "description": "Return to Captain Rowan",
+        "npcId": "captain_rowan"
+      }
+    ],
+    "onStart": {
+      "items": [
+        { "itemId": "bronze_shortsword", "quantity": 1 }
+      ],
+      "dialogue": "quest_accepted"
+    },
+    "rewards": {
+      "questPoints": 1,
+      "items": [
+        { "itemId": "xp_lamp_100", "quantity": 1 }
+      ],
+      "xp": {}
+    }
+  },
+  "lumberjacks_first_lesson": {
+    "id": "lumberjacks_first_lesson",
+    "name": "Lumberjack's First Lesson",
+    "description": "Forester Wilma needs help gathering and burning firewood.",
+    "difficulty": "novice",
+    "questPoints": 1,
+    "replayable": false,
+    "requirements": {
+      "quests": [],
+      "skills": {},
+      "items": []
+    },
+    "startNpc": "forester_wilma",
+    "stages": [
+      {
+        "id": "start",
+        "type": "dialogue",
+        "description": "Speak to Forester Wilma",
+        "npcId": "forester_wilma"
+      },
+      {
+        "id": "chop_logs",
+        "type": "gather",
+        "description": "Chop 6 logs",
+        "target": "logs",
+        "count": 6
+      },
+      {
+        "id": "burn_logs",
+        "type": "interact",
+        "description": "Light 6 fires",
+        "target": "fire",
+        "count": 6
+      },
+      {
+        "id": "return",
+        "type": "dialogue",
+        "description": "Return to Forester Wilma",
+        "npcId": "forester_wilma"
+      }
+    ],
+    "onStart": {
+      "items": [
+        { "itemId": "bronze_hatchet", "quantity": 1 },
+        { "itemId": "tinderbox", "quantity": 1 }
+      ],
+      "dialogue": "quest_accepted"
+    },
+    "rewards": {
+      "questPoints": 1,
+      "items": [
+        { "itemId": "xp_lamp_100", "quantity": 1 }
+      ],
+      "xp": {}
+    }
+  },
+  "fresh_catch": {
+    "id": "fresh_catch",
+    "name": "Fresh Catch",
+    "description": "Fisherman Pete needs help catching and cooking fish.",
+    "difficulty": "novice",
+    "questPoints": 1,
+    "replayable": false,
+    "requirements": {
+      "quests": [],
+      "skills": {},
+      "items": []
+    },
+    "startNpc": "fisherman_pete",
+    "stages": [
+      {
+        "id": "start",
+        "type": "dialogue",
+        "description": "Speak to Fisherman Pete",
+        "npcId": "fisherman_pete"
+      },
+      {
+        "id": "catch_shrimp",
+        "type": "gather",
+        "description": "Catch 6 raw shrimp",
+        "target": "raw_shrimp",
+        "count": 6
+      },
+      {
+        "id": "cook_shrimp",
+        "type": "interact",
+        "description": "Cook 6 shrimp",
+        "target": "shrimp",
+        "count": 6
+      },
+      {
+        "id": "return",
+        "type": "dialogue",
+        "description": "Return to Fisherman Pete",
+        "npcId": "fisherman_pete"
+      }
+    ],
+    "onStart": {
+      "items": [
+        { "itemId": "small_fishing_net", "quantity": 1 }
+      ],
+      "dialogue": "quest_accepted"
+    },
+    "rewards": {
+      "questPoints": 1,
+      "items": [
+        { "itemId": "xp_lamp_100", "quantity": 1 }
+      ],
+      "xp": {}
+    }
+  },
+  "torvins_tools": {
+    "id": "torvins_tools",
+    "name": "Torvin's Tools",
+    "description": "The dwarf Torvin needs help forging a set of bronze tools.",
+    "difficulty": "novice",
+    "questPoints": 1,
+    "replayable": false,
+    "requirements": {
+      "quests": [],
+      "skills": {},
+      "items": []
+    },
+    "startNpc": "torvin",
+    "stages": [
+      {
+        "id": "start",
+        "type": "dialogue",
+        "description": "Speak to Torvin",
+        "npcId": "torvin"
+      },
+      {
+        "id": "mine_copper",
+        "type": "gather",
+        "description": "Mine 4 copper ore",
+        "target": "copper_ore",
+        "count": 4
+      },
+      {
+        "id": "mine_tin",
+        "type": "gather",
+        "description": "Mine 4 tin ore",
+        "target": "tin_ore",
+        "count": 4
+      },
+      {
+        "id": "smelt_bronze",
+        "type": "interact",
+        "description": "Smelt 4 bronze bars",
+        "target": "bronze_bar",
+        "count": 4
+      },
+      {
+        "id": "smith_sword",
+        "type": "interact",
+        "description": "Smith a bronze shortsword",
+        "target": "bronze_shortsword",
+        "count": 1
+      },
+      {
+        "id": "smith_hatchet",
+        "type": "interact",
+        "description": "Smith a bronze hatchet",
+        "target": "bronze_hatchet",
+        "count": 1
+      },
+      {
+        "id": "smith_pickaxe",
+        "type": "interact",
+        "description": "Smith a bronze pickaxe",
+        "target": "bronze_pickaxe",
+        "count": 1
+      },
+      {
+        "id": "return",
+        "type": "dialogue",
+        "description": "Return to Torvin",
+        "npcId": "torvin"
+      }
+    ],
+    "onStart": {
+      "items": [
+        { "itemId": "bronze_pickaxe", "quantity": 1 },
+        { "itemId": "hammer", "quantity": 1 }
+      ],
+      "dialogue": "quest_accepted"
+    },
+    "rewards": {
+      "questPoints": 1,
+      "items": [
+        { "itemId": "xp_lamp_100", "quantity": 1 }
+      ],
+      "xp": {}
+    }
+  },
+  "rune_mysteries": {
+    "id": "rune_mysteries",
+    "name": "Rune Mysteries",
+    "description": "Wizard Zamorin needs help gathering rune essence and crafting air runes.",
+    "difficulty": "novice",
+    "questPoints": 1,
+    "replayable": false,
+    "requirements": {
+      "quests": [],
+      "skills": {},
+      "items": []
+    },
+    "startNpc": "wizard_zamorin",
+    "stages": [
+      {
+        "id": "start",
+        "type": "dialogue",
+        "description": "Speak to Zamorin in Central Haven",
+        "npcId": "wizard_zamorin"
+      },
+      {
+        "id": "mine_essence",
+        "type": "gather",
+        "description": "Mine 25 rune essence",
+        "target": "rune_essence",
+        "count": 25
+      },
+      {
+        "id": "craft_air_runes",
+        "type": "interact",
+        "description": "Craft 25 air runes at the air altar",
+        "target": "air_rune",
+        "count": 25
+      },
+      {
+        "id": "return",
+        "type": "dialogue",
+        "description": "Return to Zamorin",
+        "npcId": "wizard_zamorin"
+      }
+    ],
+    "onStart": {
+      "items": [
+        { "itemId": "bronze_pickaxe", "quantity": 1 }
+      ],
+      "dialogue": "quest_accepted"
+    },
+    "rewards": {
+      "questPoints": 1,
+      "items": [
+        { "itemId": "xp_lamp_100", "quantity": 1 }
+      ],
+      "xp": {}
+    }
+  },
+  "crafting_basics": {
+    "id": "crafting_basics",
+    "name": "Crafting Basics",
+    "description": "Dommik the crafting supplier wants you to prove your skill by crafting leather goods.",
+    "difficulty": "novice",
+    "questPoints": 1,
+    "replayable": false,
+    "requirements": {
+      "quests": [],
+      "skills": {},
+      "items": []
+    },
+    "startNpc": "crafting_supplier",
+    "stages": [
+      {
+        "id": "start",
+        "type": "dialogue",
+        "description": "Speak to Dommik in Central Haven",
+        "npcId": "crafting_supplier"
+      },
+      {
+        "id": "craft_gloves",
+        "type": "interact",
+        "description": "Craft 5 leather gloves",
+        "target": "leather_gloves",
+        "count": 5
+      },
+      {
+        "id": "craft_boots",
+        "type": "interact",
+        "description": "Craft 5 leather boots",
+        "target": "leather_boots",
+        "count": 5
+      },
+      {
+        "id": "return",
+        "type": "dialogue",
+        "description": "Return to Dommik",
+        "npcId": "crafting_supplier"
+      }
+    ],
+    "onStart": {
+      "items": [
+        { "itemId": "needle", "quantity": 1 },
+        { "itemId": "thread", "quantity": 5 },
+        { "itemId": "leather", "quantity": 10 }
+      ],
+      "dialogue": "quest_accepted"
+    },
+    "rewards": {
+      "questPoints": 1,
+      "items": [
+        { "itemId": "xp_lamp_100", "quantity": 1 }
+      ],
+      "xp": {}
+    }
+  },
+  "fletchers_introduction": {
+    "id": "fletchers_introduction",
+    "name": "Fletcher's Introduction",
+    "description": "Lowe the bowyer wants you to learn the basics of fletching.",
+    "difficulty": "novice",
+    "questPoints": 1,
+    "replayable": false,
+    "requirements": {
+      "quests": [],
+      "skills": {},
+      "items": []
+    },
+    "startNpc": "bowyer",
+    "stages": [
+      {
+        "id": "start",
+        "type": "dialogue",
+        "description": "Speak to Lowe in Central Haven",
+        "npcId": "bowyer"
+      },
+      {
+        "id": "fletch_shafts",
+        "type": "interact",
+        "description": "Fletch 15 arrow shafts",
+        "target": "arrow_shaft",
+        "count": 15
+      },
+      {
+        "id": "fletch_headless",
+        "type": "interact",
+        "description": "Fletch 15 headless arrows",
+        "target": "headless_arrow",
+        "count": 15
+      },
+      {
+        "id": "fletch_shortbow",
+        "type": "interact",
+        "description": "Fletch a shortbow",
+        "target": "shortbow",
+        "count": 1
+      },
+      {
+        "id": "return",
+        "type": "dialogue",
+        "description": "Return to Lowe",
+        "npcId": "bowyer"
+      }
+    ],
+    "onStart": {
+      "items": [
+        { "itemId": "knife", "quantity": 1 },
+        { "itemId": "logs", "quantity": 2 },
+        { "itemId": "feather", "quantity": 15 },
+        { "itemId": "bowstring", "quantity": 1 }
+      ],
+      "dialogue": "quest_accepted"
+    },
+    "rewards": {
+      "questPoints": 1,
+      "items": [
+        { "itemId": "xp_lamp_100", "quantity": 1 }
+      ],
+      "xp": {}
+    }
+  }
+}

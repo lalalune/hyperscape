@@ -1,0 +1,40 @@
+{
+  "_comment": "Ammunition manifest for ranged combat. F2P scope: standard arrows only.",
+  "arrows": [
+    {
+      "id": "bronze_arrow",
+      "name": "Bronze arrow",
+      "rangedStrength": 7,
+      "requiredRangedLevel": 1,
+      "requiredBowTier": 1
+    },
+    {
+      "id": "iron_arrow",
+      "name": "Iron arrow",
+      "rangedStrength": 10,
+      "requiredRangedLevel": 1,
+      "requiredBowTier": 1
+    },
+    {
+      "id": "steel_arrow",
+      "name": "Steel arrow",
+      "rangedStrength": 16,
+      "requiredRangedLevel": 5,
+      "requiredBowTier": 5
+    },
+    {
+      "id": "mithril_arrow",
+      "name": "Mithril arrow",
+      "rangedStrength": 22,
+      "requiredRangedLevel": 20,
+      "requiredBowTier": 20
+    },
+    {
+      "id": "adamant_arrow",
+      "name": "Adamant arrow",
+      "rangedStrength": 31,
+      "requiredRangedLevel": 30,
+      "requiredBowTier": 30
+    }
+  ]
+}

@@ -1,0 +1,405 @@
+{
+  "starterTowns": {
+    "central_haven": {
+      "id": "central_haven",
+      "name": "Central Haven",
+      "description": "The central hub of Hyperscape, a peaceful sanctuary protected by ancient wards.",
+      "difficultyLevel": 0,
+      "bounds": {
+        "minX": 294,
+        "maxX": 594,
+        "minZ": 180,
+        "maxZ": 480
+      },
+      "biomeType": "starter_town",
+      "safeZone": true,
+      "npcs": [
+        {
+          "id": "bank_clerk",
+          "type": "bank",
+          "position": { "x": 8, "y": 0, "z": 5 }
+        },
+        {
+          "id": "shopkeeper",
+          "type": "general_store",
+          "storeId": "general_store",
+          "position": { "x": -8, "y": 0, "z": 5 }
+        },
+        {
+          "id": "captain_rowan",
+          "type": "quest_giver",
+          "position": { "x": 20, "y": 0, "z": 14 }
+        },
+        {
+          "id": "forester_wilma",
+          "type": "quest_giver",
+          "position": { "x": 18, "y": 0, "z": -8 }
+        },
+        {
+          "id": "fisherman_pete",
+          "type": "quest_giver",
+          "storeId": "fishing_store",
+          "position": { "x": -30, "y": 0, "z": -8 }
+        },
+        {
+          "id": "torvin",
+          "type": "quest_giver",
+          "storeId": "sword_store",
+          "position": { "x": -28, "y": 0, "z": 24 }
+        },
+        {
+          "id": "tanner",
+          "type": "tanner",
+          "position": { "x": -22, "y": 0, "z": 22 }
+        },
+        {
+          "id": "wizard_zamorin",
+          "type": "magic_store",
+          "storeId": "magic_store",
+          "position": { "x": -14, "y": 0, "z": -12 }
+        },
+        {
+          "id": "bowyer",
+          "type": "range_store",
+          "storeId": "range_store",
+          "position": { "x": -18, "y": 0, "z": 10 }
+        },
+        {
+          "id": "armorer",
+          "type": "armor_store",
+          "storeId": "armor_store",
+          "position": { "x": -12, "y": 0, "z": 10 }
+        },
+        {
+          "id": "crafting_supplier",
+          "type": "crafting_store",
+          "storeId": "crafting_store",
+          "position": { "x": -16, "y": 0, "z": 18 }
+        }
+      ],
+      "resources": [
+        {
+          "type": "tree",
+          "position": { "x": 22, "y": 0, "z": -10 },
+          "resourceId": "tree_normal"
+        },
+        {
+          "type": "tree",
+          "position": { "x": 28, "y": 0, "z": -14 },
+          "resourceId": "tree_oak"
+        },
+        {
+          "type": "tree",
+          "position": { "x": 26, "y": 0, "z": -20 },
+          "resourceId": "tree_willow"
+        },
+        {
+          "type": "tree",
+          "position": { "x": 34, "y": 0, "z": -16 },
+          "resourceId": "tree_teak"
+        },
+        {
+          "type": "tree",
+          "position": { "x": 32, "y": 0, "z": -24 },
+          "resourceId": "tree_maple"
+        },
+        {
+          "type": "tree",
+          "position": { "x": 40, "y": 0, "z": -18 },
+          "resourceId": "tree_mahogany"
+        },
+        {
+          "type": "tree",
+          "position": { "x": 38, "y": 0, "z": -28 },
+          "resourceId": "tree_yew"
+        },
+        {
+          "type": "tree",
+          "position": { "x": 45, "y": 0, "z": -22 },
+          "resourceId": "tree_magic"
+        },
+        {
+          "type": "ore",
+          "position": { "x": -18, "y": 0, "z": 32 },
+          "resourceId": "ore_copper"
+        },
+        {
+          "type": "ore",
+          "position": { "x": -14, "y": 0, "z": 35 },
+          "resourceId": "ore_tin"
+        },
+        {
+          "type": "ore",
+          "position": { "x": -10, "y": 0, "z": 32 },
+          "resourceId": "ore_iron"
+        },
+        {
+          "type": "ore",
+          "position": { "x": -6, "y": 0, "z": 35 },
+          "resourceId": "ore_gold"
+        },
+        {
+          "type": "ore",
+          "position": { "x": -2, "y": 0, "z": 36 },
+          "resourceId": "ore_coal"
+        },
+        {
+          "type": "ore",
+          "position": { "x": 2, "y": 0, "z": 33 },
+          "resourceId": "ore_mithril"
+        },
+        {
+          "type": "ore",
+          "position": { "x": 6, "y": 0, "z": 38 },
+          "resourceId": "ore_adamant"
+        },
+        {
+          "type": "ore",
+          "position": { "x": 10, "y": 0, "z": 35 },
+          "resourceId": "ore_runite"
+        },
+        {
+          "type": "ore",
+          "position": { "x": 32, "y": 0, "z": -42 },
+          "resourceId": "ore_essence"
+        },
+        {
+          "type": "ore",
+          "position": { "x": 35, "y": 0, "z": -46 },
+          "resourceId": "ore_essence"
+        },
+        {
+          "type": "ore",
+          "position": { "x": 38, "y": 0, "z": -43 },
+          "resourceId": "ore_essence"
+        }
+      ],
+      "mobSpawns": [
+        {
+          "mobId": "goblin",
+          "position": { "x": 25, "y": 0, "z": 18 },
+          "spawnRadius": 6,
+          "maxCount": 3
+        },
+        {
+          "mobId": "cow",
+          "position": { "x": -35, "y": 0, "z": 18 },
+          "spawnRadius": 5,
+          "maxCount": 4
+        },
+        {
+          "mobId": "dark_wizard",
+          "position": { "x": 45, "y": 0, "z": -30 },
+          "spawnRadius": 5,
+          "maxCount": 3
+        },
+        {
+          "mobId": "dark_ranger",
+          "position": { "x": 38, "y": 0, "z": -25 },
+          "spawnRadius": 5,
+          "maxCount": 3
+        },
+        {
+          "mobId": "guard",
+          "position": { "x": 0, "y": 0, "z": 10 },
+          "spawnRadius": 8,
+          "maxCount": 3
+        },
+        {
+          "mobId": "bandit",
+          "position": { "x": -35, "y": 0, "z": 30 },
+          "spawnRadius": 6,
+          "maxCount": 4
+        },
+        {
+          "mobId": "barbarian",
+          "position": { "x": -25, "y": 0, "z": 18 },
+          "spawnRadius": 6,
+          "maxCount": 4
+        }
+      ],
+      "fishing": {
+        "enabled": true,
+        "spotCount": 8,
+        "spotTypes": ["fishing_spot_net", "fishing_spot_bait", "fishing_spot_fly", "fishing_spot_cage", "fishing_spot_harpoon"]
+      },
+      "stations": [
+        {
+          "id": "bank_spawn",
+          "type": "bank",
+          "position": { "x": -2, "y": 0, "z": -2 },
+          "bankId": "spawn_bank"
+        },
+        {
+          "id": "furnace_spawn",
+          "type": "furnace",
+          "position": { "x": -24, "y": 0, "z": 28 }
+        },
+        {
+          "id": "anvil_spawn",
+          "type": "anvil",
+          "position": { "x": -21, "y": 0, "z": 28 }
+        },
+        {
+          "id": "altar_spawn",
+          "type": "altar",
+          "position": { "x": 0, "y": 0, "z": -25 }
+        },
+        {
+          "id": "range_spawn",
+          "type": "range",
+          "position": { "x": -26, "y": 0, "z": -4 }
+        },
+        {
+          "id": "air_altar_spawn",
+          "type": "runecrafting_altar",
+          "runeType": "air",
+          "position": { "x": 35, "y": 0, "z": -53 }
+        },
+        {
+          "id": "mind_altar_spawn",
+          "type": "runecrafting_altar",
+          "runeType": "mind",
+          "position": { "x": 42, "y": 0, "z": -49 }
+        },
+        {
+          "id": "water_altar_spawn",
+          "type": "runecrafting_altar",
+          "runeType": "water",
+          "position": { "x": 42, "y": 0, "z": -41 }
+        },
+        {
+          "id": "earth_altar_spawn",
+          "type": "runecrafting_altar",
+          "runeType": "earth",
+          "position": { "x": 35, "y": 0, "z": -37 }
+        },
+        {
+          "id": "fire_altar_spawn",
+          "type": "runecrafting_altar",
+          "runeType": "fire",
+          "position": { "x": 28, "y": 0, "z": -41 }
+        },
+        {
+          "id": "chaos_altar_spawn",
+          "type": "runecrafting_altar",
+          "runeType": "chaos",
+          "position": { "x": 28, "y": 0, "z": -49 }
+        }
+      ]
+    }
+  },
+  "level1Areas": {
+    "haven_pond": {
+      "id": "haven_pond",
+      "name": "Haven Pond",
+      "description": "A tranquil fishing pond north of Central Haven, teeming with fish.",
+      "difficultyLevel": 0,
+      "bounds": {
+        "minX": -125,
+        "maxX": 70,
+        "minZ": 235,
+        "maxZ": 420
+      },
+      "biomeType": "forest",
+      "safeZone": true,
+      "npcs": [],
+      "resources": [],
+      "mobSpawns": [],
+      "fishing": {
+        "enabled": true,
+        "spotCount": 8,
+        "spotTypes": ["fishing_spot_net", "fishing_spot_bait", "fishing_spot_fly", "fishing_spot_cage", "fishing_spot_harpoon"]
+      }
+    },
+    "wilderness_test": {
+      "id": "wilderness_test",
+      "name": "The Wastes",
+      "description": "A dangerous zone where players can attack each other. Enter at your own risk.",
+      "difficultyLevel": 1,
+      "bounds": {
+        "minX": 200,
+        "maxX": 300,
+        "minZ": -50,
+        "maxZ": 50
+      },
+      "biomeType": "wastes",
+      "safeZone": false,
+      "pvpEnabled": true,
+      "npcs": [],
+      "resources": [],
+      "mobSpawns": [
+        {
+          "mobId": "bandit",
+          "position": { "x": 230, "y": 0, "z": -20 },
+          "spawnRadius": 6,
+          "maxCount": 3
+        }
+      ],
+      "fishing": {
+        "enabled": true,
+        "spotCount": 2,
+        "spotTypes": ["fishing_spot_fly"]
+      }
+    }
+  },
+  "level2Areas": {},
+  "level3Areas": {},
+  "specialAreas": {
+    "duel_arena": {
+      "id": "duel_arena",
+      "name": "Duel Arena",
+      "description": "A grand arena where warriors settle disputes through honorable combat. Challenge other players to duels with agreed-upon rules and stakes.",
+      "difficultyLevel": 0,
+      "bounds": {
+        "minX": 316,
+        "maxX": 420,
+        "minZ": 349,
+        "maxZ": 489
+      },
+      "biomeType": "desert",
+      "safeZone": true,
+      "pvpEnabled": false,
+      "npcs": [
+        {
+          "id": "duel_arena_nurse",
+          "type": "healer",
+          "name": "Nurse Sarah",
+          "position": { "x": 55, "y": 0, "z": 105 },
+          "dialogue": {
+            "greeting": "Welcome to the Duel Arena hospital. Let me restore your health and prayer.",
+            "heal": "There you go, fully restored!"
+          }
+        },
+        {
+          "id": "duel_arena_scoreboard",
+          "type": "scoreboard",
+          "name": "Duel Scoreboard",
+          "position": { "x": 100, "y": 0, "z": 105 },
+          "dialogue": {
+            "greeting": "View the duel arena rankings and statistics."
+          }
+        },
+        {
+          "id": "duel_arena_guide",
+          "type": "guide",
+          "name": "Duel Master Marcus",
+          "position": { "x": 110, "y": 0, "z": 110 },
+          "dialogue": {
+            "greeting": "Welcome to the Duel Arena! Right-click another player and select 'Challenge to Duel' to begin. You can set rules and stake items before fighting."
+          }
+        }
+      ],
+      "resources": [],
+      "mobSpawns": [],
+      "stations": [
+        {
+          "id": "duel_arena_bank",
+          "type": "bank",
+          "position": { "x": 135, "y": 0, "z": 115 },
+          "bankId": "duel_arena_bank"
+        }
+      ]
+    }
+  }
+}

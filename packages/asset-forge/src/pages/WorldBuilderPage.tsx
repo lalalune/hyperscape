@@ -449,6 +449,72 @@ function disposeObject(obj: THREE.Object3D): void {
   obj.children.forEach((child) => disposeObject(child));
 }
 
+function getContainerSize(container: HTMLElement): {
+  width: number;
+  height: number;
+} {
+  const rect = container.getBoundingClientRect();
+  return {
+    width: Math.max(1, Math.floor(container.clientWidth || rect.width || 1)),
+    height: Math.max(1, Math.floor(container.clientHeight || rect.height || 1)),
+  };
+}
+
+function disposeMaterial(material: THREE.Material | THREE.Material[]): void {
+  const materials = Array.isArray(material) ? material : [material];
+  for (const mat of materials) {
+    const mappedMaterial = mat as THREE.Material & {
+      map?: THREE.Texture | null;
+    };
+    mappedMaterial.map?.dispose();
+    mat.dispose();
+  }
+}
+
+function disposeRenderable(object: THREE.Object3D): void {
+  if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
+    object.geometry?.dispose();
+    if (object.material) {
+      disposeMaterial(object.material);
+    }
+    return;
+  }
+
+  if (object instanceof THREE.Sprite) {
+    disposeMaterial(object.material);
+  }
+}
+
+function disposeRenderableTree(object: THREE.Object3D): void {
+  object.traverse(disposeRenderable);
+}
+
+function disposeMeshRef(ref: React.MutableRefObject<THREE.Mesh | null>): void {
+  const mesh = ref.current;
+  if (!mesh) return;
+  mesh.removeFromParent();
+  disposeRenderable(mesh);
+  ref.current = null;
+}
+
+function disposeGroupRef(
+  ref: React.MutableRefObject<THREE.Group | null>,
+): void {
+  const group = ref.current;
+  if (!group) return;
+  group.removeFromParent();
+  disposeRenderableTree(group);
+  ref.current = null;
+}
+
+function disposeGeneratedRock(rock: GeneratedRock): void {
+  rock.mesh.removeFromParent();
+  rock.geometry?.dispose();
+  if (rock.mesh.material) {
+    disposeMaterial(rock.mesh.material);
+  }
+}
+
 // ============================================================
 // BUILDING GENERATION TYPES
 // ============================================================
@@ -3870,6 +3936,7 @@ export const WorldBuilderPage: React.FC = () => {
 
     let mounted = true;
     const container = containerRef.current;
+    const initialSize = getContainerSize(container);
 
     // Scene (create before async renderer init)
     const scene = new THREE.Scene();
@@ -3879,7 +3946,7 @@ export const WorldBuilderPage: React.FC = () => {
     // Camera
     const camera = new THREE.PerspectiveCamera(
       55,
-      container.clientWidth / container.clientHeight,
+      initialSize.width / initialSize.height,
       0.1,
       200,
     );
@@ -3930,7 +3997,8 @@ export const WorldBuilderPage: React.FC = () => {
       }
 
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.setSize(container.clientWidth, container.clientHeight);
+      const { width, height } = getContainerSize(container);
+      renderer.setSize(width, height);
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       container.appendChild(renderer.domElement);
       rendererRef.current = renderer;
@@ -4110,8 +4178,7 @@ export const WorldBuilderPage: React.FC = () => {
     // Handle resize
     const handleResize = () => {
       if (!container || !rendererRef.current) return;
-      const width = container.clientWidth;
-      const height = container.clientHeight;
+      const { width, height } = getContainerSize(container);
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       rendererRef.current.setSize(width, height);
@@ -4132,7 +4199,7 @@ export const WorldBuilderPage: React.FC = () => {
 
       // Dispose current building
       if (currentBuildingRef.current) {
-        scene.remove(currentBuildingRef.current);
+        currentBuildingRef.current.removeFromParent();
         disposeObject(currentBuildingRef.current);
         currentBuildingRef.current = null;
       }
@@ -4180,7 +4247,7 @@ export const WorldBuilderPage: React.FC = () => {
 
     // Remove old building and dispose all geometries
     if (currentBuildingRef.current) {
-      sceneRef.current.remove(currentBuildingRef.current);
+      currentBuildingRef.current.removeFromParent();
       disposeObject(currentBuildingRef.current);
     }
 
@@ -4221,71 +4288,35 @@ export const WorldBuilderPage: React.FC = () => {
 
     // Clear building
     if (currentBuildingRef.current) {
-      sceneRef.current.remove(currentBuildingRef.current);
+      currentBuildingRef.current.removeFromParent();
       disposeObject(currentBuildingRef.current);
       currentBuildingRef.current = null;
     }
 
     // Clear tree
     if (currentTreeRef.current) {
-      sceneRef.current.remove(currentTreeRef.current.group);
+      currentTreeRef.current.group.removeFromParent();
       disposeTreeMesh(currentTreeRef.current);
       currentTreeRef.current = null;
     }
 
     // Clear rock
     if (currentRockRef.current) {
-      sceneRef.current.remove(currentRockRef.current.mesh);
-      currentRockRef.current.geometry.dispose();
-      if (currentRockRef.current.mesh.material) {
-        (currentRockRef.current.mesh.material as THREE.Material).dispose();
-      }
+      disposeGeneratedRock(currentRockRef.current);
       currentRockRef.current = null;
     }
 
     // Clear plant
     if (currentPlantRef.current) {
-      sceneRef.current.remove(currentPlantRef.current.group);
-      currentPlantRef.current.group.traverse((child) => {
-        if (child instanceof THREE.Mesh) {
-          child.geometry.dispose();
-          if (child.material instanceof THREE.Material) {
-            child.material.dispose();
-          }
-        }
-      });
+      currentPlantRef.current.group.removeFromParent();
+      disposeRenderableTree(currentPlantRef.current.group);
       currentPlantRef.current = null;
     }
 
     // Clear terrain
-    if (terrainMeshRef.current) {
-      sceneRef.current.remove(terrainMeshRef.current);
-      terrainMeshRef.current.geometry.dispose();
-      if (terrainMeshRef.current.material instanceof THREE.Material) {
-        terrainMeshRef.current.material.dispose();
-      }
-      terrainMeshRef.current = null;
-    }
-    if (waterMeshRef.current) {
-      sceneRef.current.remove(waterMeshRef.current);
-      waterMeshRef.current.geometry.dispose();
-      if (waterMeshRef.current.material instanceof THREE.Material) {
-        waterMeshRef.current.material.dispose();
-      }
-      waterMeshRef.current = null;
-    }
-    if (townMarkersRef.current) {
-      sceneRef.current.remove(townMarkersRef.current);
-      townMarkersRef.current.traverse((child) => {
-        if (child instanceof THREE.Mesh) {
-          child.geometry.dispose();
-          if (child.material instanceof THREE.Material) {
-            child.material.dispose();
-          }
-        }
-      });
-      townMarkersRef.current = null;
-    }
+    disposeMeshRef(terrainMeshRef);
+    disposeMeshRef(waterMeshRef);
+    disposeGroupRef(townMarkersRef);
   }, []);
 
   // Handle tab switching - update viewer content based on active tab
@@ -4338,7 +4369,7 @@ export const WorldBuilderPage: React.FC = () => {
 
     // Clean up previous tree
     if (currentTreeRef.current) {
-      sceneRef.current.remove(currentTreeRef.current.group);
+      currentTreeRef.current.group.removeFromParent();
       disposeTreeMesh(currentTreeRef.current);
       currentTreeRef.current = null;
     }
@@ -4381,11 +4412,7 @@ export const WorldBuilderPage: React.FC = () => {
 
     // Clean up previous rock
     if (currentRockRef.current) {
-      sceneRef.current.remove(currentRockRef.current.mesh);
-      currentRockRef.current.geometry.dispose();
-      if (currentRockRef.current.mesh.material) {
-        (currentRockRef.current.mesh.material as THREE.Material).dispose();
-      }
+      disposeGeneratedRock(currentRockRef.current);
       currentRockRef.current = null;
     }
 
@@ -4440,15 +4467,8 @@ export const WorldBuilderPage: React.FC = () => {
 
     // Clean up previous plant
     if (currentPlantRef.current) {
-      sceneRef.current.remove(currentPlantRef.current.group);
-      currentPlantRef.current.group.traverse((child) => {
-        if (child instanceof THREE.Mesh) {
-          child.geometry.dispose();
-          if (child.material instanceof THREE.Material) {
-            child.material.dispose();
-          }
-        }
-      });
+      currentPlantRef.current.group.removeFromParent();
+      disposeRenderableTree(currentPlantRef.current.group);
       currentPlantRef.current = null;
     }
 
@@ -4490,34 +4510,9 @@ export const WorldBuilderPage: React.FC = () => {
 
       try {
         // Clean up previous terrain
-        if (terrainMeshRef.current) {
-          sceneRef.current.remove(terrainMeshRef.current);
-          terrainMeshRef.current.geometry.dispose();
-          if (terrainMeshRef.current.material instanceof THREE.Material) {
-            terrainMeshRef.current.material.dispose();
-          }
-          terrainMeshRef.current = null;
-        }
-        if (waterMeshRef.current) {
-          sceneRef.current.remove(waterMeshRef.current);
-          waterMeshRef.current.geometry.dispose();
-          if (waterMeshRef.current.material instanceof THREE.Material) {
-            waterMeshRef.current.material.dispose();
-          }
-          waterMeshRef.current = null;
-        }
-        if (townMarkersRef.current) {
-          sceneRef.current.remove(townMarkersRef.current);
-          townMarkersRef.current.traverse((child) => {
-            if (child instanceof THREE.Mesh) {
-              child.geometry.dispose();
-              if (child.material instanceof THREE.Material) {
-                child.material.dispose();
-              }
-            }
-          });
-          townMarkersRef.current = null;
-        }
+        disposeMeshRef(terrainMeshRef);
+        disposeMeshRef(waterMeshRef);
+        disposeGroupRef(townMarkersRef);
 
         // Use a smaller preview size for performance
         const previewSize = Math.min(worldConfig.terrain.worldSize, 20);

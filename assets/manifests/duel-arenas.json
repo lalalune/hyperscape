@@ -1,0 +1,112 @@
+{
+  "arenas": [
+    {
+      "arenaId": 1,
+      "center": { "x": 210, "z": 210 },
+      "size": 16,
+      "spawnPoints": [
+        { "x": 206, "y": 0, "z": 210 },
+        { "x": 214, "y": 0, "z": 210 }
+      ],
+      "trapdoorPositions": [
+        { "x": 203, "z": 206 },
+        { "x": 203, "z": 214 },
+        { "x": 217, "z": 206 },
+        { "x": 217, "z": 214 }
+      ]
+    },
+    {
+      "arenaId": 2,
+      "center": { "x": 250, "z": 210 },
+      "size": 16,
+      "spawnPoints": [
+        { "x": 246, "y": 0, "z": 210 },
+        { "x": 254, "y": 0, "z": 210 }
+      ],
+      "trapdoorPositions": [
+        { "x": 243, "z": 206 },
+        { "x": 243, "z": 214 },
+        { "x": 257, "z": 206 },
+        { "x": 257, "z": 214 }
+      ]
+    },
+    {
+      "arenaId": 3,
+      "center": { "x": 290, "z": 210 },
+      "size": 16,
+      "spawnPoints": [
+        { "x": 286, "y": 0, "z": 210 },
+        { "x": 294, "y": 0, "z": 210 }
+      ],
+      "trapdoorPositions": [
+        { "x": 283, "z": 206 },
+        { "x": 283, "z": 214 },
+        { "x": 297, "z": 206 },
+        { "x": 297, "z": 214 }
+      ]
+    },
+    {
+      "arenaId": 4,
+      "center": { "x": 210, "z": 260 },
+      "size": 16,
+      "spawnPoints": [
+        { "x": 206, "y": 0, "z": 260 },
+        { "x": 214, "y": 0, "z": 260 }
+      ],
+      "trapdoorPositions": [
+        { "x": 203, "z": 256 },
+        { "x": 203, "z": 264 },
+        { "x": 217, "z": 256 },
+        { "x": 217, "z": 264 }
+      ]
+    },
+    {
+      "arenaId": 5,
+      "center": { "x": 250, "z": 260 },
+      "size": 16,
+      "spawnPoints": [
+        { "x": 246, "y": 0, "z": 260 },
+        { "x": 254, "y": 0, "z": 260 }
+      ],
+      "trapdoorPositions": [
+        { "x": 243, "z": 256 },
+        { "x": 243, "z": 264 },
+        { "x": 257, "z": 256 },
+        { "x": 257, "z": 264 }
+      ]
+    },
+    {
+      "arenaId": 6,
+      "center": { "x": 290, "z": 260 },
+      "size": 16,
+      "spawnPoints": [
+        { "x": 286, "y": 0, "z": 260 },
+        { "x": 294, "y": 0, "z": 260 }
+      ],
+      "trapdoorPositions": [
+        { "x": 283, "z": 256 },
+        { "x": 283, "z": 264 },
+        { "x": 297, "z": 256 },
+        { "x": 297, "z": 264 }
+      ]
+    }
+  ],
+  "lobby": {
+    "center": { "x": 250, "z": 295 },
+    "size": { "width": 60, "depth": 30 },
+    "spawnPoint": { "x": 250, "y": 0, "z": 295 }
+  },
+  "hospital": {
+    "center": { "x": 210, "z": 295 },
+    "size": { "width": 20, "depth": 15 },
+    "spawnPoint": { "x": 210, "y": 0, "z": 295 }
+  },
+  "constants": {
+    "arenaSize": 16,
+    "wallHeight": 2.5,
+    "wallThickness": 0.5,
+    "floorColor": "0xc2b280",
+    "wallColor": "0x8b7355",
+    "trapdoorColor": "0x4a3728"
+  }
+}

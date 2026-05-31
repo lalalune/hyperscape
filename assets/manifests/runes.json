@@ -1,0 +1,59 @@
+{
+  "_comment": "Runes manifest for magic combat. F2P scope: only runes needed for Strike and Bolt combat spells.",
+  "runes": [
+    {
+      "id": "air_rune",
+      "name": "Air rune",
+      "element": "air",
+      "stackable": true
+    },
+    {
+      "id": "water_rune",
+      "name": "Water rune",
+      "element": "water",
+      "stackable": true
+    },
+    {
+      "id": "earth_rune",
+      "name": "Earth rune",
+      "element": "earth",
+      "stackable": true
+    },
+    {
+      "id": "fire_rune",
+      "name": "Fire rune",
+      "element": "fire",
+      "stackable": true
+    },
+    {
+      "id": "mind_rune",
+      "name": "Mind rune",
+      "element": null,
+      "stackable": true
+    },
+    {
+      "id": "chaos_rune",
+      "name": "Chaos rune",
+      "element": null,
+      "stackable": true
+    }
+  ],
+  "elementalStaves": [
+    {
+      "staffId": "staff_of_air",
+      "providesInfinite": ["air_rune"]
+    },
+    {
+      "staffId": "staff_of_water",
+      "providesInfinite": ["water_rune"]
+    },
+    {
+      "staffId": "staff_of_earth",
+      "providesInfinite": ["earth_rune"]
+    },
+    {
+      "staffId": "staff_of_fire",
+      "providesInfinite": ["fire_rune"]
+    }
+  ]
+}

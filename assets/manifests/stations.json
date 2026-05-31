@@ -1,0 +1,70 @@
+{
+  "stations": [
+    {
+      "type": "anvil",
+      "name": "Anvil",
+      "model": "asset://models/stations/anvil/anvil.glb",
+      "modelScale": 0.5,
+      "modelYOffset": 0.2,
+      "examine": "An anvil for smithing metal bars into weapons and tools.",
+      "flattenGround": true,
+      "flattenPadding": 2.0,
+      "flattenBlendRadius": 2.0
+    },
+    {
+      "type": "furnace",
+      "name": "Furnace",
+      "model": "asset://models/stations/furnace/furnace.glb",
+      "modelScale": 1.5,
+      "modelYOffset": 1.0,
+      "examine": "A furnace for smelting ores into metal bars.",
+      "flattenGround": true,
+      "flattenPadding": 2.5,
+      "flattenBlendRadius": 2.5
+    },
+    {
+      "type": "range",
+      "name": "Cooking Range",
+      "model": "asset://models/stations/cooking-range/cooking-range.glb",
+      "modelScale": 1.0,
+      "modelYOffset": 0.3,
+      "examine": "A range for cooking food. Reduces burn chance.",
+      "flattenGround": true,
+      "flattenPadding": 2.0,
+      "flattenBlendRadius": 2.0
+    },
+    {
+      "type": "bank",
+      "name": "Bank Chest",
+      "model": "asset://models/stations/bank-chest/bank-chest.glb",
+      "modelScale": 0.5,
+      "modelYOffset": 0.10,
+      "examine": "A bank chest for storing items.",
+      "flattenGround": true,
+      "flattenPadding": 2.0,
+      "flattenBlendRadius": 2.0
+    },
+    {
+      "type": "altar",
+      "name": "Altar",
+      "model": "asset://models/stations/prayer-alter/prayer-alter.glb",
+      "modelScale": 1.0,
+      "modelYOffset": 0.25,
+      "examine": "An altar to the gods. Pray here to restore prayer points.",
+      "flattenGround": true,
+      "flattenPadding": 2.5,
+      "flattenBlendRadius": 2.5
+    },
+    {
+      "type": "runecrafting_altar",
+      "name": "Runecrafting Altar",
+      "model": "asset://models/stations/runecrafting-alter/runecrafting-alter.glb",
+      "modelScale": 1.8,
+      "modelYOffset": 1.2,
+      "examine": "A mysterious altar pulsing with runic energy.",
+      "flattenGround": true,
+      "flattenPadding": 3.0,
+      "flattenBlendRadius": 3.0
+    }
+  ]
+}

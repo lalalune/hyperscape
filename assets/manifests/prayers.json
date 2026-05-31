@@ -1,0 +1,131 @@
+{
+  "$schema": "./prayers.schema.json",
+  "_comment": "OSRS-accurate prayer definitions. drainEffect: higher = faster drain. See https://oldschool.runescape.wiki/w/Prayer",
+  "prayers": [
+    {
+      "id": "thick_skin",
+      "name": "Thick Skin",
+      "description": "Increases your Defence by 5%",
+      "icon": "prayer_thick_skin",
+      "level": 1,
+      "category": "defensive",
+      "drainEffect": 1,
+      "bonuses": {
+        "defenseMultiplier": 1.05
+      },
+      "conflicts": ["rock_skin", "steel_skin", "chivalry", "piety"]
+    },
+    {
+      "id": "burst_of_strength",
+      "name": "Burst of Strength",
+      "description": "Increases your Strength by 5%",
+      "icon": "prayer_burst_of_strength",
+      "level": 4,
+      "category": "offensive",
+      "drainEffect": 1,
+      "bonuses": {
+        "strengthMultiplier": 1.05
+      },
+      "conflicts": ["superhuman_strength", "ultimate_strength", "chivalry", "piety"]
+    },
+    {
+      "id": "clarity_of_thought",
+      "name": "Clarity of Thought",
+      "description": "Increases your Attack by 5%",
+      "icon": "prayer_clarity_of_thought",
+      "level": 7,
+      "category": "offensive",
+      "drainEffect": 1,
+      "bonuses": {
+        "attackMultiplier": 1.05
+      },
+      "conflicts": ["improved_reflexes", "incredible_reflexes", "chivalry", "piety"]
+    },
+    {
+      "id": "rock_skin",
+      "name": "Rock Skin",
+      "description": "Increases your Defence by 10%",
+      "icon": "prayer_rock_skin",
+      "level": 10,
+      "category": "defensive",
+      "drainEffect": 6,
+      "bonuses": {
+        "defenseMultiplier": 1.10
+      },
+      "conflicts": ["thick_skin", "steel_skin", "chivalry", "piety"]
+    },
+    {
+      "id": "superhuman_strength",
+      "name": "Superhuman Strength",
+      "description": "Increases your Strength by 10%",
+      "icon": "prayer_superhuman_strength",
+      "level": 13,
+      "category": "offensive",
+      "drainEffect": 6,
+      "bonuses": {
+        "strengthMultiplier": 1.10
+      },
+      "conflicts": ["burst_of_strength", "ultimate_strength", "chivalry", "piety"]
+    },
+
+    {
+      "_comment": "=== RANGED PRAYERS ===",
+      "id": "sharp_eye",
+      "name": "Sharp Eye",
+      "description": "Increases your Ranged by 5%",
+      "icon": "prayer_sharp_eye",
+      "level": 8,
+      "category": "offensive",
+      "drainEffect": 1,
+      "bonuses": {
+        "rangedAttackMultiplier": 1.05,
+        "rangedStrengthMultiplier": 1.05
+      },
+      "conflicts": ["hawk_eye", "eagle_eye", "rigour"]
+    },
+    {
+      "id": "hawk_eye",
+      "name": "Hawk Eye",
+      "description": "Increases your Ranged by 10%",
+      "icon": "prayer_hawk_eye",
+      "level": 26,
+      "category": "offensive",
+      "drainEffect": 6,
+      "bonuses": {
+        "rangedAttackMultiplier": 1.10,
+        "rangedStrengthMultiplier": 1.10
+      },
+      "conflicts": ["sharp_eye", "eagle_eye", "rigour"]
+    },
+
+    {
+      "_comment": "=== MAGIC PRAYERS ===",
+      "id": "mystic_will",
+      "name": "Mystic Will",
+      "description": "Increases your Magic attack and defence by 5%",
+      "icon": "prayer_mystic_will",
+      "level": 9,
+      "category": "offensive",
+      "drainEffect": 1,
+      "bonuses": {
+        "magicAttackMultiplier": 1.05,
+        "magicDefenseMultiplier": 1.05
+      },
+      "conflicts": ["mystic_lore", "mystic_might", "augury"]
+    },
+    {
+      "id": "mystic_lore",
+      "name": "Mystic Lore",
+      "description": "Increases your Magic attack and defence by 10%",
+      "icon": "prayer_mystic_lore",
+      "level": 27,
+      "category": "offensive",
+      "drainEffect": 6,
+      "bonuses": {
+        "magicAttackMultiplier": 1.10,
+        "magicDefenseMultiplier": 1.10
+      },
+      "conflicts": ["mystic_will", "mystic_might", "augury"]
+    }
+  ]
+}

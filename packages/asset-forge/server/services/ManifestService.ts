@@ -32,12 +32,16 @@ type ManifestCategory =
   | "generated";
 
 type ManifestSchemaType =
+  | "ammunition"
   | "biomes"
   | "buildings"
+  | "combat-spells"
+  | "duel-arenas"
   | "model-bounds"
   | "music"
   | "npcs"
   | "prayers"
+  | "runes"
   | "world-areas"
   | "world-config"
   | "quests"
@@ -51,6 +55,14 @@ type ManifestSchemaType =
 
 // Define all manifest files and their metadata
 const MANIFEST_DEFINITIONS: ManifestInfo[] = [
+  {
+    name: "ammunition",
+    filename: "ammunition.json",
+    description: "Ammunition item definitions",
+    category: "items",
+    editable: true,
+    schema: "ammunition",
+  },
   {
     name: "biomes",
     filename: "biomes.json",
@@ -67,6 +79,22 @@ const MANIFEST_DEFINITIONS: ManifestInfo[] = [
     category: "world",
     editable: true,
     schema: "buildings",
+  },
+  {
+    name: "combat-spells",
+    filename: "combat-spells.json",
+    description: "Combat spell definitions and requirements",
+    category: "progression",
+    editable: true,
+    schema: "combat-spells",
+  },
+  {
+    name: "duel-arenas",
+    filename: "duel-arenas.json",
+    description: "Duel arena definitions and placement metadata",
+    category: "world",
+    editable: true,
+    schema: "duel-arenas",
   },
   {
     name: "model-bounds",
@@ -99,6 +127,14 @@ const MANIFEST_DEFINITIONS: ManifestInfo[] = [
     category: "progression",
     editable: true,
     schema: "prayers",
+  },
+  {
+    name: "runes",
+    filename: "runes.json",
+    description: "Rune item definitions and magic resources",
+    category: "items",
+    editable: true,
+    schema: "runes",
   },
   {
     name: "world-areas",
@@ -222,10 +258,22 @@ export interface ManifestValidationResult {
 
 export class ManifestService {
   private manifestsDir: string;
+  private readonly manifestReadDirs: string[];
   private backupsDir: string;
 
   constructor(projectRoot: string) {
     this.manifestsDir = path.join(projectRoot, "assets", "manifests");
+    this.manifestReadDirs = [
+      this.manifestsDir,
+      path.join(
+        projectRoot,
+        "packages",
+        "server",
+        "world",
+        "assets",
+        "manifests",
+      ),
+    ];
     this.backupsDir = path.join(this.manifestsDir, ".backups");
   }
 
@@ -234,6 +282,19 @@ export class ManifestService {
    */
   private getManifestPath(filename: string): string {
     return path.join(this.manifestsDir, filename);
+  }
+
+  private async findReadableManifestPath(
+    filename: string,
+  ): Promise<string | null> {
+    for (const dir of this.manifestReadDirs) {
+      const filePath = path.join(dir, filename);
+      if (await Bun.file(filePath).exists()) {
+        return filePath;
+      }
+    }
+
+    return null;
   }
 
   /**
@@ -370,13 +431,12 @@ export class ManifestService {
     const results: ManifestListItem[] = [];
 
     for (const def of MANIFEST_DEFINITIONS) {
-      const filePath = this.getManifestPath(def.filename);
+      const filePath = await this.findReadableManifestPath(def.filename);
 
       let lastModified = new Date().toISOString();
       let size = 0;
 
-      const exists = await Bun.file(filePath).exists();
-      if (exists) {
+      if (filePath) {
         const stat = await fs.promises.stat(filePath);
         lastModified = stat.mtime.toISOString();
         size = stat.size;
@@ -412,10 +472,9 @@ export class ManifestService {
       throw new Error(`Unknown manifest: ${name}`);
     }
 
-    const filePath = this.getManifestPath(info.filename);
-    const file = Bun.file(filePath);
+    const filePath = await this.findReadableManifestPath(info.filename);
 
-    if (!(await file.exists())) {
+    if (!filePath) {
       const defaultContent = this.getDefaultManifestContent(name);
       if (defaultContent !== null) {
         return {
@@ -430,6 +489,7 @@ export class ManifestService {
       throw new Error(`Manifest file not found: ${info.filename}`);
     }
 
+    const file = Bun.file(filePath);
     const stat = await fs.promises.stat(filePath);
     const content = await file.json();
 
@@ -446,7 +506,11 @@ export class ManifestService {
    * Create a backup of a manifest file before writing
    */
   private async createBackup(filename: string): Promise<string | null> {
-    const sourcePath = this.getManifestPath(filename);
+    const sourcePath = await this.findReadableManifestPath(filename);
+    if (!sourcePath) {
+      return null;
+    }
+
     const sourceFile = Bun.file(sourcePath);
 
     if (!(await sourceFile.exists())) {
@@ -530,6 +594,13 @@ export class ManifestService {
         break;
       case "buildings":
         this.validateBuildingsSchema(content, errors);
+        break;
+      case "ammunition":
+      case "combat-spells":
+      case "duel-arenas":
+      case "runes":
+        // These manifests are currently schema-light data tables. Basic JSON
+        // structure validation above is enough until specialized editors land.
         break;
       case "music":
         this.validateMusicSchema(content, errors);
@@ -1064,6 +1135,7 @@ export class ManifestService {
 
     // Write the new content
     const jsonContent = JSON.stringify(content, null, 2);
+    await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
     await Bun.write(filePath, jsonContent);
 
     return {
@@ -1129,6 +1201,7 @@ export class ManifestService {
 
     // Write the restored content
     const filePath = this.getManifestPath(info.filename);
+    await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
     await Bun.write(filePath, backupContent);
 
     return {

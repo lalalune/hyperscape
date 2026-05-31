@@ -2,7 +2,8 @@
 
 This repo includes `docker-compose.coolify.yml` for a simple Coolify deployment
 with the Hyperscape app container, Postgres, and MinIO object storage for
-runtime conjure assets.
+runtime conjure assets. Use `.env.coolify.example` as the production-oriented
+copy/paste reference for Coolify environment variables.
 
 ## Services
 
@@ -16,8 +17,8 @@ Set at least:
 ```env
 POSTGRES_PASSWORD=<strong-password>
 MINIO_ROOT_PASSWORD=<strong-password-at-least-8-chars>
-PUBLIC_PRIVY_APP_ID=<privy-app-id>
-PRIVY_APP_SECRET=<privy-app-secret>
+PUBLIC_AUTH0_DOMAIN=<your-auth0-tenant>.us.auth0.com
+PUBLIC_AUTH0_CLIENT_ID=<your-auth0-spa-client-id>
 JWT_SECRET=<random-32-byte-secret>
 ADMIN_CODE=<private-admin-code>
 ```
@@ -34,21 +35,41 @@ PUBLIC_CDN_URL=https://<your-domain>/game-assets
 Set them explicitly only when the browser must use a different public API,
 WebSocket, or asset domain.
 
-The compose file sets:
+The compose file sets these on the `hyperscape` app service:
 
 ```env
 USE_LOCAL_POSTGRES=false
 DATABASE_URL=postgresql://hyperscape:<password>@postgres:5432/hyperscape
 DEFAULT_GOBLINS_ENABLED=false
-S3_BUCKET_CONJURES=hyperscape-conjures
 AUTO_START_AGENTS=false
 SPAWN_MODEL_AGENTS=true
 MODEL_AGENT_PROVIDERS=hyades
 MAX_MODEL_AGENTS=1
 ```
 
+The `minio-init` service creates `S3_BUCKET_CONJURES` and enables anonymous
+downloads for that bucket.
+
 Leave `DEFAULT_GOBLINS_ENABLED=false` unless you intentionally want the
 hardcoded starter test goblin cluster.
+
+## Environment Files
+
+The repo has several `.env.example` files because different packages can be
+deployed independently:
+
+| File | Purpose |
+| --- | --- |
+| `.env.coolify.example` | Production Coolify reference. Use this first for deployed Hyperscape, MinIO, and Asset Forge. |
+| `.env.example` | Older root/local streaming and Vast.ai variables. Do not use as the primary Coolify source. |
+| `packages/server/.env.example` | Local/server development reference with the full server variable surface. |
+| `packages/client/.env.example` | Client-only Vite/Cloudflare Pages style deployment reference. |
+| `packages/asset-forge/.env.example` | Asset Forge local/development reference, including generation provider options. |
+| `packages/plugin-hyperscape/.env.example` | Plugin/agent integration reference. |
+| `packages/website/.env.example` | Marketing website reference. |
+
+For Coolify, prefer `.env.coolify.example` because it aligns the app, MinIO, and
+Asset Forge variables around the same domains and bucket names.
 
 ## Hyades In-Game AI
 
@@ -113,7 +134,50 @@ S3_PUBLIC_BASE_URL=https://<asset-domain>/hyperscape-conjures
 CONJURE_STORAGE_PREFIX=conjures
 ```
 
-`S3_PUBLIC_BASE_URL` must be a browser-reachable URL for the bucket. Common
-self-hosted options are Caddy or nginx in front of MinIO, or Cloudflare proxying
-that asset domain. Without a public base URL, Asset Forge leaves object storage
-disabled and the caller should keep using its existing asset URL path.
+`S3_ENDPOINT` is the URL Asset Forge uses for authenticated S3 uploads. If Asset
+Forge runs in the same Docker Compose project or Docker network as MinIO, use
+the private service name and API port:
+
+```env
+S3_ENDPOINT=http://minio:9000
+```
+
+If Asset Forge is deployed as a separate Coolify app and is not attached to the
+same Docker network, use the public MinIO API domain instead:
+
+```env
+S3_ENDPOINT=https://assets.example.com
+```
+
+`S3_PUBLIC_BASE_URL` is different: it must be a browser-reachable URL for the
+bucket. In Coolify, assign a domain to the `minio` service on port `9000`, for
+example:
+
+```text
+https://assets.example.com -> minio:9000
+```
+
+Then set:
+
+```env
+S3_PUBLIC_BASE_URL=https://assets.example.com/hyperscape-conjures
+```
+
+Do not use the MinIO console port (`9001`) for asset URLs. If you expose the
+console, give it a separate domain such as:
+
+```text
+https://minio-console.example.com -> minio:9001
+```
+
+Without a public base URL, Asset Forge leaves object storage disabled and the
+caller should keep using its existing asset URL path.
+
+## Supabase Storage
+
+Do not deploy self-hosted Supabase only to replace MinIO. Hyperscape currently
+needs a regular Postgres connection plus an S3-compatible object store for
+generated Asset Forge outputs. Supabase Storage can expose an S3-compatible
+endpoint, but self-hosted Supabase adds the Storage API, auth/config services,
+and its own storage backend choices. A standalone S3-compatible service such as
+MinIO, RustFS, Garage, Cloudflare R2, or AWS S3 is simpler for this repo.

@@ -1,0 +1,896 @@
+[
+  {
+    "id": "plains",
+    "name": "Plains",
+    "description": "Open grasslands with gentle rolling hills.",
+    "difficultyLevel": 0,
+    "terrain": "plains",
+    "resources": [
+      "trees",
+      "fishing_spots"
+    ],
+    "mobs": [],
+    "fogIntensity": 0.1,
+    "ambientSound": "wind_gentle",
+    "colorScheme": {
+      "primary": "#66BB6A",
+      "secondary": "#81C784",
+      "fog": "#F1F8E9"
+    },
+    "color": 6732650,
+    "heightRange": [
+      0,
+      0.2
+    ],
+    "terrainMultiplier": 1,
+    "waterLevel": 0,
+    "maxSlope": 1.5,
+    "mobTypes": [],
+    "difficulty": 0,
+    "baseHeight": 0,
+    "heightVariation": 0.1,
+    "resourceDensity": 0.5,
+    "resourceTypes": [
+      "trees",
+      "fishing_spots"
+    ],
+    "vegetation": {
+      "enabled": true,
+      "layers": [
+        {
+          "category": "tree",
+          "density": 5,
+          "assets": [
+            "tree1",
+            "cherry-tree-lod-test"
+          ],
+          "minSpacing": 12,
+          "clustering": true,
+          "clusterSize": 3,
+          "noiseScale": 0.02,
+          "noiseThreshold": 0.4,
+          "avoidWater": true,
+          "avoidSteepSlopes": true,
+          "minHeight": 6
+        },
+        {
+          "category": "bush",
+          "density": 20,
+          "assets": [],
+          "minSpacing": 4,
+          "clustering": true,
+          "clusterSize": 5,
+          "noiseScale": 0.05,
+          "noiseThreshold": 0.3,
+          "avoidWater": true,
+          "minHeight": 6
+        },
+        {
+          "category": "grass",
+          "density": 3000,
+          "assets": [
+            "grass_toon",
+            "grass_field"
+          ],
+          "minSpacing": 0.3,
+          "clustering": false,
+          "noiseScale": 0.2,
+          "noiseThreshold": 0.05,
+          "avoidWater": true,
+          "avoidSteepSlopes": true,
+          "minHeight": 6
+        },
+        {
+          "category": "flower",
+          "density": 40,
+          "assets": [],
+          "minSpacing": 2,
+          "clustering": true,
+          "clusterSize": 8,
+          "noiseScale": 0.08,
+          "noiseThreshold": 0.5,
+          "avoidWater": true,
+          "minHeight": 6
+        },
+        {
+          "category": "rock",
+          "density": 5,
+          "assets": [
+            "pathway_rock_1",
+            "pathway_rock_2",
+            "round_rock_1",
+            "round_rock_2"
+          ],
+          "minSpacing": 15,
+          "clustering": false,
+          "minHeight": 6,
+          "noiseScale": 0.03,
+          "noiseThreshold": 0.6,
+          "avoidWater": true
+        },
+        {
+          "category": "mushroom",
+          "density": 12,
+          "assets": [
+            "mushroom"
+          ],
+          "minSpacing": 6,
+          "clustering": true,
+          "clusterSize": 4,
+          "noiseScale": 0.04,
+          "noiseThreshold": 0.45,
+          "avoidWater": true,
+          "minHeight": 6
+        }
+      ]
+    }
+  },
+  {
+    "id": "forest",
+    "name": "Forest",
+    "description": "Dense woodland areas with abundant trees.",
+    "difficultyLevel": 1,
+    "terrain": "forest",
+    "resources": [
+      "trees",
+      "fishing_spots"
+    ],
+    "mobs": [
+      "goblin",
+      "bandit"
+    ],
+    "fogIntensity": 0.4,
+    "ambientSound": "forest_mysterious",
+    "colorScheme": {
+      "primary": "#388E3C",
+      "secondary": "#4CAF50",
+      "fog": "#C5E1A5"
+    },
+    "color": 3706428,
+    "heightRange": [
+      0.2,
+      0.5
+    ],
+    "terrainMultiplier": 1,
+    "waterLevel": 0,
+    "maxSlope": 1.5,
+    "mobTypes": [
+      "goblin",
+      "bandit"
+    ],
+    "difficulty": 1,
+    "baseHeight": 0,
+    "heightVariation": 0.2,
+    "resourceDensity": 0.5,
+    "resourceTypes": [
+      "trees",
+      "fishing_spots"
+    ],
+    "vegetation": {
+      "enabled": true,
+      "layers": [
+        {
+          "category": "tree",
+          "density": 35,
+          "assets": [
+            "tree1",
+            "cherry-tree-lod-test"
+          ],
+          "minSpacing": 6,
+          "clustering": true,
+          "clusterSize": 8,
+          "noiseScale": 0.015,
+          "noiseThreshold": 0.2,
+          "avoidWater": true,
+          "avoidSteepSlopes": true,
+          "minHeight": 6
+        },
+        {
+          "category": "rock",
+          "density": 8,
+          "assets": [
+            "pathway_rock_1",
+            "pathway_rock_2",
+            "pathway_rock_3",
+            "round_rock_1",
+            "round_rock_2"
+          ],
+          "minSpacing": 12,
+          "clustering": false,
+          "noiseScale": 0.025,
+          "noiseThreshold": 0.5,
+          "avoidWater": true
+        },
+        {
+          "category": "mushroom",
+          "density": 25,
+          "assets": [
+            "mushroom"
+          ],
+          "minSpacing": 4,
+          "clustering": true,
+          "clusterSize": 6,
+          "noiseScale": 0.03,
+          "noiseThreshold": 0.35,
+          "avoidWater": true,
+          "minHeight": 6
+        }
+      ]
+    }
+  },
+  {
+    "id": "valley",
+    "name": "Valley",
+    "description": "Low-lying areas between hills and mountains.",
+    "difficultyLevel": 0,
+    "terrain": "plains",
+    "resources": [
+      "trees",
+      "fishing_spots"
+    ],
+    "mobs": [],
+    "fogIntensity": 0.2,
+    "ambientSound": "wind_plains",
+    "colorScheme": {
+      "primary": "#81C784",
+      "secondary": "#A5D6A7",
+      "fog": "#F1F8E9"
+    },
+    "color": 8505220,
+    "heightRange": [
+      0,
+      0.2
+    ],
+    "terrainMultiplier": 1,
+    "waterLevel": 0,
+    "maxSlope": 1.5,
+    "mobTypes": [],
+    "difficulty": 0,
+    "baseHeight": 0,
+    "heightVariation": 0.3,
+    "resourceDensity": 0.5,
+    "resourceTypes": [
+      "trees",
+      "fishing_spots"
+    ],
+    "vegetation": {
+      "enabled": true,
+      "layers": [
+        {
+          "category": "tree",
+          "density": 15,
+          "assets": [
+            "tree1",
+            "cherry-tree-lod-test"
+          ],
+          "minSpacing": 10,
+          "clustering": true,
+          "clusterSize": 4,
+          "noiseScale": 0.025,
+          "noiseThreshold": 0.35,
+          "avoidWater": true,
+          "avoidSteepSlopes": true,
+          "minHeight": 6
+        },
+        {
+          "category": "bush",
+          "density": 35,
+          "assets": [],
+          "minSpacing": 3,
+          "clustering": true,
+          "clusterSize": 5,
+          "noiseScale": 0.05,
+          "noiseThreshold": 0.3,
+          "avoidWater": true
+        },
+        {
+          "category": "flower",
+          "density": 55,
+          "assets": [
+            "flowers_1",
+            "flowers_2",
+            "flowers_3",
+            "flowers_4",
+            "flowers_5",
+            "flowers_11",
+            "flowers_12",
+            "flowers_13"
+          ],
+          "minSpacing": 1.5,
+          "clustering": true,
+          "clusterSize": 10,
+          "noiseScale": 0.06,
+          "noiseThreshold": 0.4,
+          "avoidWater": true
+        },
+        {
+          "category": "rock",
+          "density": 3,
+          "assets": [
+            "round_rock_1",
+            "round_rock_2",
+            "round_rock_3"
+          ],
+          "minSpacing": 20,
+          "clustering": false,
+          "noiseScale": 0.02,
+          "noiseThreshold": 0.65,
+          "avoidWater": true
+        },
+        {
+          "category": "mushroom",
+          "density": 18,
+          "assets": [
+            "mushroom"
+          ],
+          "minSpacing": 5,
+          "clustering": true,
+          "clusterSize": 5,
+          "noiseScale": 0.04,
+          "noiseThreshold": 0.4,
+          "avoidWater": true,
+          "minHeight": 6
+        }
+      ]
+    }
+  },
+  {
+    "id": "mountains",
+    "name": "Mountains",
+    "description": "High elevation rocky peaks with sparse vegetation.",
+    "difficultyLevel": 2,
+    "terrain": "mountains",
+    "resources": [
+      "trees"
+    ],
+    "mobs": [],
+    "fogIntensity": 0.3,
+    "ambientSound": "wind_mountain",
+    "colorScheme": {
+      "primary": "#7A7265",
+      "secondary": "#8A8275",
+      "fog": "#ECEFF1"
+    },
+    "color": 8024677,
+    "heightRange": [
+      0.6,
+      1
+    ],
+    "terrainMultiplier": 1,
+    "waterLevel": 0,
+    "maxSlope": 2.0,
+    "mobTypes": [],
+    "difficulty": 2,
+    "baseHeight": 0.5,
+    "heightVariation": 0.5,
+    "resourceDensity": 0.3,
+    "resourceTypes": [
+      "trees"
+    ],
+    "vegetation": {
+      "enabled": true,
+      "layers": [
+        {
+          "category": "tree",
+          "density": 5,
+          "assets": [
+            "tree1",
+            "cherry-tree-lod-test"
+          ],
+          "minSpacing": 20,
+          "clustering": false,
+          "noiseScale": 0.02,
+          "noiseThreshold": 0.6,
+          "avoidWater": true,
+          "avoidSteepSlopes": true,
+          "maxHeight": 40
+        },
+        {
+          "category": "bush",
+          "density": 8,
+          "assets": [
+            "bush_1",
+            "garden_bush"
+          ],
+          "minSpacing": 8,
+          "clustering": true,
+          "clusterSize": 3,
+          "noiseScale": 0.04,
+          "noiseThreshold": 0.5,
+          "avoidWater": true,
+          "maxHeight": 50
+        },
+        {
+          "category": "rock",
+          "density": 25,
+          "assets": [
+            "tall_rock_1",
+            "tall_rock_2",
+            "tall_rock_3",
+            "tall_rock_4",
+            "round_rock_3",
+            "round_rock_4",
+            "round_rock_5",
+            "pathway_rock_3",
+            "pathway_rock_4"
+          ],
+          "minSpacing": 8,
+          "clustering": true,
+          "clusterSize": 4,
+          "noiseScale": 0.03,
+          "noiseThreshold": 0.3,
+          "avoidWater": true
+        },
+        {
+          "category": "grass",
+          "density": 30,
+          "assets": [
+            "grass_toon"
+          ],
+          "minSpacing": 3,
+          "clustering": true,
+          "clusterSize": 5,
+          "noiseScale": 0.1,
+          "noiseThreshold": 0.5,
+          "avoidWater": true,
+          "maxHeight": 35
+        },
+        {
+          "category": "mushroom",
+          "density": 6,
+          "assets": [
+            "mushroom"
+          ],
+          "minSpacing": 12,
+          "clustering": true,
+          "clusterSize": 3,
+          "noiseScale": 0.03,
+          "noiseThreshold": 0.6,
+          "avoidWater": true,
+          "maxHeight": 40
+        }
+      ]
+    }
+  },
+  {
+    "id": "tundra",
+    "name": "Tundra",
+    "description": "Frozen wasteland with ice and snow.",
+    "difficultyLevel": 3,
+    "terrain": "frozen",
+    "resources": [
+      "fishing_spots"
+    ],
+    "mobs": [],
+    "fogIntensity": 0.5,
+    "ambientSound": "wind_arctic",
+    "colorScheme": {
+      "primary": "#E8E4E0",
+      "secondary": "#F0EDE9",
+      "fog": "#E3F2FD"
+    },
+    "color": 15262944,
+    "heightRange": [
+      0.4,
+      1
+    ],
+    "terrainMultiplier": 1,
+    "waterLevel": 0,
+    "maxSlope": 1.5,
+    "mobTypes": [],
+    "difficulty": 3,
+    "baseHeight": 0.3,
+    "heightVariation": 0.4,
+    "resourceDensity": 0.2,
+    "resourceTypes": [
+      "fishing_spots"
+    ],
+    "vegetation": {
+      "enabled": true,
+      "layers": [
+        {
+          "category": "rock",
+          "density": 15,
+          "assets": [
+            "round_rock_1",
+            "round_rock_2",
+            "round_rock_3",
+            "round_rock_4",
+            "round_rock_5",
+            "tall_rock_1",
+            "tall_rock_2"
+          ],
+          "minSpacing": 10,
+          "clustering": true,
+          "clusterSize": 3,
+          "noiseScale": 0.035,
+          "noiseThreshold": 0.4,
+          "avoidWater": true
+        },
+        {
+          "category": "bush",
+          "density": 3,
+          "assets": [
+            "bush_1"
+          ],
+          "minSpacing": 20,
+          "clustering": false,
+          "noiseScale": 0.02,
+          "noiseThreshold": 0.75,
+          "avoidWater": true
+        },
+        {
+          "category": "mushroom",
+          "density": 2,
+          "assets": [
+            "mushroom"
+          ],
+          "minSpacing": 25,
+          "clustering": false,
+          "noiseScale": 0.02,
+          "noiseThreshold": 0.8,
+          "avoidWater": true
+        }
+      ]
+    }
+  },
+  {
+    "id": "desert",
+    "name": "Desert",
+    "description": "Arid wasteland with sand dunes and sparse vegetation.",
+    "difficultyLevel": 2,
+    "terrain": "desert",
+    "resources": [
+      "trees"
+    ],
+    "mobs": [
+      "goblin",
+      "bandit",
+      "barbarian"
+    ],
+    "fogIntensity": 0.3,
+    "ambientSound": "wind_desolate",
+    "colorScheme": {
+      "primary": "#8D6E63",
+      "secondary": "#BCAAA4",
+      "fog": "#D7CCC8"
+    },
+    "color": 9268835,
+    "heightRange": [
+      0.1,
+      0.3
+    ],
+    "terrainMultiplier": 1,
+    "waterLevel": 0,
+    "maxSlope": 1.2,
+    "mobTypes": [
+      "goblin",
+      "bandit",
+      "barbarian"
+    ],
+    "difficulty": 2,
+    "baseHeight": 0,
+    "heightVariation": 0.15,
+    "resourceDensity": 0.3,
+    "resourceTypes": [
+      "trees"
+    ],
+    "vegetation": {
+      "enabled": true,
+      "layers": [
+        {
+          "category": "grass",
+          "density": 25,
+          "assets": [
+            "grass_desert"
+          ],
+          "minSpacing": 5,
+          "clustering": true,
+          "clusterSize": 6,
+          "noiseScale": 0.06,
+          "noiseThreshold": 0.55,
+          "avoidWater": true
+        },
+        {
+          "category": "rock",
+          "density": 12,
+          "assets": [
+            "pathway_rock_1",
+            "pathway_rock_2",
+            "pathway_rock_3",
+            "pathway_rock_4",
+            "round_rock_1",
+            "round_rock_2"
+          ],
+          "minSpacing": 10,
+          "clustering": true,
+          "clusterSize": 3,
+          "noiseScale": 0.04,
+          "noiseThreshold": 0.45,
+          "avoidWater": true
+        },
+        {
+          "category": "bush",
+          "density": 5,
+          "assets": [
+            "bush_1"
+          ],
+          "minSpacing": 15,
+          "clustering": false,
+          "noiseScale": 0.03,
+          "noiseThreshold": 0.7,
+          "avoidWater": true
+        },
+        {
+          "category": "mushroom",
+          "density": 3,
+          "assets": [
+            "mushroom"
+          ],
+          "minSpacing": 20,
+          "clustering": false,
+          "noiseScale": 0.025,
+          "noiseThreshold": 0.75,
+          "avoidWater": true
+        }
+      ]
+    }
+  },
+  {
+    "id": "lakes",
+    "name": "Lakes",
+    "description": "Water bodies and fishing spots throughout the world.",
+    "difficultyLevel": 0,
+    "terrain": "lake",
+    "resources": [
+      "fishing_spots"
+    ],
+    "mobs": [],
+    "fogIntensity": 0.1,
+    "ambientSound": "water_gentle",
+    "colorScheme": {
+      "primary": "#66BB6A",
+      "secondary": "#81C784",
+      "fog": "#E1F5FE"
+    },
+    "color": 6732650,
+    "heightRange": [
+      0,
+      0.15
+    ],
+    "terrainMultiplier": 1,
+    "waterLevel": 0,
+    "maxSlope": 1.5,
+    "mobTypes": [],
+    "difficulty": 0,
+    "baseHeight": 0,
+    "heightVariation": 0.05,
+    "resourceDensity": 0.5,
+    "resourceTypes": [
+      "fishing_spots"
+    ],
+    "vegetation": {
+      "enabled": true,
+      "layers": [
+        {
+          "category": "rock",
+          "density": 8,
+          "assets": [
+            "round_rock_1",
+            "round_rock_2",
+            "pathway_rock_1"
+          ],
+          "minSpacing": 12,
+          "clustering": false,
+          "noiseScale": 0.03,
+          "noiseThreshold": 0.55,
+          "avoidWater": false
+        },
+        {
+          "category": "mushroom",
+          "density": 10,
+          "assets": [
+            "mushroom"
+          ],
+          "minSpacing": 8,
+          "clustering": true,
+          "clusterSize": 4,
+          "noiseScale": 0.04,
+          "noiseThreshold": 0.5,
+          "avoidWater": false
+        }
+      ]
+    }
+  },
+  {
+    "id": "swamp",
+    "name": "Swamp",
+    "description": "Murky wetlands with shallow water and twisted vegetation.",
+    "difficultyLevel": 1,
+    "terrain": "swamp",
+    "resources": [
+      "trees",
+      "fishing_spots"
+    ],
+    "mobs": [
+      "bandit"
+    ],
+    "fogIntensity": 0.7,
+    "ambientSound": "swamp_ambient",
+    "colorScheme": {
+      "primary": "#5D8A3D",
+      "secondary": "#7DA55D",
+      "fog": "#9E9E9E"
+    },
+    "color": 6130237,
+    "heightRange": [
+      0,
+      0.2
+    ],
+    "terrainMultiplier": 1,
+    "waterLevel": 0,
+    "maxSlope": 1.0,
+    "mobTypes": [
+      "bandit"
+    ],
+    "difficulty": 1,
+    "baseHeight": 0,
+    "heightVariation": 0.15,
+    "resourceDensity": 0.4,
+    "resourceTypes": [
+      "trees",
+      "fishing_spots"
+    ],
+    "vegetation": {
+      "enabled": true,
+      "layers": [
+        {
+          "category": "tree",
+          "density": 20,
+          "assets": [
+            "tree1",
+            "cherry-tree-lod-test"
+          ],
+          "minSpacing": 8,
+          "clustering": true,
+          "clusterSize": 4,
+          "noiseScale": 0.02,
+          "noiseThreshold": 0.3,
+          "avoidWater": false,
+          "avoidSteepSlopes": true
+        },
+        {
+          "category": "rock",
+          "density": 6,
+          "assets": [
+            "round_rock_1",
+            "round_rock_2",
+            "round_rock_3",
+            "pathway_rock_1",
+            "pathway_rock_2"
+          ],
+          "minSpacing": 15,
+          "clustering": false,
+          "noiseScale": 0.03,
+          "noiseThreshold": 0.55,
+          "avoidWater": false
+        },
+        {
+          "category": "mushroom",
+          "density": 30,
+          "assets": [
+            "mushroom"
+          ],
+          "minSpacing": 3,
+          "clustering": true,
+          "clusterSize": 8,
+          "noiseScale": 0.025,
+          "noiseThreshold": 0.25,
+          "avoidWater": false
+        }
+      ]
+    }
+  },
+  {
+    "id": "canyon",
+    "name": "Canyon",
+    "description": "Red-rock canyon lands with terraced mesas and sparse vegetation.",
+    "difficultyLevel": 2,
+    "terrain": "canyon",
+    "resources": [
+      "trees"
+    ],
+    "mobs": [
+      "goblin",
+      "bandit",
+      "barbarian"
+    ],
+    "fogIntensity": 0.3,
+    "ambientSound": "wind_desolate",
+    "colorScheme": {
+      "primary": "#8D6E63",
+      "secondary": "#BCAAA4",
+      "fog": "#D7CCC8"
+    },
+    "color": 9268835,
+    "heightRange": [
+      0.1,
+      0.3
+    ],
+    "terrainMultiplier": 1,
+    "waterLevel": 0,
+    "maxSlope": 3.0,
+    "mobTypes": [
+      "goblin",
+      "bandit",
+      "barbarian"
+    ],
+    "difficulty": 2,
+    "baseHeight": 0,
+    "heightVariation": 0.15,
+    "resourceDensity": 0.3,
+    "resourceTypes": [
+      "trees"
+    ],
+    "vegetation": {
+      "enabled": true,
+      "layers": [
+        {
+          "category": "grass",
+          "density": 25,
+          "assets": [
+            "grass_desert"
+          ],
+          "minSpacing": 5,
+          "clustering": true,
+          "clusterSize": 6,
+          "noiseScale": 0.06,
+          "noiseThreshold": 0.55,
+          "avoidWater": true
+        },
+        {
+          "category": "rock",
+          "density": 12,
+          "assets": [
+            "pathway_rock_1",
+            "pathway_rock_2",
+            "pathway_rock_3",
+            "pathway_rock_4",
+            "round_rock_1",
+            "round_rock_2"
+          ],
+          "minSpacing": 10,
+          "clustering": true,
+          "clusterSize": 3,
+          "noiseScale": 0.04,
+          "noiseThreshold": 0.45,
+          "avoidWater": true
+        },
+        {
+          "category": "bush",
+          "density": 5,
+          "assets": [
+            "bush_1"
+          ],
+          "minSpacing": 15,
+          "clustering": false,
+          "noiseScale": 0.03,
+          "noiseThreshold": 0.7,
+          "avoidWater": true
+        },
+        {
+          "category": "mushroom",
+          "density": 3,
+          "assets": [
+            "mushroom"
+          ],
+          "minSpacing": 20,
+          "clustering": false,
+          "noiseScale": 0.025,
+          "noiseThreshold": 0.75,
+          "avoidWater": true
+        }
+      ]
+    }
+  }
+]

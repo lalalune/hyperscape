@@ -1,0 +1,202 @@
+[
+  {
+    "id": "intro_1",
+    "name": "Hyperscape Theme I",
+    "type": "theme",
+    "category": "intro",
+    "path": "asset://audio/music/intro/1.mp3",
+    "description": "Main theme music for character selection",
+    "duration": 180,
+    "mood": "epic"
+  },
+  {
+    "id": "intro_2",
+    "name": "Hyperscape Theme II",
+    "type": "theme",
+    "category": "intro",
+    "path": "asset://audio/music/intro/2.mp3",
+    "description": "Alternate theme music for character selection",
+    "duration": 180,
+    "mood": "epic"
+  },
+  {
+    "id": "normal_1",
+    "name": "Mistwood Melody",
+    "type": "ambient",
+    "category": "normal",
+    "path": "asset://audio/music/normal/1.mp3",
+    "description": "Peaceful exploration music",
+    "duration": 180,
+    "mood": "peaceful"
+  },
+  {
+    "id": "normal_2",
+    "name": "Valley Wanderer",
+    "type": "ambient",
+    "category": "normal",
+    "path": "asset://audio/music/normal/2.mp3",
+    "description": "Gentle exploration theme",
+    "duration": 180,
+    "mood": "calm"
+  },
+  {
+    "id": "normal_3",
+    "name": "Ancient Paths",
+    "type": "ambient",
+    "category": "normal",
+    "path": "asset://audio/music/normal/3.mp3",
+    "description": "Mysterious ambient track",
+    "duration": 180,
+    "mood": "mysterious"
+  },
+  {
+    "id": "normal_4",
+    "name": "Hyperian Dawn",
+    "type": "ambient",
+    "category": "normal",
+    "path": "asset://audio/music/normal/4.mp3",
+    "description": "Hopeful morning theme",
+    "duration": 180,
+    "mood": "hopeful"
+  },
+  {
+    "id": "normal_5",
+    "name": "Forgotten Realm",
+    "type": "ambient",
+    "category": "normal",
+    "path": "asset://audio/music/normal/5.mp3",
+    "description": "Contemplative exploration",
+    "duration": 180,
+    "mood": "contemplative"
+  },
+  {
+    "id": "normal_6",
+    "name": "Twilight Fields",
+    "type": "ambient",
+    "category": "normal",
+    "path": "asset://audio/music/normal/6.mp3",
+    "description": "Evening exploration theme",
+    "duration": 180,
+    "mood": "serene"
+  },
+  {
+    "id": "normal_7",
+    "name": "Whispering Woods",
+    "type": "ambient",
+    "category": "normal",
+    "path": "asset://audio/music/normal/7.mp3",
+    "description": "Forest ambience",
+    "duration": 180,
+    "mood": "natural"
+  },
+  {
+    "id": "normal_8",
+    "name": "Distant Horizons",
+    "type": "ambient",
+    "category": "normal",
+    "path": "asset://audio/music/normal/8.mp3",
+    "description": "Expansive exploration theme",
+    "duration": 180,
+    "mood": "expansive"
+  },
+  {
+    "id": "normal_9",
+    "name": "Starlit Journey",
+    "type": "ambient",
+    "category": "normal",
+    "path": "asset://audio/music/normal/9.mp3",
+    "description": "Night exploration music",
+    "duration": 180,
+    "mood": "peaceful"
+  },
+  {
+    "id": "normal_10",
+    "name": "Emerald Glade",
+    "type": "ambient",
+    "category": "normal",
+    "path": "asset://audio/music/normal/10.mp3",
+    "description": "Lush forest theme",
+    "duration": 180,
+    "mood": "vibrant"
+  },
+  {
+    "id": "normal_11",
+    "name": "Mountain Pass",
+    "type": "ambient",
+    "category": "normal",
+    "path": "asset://audio/music/normal/11.mp3",
+    "description": "Highland exploration",
+    "duration": 180,
+    "mood": "majestic"
+  },
+  {
+    "id": "normal_12",
+    "name": "River's Flow",
+    "type": "ambient",
+    "category": "normal",
+    "path": "asset://audio/music/normal/12.mp3",
+    "description": "Flowing water theme",
+    "duration": 180,
+    "mood": "flowing"
+  },
+  {
+    "id": "normal_13",
+    "name": "Sanctuary",
+    "type": "ambient",
+    "category": "normal",
+    "path": "asset://audio/music/normal/13.mp3",
+    "description": "Safe haven music",
+    "duration": 180,
+    "mood": "safe"
+  },
+  {
+    "id": "normal_14",
+    "name": "Eternal Wanderer",
+    "type": "ambient",
+    "category": "normal",
+    "path": "asset://audio/music/normal/14.mp3",
+    "description": "Epic exploration finale",
+    "duration": 180,
+    "mood": "epic"
+  },
+  {
+    "id": "combat_1",
+    "name": "Battle Cry",
+    "type": "combat",
+    "category": "combat",
+    "path": "asset://audio/music/combat/1.mp3",
+    "description": "Intense combat music",
+    "duration": 120,
+    "mood": "intense"
+  },
+  {
+    "id": "combat_2",
+    "name": "Clash of Steel",
+    "type": "combat",
+    "category": "combat",
+    "path": "asset://audio/music/combat/2.mp3",
+    "description": "Fast-paced battle theme",
+    "duration": 120,
+    "mood": "aggressive"
+  },
+  {
+    "id": "combat_3",
+    "name": "Warrior's Resolve",
+    "type": "combat",
+    "category": "combat",
+    "path": "asset://audio/music/combat/3.mp3",
+    "description": "Heroic combat music",
+    "duration": 120,
+    "mood": "heroic"
+  },
+  {
+    "id": "combat_4",
+    "name": "Dark Encounter",
+    "type": "combat",
+    "category": "combat",
+    "path": "asset://audio/music/combat/4.mp3",
+    "description": "Ominous battle theme",
+    "duration": 120,
+    "mood": "ominous"
+  }
+]

@@ -1,0 +1,74 @@
+{
+  "animatedblackdragon": {
+    "assetId": "animatedblackdragon",
+    "name": "animatedblackdragon",
+    "category": "prop",
+    "variants": [
+      {
+        "level": "lod0",
+        "modelPath": "packages/asset-forge/gdd-assets/animatedblackdragon/animatedblackdragon.glb",
+        "vertices": 9140,
+        "faces": 10000,
+        "fileSize": 1811060,
+        "distanceThreshold": 0,
+        "method": "original"
+      }
+    ],
+    "settings": {},
+    "metadata": {
+      "totalSize": 1811060,
+      "isComplete": false,
+      "missingLevels": [
+        "lod1",
+        "lod2",
+        "imposter"
+      ],
+      "lastUpdated": "2026-05-14T17:21:26.640Z"
+    }
+  },
+  "cherry-tree-lod-test": {
+    "assetId": "cherry-tree-lod-test",
+    "name": "cherry-tree-lod-test",
+    "category": "tree",
+    "variants": [
+      {
+        "level": "lod0",
+        "modelPath": "/root/hyperscape/packages/asset-forge/gdd-assets/cherry-tree-lod-test/cherry-tree-lod-test.glb",
+        "vertices": 157498,
+        "faces": 99760,
+        "fileSize": 10451780,
+        "distanceThreshold": 0,
+        "method": "original"
+      },
+      {
+        "level": "lod1",
+        "modelPath": "/root/hyperscape/packages/asset-forge/gdd-assets/cherry-tree-lod-test/cherry-tree-lod-test_lod1.glb",
+        "vertices": 120120,
+        "faces": 42067,
+        "fileSize": 4350184,
+        "distanceThreshold": 80,
+        "targetPercent": 30,
+        "method": "decimated"
+      },
+      {
+        "level": "lod2",
+        "modelPath": "/root/hyperscape/packages/asset-forge/gdd-assets/cherry-tree-lod-test/cherry-tree-lod-test_lod2.glb",
+        "vertices": 120120,
+        "faces": 42067,
+        "fileSize": 4350184,
+        "distanceThreshold": 150,
+        "targetPercent": 10,
+        "method": "decimated"
+      }
+    ],
+    "settings": {},
+    "metadata": {
+      "totalSize": 19152148,
+      "isComplete": false,
+      "missingLevels": [
+        "imposter"
+      ],
+      "lastUpdated": "2026-05-25T04:03:44.000Z"
+    }
+  }
+}

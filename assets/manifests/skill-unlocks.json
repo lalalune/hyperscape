@@ -1,0 +1,990 @@
+{
+  "$schema": "./skill-unlocks.schema.json",
+  "_comment": "OSRS-accurate skill unlocks for implemented skills. Single source of truth.",
+  "skills": {
+    "attack": [
+      {
+        "level": 1,
+        "description": "Bronze weapons, Iron weapons",
+        "type": "item"
+      },
+      {
+        "level": 5,
+        "description": "Steel weapons",
+        "type": "item"
+      },
+      {
+        "level": 10,
+        "description": "Black weapons",
+        "type": "item"
+      },
+      {
+        "level": 20,
+        "description": "Mithril weapons",
+        "type": "item"
+      },
+      {
+        "level": 30,
+        "description": "Adamant weapons",
+        "type": "item"
+      },
+      {
+        "level": 40,
+        "description": "Rune weapons",
+        "type": "item"
+      },
+      {
+        "level": 60,
+        "description": "Dragon weapons",
+        "type": "item"
+      },
+      {
+        "level": 70,
+        "description": "Abyssal whip, Barrows weapons",
+        "type": "item"
+      },
+      {
+        "level": 75,
+        "description": "Godswords",
+        "type": "item"
+      }
+    ],
+    "strength": [
+      {
+        "level": 1,
+        "description": "Increased max hit",
+        "type": "ability"
+      },
+      {
+        "level": 99,
+        "description": "Strength cape",
+        "type": "item"
+      }
+    ],
+    "defence": [
+      {
+        "level": 1,
+        "description": "Bronze armour, Iron armour",
+        "type": "item"
+      },
+      {
+        "level": 5,
+        "description": "Steel armour",
+        "type": "item"
+      },
+      {
+        "level": 10,
+        "description": "Black armour",
+        "type": "item"
+      },
+      {
+        "level": 20,
+        "description": "Mithril armour",
+        "type": "item"
+      },
+      {
+        "level": 30,
+        "description": "Adamant armour",
+        "type": "item"
+      },
+      {
+        "level": 40,
+        "description": "Rune armour",
+        "type": "item"
+      },
+      {
+        "level": 45,
+        "description": "Berserker helm, Warrior helm",
+        "type": "item"
+      },
+      {
+        "level": 60,
+        "description": "Dragon armour",
+        "type": "item"
+      },
+      {
+        "level": 65,
+        "description": "Bandos armour",
+        "type": "item"
+      },
+      {
+        "level": 70,
+        "description": "Barrows armour",
+        "type": "item"
+      }
+    ],
+    "constitution": [
+      {
+        "level": 10,
+        "description": "100 Hitpoints (starting level)",
+        "type": "ability"
+      },
+      {
+        "level": 99,
+        "description": "Hitpoints cape",
+        "type": "item"
+      }
+    ],
+    "prayer": [
+      {
+        "level": 1,
+        "description": "Thick Skin (+5% Defence)",
+        "type": "ability"
+      },
+      {
+        "level": 4,
+        "description": "Burst of Strength (+5% Strength)",
+        "type": "ability"
+      },
+      {
+        "level": 7,
+        "description": "Clarity of Thought (+5% Attack)",
+        "type": "ability"
+      },
+      {
+        "level": 8,
+        "description": "Sharp Eye (+5% Ranged)",
+        "type": "ability"
+      },
+      {
+        "level": 9,
+        "description": "Mystic Will (+5% Magic)",
+        "type": "ability"
+      },
+      {
+        "level": 10,
+        "description": "Rock Skin (+10% Defence)",
+        "type": "ability"
+      },
+      {
+        "level": 13,
+        "description": "Superhuman Strength (+10% Strength)",
+        "type": "ability"
+      },
+      {
+        "level": 16,
+        "description": "Improved Reflexes (+10% Attack)",
+        "type": "ability"
+      },
+      {
+        "level": 19,
+        "description": "Rapid Restore (2x stat restore)",
+        "type": "ability"
+      },
+      {
+        "level": 22,
+        "description": "Rapid Heal (2x HP regen)",
+        "type": "ability"
+      },
+      {
+        "level": 25,
+        "description": "Protect Item",
+        "type": "ability"
+      },
+      {
+        "level": 26,
+        "description": "Hawk Eye (+10% Ranged)",
+        "type": "ability"
+      },
+      {
+        "level": 27,
+        "description": "Mystic Lore (+10% Magic)",
+        "type": "ability"
+      },
+      {
+        "level": 28,
+        "description": "Steel Skin (+15% Defence)",
+        "type": "ability"
+      },
+      {
+        "level": 31,
+        "description": "Ultimate Strength (+15% Strength)",
+        "type": "ability"
+      },
+      {
+        "level": 34,
+        "description": "Incredible Reflexes (+15% Attack)",
+        "type": "ability"
+      },
+      {
+        "level": 37,
+        "description": "Protect from Magic",
+        "type": "ability"
+      },
+      {
+        "level": 40,
+        "description": "Protect from Missiles",
+        "type": "ability"
+      },
+      {
+        "level": 43,
+        "description": "Protect from Melee",
+        "type": "ability"
+      },
+      {
+        "level": 44,
+        "description": "Eagle Eye (+15% Ranged)",
+        "type": "ability"
+      },
+      {
+        "level": 45,
+        "description": "Mystic Might (+15% Magic)",
+        "type": "ability"
+      },
+      {
+        "level": 46,
+        "description": "Retribution",
+        "type": "ability"
+      },
+      {
+        "level": 49,
+        "description": "Redemption",
+        "type": "ability"
+      },
+      {
+        "level": 52,
+        "description": "Smite",
+        "type": "ability"
+      },
+      {
+        "level": 55,
+        "description": "Preserve",
+        "type": "ability"
+      },
+      {
+        "level": 60,
+        "description": "Chivalry (+15% Attack, +18% Strength, +20% Defence)",
+        "type": "ability"
+      },
+      {
+        "level": 70,
+        "description": "Piety (+20% Attack, +23% Strength, +25% Defence)",
+        "type": "ability"
+      },
+      {
+        "level": 74,
+        "description": "Rigour (+20% Ranged, +23% Ranged Strength)",
+        "type": "ability"
+      },
+      {
+        "level": 77,
+        "description": "Augury (+25% Magic, +25% Magic Defence)",
+        "type": "ability"
+      }
+    ],
+    "woodcutting": [
+      {
+        "level": 1,
+        "description": "Normal trees",
+        "type": "item"
+      },
+      {
+        "level": 15,
+        "description": "Oak trees",
+        "type": "item"
+      },
+      {
+        "level": 30,
+        "description": "Willow trees",
+        "type": "item"
+      },
+      {
+        "level": 35,
+        "description": "Teak trees",
+        "type": "item"
+      },
+      {
+        "level": 45,
+        "description": "Maple trees",
+        "type": "item"
+      },
+      {
+        "level": 50,
+        "description": "Mahogany trees",
+        "type": "item"
+      },
+      {
+        "level": 60,
+        "description": "Yew trees",
+        "type": "item"
+      },
+      {
+        "level": 75,
+        "description": "Magic trees",
+        "type": "item"
+      },
+      {
+        "level": 90,
+        "description": "Redwood trees",
+        "type": "item"
+      }
+    ],
+    "mining": [
+      {
+        "level": 1,
+        "description": "Copper ore, Tin ore",
+        "type": "item"
+      },
+      {
+        "level": 15,
+        "description": "Iron ore",
+        "type": "item"
+      },
+      {
+        "level": 20,
+        "description": "Silver ore",
+        "type": "item"
+      },
+      {
+        "level": 30,
+        "description": "Coal",
+        "type": "item"
+      },
+      {
+        "level": 40,
+        "description": "Gold ore",
+        "type": "item"
+      },
+      {
+        "level": 55,
+        "description": "Mithril ore",
+        "type": "item"
+      },
+      {
+        "level": 70,
+        "description": "Adamantite ore",
+        "type": "item"
+      },
+      {
+        "level": 85,
+        "description": "Runite ore",
+        "type": "item"
+      }
+    ],
+    "fishing": [
+      {
+        "level": 1,
+        "description": "Shrimp",
+        "type": "item"
+      },
+      {
+        "level": 5,
+        "description": "Sardine",
+        "type": "item"
+      },
+      {
+        "level": 10,
+        "description": "Herring",
+        "type": "item"
+      },
+      {
+        "level": 20,
+        "description": "Trout",
+        "type": "item"
+      },
+      {
+        "level": 25,
+        "description": "Pike",
+        "type": "item"
+      },
+      {
+        "level": 30,
+        "description": "Salmon",
+        "type": "item"
+      },
+      {
+        "level": 35,
+        "description": "Tuna",
+        "type": "item"
+      },
+      {
+        "level": 40,
+        "description": "Lobster",
+        "type": "item"
+      },
+      {
+        "level": 50,
+        "description": "Swordfish",
+        "type": "item"
+      },
+      {
+        "level": 76,
+        "description": "Shark",
+        "type": "item"
+      }
+    ],
+    "cooking": [
+      {
+        "level": 1,
+        "description": "Shrimp, Anchovies, Sardine",
+        "type": "item"
+      },
+      {
+        "level": 5,
+        "description": "Herring",
+        "type": "item"
+      },
+      {
+        "level": 15,
+        "description": "Trout",
+        "type": "item"
+      },
+      {
+        "level": 20,
+        "description": "Pike",
+        "type": "item"
+      },
+      {
+        "level": 25,
+        "description": "Salmon",
+        "type": "item"
+      },
+      {
+        "level": 30,
+        "description": "Tuna",
+        "type": "item"
+      },
+      {
+        "level": 40,
+        "description": "Lobster",
+        "type": "item"
+      },
+      {
+        "level": 45,
+        "description": "Swordfish",
+        "type": "item"
+      },
+      {
+        "level": 62,
+        "description": "Monkfish",
+        "type": "item"
+      },
+      {
+        "level": 80,
+        "description": "Shark",
+        "type": "item"
+      }
+    ],
+    "firemaking": [
+      {
+        "level": 1,
+        "description": "Normal logs",
+        "type": "item"
+      },
+      {
+        "level": 15,
+        "description": "Oak logs",
+        "type": "item"
+      },
+      {
+        "level": 30,
+        "description": "Willow logs",
+        "type": "item"
+      },
+      {
+        "level": 35,
+        "description": "Teak logs",
+        "type": "item"
+      },
+      {
+        "level": 45,
+        "description": "Maple logs",
+        "type": "item"
+      },
+      {
+        "level": 50,
+        "description": "Mahogany logs",
+        "type": "item"
+      },
+      {
+        "level": 60,
+        "description": "Yew logs",
+        "type": "item"
+      },
+      {
+        "level": 75,
+        "description": "Magic logs",
+        "type": "item"
+      },
+      {
+        "level": 90,
+        "description": "Redwood logs",
+        "type": "item"
+      }
+    ],
+    "smithing": [
+      {
+        "level": 1,
+        "description": "Bronze bar",
+        "type": "item"
+      },
+      {
+        "level": 15,
+        "description": "Iron bar (50% success rate)",
+        "type": "item"
+      },
+      {
+        "level": 20,
+        "description": "Silver bar",
+        "type": "item"
+      },
+      {
+        "level": 30,
+        "description": "Steel bar",
+        "type": "item"
+      },
+      {
+        "level": 40,
+        "description": "Gold bar",
+        "type": "item"
+      },
+      {
+        "level": 50,
+        "description": "Mithril bar",
+        "type": "item"
+      },
+      {
+        "level": 70,
+        "description": "Adamant bar",
+        "type": "item"
+      },
+      {
+        "level": 85,
+        "description": "Rune bar",
+        "type": "item"
+      }
+    ],
+    "agility": [
+      {
+        "level": 1,
+        "description": "Stamina regeneration scales with level (+1% per level)",
+        "type": "ability"
+      },
+      {
+        "level": 10,
+        "description": "Stamina regen now +10% faster",
+        "type": "ability"
+      },
+      {
+        "level": 25,
+        "description": "Stamina regen now +25% faster",
+        "type": "ability"
+      },
+      {
+        "level": 50,
+        "description": "Stamina regen now +50% faster",
+        "type": "ability"
+      },
+      {
+        "level": 75,
+        "description": "Stamina regen now +75% faster",
+        "type": "ability"
+      },
+      {
+        "level": 99,
+        "description": "Agility mastered! Stamina regen +99% faster",
+        "type": "item"
+      }
+    ],
+    "ranged": [
+      {
+        "level": 1,
+        "description": "Bronze arrows, Shortbow",
+        "type": "item"
+      },
+      {
+        "level": 5,
+        "description": "Oak shortbow, Steel arrows",
+        "type": "item"
+      },
+      {
+        "level": 10,
+        "description": "Studded leather armour",
+        "type": "item"
+      },
+      {
+        "level": 20,
+        "description": "Willow shortbow, Mithril arrows, Studded chaps",
+        "type": "item"
+      },
+      {
+        "level": 30,
+        "description": "Maple shortbow, Adamant arrows, Snakeskin armour",
+        "type": "item"
+      },
+      {
+        "level": 40,
+        "description": "Yew shortbow, Rune arrows, Green d'hide armour",
+        "type": "item"
+      },
+      {
+        "level": 50,
+        "description": "Magic shortbow, Blue d'hide armour",
+        "type": "item"
+      },
+      {
+        "level": 60,
+        "description": "Dark bow, Red d'hide armour, Dragon arrows",
+        "type": "item"
+      },
+      {
+        "level": 70,
+        "description": "Black d'hide armour, Karils armour",
+        "type": "item"
+      },
+      {
+        "level": 75,
+        "description": "Armadyl armour, Twisted bow",
+        "type": "item"
+      }
+    ],
+    "magic": [
+      {
+        "level": 1,
+        "description": "Wind Strike",
+        "type": "ability"
+      },
+      {
+        "level": 5,
+        "description": "Water Strike, Confuse",
+        "type": "ability"
+      },
+      {
+        "level": 9,
+        "description": "Earth Strike",
+        "type": "ability"
+      },
+      {
+        "level": 13,
+        "description": "Fire Strike",
+        "type": "ability"
+      },
+      {
+        "level": 17,
+        "description": "Wind Bolt",
+        "type": "ability"
+      },
+      {
+        "level": 20,
+        "description": "Mystic robes",
+        "type": "item"
+      },
+      {
+        "level": 23,
+        "description": "Water Bolt",
+        "type": "ability"
+      },
+      {
+        "level": 25,
+        "description": "Varrock Teleport",
+        "type": "ability"
+      },
+      {
+        "level": 29,
+        "description": "Earth Bolt",
+        "type": "ability"
+      },
+      {
+        "level": 31,
+        "description": "Lumbridge Teleport",
+        "type": "ability"
+      },
+      {
+        "level": 33,
+        "description": "Telekinetic Grab",
+        "type": "ability"
+      },
+      {
+        "level": 35,
+        "description": "Fire Bolt, Falador Teleport",
+        "type": "ability"
+      },
+      {
+        "level": 37,
+        "description": "Camelot Teleport",
+        "type": "ability"
+      },
+      {
+        "level": 41,
+        "description": "Wind Blast",
+        "type": "ability"
+      },
+      {
+        "level": 43,
+        "description": "Superheat Item",
+        "type": "ability"
+      },
+      {
+        "level": 47,
+        "description": "Water Blast",
+        "type": "ability"
+      },
+      {
+        "level": 53,
+        "description": "Earth Blast",
+        "type": "ability"
+      },
+      {
+        "level": 55,
+        "description": "High Level Alchemy",
+        "type": "ability"
+      },
+      {
+        "level": 59,
+        "description": "Fire Blast",
+        "type": "ability"
+      },
+      {
+        "level": 62,
+        "description": "Wind Wave",
+        "type": "ability"
+      },
+      {
+        "level": 65,
+        "description": "Water Wave",
+        "type": "ability"
+      },
+      {
+        "level": 70,
+        "description": "Earth Wave, Ahrims robes",
+        "type": "ability"
+      },
+      {
+        "level": 75,
+        "description": "Fire Wave",
+        "type": "ability"
+      }
+    ],
+    "crafting": [
+      {
+        "level": 1,
+        "description": "Leather gloves, Gold ring",
+        "type": "item"
+      },
+      {
+        "level": 5,
+        "description": "Gold necklace",
+        "type": "item"
+      },
+      {
+        "level": 7,
+        "description": "Leather boots",
+        "type": "item"
+      },
+      {
+        "level": 8,
+        "description": "Gold amulet",
+        "type": "item"
+      },
+      {
+        "level": 9,
+        "description": "Leather cowl",
+        "type": "item"
+      },
+      {
+        "level": 11,
+        "description": "Leather vambraces",
+        "type": "item"
+      },
+      {
+        "level": 14,
+        "description": "Leather body",
+        "type": "item"
+      },
+      {
+        "level": 18,
+        "description": "Leather chaps",
+        "type": "item"
+      },
+      {
+        "level": 20,
+        "description": "Cut sapphire, Sapphire ring",
+        "type": "item"
+      },
+      {
+        "level": 22,
+        "description": "Sapphire necklace",
+        "type": "item"
+      },
+      {
+        "level": 24,
+        "description": "Sapphire amulet",
+        "type": "item"
+      },
+      {
+        "level": 27,
+        "description": "Cut emerald, Emerald ring",
+        "type": "item"
+      },
+      {
+        "level": 43,
+        "description": "Cut diamond",
+        "type": "item"
+      },
+      {
+        "level": 55,
+        "description": "Cut dragonstone, Dragonstone ring",
+        "type": "item"
+      },
+      {
+        "level": 63,
+        "description": "Cut ruby, Black d'hide body",
+        "type": "item"
+      },
+      {
+        "level": 66,
+        "description": "Cut onyx",
+        "type": "item"
+      }
+    ],
+    "fletching": [
+      {
+        "level": 1,
+        "description": "Arrow shafts, Bronze arrows, Ogre arrows",
+        "type": "item"
+      },
+      {
+        "level": 5,
+        "description": "Shortbow",
+        "type": "item"
+      },
+      {
+        "level": 10,
+        "description": "Longbow",
+        "type": "item"
+      },
+      {
+        "level": 15,
+        "description": "Iron arrows",
+        "type": "item"
+      },
+      {
+        "level": 20,
+        "description": "Oak shortbow",
+        "type": "item"
+      },
+      {
+        "level": 25,
+        "description": "Oak longbow, Steel arrows",
+        "type": "item"
+      },
+      {
+        "level": 30,
+        "description": "Mithril arrows",
+        "type": "item"
+      },
+      {
+        "level": 35,
+        "description": "Willow shortbow",
+        "type": "item"
+      },
+      {
+        "level": 40,
+        "description": "Willow longbow",
+        "type": "item"
+      },
+      {
+        "level": 45,
+        "description": "Adamant arrows",
+        "type": "item"
+      },
+      {
+        "level": 50,
+        "description": "Maple shortbow",
+        "type": "item"
+      },
+      {
+        "level": 55,
+        "description": "Maple longbow",
+        "type": "item"
+      },
+      {
+        "level": 60,
+        "description": "Rune arrows",
+        "type": "item"
+      },
+      {
+        "level": 65,
+        "description": "Yew shortbow",
+        "type": "item"
+      },
+      {
+        "level": 70,
+        "description": "Yew longbow",
+        "type": "item"
+      },
+      {
+        "level": 80,
+        "description": "Magic shortbow",
+        "type": "item"
+      },
+      {
+        "level": 85,
+        "description": "Magic longbow",
+        "type": "item"
+      }
+    ],
+    "runecrafting": [
+      {
+        "level": 1,
+        "description": "Air runes",
+        "type": "item"
+      },
+      {
+        "level": 2,
+        "description": "Mind runes",
+        "type": "item"
+      },
+      {
+        "level": 5,
+        "description": "Water runes",
+        "type": "item"
+      },
+      {
+        "level": 9,
+        "description": "Earth runes",
+        "type": "item"
+      },
+      {
+        "level": 14,
+        "description": "Fire runes",
+        "type": "item"
+      },
+      {
+        "level": 20,
+        "description": "Body runes",
+        "type": "item"
+      },
+      {
+        "level": 27,
+        "description": "Cosmic runes",
+        "type": "item"
+      },
+      {
+        "level": 35,
+        "description": "Chaos runes",
+        "type": "item"
+      },
+      {
+        "level": 44,
+        "description": "Nature runes",
+        "type": "item"
+      },
+      {
+        "level": 54,
+        "description": "Law runes",
+        "type": "item"
+      },
+      {
+        "level": 65,
+        "description": "Death runes",
+        "type": "item"
+      },
+      {
+        "level": 77,
+        "description": "Blood runes",
+        "type": "item"
+      }
+    ]
+  }
+}

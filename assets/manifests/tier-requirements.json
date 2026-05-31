@@ -1,0 +1,123 @@
+{
+  "$schema": "./tier-requirements.schema.json",
+  "_comment": "OSRS-accurate tier-based level requirements. Single source of truth for equipment and tool levels.",
+  "melee": {
+    "bronze": {
+      "attack": 1,
+      "defence": 1
+    },
+    "iron": {
+      "attack": 1,
+      "defence": 1
+    },
+    "steel": {
+      "attack": 5,
+      "defence": 5
+    },
+    "black": {
+      "attack": 10,
+      "defence": 10
+    },
+    "mithril": {
+      "attack": 20,
+      "defence": 20
+    },
+    "adamant": {
+      "attack": 30,
+      "defence": 30
+    },
+    "rune": {
+      "attack": 40,
+      "defence": 40
+    },
+    "dragon": {
+      "attack": 60,
+      "defence": 60
+    }
+  },
+  "tools": {
+    "bronze": {
+      "attack": 1,
+      "woodcutting": 1,
+      "mining": 1
+    },
+    "iron": {
+      "attack": 1,
+      "woodcutting": 1,
+      "mining": 1
+    },
+    "steel": {
+      "attack": 5,
+      "woodcutting": 6,
+      "mining": 6
+    },
+    "black": {
+      "attack": 10,
+      "woodcutting": 6,
+      "mining": 6
+    },
+    "mithril": {
+      "attack": 20,
+      "woodcutting": 21,
+      "mining": 21
+    },
+    "adamant": {
+      "attack": 30,
+      "woodcutting": 31,
+      "mining": 31
+    },
+    "rune": {
+      "attack": 40,
+      "woodcutting": 41,
+      "mining": 41
+    },
+    "dragon": {
+      "attack": 60,
+      "woodcutting": 61,
+      "mining": 61
+    }
+  },
+  "ranged": {
+    "leather": {
+      "ranged": 1,
+      "defence": 1
+    },
+    "studded": {
+      "ranged": 20,
+      "defence": 20
+    },
+    "green_dhide": {
+      "ranged": 40,
+      "defence": 40
+    },
+    "blue_dhide": {
+      "ranged": 50,
+      "defence": 50
+    },
+    "red_dhide": {
+      "ranged": 60,
+      "defence": 60
+    },
+    "black_dhide": {
+      "ranged": 70,
+      "defence": 70
+    }
+  },
+  "magic": {
+    "wizard": {
+      "magic": 1
+    },
+    "mystic": {
+      "magic": 40,
+      "defence": 20
+    },
+    "infinity": {
+      "magic": 50,
+      "defence": 25
+    },
+    "ahrims": {
+      "magic": 70,
+      "defence": 70
+    }
+  }
+}
