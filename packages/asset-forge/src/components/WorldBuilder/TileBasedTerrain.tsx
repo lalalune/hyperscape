@@ -97,9 +97,26 @@ function getContainerSize(container: HTMLElement): {
   };
 }
 
+function getRenderableContainerSize(container: HTMLElement): {
+  width: number;
+  height: number;
+} | null {
+  const rect = container.getBoundingClientRect();
+  const width = Math.floor(container.clientWidth || rect.width);
+  const height = Math.floor(container.clientHeight || rect.height);
+
+  if (width <= 0 || height <= 0) {
+    return null;
+  }
+
+  return { width, height };
+}
+
 function disposeObjectMaterial(
-  material: THREE.Material | THREE.Material[],
+  material: THREE.Material | THREE.Material[] | null | undefined,
 ): void {
+  if (!material) return;
+
   const materials = Array.isArray(material) ? material : [material];
 
   for (const mat of materials) {
@@ -114,9 +131,7 @@ function disposeObjectMaterial(
 function disposeRenderableObject(object: THREE.Object3D): void {
   if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
     object.geometry?.dispose();
-    if (object.material) {
-      disposeObjectMaterial(object.material);
-    }
+    disposeObjectMaterial(object.material);
     return;
   }
 
@@ -1171,12 +1186,12 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
     if (terrainContainer) {
       terrainContainer.remove(tileData.mesh);
     }
-    tileData.mesh.geometry.dispose();
+    tileData.mesh.geometry?.dispose();
 
     // Remove water mesh
     if (tileData.water && waterContainer) {
       waterContainer.remove(tileData.water);
-      tileData.water.geometry.dispose();
+      tileData.water.geometry?.dispose();
     }
 
     tilesRef.current.delete(key);
@@ -2687,6 +2702,10 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
           lastRotationUpdate = now;
         }
 
+        if (!getRenderableContainerSize(container)) {
+          return;
+        }
+
         renderer.render(scene, camera);
       };
       animate();
@@ -2697,7 +2716,10 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
     // Handle resize
     const handleResize = () => {
       if (!container || !camera || !rendererRef.current) return;
-      const { width, height } = getContainerSize(container);
+      const size = getRenderableContainerSize(container);
+      if (!size) return;
+
+      const { width, height } = size;
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       rendererRef.current.setSize(width, height);
@@ -2730,8 +2752,8 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
       for (const [key] of currentTiles) {
         const tile = currentTiles.get(key);
         if (tile) {
-          tile.mesh.geometry.dispose();
-          if (tile.water) tile.water.geometry.dispose();
+          tile.mesh.geometry?.dispose();
+          if (tile.water) tile.water.geometry?.dispose();
         }
       }
       currentTiles.clear();
@@ -2739,10 +2761,8 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
       // Dispose town markers
       currentTownMarkers.traverse((child) => {
         if (child instanceof THREE.Mesh) {
-          child.geometry.dispose();
-          if (child.material instanceof THREE.Material) {
-            child.material.dispose();
-          }
+          child.geometry?.dispose();
+          disposeObjectMaterial(child.material);
         }
       });
 
@@ -2755,10 +2775,8 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
           child instanceof THREE.InstancedMesh ||
           child instanceof THREE.Mesh
         ) {
-          child.geometry.dispose();
-          if (child.material instanceof THREE.Material) {
-            child.material.dispose();
-          }
+          child.geometry?.dispose();
+          disposeObjectMaterial(child.material);
         }
       });
 
@@ -2887,10 +2905,8 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
       // Remove existing selection outline
       if (selectionOutlineRef.current) {
         scene?.remove(selectionOutlineRef.current);
-        selectionOutlineRef.current.geometry.dispose();
-        if (selectionOutlineRef.current.material instanceof THREE.Material) {
-          selectionOutlineRef.current.material.dispose();
-        }
+        selectionOutlineRef.current.geometry?.dispose();
+        disposeObjectMaterial(selectionOutlineRef.current.material);
         selectionOutlineRef.current = null;
       }
       return;
@@ -2905,10 +2921,8 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
       // Remove existing outline
       if (selectionOutlineRef.current) {
         scene.remove(selectionOutlineRef.current);
-        selectionOutlineRef.current.geometry.dispose();
-        if (selectionOutlineRef.current.material instanceof THREE.Material) {
-          selectionOutlineRef.current.material.dispose();
-        }
+        selectionOutlineRef.current.geometry?.dispose();
+        disposeObjectMaterial(selectionOutlineRef.current.material);
       }
 
       // Create outline based on object's bounding box
@@ -2939,10 +2953,8 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
       // Cleanup on unmount or selectedId change
       if (selectionOutlineRef.current && scene) {
         scene.remove(selectionOutlineRef.current);
-        selectionOutlineRef.current.geometry.dispose();
-        if (selectionOutlineRef.current.material instanceof THREE.Material) {
-          selectionOutlineRef.current.material.dispose();
-        }
+        selectionOutlineRef.current.geometry?.dispose();
+        disposeObjectMaterial(selectionOutlineRef.current.material);
         selectionOutlineRef.current = null;
       }
     };
