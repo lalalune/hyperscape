@@ -52,13 +52,13 @@ import type { BiomeGrassConfigWorker } from "../../../utils/workers/GrassWorker"
 export const GRASS_CONFIG = {
   // -- Density & distribution -----------------------------------------------
   /** Average distance between clump centers in meters (lower = denser) */
-  CLUMP_SPACING: 0.7,
+  CLUMP_SPACING: 0.95,
 
   // -- Clump composition ----------------------------------------------------
   /** Number of blades baked into each clump geometry */
   BLADES_PER_CLUMP: 24,
   /** Outer radius of the clump ring in meters */
-  CLUMP_RADIUS: 0.7,
+  CLUMP_RADIUS: 0.45,
   /** Inner radius ratio (0-1, blades placed between inner*radius and radius) */
   CLUMP_INNER_RATIO: 0.05,
 
@@ -68,9 +68,9 @@ export const GRASS_CONFIG = {
   /** Blade width scales with height: width = height * WIDTH_RATIO */
   BLADE_WIDTH_RATIO: 0.04,
   /** Blade min height in world units */
-  BLADE_HEIGHT_MIN: 0.45,
+  BLADE_HEIGHT_MIN: 0.18,
   /** Blade max height in world units */
-  BLADE_HEIGHT_MAX: 1.15,
+  BLADE_HEIGHT_MAX: 0.55,
   /** Arc curvature ratio (arc distance ≈ height * this) */
   BLADE_ARC_RATIO: 0.18,
   /** Tip taper (0 = rectangle, 1 = full point) */
@@ -784,6 +784,7 @@ export class GrassVisualManager implements QuadTreeListener {
     mesh.receiveShadow = true;
     mesh.castShadow = false;
     mesh.userData = { type: "grass", walkable: false, clickable: false };
+    mesh.raycast = () => {};
 
     const identity = new THREE.Matrix4();
     for (let i = 0; i < data.count; i++) {
@@ -942,6 +943,7 @@ export class GrassVisualManager implements QuadTreeListener {
     mesh.receiveShadow = true;
     mesh.castShadow = false;
     mesh.userData = { type: "grass", walkable: false, clickable: false };
+    mesh.raycast = () => {};
 
     const identity = new THREE.Matrix4();
     for (let i = 0; i < instanceData.count; i++) {
@@ -1203,14 +1205,20 @@ export class GrassVisualManager implements QuadTreeListener {
       const tintCol = tint.xyz;
       const tintStr = tint.w;
       const t = uv().y;
-      const tintedCol = mix(groundCol, tintCol, tintStr);
+      const grassBase = vec3(0.24, 0.42, 0.13);
+      const rootCol = mix(groundCol, grassBase, float(0.7));
+      const tintedCol = mix(
+        rootCol,
+        tintCol,
+        clamp(tintStr, float(0.0), float(0.85)),
+      );
       const tipCol = mix(
-        groundCol,
+        rootCol,
         tintedCol,
         smoothstep(float(0.0), float(1.0), t),
-      ).mul(1.4);
+      ).mul(1.08);
       const bladeCol = mix(
-        groundCol,
+        rootCol,
         tipCol,
         smoothstep(float(0.0), float(1.0), t),
       );

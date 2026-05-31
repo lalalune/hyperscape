@@ -170,14 +170,14 @@ const CANYON_GRASS_CONFIG: BiomeGrassConfig = {
 };
 
 const TUNDRA_GRASS_CONFIG: BiomeGrassConfig = {
-  density: 1.0,
+  density: 0.55,
   maxSlope: 0.3,
   minGrassWeight: 0.8,
-  heightScale: 1.0,
+  heightScale: 0.7,
   patchiness: 0.6,
   patchScale: 0.018,
-  tintColor: [1.0, 1.0, 1.0],
-  tintStrength: 0.4,
+  tintColor: [0.38, 0.52, 0.24],
+  tintStrength: 0.7,
 };
 
 const BIOME_GRASS_CONFIGS: Record<BiomeType, BiomeGrassConfig> = {
