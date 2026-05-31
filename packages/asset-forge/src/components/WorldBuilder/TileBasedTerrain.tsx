@@ -85,6 +85,46 @@ const TOWN_SIZE_COLORS: Record<string, number> = {
   hamlet: 0xffff00, // Yellow - small hamlets
 };
 
+function getContainerSize(container: HTMLElement): {
+  width: number;
+  height: number;
+} {
+  const rect = container.getBoundingClientRect();
+
+  return {
+    width: Math.max(1, Math.floor(container.clientWidth || rect.width || 1)),
+    height: Math.max(1, Math.floor(container.clientHeight || rect.height || 1)),
+  };
+}
+
+function disposeObjectMaterial(
+  material: THREE.Material | THREE.Material[],
+): void {
+  const materials = Array.isArray(material) ? material : [material];
+
+  for (const mat of materials) {
+    const mappedMaterial = mat as THREE.Material & {
+      map?: THREE.Texture | null;
+    };
+    mappedMaterial.map?.dispose();
+    mat.dispose();
+  }
+}
+
+function disposeRenderableObject(object: THREE.Object3D): void {
+  if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
+    object.geometry?.dispose();
+    if (object.material) {
+      disposeObjectMaterial(object.material);
+    }
+    return;
+  }
+
+  if (object instanceof THREE.Sprite) {
+    disposeObjectMaterial(object.material);
+  }
+}
+
 // ============== TYPES ==============
 
 interface TileData {
@@ -927,7 +967,7 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
   const waterContainerRef = useRef<THREE.Group | null>(null);
   const townMarkersRef = useRef<THREE.Group | null>(null);
   const vegetationContainerRef = useRef<THREE.Group | null>(null);
-  const wildernessOverlayRef = useRef<THREE.Mesh | null>(null);
+  const wildernessOverlayRef = useRef<THREE.Group | null>(null);
   const generatorRef = useRef<TerrainGenerator | null>(null);
 
   // Tile generation queue
@@ -1555,6 +1595,7 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
     if (!container) return;
 
     let mounted = true;
+    const initialSize = getContainerSize(container);
 
     // Scene (create before async renderer init)
     const scene = new THREE.Scene();
@@ -1565,7 +1606,7 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
     // Camera
     const camera = new THREE.PerspectiveCamera(
       75,
-      container.clientWidth / container.clientHeight,
+      initialSize.width / initialSize.height,
       1,
       10000,
     );
@@ -1726,7 +1767,7 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
     scene.add(skullSprite);
 
     // Store reference for cleanup (use group as main reference)
-    wildernessOverlayRef.current = wildernessGroup as unknown as THREE.Mesh;
+    wildernessOverlayRef.current = wildernessGroup;
     // Store skull for animation
     (
       wildernessGroup as THREE.Group & { skullSprite?: THREE.Sprite }
@@ -2583,7 +2624,8 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
       }
 
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.setSize(container.clientWidth, container.clientHeight);
+      const { width, height } = getContainerSize(container);
+      renderer.setSize(width, height);
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       renderer.shadowMap.enabled = true;
       renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -2655,8 +2697,7 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
     // Handle resize
     const handleResize = () => {
       if (!container || !camera || !rendererRef.current) return;
-      const width = container.clientWidth;
-      const height = container.clientHeight;
+      const { width, height } = getContainerSize(container);
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       rendererRef.current.setSize(width, height);
@@ -2723,10 +2764,9 @@ export const TileBasedTerrain: React.FC<TileBasedTerrainProps> = ({
 
       // Dispose wilderness overlay
       if (wildernessOverlayRef.current) {
-        wildernessOverlayRef.current.geometry.dispose();
-        if (wildernessOverlayRef.current.material instanceof THREE.Material) {
-          wildernessOverlayRef.current.material.dispose();
-        }
+        wildernessOverlayRef.current.traverse(disposeRenderableObject);
+        wildernessOverlayRef.current.removeFromParent();
+        wildernessOverlayRef.current = null;
       }
 
       // Dispose shared resources

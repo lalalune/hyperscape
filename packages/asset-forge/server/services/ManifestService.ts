@@ -237,6 +237,133 @@ export class ManifestService {
   }
 
   /**
+   * Some deploy previews may not have every editable manifest checked in yet.
+   * Keep world preview usable with the same defaults the UI already expects.
+   */
+  private getDefaultManifestContent(name: string): unknown | null {
+    if (name !== "world-config") {
+      return null;
+    }
+
+    return {
+      version: 1,
+      terrain: {
+        seed: 12345,
+        tileSize: 100,
+        worldSize: 100,
+        tileResolution: 64,
+        maxHeight: 30,
+        waterThreshold: 5.4,
+        noise: {
+          scale: 0.02,
+          octaves: 4,
+          persistence: 0.5,
+          lacunarity: 2.0,
+        },
+        detailNoise: {
+          scale: 0.08,
+          octaves: 3,
+          persistence: 0.4,
+          lacunarity: 2.2,
+        },
+        erosion: {
+          enabled: true,
+          iterations: 3,
+          strength: 0.3,
+        },
+        island: {
+          enabled: true,
+          falloffTiles: 8,
+          coastlineNoise: {
+            scale: 0.02,
+            amount: 0.1,
+          },
+          ponds: {
+            enabled: true,
+            count: 5,
+            sizeRange: [3, 8],
+            depth: 0.15,
+          },
+        },
+        shoreline: {
+          slopeMultiplier: 2.5,
+          colorBlendDistance: 3.0,
+        },
+      },
+      biomes: {
+        placementSeed: 54321,
+        cellSize: 200,
+        jitterAmount: 0.4,
+        boundaryNoiseScale: 0.003,
+        blendRadius: 50,
+        heightCoupling: {
+          enabled: true,
+          mountainThreshold: 0.65,
+          valleyThreshold: 0.25,
+        },
+        distribution: {
+          plains: 0.25,
+          forest: 0.25,
+          valley: 0.15,
+          mountains: 0.1,
+          desert: 0.08,
+          swamp: 0.07,
+          tundra: 0.05,
+          lakes: 0.05,
+        },
+      },
+      towns: {
+        seed: 67890,
+        enabled: true,
+        count: 25,
+        worldSize: 10000,
+        minTownSpacing: 800,
+        waterThreshold: 5.4,
+        landmarks: {
+          fencesEnabled: true,
+          fenceDensity: 0.7,
+          fencePostHeight: 1.2,
+          lamppostsInVillages: true,
+          lamppostSpacing: 15,
+          marketStallsEnabled: true,
+          decorationsEnabled: true,
+        },
+        sizes: {
+          town: {
+            count: 2,
+            safeZoneRadius: 80,
+            buildingCount: [8, 12],
+          },
+          village: {
+            count: 3,
+            safeZoneRadius: 60,
+            buildingCount: [4, 6],
+          },
+          hamlet: {
+            count: 3,
+            safeZoneRadius: 40,
+            buildingCount: [2, 3],
+          },
+        },
+        preferredBiomes: ["plains", "forest", "valley"],
+        avoidBiomes: ["swamp", "tundra", "desert"],
+      },
+      roads: {
+        enabled: true,
+        width: 4,
+        pathStepSize: 20,
+        smoothingIterations: 2,
+        extraConnectionsRatio: 0.25,
+        pathfinding: {
+          costSlopeMultiplier: 5.0,
+          costWaterPenalty: 1000,
+          heuristicWeight: 2.5,
+        },
+      },
+    };
+  }
+
+  /**
    * List all available manifests with metadata
    */
   async listManifests(): Promise<ManifestListItem[]> {
@@ -289,6 +416,17 @@ export class ManifestService {
     const file = Bun.file(filePath);
 
     if (!(await file.exists())) {
+      const defaultContent = this.getDefaultManifestContent(name);
+      if (defaultContent !== null) {
+        return {
+          name: info.name,
+          filename: info.filename,
+          content: defaultContent,
+          lastModified: new Date(0).toISOString(),
+          size: JSON.stringify(defaultContent).length,
+        };
+      }
+
       throw new Error(`Manifest file not found: ${info.filename}`);
     }
 
