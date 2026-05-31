@@ -216,9 +216,11 @@ function AccountTabContent({
 
   const handleLogout = async () => {
     const windowWithLogout = window as typeof window & {
-      privyLogout: () => void;
+      auth0Logout?: () => Promise<void> | void;
+      privyLogout?: () => Promise<void> | void;
     };
-    await windowWithLogout.privyLogout();
+    await (windowWithLogout.auth0Logout?.() ??
+      windowWithLogout.privyLogout?.());
     privyAuthManager.clearAuth();
     setTimeout(() => {
       window.location.reload();

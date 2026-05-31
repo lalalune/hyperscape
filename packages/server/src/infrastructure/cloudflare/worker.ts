@@ -145,9 +145,11 @@ interface Env {
   SESSIONS?: KVNamespace;
   LIVEKIT_API_KEY: string;
   LIVEKIT_API_SECRET: string;
-  PRIVY_APP_SECRET: string;
   DATABASE_URL: string;
   PUBLIC_CDN_URL: string;
+  PUBLIC_AUTH0_DOMAIN?: string;
+  PUBLIC_AUTH0_CLIENT_ID?: string;
+  PUBLIC_AUTH0_AUDIENCE?: string;
 }
 
 /**

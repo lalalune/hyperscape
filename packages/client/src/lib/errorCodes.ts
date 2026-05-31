@@ -197,7 +197,7 @@ export const ERROR_META: Record<ErrorCode, ErrorMeta> = {
   [ErrorCode.AUTH_PRIVY_ERROR]: {
     code: ErrorCode.AUTH_PRIVY_ERROR,
     severity: ErrorSeverity.ERROR,
-    message: "Privy authentication error",
+    message: "Authentication provider error",
     userMessage: "Authentication service error.",
     recoverable: true,
   },

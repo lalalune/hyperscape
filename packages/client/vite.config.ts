@@ -91,13 +91,6 @@ export default defineConfig(({ mode }) => {
       env.PUBLIC_AUTH0_CLIENT_ID.substring(0, 10) + "...",
     );
   }
-  if (env.PUBLIC_PRIVY_APP_ID) {
-    console.log(
-      "[Vite Config] PUBLIC_PRIVY_APP_ID:",
-      env.PUBLIC_PRIVY_APP_ID.substring(0, 10) + "...",
-    );
-  }
-
   const disableSharedWatch =
     process.env.E2E_DISABLE_SHARED_WATCH === "true" ||
     process.env.PLAYWRIGHT_TEST === "true";
@@ -415,7 +408,7 @@ export default defineConfig(({ mode }) => {
       //
       // ⚠️  NEVER ADD SECRET VARIABLES HERE ⚠️
       // Secret variables that must NEVER be exposed to client:
-      //   - PRIVY_APP_SECRET
+      //   - AUTH0_CLIENT_SECRET
       //   - JWT_SECRET
       //   - DATABASE_URL
       //   - POSTGRES_PASSWORD
@@ -447,9 +440,6 @@ export default defineConfig(({ mode }) => {
       ),
       "process.env.PUBLIC_AUTH0_AUDIENCE": JSON.stringify(
         env.PUBLIC_AUTH0_AUDIENCE || "",
-      ),
-      "process.env.PUBLIC_PRIVY_APP_ID": JSON.stringify(
-        env.PUBLIC_PRIVY_APP_ID || "",
       ),
       "process.env.PUBLIC_STARTER_ITEMS": JSON.stringify(
         env.PUBLIC_STARTER_ITEMS || "",
@@ -492,9 +482,6 @@ export default defineConfig(({ mode }) => {
       ),
       "import.meta.env.PUBLIC_AUTH0_AUDIENCE": JSON.stringify(
         process.env.PUBLIC_AUTH0_AUDIENCE || env.PUBLIC_AUTH0_AUDIENCE || "",
-      ),
-      "import.meta.env.PUBLIC_PRIVY_APP_ID": JSON.stringify(
-        env.PUBLIC_PRIVY_APP_ID || "",
       ),
       "import.meta.env.PLAYWRIGHT_TEST": JSON.stringify(
         process.env.PLAYWRIGHT_TEST === "true",

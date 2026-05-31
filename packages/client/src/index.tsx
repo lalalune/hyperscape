@@ -98,7 +98,7 @@ import {
   getEmbeddedSurface,
 } from "./lib/embedded-entry";
 
-// Buffer polyfill for Privy (required for crypto operations in browser)
+// Buffer polyfill for browser auth/crypto dependencies
 // Must be imported and assigned BEFORE any other imports that might use it
 import { Buffer } from "buffer";
 (globalThis as typeof globalThis & { Buffer: typeof Buffer }).Buffer = Buffer;
@@ -444,7 +444,7 @@ function App() {
     return unsubscribe;
   }, []);
 
-  // Restore auth from localStorage ONLY after Privy SDK is ready
+  // Restore auth from storage only after the auth provider is ready
   // This prevents race conditions where we read stale/incomplete data
   React.useEffect(() => {
     if (!authState.privySdkReady) return;
@@ -455,7 +455,7 @@ function App() {
   // Gate on privySdkReady to ensure Privy has finished initializing
   React.useEffect(() => {
     const checkUsername = async () => {
-      // Wait for Privy SDK to be ready before checking
+      // Wait for the auth provider to be ready before checking
       if (!authState.privySdkReady) {
         return;
       }
@@ -465,10 +465,10 @@ function App() {
         return;
       }
 
-      // Use PrivyAuthManager with localStorage fallback
+      // Use the compatibility auth manager with storage fallback
       const accountId = authState.privyUserId || privyAuthManager.getUserId();
       if (!accountId) {
-        // Don't immediately assume no username - Privy may still be writing
+        // Don't immediately assume no username - auth storage may still be writing
         // Stay in loading state briefly, then check again
         setHasUsername(null);
         return;
@@ -542,10 +542,10 @@ function App() {
 
   const handleLogout = React.useCallback(() => {
     try {
-      // Clear Privy auth manager first
+      // Clear auth manager first
       privyAuthManager.clearAuth();
 
-      // Clear potentially corrupted Privy localStorage keys
+      // Clear potentially corrupted legacy auth localStorage keys
       // This prevents JSON parse errors from corrupted data
       const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
@@ -699,7 +699,7 @@ function App() {
     );
   }
 
-  // Show game (when Privy disabled, skip character selection and go straight to game)
+  // Show game when auth is disabled; the client will enter dev mode.
   // The client will automatically send enterWorld without characterId for dev mode
   return (
     <div ref={appRef} data-component="app-root">
@@ -760,8 +760,7 @@ async function setupTauriDeepLinks(): Promise<void> {
     }
 
     if (code) {
-      // Store the auth code for Privy to pick up
-      // Privy will handle the token exchange
+      // Store the auth code for the configured OAuth provider to pick up.
 
       // Dispatch custom event for auth handling
       window.dispatchEvent(
