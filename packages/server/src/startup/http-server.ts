@@ -207,7 +207,7 @@ export async function createHttpServer(
     /^https?:\/\/.+\.hyperscape\.pages\.dev$/, // Cloudflare Pages preview deployments
     /^https:\/\/.+\.farcaster\.xyz$/,
     /^https:\/\/.+\.warpcast\.com$/,
-    /^https:\/\/.+\.privy\.io$/,
+    /^https:\/\/.+\.auth0\.com$/,
     /^https:\/\/.+\.up\.railway\.app$/,
   ];
 

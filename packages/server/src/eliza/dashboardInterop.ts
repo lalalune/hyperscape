@@ -21,9 +21,9 @@ type DashboardThought = {
 // ── Thought persistence (batch writes to DB) ──────────────────────────
 type PendingThoughtRow = {
   characterId: string;
-  type: string;
+  type: DashboardThought["type"];
   content: string;
-  decisionPath: string | null;
+  decisionPath: DashboardThought["decisionPath"] | null;
   timestamp: number;
 };
 
@@ -91,12 +91,18 @@ export async function hydrateThoughtsFromDb(
   if (!_thoughtDb) return;
   try {
     const { desc, eq } = await import("drizzle-orm");
-    const rows = await _thoughtDb
+    const rows = (await _thoughtDb
       .select()
       .from(agentThoughtsTable)
       .where(eq(agentThoughtsTable.characterId, characterId))
       .orderBy(desc(agentThoughtsTable.timestamp))
-      .limit(ServerNetwork.MAX_THOUGHTS_PER_AGENT);
+      .limit(ServerNetwork.MAX_THOUGHTS_PER_AGENT)) as Array<{
+      characterId: string;
+      type: DashboardThought["type"];
+      content: string;
+      timestamp: number;
+      decisionPath?: DashboardThought["decisionPath"] | null;
+    }>;
 
     if (rows.length === 0) return;
 
@@ -141,6 +147,10 @@ type CommandData = {
   message?: string;
   npcId?: string;
   interaction?: string;
+  recipe?: string;
+  slot?: string;
+  questId?: string;
+  description?: string;
 };
 
 type DistancePreference = "nearest" | "furthest";
@@ -241,7 +251,16 @@ export function recordAgentThought(
 
 /** Snapshot of embedded AgentBehaviorTicker.goal (avoid circular import of AgentInstance). */
 export type EmbeddedTickerGoalSnapshot = {
-  type: "questing" | "combat" | "gathering" | "idle";
+  type:
+    | "questing"
+    | "combat"
+    | "gathering"
+    | "banking"
+    | "cooking"
+    | "smelting"
+    | "smithing"
+    | "exploring"
+    | "idle";
   description: string;
   questId?: string;
   questName?: string;
@@ -1161,7 +1180,7 @@ function findGlobalResourceTarget(
   type ServiceWithWorld = EmbeddedHyperscapeService & {
     getWorld?: () => { entities?: { items?: Map<string, WorldEntity> } };
   };
-  const world = (service as ServiceWithWorld).getWorld?.();
+  const world = (service as unknown as ServiceWithWorld).getWorld?.();
   const items = world?.entities?.items;
   if (!items) return null;
   const kws = typeKeywords.map((k) => k.toLowerCase());
@@ -1169,7 +1188,8 @@ function findGlobalResourceTarget(
   let bestPos: [number, number, number] | null = null;
   let bestName = typeKeywords[0] || "resource";
   let bestDistSq = Number.MAX_SAFE_INTEGER;
-  for (const [id, entity] of items) {
+  for (const [id, rawEntity] of items) {
+    const entity = rawEntity as WorldEntity;
     const data = entity.data;
     const etype = (
       (data?.type || entity.type || entity.entityType) ??
@@ -1235,7 +1255,7 @@ function findGlobalMobTarget(
   type ServiceWithWorld = EmbeddedHyperscapeService & {
     getWorld?: () => { entities?: { items?: Map<string, WorldEntity> } };
   };
-  const world = (service as ServiceWithWorld).getWorld?.();
+  const world = (service as unknown as ServiceWithWorld).getWorld?.();
   const items = world?.entities?.items;
   if (!items) return null;
   const tokens = tokenizeTarget(targetPhrase);
@@ -1244,7 +1264,8 @@ function findGlobalMobTarget(
   let bestName = "mob";
   let bestScore = -1;
   let bestDistSq = Number.MAX_SAFE_INTEGER;
-  for (const [id, ent] of items) {
+  for (const [id, rawEnt] of items) {
+    const ent = rawEnt as WorldEntity;
     const entityType = ent.entityType || ent.type || "";
     if (!/mob/i.test(entityType)) continue;
     const pos = ent.position;
@@ -1639,13 +1660,11 @@ export function resolveDashboardIntent(
       };
     }
     // No specific item found, try any raw food
-    const anyRaw = inventoryEntries.find((e) =>
-      e.item?.itemId?.startsWith("raw_"),
-    );
+    const anyRaw = inventoryEntries.find((e) => e.itemId.startsWith("raw_"));
     if (anyRaw) {
       return {
         command: "cook",
-        data: { itemId: anyRaw.item!.itemId! },
+        data: { itemId: anyRaw.itemId },
         text: `Cooking ${anyRaw.name}.`,
         thought: `Operator requested cooking. Found ${anyRaw.name} in inventory.`,
         targetName: anyRaw.name,
@@ -1820,7 +1839,7 @@ export function resolveDashboardIntent(
       if (bestQuest && bestScore > 0) {
         return {
           command: "questAccept",
-          data: { questId: bestQuest.id },
+          data: { questId: bestQuest.questId },
           text: `Accepting quest "${bestQuest.name}".`,
           thought: `Operator asked to begin quest. Matched "${bestQuest.name}" from available quests.`,
           targetName: bestQuest.name,
@@ -1833,7 +1852,7 @@ export function resolveDashboardIntent(
       const first = startable[0];
       return {
         command: "questAccept",
-        data: { questId: first.id },
+        data: { questId: first.questId },
         text: `Accepting quest "${first.name}".`,
         thought: `Operator asked to begin a quest. No specific match — picking first available: "${first.name}".`,
         targetName: first.name,

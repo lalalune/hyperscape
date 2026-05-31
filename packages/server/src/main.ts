@@ -85,9 +85,9 @@ async function startServer() {
       process.exit(1);
     }
     const warnings: string[] = [];
-    if (!process.env.PRIVY_APP_ID && !process.env.PUBLIC_PRIVY_APP_ID)
-      warnings.push("PRIVY_APP_ID");
-    if (!process.env.PRIVY_APP_SECRET) warnings.push("PRIVY_APP_SECRET");
+    if (!process.env.PUBLIC_AUTH0_DOMAIN) warnings.push("PUBLIC_AUTH0_DOMAIN");
+    if (!process.env.PUBLIC_AUTH0_CLIENT_ID)
+      warnings.push("PUBLIC_AUTH0_CLIENT_ID");
     if (warnings.length > 0) {
       console.warn(
         `[Server] WARNING: Missing recommended production config: ${warnings.join(", ")}`,
@@ -174,7 +174,7 @@ async function startServer() {
       | { db?: unknown; getDb?: () => unknown }
       | undefined;
     const db = dbSystem?.db ?? dbSystem?.getDb?.();
-    if (db) setThoughtDb(db);
+    if (db) setThoughtDb(db as Parameters<typeof setThoughtDb>[0]);
   } catch {
     // Non-critical — thoughts will stay in-memory only
   }

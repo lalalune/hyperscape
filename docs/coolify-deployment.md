@@ -41,10 +41,33 @@ USE_LOCAL_POSTGRES=false
 DATABASE_URL=postgresql://hyperscape:<password>@postgres:5432/hyperscape
 DEFAULT_GOBLINS_ENABLED=false
 S3_BUCKET_CONJURES=hyperscape-conjures
+AUTO_START_AGENTS=false
+SPAWN_MODEL_AGENTS=true
+MODEL_AGENT_PROVIDERS=hyades
+MAX_MODEL_AGENTS=1
 ```
 
 Leave `DEFAULT_GOBLINS_ENABLED=false` unless you intentionally want the
 hardcoded starter test goblin cluster.
+
+## Hyades In-Game AI
+
+Coolify deployments spawn the in-game LLM agent through Hyades by default. Set
+these in Coolify secrets or environment variables:
+
+```env
+HYADES_LLM_ENDPOINT=http://<hyades-host>/v1
+HYADES_LLM_MODEL=nemotron3-omni
+HYADES_LLM_SMALL_MODEL=nemotron3-omni
+HYADES_LLM_API_KEY=<hyades-key>
+```
+
+`AUTO_START_AGENTS=false` prevents stale database-backed OpenAI agents from
+restarting automatically after deploy. `HYADES_RUNTIME_URL` can also be set to
+`http://<hyades-host>`; the server will
+derive `/v1` from it when `HYADES_LLM_ENDPOINT` is empty. Keep
+`MODEL_AGENT_PROVIDERS=hyades` if OpenAI, Anthropic, or OpenRouter keys remain in
+the environment but should not spawn agents.
 
 ## Assets and CDN
 

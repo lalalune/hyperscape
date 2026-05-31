@@ -431,6 +431,25 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     }>
   > = new Map();
 
+  /** Recent agent activity for dashboard display */
+  static agentActivity: Map<
+    string,
+    {
+      recentActions: Array<{
+        type: string;
+        description: string;
+        timestamp: number;
+      }>;
+      sessionStats: {
+        kills: number;
+        deaths: number;
+        totalXpGained: number;
+        goldEarned: number;
+        resourcesGathered: Record<string, number>;
+      };
+    }
+  > = new Map();
+
   /** Long-term build / playstyle vision for embedded agents (dashboard + LLM refresh). */
   static agentCharacterVision: Map<
     string,
@@ -580,6 +599,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     ServerNetwork.capAgentDashboardMap(ServerNetwork.agentGoals);
     ServerNetwork.capAgentDashboardMap(ServerNetwork.agentAvailableGoals);
     ServerNetwork.capAgentDashboardMap(ServerNetwork.agentGoalsPaused);
+    ServerNetwork.capAgentDashboardMap(ServerNetwork.agentActivity);
     ServerNetwork.capAgentDashboardMap(ServerNetwork.agentThoughts);
     ServerNetwork.capAgentDashboardMap(ServerNetwork.characterSockets);
     ServerNetwork.capAgentDashboardMap(ServerNetwork.agentPersonality);

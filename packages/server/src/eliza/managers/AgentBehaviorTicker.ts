@@ -2300,6 +2300,37 @@ export class AgentBehaviorTicker {
     return null;
   }
 
+  private getRequiredWoodcuttingLevel(resource: NearbyEntityData): number {
+    return this.getRequiredWoodcuttingLevelFromData({
+      name: resource.name,
+      resourceType: resource.resourceType,
+      resourceId: resource.resourceId,
+    });
+  }
+
+  private getRequiredWoodcuttingLevelFromData(
+    data: Record<string, unknown>,
+  ): number {
+    const haystack =
+      `${String(data.name || "")} ${String(data.resourceType || "")} ${String(data.resourceId || "")}`.toLowerCase();
+    if (haystack.includes("magic")) return 75;
+    if (haystack.includes("yew")) return 60;
+    if (haystack.includes("maple")) return 45;
+    if (haystack.includes("willow")) return 30;
+    if (haystack.includes("oak")) return 15;
+    return 1;
+  }
+
+  private isActivelyGatheringResource(
+    instance: AgentInstance,
+    resourceId: string,
+  ): boolean {
+    return (
+      instance.lastGatherTargetId === resourceId &&
+      Date.now() - instance.lastGatherQueuedAt < GATHER_STUCK_REPEAT_WINDOW_MS
+    );
+  }
+
   /**
    * Map quest gather targets to resource keywords that match world entities.
    * Quest targets use item IDs (e.g., "logs", "raw_shrimp", "copper_ore")

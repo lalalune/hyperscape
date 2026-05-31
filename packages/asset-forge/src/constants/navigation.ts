@@ -4,6 +4,7 @@ import { NavigationView } from "../types";
 export const NAVIGATION_VIEWS = {
   ASSETS: "assets",
   GENERATION: "generation",
+  CONTENT_GENERATION: "contentGeneration",
   EQUIPMENT: "equipment",
   HAND_RIGGING: "handRigging",
   ARMOR_FITTING: "armorFitting",
@@ -12,6 +13,7 @@ export const NAVIGATION_VIEWS = {
   VFX: "vfx",
   WORLD_BUILDER: "worldBuilder",
   WORLD_EDITOR: "worldEditor", // New: Uses real game systems
+  PLACEMENTS: "placements",
   MANIFESTS: "manifests",
   // Procedural generators
   BUILDING_GEN: "buildingGen",
@@ -30,6 +32,7 @@ export const NAVIGATION_VIEWS = {
 // Route paths for URL navigation
 export const ROUTES = {
   GENERATION: "/generate",
+  CONTENT_GENERATION: "/content",
   ASSETS: "/assets",
   BUILDING_GEN: "/generators/buildings",
   TREE_GEN: "/generators/trees",
@@ -49,6 +52,7 @@ export const ROUTES = {
   VFX: "/vfx",
   WORLD_BUILDER: "/world",
   WORLD_EDITOR: "/world-editor", // New: Uses real game systems
+  PLACEMENTS: "/placements",
   MANIFESTS: "/manifests",
   ARMOR_PIPELINE: "/armor-pipeline",
 } as const;
@@ -56,6 +60,7 @@ export const ROUTES = {
 // Map routes to navigation views
 export const ROUTE_TO_VIEW: Record<string, NavigationView> = {
   [ROUTES.GENERATION]: NAVIGATION_VIEWS.GENERATION,
+  [ROUTES.CONTENT_GENERATION]: NAVIGATION_VIEWS.CONTENT_GENERATION,
   [ROUTES.ASSETS]: NAVIGATION_VIEWS.ASSETS,
   [ROUTES.BUILDING_GEN]: NAVIGATION_VIEWS.BUILDING_GEN,
   [ROUTES.TREE_GEN]: NAVIGATION_VIEWS.TREE_GEN,
@@ -74,6 +79,7 @@ export const ROUTE_TO_VIEW: Record<string, NavigationView> = {
   [ROUTES.VFX]: NAVIGATION_VIEWS.VFX,
   [ROUTES.WORLD_BUILDER]: NAVIGATION_VIEWS.WORLD_BUILDER,
   [ROUTES.WORLD_EDITOR]: NAVIGATION_VIEWS.WORLD_EDITOR,
+  [ROUTES.PLACEMENTS]: NAVIGATION_VIEWS.PLACEMENTS,
   [ROUTES.MANIFESTS]: NAVIGATION_VIEWS.MANIFESTS,
   [ROUTES.ARMOR_PIPELINE]: NAVIGATION_VIEWS.ARMOR_PIPELINE,
 };
@@ -81,6 +87,7 @@ export const ROUTE_TO_VIEW: Record<string, NavigationView> = {
 // Map navigation views to routes
 export const VIEW_TO_ROUTE: Record<NavigationView, string> = {
   [NAVIGATION_VIEWS.GENERATION]: ROUTES.GENERATION,
+  [NAVIGATION_VIEWS.CONTENT_GENERATION]: ROUTES.CONTENT_GENERATION,
   [NAVIGATION_VIEWS.ASSETS]: ROUTES.ASSETS,
   [NAVIGATION_VIEWS.BUILDING_GEN]: ROUTES.BUILDING_GEN,
   [NAVIGATION_VIEWS.TREE_GEN]: ROUTES.TREE_GEN,
@@ -99,6 +106,7 @@ export const VIEW_TO_ROUTE: Record<NavigationView, string> = {
   [NAVIGATION_VIEWS.VFX]: ROUTES.VFX,
   [NAVIGATION_VIEWS.WORLD_BUILDER]: ROUTES.WORLD_BUILDER,
   [NAVIGATION_VIEWS.WORLD_EDITOR]: ROUTES.WORLD_EDITOR,
+  [NAVIGATION_VIEWS.PLACEMENTS]: ROUTES.PLACEMENTS,
   [NAVIGATION_VIEWS.MANIFESTS]: ROUTES.MANIFESTS,
   [NAVIGATION_VIEWS.ARMOR_PIPELINE]: ROUTES.ARMOR_PIPELINE,
 };

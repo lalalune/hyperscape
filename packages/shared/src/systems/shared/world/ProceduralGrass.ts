@@ -46,7 +46,6 @@ import THREE, {
   vec3,
   vec4,
   vec2,
-  vertexColor,
   sin,
   cos,
   atan,
@@ -1262,16 +1261,21 @@ function createGpuDrivenTileMaterial(
     const heightFactor = localPos.y.div(tileUniforms.uTileHeight).clamp(0, 1);
     const windDisplacement = windSway.mul(heightFactor.mul(heightFactor)); // Quadratic profile
 
-    // Scale: 0 for invisible, 1 for visible
-    const scaleVal = finalVisible;
+    const visibleX = tileX.add(rotatedX).add(windDisplacement);
+    const visibleY = tileY.add(localPos.y);
+    const visibleZ = tileZ.add(rotatedZ).add(windDisplacement.mul(0.3));
+    const visibleMask = select(
+      finalVisible.greaterThan(0.001),
+      float(1),
+      float(0),
+    );
 
-    // Final world position (with wind displacement)
+    // Move invisible dither/cull samples well below the world. Collapsing them
+    // to the tile anchor can leave degenerate depth/alias artifacts in WebGPU.
     return vec3(
-      tileX.add(rotatedX.mul(scaleVal)).add(windDisplacement.mul(scaleVal)),
-      tileY.add(localPos.y.mul(scaleVal)),
-      tileZ
-        .add(rotatedZ.mul(scaleVal))
-        .add(windDisplacement.mul(0.3).mul(scaleVal)),
+      mix(float(0), visibleX, visibleMask),
+      mix(float(-10000), visibleY, visibleMask),
+      mix(float(0), visibleZ, visibleMask),
     );
   })();
 
@@ -1281,7 +1285,7 @@ function createGpuDrivenTileMaterial(
     tileUniforms.uTileDayColor,
     tileUniforms.uTileDayNightMix,
   );
-  material.colorNode = mul(vertexColor("color"), dayNightTint);
+  material.colorNode = mul(attribute("color", "vec3"), dayNightTint);
 
   applySkyFog(material);
 
@@ -1301,7 +1305,7 @@ function createGpuDrivenTileMesh(
 
   const mesh = new THREE.InstancedMesh(geometry, material, instanceCount);
   mesh.frustumCulled = false; // We do frustum culling in shader
-  mesh.count = instanceCount; // Fixed count - shader handles visibility via scale=0
+  mesh.count = instanceCount; // Fixed count - shader handles visibility
   mesh.name = "GrassLOD1_GPU";
 
   // Identity matrices - positioning is done entirely in shader
@@ -2881,7 +2885,7 @@ export class ProceduralGrassSystem extends System {
     mergedGeometry.computeBoundingBox();
 
     const material = new MeshBasicNodeMaterial();
-    material.colorNode = vertexColor("color");
+    material.colorNode = attribute("color", "vec3");
     material.side = THREE.DoubleSide;
 
     applySkyFog(material);

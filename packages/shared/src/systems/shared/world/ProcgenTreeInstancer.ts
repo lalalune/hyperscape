@@ -3022,14 +3022,18 @@ export class ProcgenTreeInstancer {
         (child as THREE.Object3D & { isMesh?: boolean }).isMesh === true;
       const meshChild = child as THREE.Mesh;
       if (isMesh && meshChild.geometry) {
+        const material = Array.isArray(meshChild.material)
+          ? meshChild.material[0]
+          : meshChild.material;
+        if (lod !== "lod0" && this.isFoliageCardMesh(meshChild, material)) {
+          return;
+        }
+
         const geo = meshChild.geometry.clone();
         if (!meshChild.matrix.equals(new THREE.Matrix4().identity()))
           geo.applyMatrix4(meshChild.matrix);
         geos.push(geo);
-        const m = Array.isArray(meshChild.material)
-          ? meshChild.material[0]
-          : meshChild.material;
-        if (m && !mats.includes(m)) mats.push(m);
+        if (material && !mats.includes(material)) mats.push(material);
       }
     });
 
@@ -3109,6 +3113,42 @@ export class ProcgenTreeInstancer {
       shadowMesh,
       shadowGeo,
     };
+  }
+
+  private isFoliageCardMesh(
+    mesh: THREE.Mesh,
+    material: THREE.Material | undefined,
+  ): boolean {
+    const nameParts: string[] = [];
+    let node: THREE.Object3D | null = mesh;
+    for (let depth = 0; node && depth < 4; depth++) {
+      if (node.name) nameParts.push(node.name.toLowerCase());
+      node = node.parent;
+    }
+
+    const name = nameParts.join(" ");
+    if (
+      name.includes("leaf") ||
+      name.includes("leaves") ||
+      name.includes("foliage") ||
+      name.includes("cluster") ||
+      name.includes("card") ||
+      name.includes("canopy")
+    ) {
+      return true;
+    }
+
+    if (!material) return false;
+
+    const alphaMaterial = material as THREE.Material & {
+      alphaMap?: THREE.Texture | null;
+    };
+
+    return (
+      material.transparent === true ||
+      material.alphaTest > 0 ||
+      alphaMaterial.alphaMap != null
+    );
   }
 
   // ---------------------------------------------------------------------------

@@ -40,7 +40,7 @@ async function main() {
     
     console.log('\n📝 Next steps:')
     console.log('   1. Set secrets: wrangler secret put LIVEKIT_API_KEY')
-    console.log('   2. Set secrets: wrangler secret put PRIVY_APP_SECRET')
+    console.log('   2. Set Auth0 env vars: PUBLIC_AUTH0_DOMAIN and PUBLIC_AUTH0_CLIENT_ID')
     console.log('   3. Test WebSocket: wscat -c wss://your-worker-url/ws')
     console.log('   4. Update client PUBLIC_WS_URL to your worker URL')
     
@@ -59,4 +59,3 @@ main().catch(error => {
   console.error('❌ Deploy script failed:', error)
   process.exit(1)
 })
-

@@ -2,6 +2,7 @@
 export type NavigationView =
   | "assets"
   | "generation"
+  | "contentGeneration"
   | "equipment"
   | "handRigging"
   | "armorFitting"
@@ -10,6 +11,7 @@ export type NavigationView =
   | "vfx"
   | "worldBuilder"
   | "worldEditor" // New: Uses real game systems
+  | "placements"
   | "manifests"
   | "buildingGen"
   | "treeGen"

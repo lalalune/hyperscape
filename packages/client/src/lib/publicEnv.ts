@@ -99,3 +99,28 @@ export function resolvePrivyAppId(buildValue?: string): string {
 export function isConfiguredPrivyAppId(appId: string): boolean {
   return appId.length > 0 && !appId.includes("your-privy-app-id");
 }
+
+export function resolveAuth0Domain(buildValue?: string): string {
+  return resolvePublicEnvValue(
+    getPublicRuntimeEnv()?.PUBLIC_AUTH0_DOMAIN,
+    buildValue,
+  );
+}
+
+export function resolveAuth0ClientId(buildValue?: string): string {
+  return resolvePublicEnvValue(
+    getPublicRuntimeEnv()?.PUBLIC_AUTH0_CLIENT_ID,
+    buildValue,
+  );
+}
+
+export function isConfiguredAuth0Client(
+  domain: string,
+  clientId: string,
+): boolean {
+  return (
+    domain.length > 0 &&
+    clientId.length > 0 &&
+    !clientId.includes("your-auth0-client-id")
+  );
+}

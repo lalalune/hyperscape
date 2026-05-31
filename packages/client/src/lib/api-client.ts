@@ -2,13 +2,13 @@
  * Centralized API Client
  *
  * Provides fetch wrappers that automatically add Authorization headers
- * for authenticated API calls. Uses PrivyAuthManager for token retrieval,
- * which caches tokens from Privy SDK's getAccessToken().
+ * for authenticated API calls. Uses the compatibility auth manager for token
+ * retrieval, which caches tokens from the configured auth provider.
  *
  * Security features:
  * - CSRF token support for state-changing requests
  * - Automatic credential inclusion for cookie-based auth
- * - Token retrieval via PrivyAuthManager (cached from Privy SDK)
+ * - Token retrieval via compatibility auth manager
  * - Support for async fresh token retrieval
  *
  * @example
@@ -38,21 +38,20 @@ const CSRF_TOKEN_TTL = 300000; // 5 minutes
 /**
  * Get the current auth token from PrivyAuthManager
  *
- * Uses the cached token from PrivyAuthManager, which is populated by
- * PrivyAuthProvider using Privy SDK's getAccessToken(). This is preferred
+ * Uses the cached token from the compatibility auth manager.
  * over direct localStorage access for better security and consistency.
  *
  * @returns The access token or null if not authenticated
  */
 function getAuthToken(): string | null {
   try {
-    // Use PrivyAuthManager for token retrieval (cached from Privy SDK)
+    // Use compatibility auth manager for token retrieval.
     const token = privyAuthManager.getToken();
     if (token) {
       return token;
     }
     // Fallback to localStorage for backward compatibility during initialization
-    // This handles the race condition where PrivyAuthManager hasn't been initialized yet
+    // This handles the race condition where the auth manager is not initialized yet.
     return localStorage.getItem("privy_auth_token");
   } catch {
     // localStorage may not be available (SSR, etc.)
@@ -62,18 +61,18 @@ function getAuthToken(): string | null {
 
 /**
  * Async token provider type for fresh token retrieval
- * Use this with components that have access to Privy's usePrivy() hook
+ * Use this with components that have access to an async provider token hook.
  */
 export type AsyncTokenProvider = () => Promise<string | null>;
 
 /**
  * Set an async token provider for fresh token retrieval
- * This should be called from PrivyAuthProvider with getAccessToken
+ * This should be called from the auth provider with getAccessToken
  */
 let asyncTokenProvider: AsyncTokenProvider | null = null;
 
 /**
- * Register an async token provider (typically Privy's getAccessToken)
+ * Register an async token provider.
  * This allows the API client to fetch fresh tokens when needed
  */
 export function setAsyncTokenProvider(provider: AsyncTokenProvider): void {
@@ -400,7 +399,7 @@ export const apiClient = {
   },
 
   /**
-   * Get the user ID from PrivyAuthManager
+   * Get the user ID from the compatibility auth manager.
    */
   getUserId(): string | null {
     return privyAuthManager.getUserId();

@@ -37,6 +37,10 @@ interface AgentSettingsData {
 }
 
 interface SecretsData {
+  HYADES_LLM_API_KEY?: string;
+  HYADES_LLM_ENDPOINT?: string;
+  HYADES_LLM_MODEL?: string;
+  HYADES_LLM_SMALL_MODEL?: string;
   OPENROUTER_API_KEY?: string;
   OPENAI_API_KEY?: string;
   ANTHROPIC_API_KEY?: string;
@@ -82,6 +86,25 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
 
   // Common API key configurations
   const apiKeyConfigs = [
+    {
+      key: "HYADES_LLM_API_KEY",
+      label: "Hyades LLM API Key",
+      placeholder: "hyades key",
+      description: "Preferred: Hyades OpenAI-compatible LLM access",
+    },
+    {
+      key: "HYADES_LLM_ENDPOINT",
+      label: "Hyades LLM Endpoint",
+      placeholder: "http://hyades.internal/v1",
+      description:
+        "Optional when HYADES_LLM_ENDPOINT is already set on the server",
+    },
+    {
+      key: "HYADES_LLM_MODEL",
+      label: "Hyades Model",
+      placeholder: "nemotron3-omni",
+      description: "Model served by Hyades for large LLM calls",
+    },
     {
       key: "OPENROUTER_API_KEY",
       label: "OpenRouter API Key",

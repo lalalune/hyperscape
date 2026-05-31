@@ -38,7 +38,7 @@ export default defineConfig({
       reuseExistingServer: false,
     },
     {
-      command: `env -u NO_COLOR PLAYWRIGHT_TEST=true E2E_DISABLE_SHARED_WATCH=true PUBLIC_PRIVY_APP_ID=your-privy-app-id PUBLIC_API_URL=http://localhost:${SERVER_PORT} PUBLIC_WS_URL=ws://localhost:${SERVER_PORT}/ws node node_modules/vite/bin/vite.js --host --port ${CLIENT_PORT} --strictPort --logLevel error`,
+      command: `env -u NO_COLOR PLAYWRIGHT_TEST=true E2E_DISABLE_SHARED_WATCH=true PUBLIC_API_URL=http://localhost:${SERVER_PORT} PUBLIC_WS_URL=ws://localhost:${SERVER_PORT}/ws node node_modules/vite/bin/vite.js --host --port ${CLIENT_PORT} --strictPort --logLevel error`,
       url: `http://localhost:${CLIENT_PORT}`,
       reuseExistingServer: false,
       timeout: 300000,

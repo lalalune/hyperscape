@@ -32,7 +32,9 @@ vars = { }
 #   NODE_OPTIONS            - --max-old-space-size=4096
 #
 # App Configuration:
-#   PUBLIC_PRIVY_APP_ID     - cmgk4zu56005kjj0bcaae0rei
+#   PUBLIC_AUTH0_DOMAIN     - your-tenant.us.auth0.com
+#   PUBLIC_AUTH0_CLIENT_ID  - your-auth0-client-id
+#   PUBLIC_AUTH0_AUDIENCE   - Optional API identifier
 #   PUBLIC_API_URL          - https://hyperscape-production.up.railway.app
 #   PUBLIC_WS_URL           - wss://hyperscape-production.up.railway.app/ws
 #   PUBLIC_CDN_URL          - https://assets.hyperscape.club

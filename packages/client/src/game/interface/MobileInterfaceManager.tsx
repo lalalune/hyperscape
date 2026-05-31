@@ -229,6 +229,8 @@ export function MobileInterfaceManager({
       skills: "Skills",
       prayer: "Prayer",
       quests: "Quests",
+      npc: "NPCs",
+      placement: "3D Placement",
       settings: "Settings",
       menubar: "Menu",
       chat: "Chat",

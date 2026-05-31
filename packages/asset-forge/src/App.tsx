@@ -10,6 +10,7 @@ import { ArmorFittingPage } from "./pages/ArmorFittingPage";
 import { AssetsPage } from "./pages/AssetsPage";
 import { BatchSpritesPage } from "./pages/BatchSpritesPage";
 import { BuildingGenPage } from "./pages/BuildingGenPage";
+import { ContentGenerationPage } from "./pages/ContentGenerationPage";
 import { EquipmentPage } from "./pages/EquipmentPage";
 import { FlowerGenPage } from "./pages/FlowerGenPage";
 import { GenerationPage } from "./pages/GenerationPage";
@@ -18,6 +19,7 @@ import { HandRiggingPage } from "./pages/HandRiggingPage";
 // LeafClusterPage consolidated into TreeGenPage - clusters are now auto-generated
 import { ManifestsPage } from "./pages/ManifestsPage";
 import { PlantGenPage } from "./pages/PlantGenPage";
+import { PlacementsPage } from "./pages/PlacementsPage";
 import { RetargetAnimatePage } from "./pages/RetargetAnimatePage";
 import { RoadsGenPage } from "./pages/RoadsGenPage";
 import { RockGenPage } from "./pages/RockGenPage";
@@ -59,6 +61,10 @@ function AppLayout() {
             {/* Main pages */}
             <Route path={ROUTES.GENERATION} element={<GenerationPage />} />
             <Route
+              path={ROUTES.CONTENT_GENERATION}
+              element={<ContentGenerationPage />}
+            />
+            <Route
               path={ROUTES.ASSETS}
               element={
                 <div className="h-full overflow-hidden">
@@ -77,6 +83,7 @@ function AppLayout() {
             <Route path={ROUTES.VFX} element={<VFXPage />} />
             <Route path={ROUTES.WORLD_BUILDER} element={<WorldBuilderPage />} />
             <Route path={ROUTES.WORLD_EDITOR} element={<WorldEditorPage />} />
+            <Route path={ROUTES.PLACEMENTS} element={<PlacementsPage />} />
             <Route path={ROUTES.MANIFESTS} element={<ManifestsPage />} />
             <Route
               path={ROUTES.ARMOR_PIPELINE}

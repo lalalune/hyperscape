@@ -1,5 +1,6 @@
 import {
   Package,
+  Bot,
   Shield,
   Swords,
   Diamond,
@@ -107,6 +108,7 @@ const AssetList: React.FC<AssetListProps> = ({ assets }) => {
     // Order types by priority
     const typeOrder = [
       "character",
+      "npc",
       "weapon",
       "armor",
       "shield",
@@ -164,6 +166,7 @@ const AssetList: React.FC<AssetListProps> = ({ assets }) => {
     // Apply the same type ordering
     const typeOrder = [
       "character",
+      "npc",
       "weapon",
       "armor",
       "shield",
@@ -217,6 +220,8 @@ const AssetList: React.FC<AssetListProps> = ({ assets }) => {
         return <Building size={20} />;
       case "character":
         return <User size={20} />;
+      case "npc":
+        return <Bot size={20} />;
       case "environment":
         return <Trees size={20} />;
       case "prop":
@@ -369,6 +374,8 @@ const AssetList: React.FC<AssetListProps> = ({ assets }) => {
                         return "Ammunition";
                       case "armor":
                         return "Armor";
+                      case "npc":
+                        return "NPCs";
                       default:
                         return capitalizedType + "s";
                     }

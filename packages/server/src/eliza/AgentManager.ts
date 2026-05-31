@@ -40,6 +40,10 @@ import {
   ejectAgentFromCombatArena,
   recoverAgentFromDeathLoop,
 } from "./agentRecovery.js";
+import {
+  callDirectChatCompletion,
+  resolveDirectProvider,
+} from "../llm/direct-providers.js";
 
 /**
  * Dynamically import the Hyperscape plugin to avoid hard dependency in dev.
@@ -120,7 +124,13 @@ async function getGoalsPlugin(): Promise<Plugin | null> {
  */
 type ResolvedChatModelProvider = {
   plugin: Plugin;
-  provider: "elizacloud" | "openai" | "anthropic" | "openrouter" | "ollama";
+  provider:
+    | "hyades"
+    | "elizacloud"
+    | "openai"
+    | "anthropic"
+    | "openrouter"
+    | "ollama";
   model: string;
   source: string;
   secrets: Record<string, string>;
@@ -211,6 +221,25 @@ function concreteLargeModel(
   return fallback;
 }
 
+function resolveHyadesBaseUrl(
+  secrets: Record<string, string | undefined> | null | undefined,
+): string | undefined {
+  const explicit =
+    secrets?.HYADES_LLM_ENDPOINT?.trim() || process.env.HYADES_LLM_ENDPOINT;
+  if (explicit?.trim()) {
+    return explicit.trim().replace(/\/+$/, "");
+  }
+
+  const runtimeUrl =
+    secrets?.HYADES_RUNTIME_URL?.trim() || process.env.HYADES_RUNTIME_URL;
+  if (!runtimeUrl?.trim()) {
+    return undefined;
+  }
+
+  const trimmed = runtimeUrl.trim().replace(/\/+$/, "");
+  return trimmed.endsWith("/v1") ? trimmed : `${trimmed}/v1`;
+}
+
 /**
  * Choose LLM plugin from env and/or per-agent dashboard secrets.
  */
@@ -219,6 +248,48 @@ async function getModelProviderPlugin(
 ): Promise<ResolvedChatModelProvider | null> {
   const charSec = opts?.characterSecrets ?? undefined;
   const charModel = opts?.characterModel ?? null;
+
+  const hyadesKey = pickApiKey(charSec, "HYADES_LLM_API_KEY");
+  if (hyadesKey) {
+    try {
+      const mod = await import("@elizaos/plugin-openai");
+      const plugin = mod.openaiPlugin ?? mod.default;
+      if (plugin) {
+        const model = concreteLargeModel(
+          charModel,
+          "HYADES_LLM_MODEL",
+          "HYADES_LLM_SMALL_MODEL",
+          "nemotron3-omni",
+        );
+        const baseUrl = resolveHyadesBaseUrl(charSec);
+        return {
+          plugin,
+          provider: "hyades",
+          model,
+          source: charSec?.HYADES_LLM_API_KEY?.trim()
+            ? "character HYADES_LLM_API_KEY"
+            : "HYADES_LLM_API_KEY",
+          secrets: {
+            HYADES_LLM_API_KEY: hyadesKey,
+            OPENAI_API_KEY: hyadesKey,
+            LARGE_MODEL: model,
+            SMALL_MODEL:
+              charSec?.HYADES_LLM_SMALL_MODEL?.trim() ||
+              process.env.HYADES_LLM_SMALL_MODEL?.trim() ||
+              model,
+            OPENAI_LARGE_MODEL: model,
+            OPENAI_SMALL_MODEL:
+              charSec?.HYADES_LLM_SMALL_MODEL?.trim() ||
+              process.env.HYADES_LLM_SMALL_MODEL?.trim() ||
+              model,
+            ...(baseUrl ? { OPENAI_BASE_URL: baseUrl } : {}),
+          },
+        };
+      }
+    } catch (err) {
+      console.warn("[AgentManager] Failed to load Hyades plugin:", errMsg(err));
+    }
+  }
 
   const elizaKey = pickApiKey(charSec, "ELIZAOS_CLOUD_API_KEY");
   if (elizaKey) {
@@ -391,7 +462,7 @@ async function getModelProviderPlugin(
   }
 
   console.warn(
-    "[AgentManager] No model provider available! Set API keys in the agent dashboard (Settings) or in env: ELIZAOS_CLOUD_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, OPENROUTER_API_KEY (or run Ollama locally).",
+    "[AgentManager] No model provider available! Set API keys in the agent dashboard (Settings) or in env: HYADES_LLM_API_KEY, ELIZAOS_CLOUD_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, OPENROUTER_API_KEY (or run Ollama locally).",
   );
   return null;
 }
@@ -940,10 +1011,16 @@ export class AgentManager {
       void this.tryStartEmbeddedLlmPlanning(characterId);
       this.startCharacterVisionRefresh(characterId);
 
-      // Eagerly initialize the ElizaOS chat runtime so LLM-driven behavior
-      // decisions are available from the very first tick (not just when the
-      // dashboard is opened or the vision refresh first fires).
-      void this.ensureChatRuntime(characterId).catch(() => {});
+      // Direct providers do not need an ElizaOS chat runtime for behavior or
+      // dashboard chat. Keep the Eliza runtime as a compatibility fallback.
+      if (
+        !resolveDirectProvider(
+          instance.config.modelProvider,
+          instance.config.characterConfig?.settings?.secrets,
+        )
+      ) {
+        void this.ensureChatRuntime(characterId).catch(() => {});
+      }
 
       // Hydrate historical thoughts from DB so they survive server restarts
       void import("./dashboardInterop.js")
@@ -1226,7 +1303,8 @@ export class AgentManager {
       },
       plugins: [],
       // @ts-ignore - runtime supports modelProvider even if core type lags.
-      modelProvider: provider.provider,
+      modelProvider:
+        provider.provider === "hyades" ? "openai" : provider.provider,
     } as unknown as Character;
   }
 
@@ -1421,9 +1499,14 @@ export class AgentManager {
 
       const adapter = new InMemoryDatabaseAdapter();
       // Eliza 2.0 alpha.76+ InMemoryDatabaseAdapter may omit `log`; only wrap when present.
-      if (typeof adapter.log === "function") {
-        const originalLog = adapter.log.bind(adapter);
-        adapter.log = async (params: Parameters<typeof originalLog>[0]) => {
+      const adapterWithLog = adapter as InMemoryDatabaseAdapter & {
+        log?: (params: unknown) => Promise<unknown>;
+      };
+      if (typeof adapterWithLog.log === "function") {
+        const originalLog = adapterWithLog.log.bind(adapter);
+        adapterWithLog.log = async (
+          params: Parameters<typeof originalLog>[0],
+        ) => {
           await originalLog(params);
           const logs = (adapter as unknown as { logs?: unknown[] }).logs;
           if (logs && logs.length > 50) {
@@ -1513,6 +1596,14 @@ export class AgentManager {
     if (!instance || instance.state !== "running") {
       return;
     }
+    if (
+      resolveDirectProvider(
+        instance.config.modelProvider,
+        instance.config.characterConfig?.settings?.secrets,
+      )
+    ) {
+      return;
+    }
     try {
       const runtime = await this.ensureChatRuntime(characterId);
       if (!runtime) {
@@ -1591,10 +1682,6 @@ export class AgentManager {
     if (cur?.source === "operator") {
       return;
     }
-    const runtime = await this.ensureChatRuntime(characterId);
-    if (!runtime) {
-      return;
-    }
     const gameState = instance.service.getGameState();
     const skillsSummary = gameState?.skills
       ? Object.entries(gameState.skills)
@@ -1625,12 +1712,27 @@ export class AgentManager {
     ].join("\n");
 
     try {
-      const response = await runtime.useModel(ModelType.TEXT_SMALL, {
-        prompt,
+      const direct = await callDirectChatCompletion({
+        characterSecrets: instance.config.characterConfig?.settings?.secrets,
         maxTokens: 360,
+        model: instance.config.model,
+        preferredProvider: instance.config.modelProvider,
+        prompt,
         temperature: 0.55,
       });
-      const text = typeof response === "string" ? response : "";
+      let text = direct?.text || "";
+      if (!text) {
+        const runtime = await this.ensureChatRuntime(characterId);
+        if (!runtime) {
+          return;
+        }
+        const response = await runtime.useModel(ModelType.TEXT_SMALL, {
+          prompt,
+          maxTokens: 360,
+          temperature: 0.55,
+        });
+        text = typeof response === "string" ? response : "";
+      }
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
         return;
@@ -1698,6 +1800,98 @@ export class AgentManager {
       };
     }
 
+    const directProvider = resolveDirectProvider(
+      instance.config.modelProvider,
+      instance.config.characterConfig?.settings?.secrets,
+    );
+    const prompt = this.buildDashboardChatPrompt(instance, userMessage);
+    if (directProvider) {
+      try {
+        const direct = await callDirectChatCompletion({
+          characterSecrets: instance.config.characterConfig?.settings?.secrets,
+          maxTokens: 520,
+          model: instance.config.model,
+          preferredProvider: instance.config.modelProvider,
+          prompt,
+          temperature: 0.7,
+        });
+        if (!direct) {
+          throw new Error(
+            "Direct provider resolved but chat returned no result",
+          );
+        }
+        const text = direct.text.trim();
+        if (text) {
+          const { tailText, llmIntent, hadJsonFirstLine, parsedActionNone } =
+            this.splitDashboardLlmResponse(text, instance.service);
+
+          let finalText: string;
+          if (hadJsonFirstLine) {
+            if (tailText) {
+              finalText = tailText;
+            } else if (llmIntent) {
+              finalText = llmIntent.text;
+            } else if (parsedActionNone) {
+              finalText = "Okay.";
+            } else {
+              finalText =
+                "I couldn't map that to a valid action. Use ids from NEARBY or itemIds from INVENTORY on line 1, or try Quick Actions.";
+            }
+          } else {
+            finalText = text;
+          }
+
+          if (llmIntent) {
+            try {
+              await this.sendCommand(
+                characterId,
+                llmIntent.command,
+                llmIntent.data,
+              );
+            } catch (cmdErr) {
+              const cmdMsg =
+                cmdErr instanceof Error ? cmdErr.message : String(cmdErr);
+              console.warn(
+                `[AgentManager] Dashboard direct LLM JSON action failed for ${characterId}:`,
+                cmdErr,
+              );
+              if (!tailText.trim() && hadJsonFirstLine) {
+                finalText = `Action failed: ${cmdMsg}`;
+              }
+            }
+          }
+
+          if (!finalText.trim()) {
+            finalText = "Okay.";
+          }
+
+          recordAgentThought(characterId, {
+            type: "thinking",
+            content: `Operator message: ${userMessage}\nModel output: ${text}\nOperator-facing: ${finalText}${llmIntent ? `\nDispatched command: ${llmIntent.command}` : ""}`,
+            decisionPath: "llm",
+            providers: [
+              direct.model === "provider default"
+                ? direct.provider
+                : `${direct.provider}:${direct.model}`,
+            ],
+          });
+
+          return {
+            ok: true,
+            text: finalText,
+            provider: direct.provider,
+            model: direct.model,
+            source: direct.source,
+          };
+        }
+      } catch (err) {
+        console.warn(
+          `[AgentManager] Dashboard direct LLM failed for ${characterId}; falling back to Eliza runtime:`,
+          err,
+        );
+      }
+    }
+
     const runtime = await this.ensureChatRuntime(characterId);
     const runtimeInfo = instance.chatRuntimeInfo;
     if (!runtime || !runtimeInfo) {
@@ -1712,7 +1906,7 @@ export class AgentManager {
           ok: false,
           code: "NO_PROVIDER",
           message:
-            "No usable LLM API key is configured. Add a key in Agent Settings or set OPENROUTER_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, or ELIZAOS_CLOUD_API_KEY on the server (masked or placeholder values are ignored).",
+            "No usable LLM API key is configured. Add a key in Agent Settings or set HYADES_LLM_API_KEY, OPENROUTER_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, or ELIZAOS_CLOUD_API_KEY on the server (masked or placeholder values are ignored).",
         };
       }
       return {
@@ -1723,7 +1917,6 @@ export class AgentManager {
       };
     }
 
-    const prompt = this.buildDashboardChatPrompt(instance, userMessage);
     const useOpts = {
       prompt,
       maxTokens: 520,

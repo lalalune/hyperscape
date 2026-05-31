@@ -19,6 +19,7 @@ import {
   Gamepad2,
   Image,
   Sparkles,
+  Cuboid,
 } from "lucide-react";
 import React, { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
@@ -90,6 +91,14 @@ const Navigation: React.FC = () => {
           >
             <Wand2 size={18} />
             <span>Generate</span>
+          </Link>
+
+          <Link
+            to={ROUTES.CONTENT_GENERATION}
+            className={navLinkClass(ROUTES.CONTENT_GENERATION)}
+          >
+            <Sparkles size={18} />
+            <span>Content</span>
           </Link>
 
           <Link to={ROUTES.ASSETS} className={navLinkClass(ROUTES.ASSETS)}>
@@ -207,6 +216,14 @@ const Navigation: React.FC = () => {
           >
             <Gamepad2 size={18} />
             <span>Editor</span>
+          </Link>
+
+          <Link
+            to={ROUTES.PLACEMENTS}
+            className={navLinkClass(ROUTES.PLACEMENTS)}
+          >
+            <Cuboid size={18} />
+            <span>3D Place</span>
           </Link>
 
           <Link

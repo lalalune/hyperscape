@@ -583,6 +583,7 @@ export class AgentBehaviorBridge {
         resourceSystemAvailable,
         spawnAnchors: [],
         worldResources: [],
+        stationPositions: [],
         agentState: {
           goal: instance.goal,
           questsAccepted: Array.from(instance.questsAccepted),
