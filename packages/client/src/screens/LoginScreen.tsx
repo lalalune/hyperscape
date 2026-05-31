@@ -4,6 +4,7 @@
  */
 
 import React from "react";
+import { auth0AuthControls } from "@/auth/Auth0AuthProvider";
 import { useThemeStore } from "@/ui";
 
 export function LoginScreen() {
@@ -14,7 +15,7 @@ export function LoginScreen() {
   const authenticated = false;
   const isLoggingIn = false;
   const enterWorld = () => {
-    window.dispatchEvent(new CustomEvent("hyperscape:local-auth-ready"));
+    void auth0AuthControls.login();
   };
 
   // Show login UI if not authenticated and not auto-logging in

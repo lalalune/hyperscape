@@ -19,7 +19,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { ErrorBoundary } from "./lib/ErrorBoundary";
 import "./index.css";
-import { PrivyAuthProvider } from "./auth/PrivyAuthProvider";
+import { Auth0AuthProvider } from "./auth/Auth0AuthProvider";
 import { playerTokenManager } from "./auth/PlayerTokenManager";
 import { privyAuthManager } from "./auth/PrivyAuthManager";
 import { injectFarcasterMetaTags } from "./lib/farcaster-frame-config";
@@ -27,8 +27,9 @@ import { logger } from "./lib/logger";
 import { devValidateManifest } from "./lib/manifestValidator";
 import {
   ensurePublicRuntimeEnv,
-  isConfiguredPrivyAppId,
-  resolvePrivyAppId,
+  isConfiguredAuth0Client,
+  resolveAuth0ClientId,
+  resolveAuth0Domain,
 } from "./lib/publicEnv";
 import { primeStreamingAccessTokenFromWindow } from "./lib/streamingAccessToken";
 import {
@@ -304,6 +305,7 @@ declare global {
     };
     __PLAYWRIGHT_TEST__?: boolean;
     privyLogout?: () => Promise<void> | void;
+    auth0Logout?: () => Promise<void> | void;
   }
 }
 
@@ -312,6 +314,9 @@ declare global {
   interface ImportMetaEnv {
     readonly PLAYWRIGHT_TEST?: string | boolean;
     readonly PUBLIC_PRIVY_APP_ID?: string;
+    readonly PUBLIC_AUTH0_DOMAIN?: string;
+    readonly PUBLIC_AUTH0_CLIENT_ID?: string;
+    readonly PUBLIC_AUTH0_AUDIENCE?: string;
     readonly PUBLIC_WS_URL?: string;
     readonly PUBLIC_CDN_URL?: string;
     readonly PUBLIC_ENABLE_FARCASTER?: string;
@@ -419,13 +424,16 @@ if (import.meta.env.DEV && "serviceWorker" in navigator) {
 }
 
 function App() {
-  // Determine Privy availability
-  const appId = resolvePrivyAppId(import.meta.env.PUBLIC_PRIVY_APP_ID);
-  const privyEnabled = isConfiguredPrivyAppId(appId);
+  // Determine Auth0 availability.
+  const auth0Domain = resolveAuth0Domain(import.meta.env.PUBLIC_AUTH0_DOMAIN);
+  const auth0ClientId = resolveAuth0ClientId(
+    import.meta.env.PUBLIC_AUTH0_CLIENT_ID,
+  );
+  const authEnabled = isConfiguredAuth0Client(auth0Domain, auth0ClientId);
 
   const [authState, setAuthState] = React.useState(privyAuthManager.getState());
   const [showCharacterPage, setShowCharacterPage] =
-    React.useState<boolean>(privyEnabled);
+    React.useState<boolean>(authEnabled);
   const [hasUsername, setHasUsername] = React.useState<boolean | null>(null); // null = checking, true/false = result
   const [isCheckingUsername, setIsCheckingUsername] = React.useState(false);
 
@@ -565,14 +573,12 @@ function App() {
       setShowCharacterPage(false);
       setHasUsername(null);
 
-      // Attempt Privy logout (wrapped in try-catch to handle errors gracefully)
+      // Attempt provider logout (wrapped in try-catch to handle errors gracefully)
       try {
+        window.auth0Logout?.();
         window.privyLogout?.();
-      } catch (privyError) {
-        console.warn(
-          "[App] ⚠️ Privy logout error (safe to ignore):",
-          privyError,
-        );
+      } catch (authError) {
+        console.warn("[App] ⚠️ Auth logout error (safe to ignore):", authError);
       }
 
       // Force reload to ensure completely clean state
@@ -609,9 +615,9 @@ function App() {
     [],
   );
 
-  // Show initializing screen while Privy SDK loads
+  // Show initializing screen while Auth0 SDK loads
   // This prevents race conditions where we show the wrong screen
-  if (privyEnabled && !authState.privySdkReady) {
+  if (authEnabled && !authState.privySdkReady) {
     return (
       <div
         ref={appRef}
@@ -623,8 +629,8 @@ function App() {
     );
   }
 
-  // Show login screen if Privy enabled and not authenticated
-  if (privyEnabled && !authState.isAuthenticated) {
+  // Show login screen if auth is enabled and not authenticated
+  if (authEnabled && !authState.isAuthenticated) {
     return (
       <div ref={appRef} data-component="app-root">
         <ErrorBoundary>
@@ -638,7 +644,7 @@ function App() {
 
   // Show username selection for new users (authenticated but no username yet)
   if (
-    privyEnabled &&
+    authEnabled &&
     authState.isAuthenticated &&
     hasUsername === false &&
     !isCheckingUsername
@@ -656,8 +662,8 @@ function App() {
     );
   }
 
-  // Show character selection (only if Privy enabled and user has username)
-  if (showCharacterPage && privyEnabled && hasUsername === true) {
+  // Show character selection (only if auth is enabled and user has username)
+  if (showCharacterPage && authEnabled && hasUsername === true) {
     return (
       <div ref={appRef} data-component="app-root">
         <ErrorBoundary>
@@ -681,7 +687,7 @@ function App() {
   }
 
   // Show loading screen while checking auth status (prevent GameClient from loading prematurely)
-  if (privyEnabled && (hasUsername === null || isCheckingUsername)) {
+  if (authEnabled && (hasUsername === null || isCheckingUsername)) {
     return (
       <div
         ref={appRef}
@@ -818,22 +824,22 @@ async function mountApp() {
       root.render(
         <ErrorBoundary>
           <MaintenanceBanner />
-          <PrivyAuthProvider>
+          <Auth0AuthProvider>
             <React.Suspense fallback={<ScreenLoadingFallback />}>
               <DashboardScreen />
             </React.Suspense>
-          </PrivyAuthProvider>
+          </Auth0AuthProvider>
         </ErrorBoundary>,
       );
     } else if (page === "character-editor") {
       root.render(
         <ErrorBoundary>
           <MaintenanceBanner />
-          <PrivyAuthProvider>
+          <Auth0AuthProvider>
             <React.Suspense fallback={<ScreenLoadingFallback />}>
               <CharacterEditorScreen />
             </React.Suspense>
-          </PrivyAuthProvider>
+          </Auth0AuthProvider>
         </ErrorBoundary>,
       );
     } else if (page === "admin") {
@@ -877,9 +883,9 @@ async function mountApp() {
       root.render(
         <ErrorBoundary>
           <MaintenanceBanner />
-          <PrivyAuthProvider>
+          <Auth0AuthProvider>
             <App />
-          </PrivyAuthProvider>
+          </Auth0AuthProvider>
         </ErrorBoundary>,
       );
     }

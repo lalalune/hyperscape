@@ -8,19 +8,16 @@
   # Content Security Policy (CSP)
   # ============================================================================
   # SECURITY NOTES:
-  # - 'unsafe-inline' is required for:
-  #   1. Privy SDK: Injects inline styles for modal/popup UI
-  #   2. React: Some styled-components patterns use inline styles
-  #   3. Three.js: Shader compilation may use inline scripts
-  # - 'unsafe-eval' is required for:
-  #   1. Privy SDK: Uses eval for authentication flows
-  #   2. Webpack/Vite: Hot module replacement in development
+  # - 'unsafe-inline' is required for React/styled component inline styles and
+  #   Three.js/WebGPU runtime style/script paths.
+  # - 'unsafe-eval' is required for development/HMR and some bundled runtime paths.
+  # - Auth0 domains are allowed for OAuth redirects, silent token refresh, and logout.
   # - static.cloudflareinsights.com: Cloudflare Pages Web Analytics beacon
-  # - Consider migrating to CSP nonces when Privy SDK adds support
+  # - Consider migrating to CSP nonces when all runtime dependencies support them.
   # ============================================================================
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://auth.privy.io https://*.privy.io https://static.cloudflareinsights.com blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' wss: https: ws://localhost:* http://localhost:* data: blob:; frame-src 'self' https://auth.privy.io https://*.privy.io; worker-src 'self' blob:; media-src 'self' blob:;
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.auth0.com https://static.cloudflareinsights.com blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' wss: https: ws://localhost:* http://localhost:* https://*.auth0.com data: blob:; frame-src 'self' https://*.auth0.com; worker-src 'self' blob:; media-src 'self' blob:;
   # Report-Only mode for testing stricter policies (uncomment to test)
-  # Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' https://auth.privy.io https://*.privy.io; style-src 'self'; report-uri /api/csp-report;
+  # Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' https://*.auth0.com; style-src 'self'; report-uri /api/csp-report;
 
 /assets/*
   Cache-Control: public, max-age=31536000, immutable

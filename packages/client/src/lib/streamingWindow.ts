@@ -5,6 +5,9 @@ export type PublicRuntimeEnv = {
   PUBLIC_APP_URL?: string;
   PUBLIC_EMBED_ALLOWED_ORIGINS?: string;
   PUBLIC_PRIVY_APP_ID?: string;
+  PUBLIC_AUTH0_DOMAIN?: string;
+  PUBLIC_AUTH0_CLIENT_ID?: string;
+  PUBLIC_AUTH0_AUDIENCE?: string;
   PUBLIC_SOLANA_NETWORK?: string;
   PUBLIC_SOLANA_RPC_URL?: string;
   PUBLIC_SOLANA_WS_URL?: string;
