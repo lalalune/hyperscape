@@ -10,6 +10,10 @@
 import { ModelType } from "@elizaos/core";
 import type { AgentRuntime } from "@elizaos/core";
 import { ServerNetwork } from "../systems/ServerNetwork/index.js";
+import {
+  callDirectChatCompletion,
+  resolveDirectProvider,
+} from "../llm/direct-providers.js";
 import type { EmbeddedGameState, NearbyEntityData } from "./types.js";
 import type {
   AgentInstance,
@@ -96,7 +100,12 @@ export function isLlmBehaviorEnabled(instance: AgentInstance): boolean {
   if (process.env.EMBEDDED_AGENT_LLM_BEHAVIOR === "false") {
     return false;
   }
-  return instance.chatRuntime != null;
+  return (
+    resolveDirectProvider(
+      instance.config.modelProvider,
+      instance.config.characterConfig?.settings?.secrets,
+    ) != null || instance.chatRuntime != null
+  );
 }
 
 // ─── MAP CONTEXT (MINIMAL) ─────────────────────────────────────────────
@@ -1227,11 +1236,6 @@ export async function pickBehaviorActionWithLlm(
     return null;
   }
 
-  const runtime = instance.chatRuntime as AgentRuntime | null;
-  if (!runtime) {
-    return null;
-  }
-
   // ─── CIRCUIT BREAKER: skip LLM if failure rate too high ─────────────
   if (
     instance.llmCircuitOpenUntil &&
@@ -1246,12 +1250,15 @@ export async function pickBehaviorActionWithLlm(
 
   const prompt = buildBehaviorDecisionPrompt(instance, gameState);
 
-  let response: unknown;
+  let text = "";
   try {
-    response = await Promise.race([
-      runtime.useModel(ModelType.TEXT_SMALL, {
-        prompt,
+    const direct = await Promise.race([
+      callDirectChatCompletion({
+        characterSecrets: instance.config.characterConfig?.settings?.secrets,
         maxTokens: 400,
+        model: instance.config.model,
+        preferredProvider: instance.config.modelProvider,
+        prompt,
         temperature: 0.4,
       }),
       new Promise<never>((_, reject) =>
@@ -1261,6 +1268,28 @@ export async function pickBehaviorActionWithLlm(
         ),
       ),
     ]);
+    text = direct?.text || "";
+
+    if (!text) {
+      const runtime = instance.chatRuntime as AgentRuntime | null;
+      if (!runtime) {
+        return null;
+      }
+      const response = await Promise.race([
+        runtime.useModel(ModelType.TEXT_SMALL, {
+          prompt,
+          maxTokens: 400,
+          temperature: 0.4,
+        }),
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error("LLM behavior decision timeout")),
+            LLM_BEHAVIOR_TIMEOUT_MS,
+          ),
+        ),
+      ]);
+      text = typeof response === "string" ? response : "";
+    }
   } catch (err) {
     console.warn(
       `[llmBehaviorDecision] ${instance.config.name} LLM call failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -1269,7 +1298,6 @@ export async function pickBehaviorActionWithLlm(
     return null;
   }
 
-  const text = typeof response === "string" ? response : "";
   if (!text) {
     console.warn(
       `[llmBehaviorDecision] ${instance.config.name} LLM returned empty response`,

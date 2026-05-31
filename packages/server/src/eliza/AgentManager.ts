@@ -40,6 +40,10 @@ import {
   ejectAgentFromCombatArena,
   recoverAgentFromDeathLoop,
 } from "./agentRecovery.js";
+import {
+  callDirectChatCompletion,
+  resolveDirectProvider,
+} from "../llm/direct-providers.js";
 
 /**
  * Dynamically import the Hyperscape plugin to avoid hard dependency in dev.
@@ -1007,10 +1011,16 @@ export class AgentManager {
       void this.tryStartEmbeddedLlmPlanning(characterId);
       this.startCharacterVisionRefresh(characterId);
 
-      // Eagerly initialize the ElizaOS chat runtime so LLM-driven behavior
-      // decisions are available from the very first tick (not just when the
-      // dashboard is opened or the vision refresh first fires).
-      void this.ensureChatRuntime(characterId).catch(() => {});
+      // Direct providers do not need an ElizaOS chat runtime for behavior or
+      // dashboard chat. Keep the Eliza runtime as a compatibility fallback.
+      if (
+        !resolveDirectProvider(
+          instance.config.modelProvider,
+          instance.config.characterConfig?.settings?.secrets,
+        )
+      ) {
+        void this.ensureChatRuntime(characterId).catch(() => {});
+      }
 
       // Hydrate historical thoughts from DB so they survive server restarts
       void import("./dashboardInterop.js")
@@ -1586,6 +1596,14 @@ export class AgentManager {
     if (!instance || instance.state !== "running") {
       return;
     }
+    if (
+      resolveDirectProvider(
+        instance.config.modelProvider,
+        instance.config.characterConfig?.settings?.secrets,
+      )
+    ) {
+      return;
+    }
     try {
       const runtime = await this.ensureChatRuntime(characterId);
       if (!runtime) {
@@ -1664,10 +1682,6 @@ export class AgentManager {
     if (cur?.source === "operator") {
       return;
     }
-    const runtime = await this.ensureChatRuntime(characterId);
-    if (!runtime) {
-      return;
-    }
     const gameState = instance.service.getGameState();
     const skillsSummary = gameState?.skills
       ? Object.entries(gameState.skills)
@@ -1698,12 +1712,27 @@ export class AgentManager {
     ].join("\n");
 
     try {
-      const response = await runtime.useModel(ModelType.TEXT_SMALL, {
-        prompt,
+      const direct = await callDirectChatCompletion({
+        characterSecrets: instance.config.characterConfig?.settings?.secrets,
         maxTokens: 360,
+        model: instance.config.model,
+        preferredProvider: instance.config.modelProvider,
+        prompt,
         temperature: 0.55,
       });
-      const text = typeof response === "string" ? response : "";
+      let text = direct?.text || "";
+      if (!text) {
+        const runtime = await this.ensureChatRuntime(characterId);
+        if (!runtime) {
+          return;
+        }
+        const response = await runtime.useModel(ModelType.TEXT_SMALL, {
+          prompt,
+          maxTokens: 360,
+          temperature: 0.55,
+        });
+        text = typeof response === "string" ? response : "";
+      }
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
         return;
@@ -1771,6 +1800,98 @@ export class AgentManager {
       };
     }
 
+    const directProvider = resolveDirectProvider(
+      instance.config.modelProvider,
+      instance.config.characterConfig?.settings?.secrets,
+    );
+    const prompt = this.buildDashboardChatPrompt(instance, userMessage);
+    if (directProvider) {
+      try {
+        const direct = await callDirectChatCompletion({
+          characterSecrets: instance.config.characterConfig?.settings?.secrets,
+          maxTokens: 520,
+          model: instance.config.model,
+          preferredProvider: instance.config.modelProvider,
+          prompt,
+          temperature: 0.7,
+        });
+        if (!direct) {
+          throw new Error(
+            "Direct provider resolved but chat returned no result",
+          );
+        }
+        const text = direct.text.trim();
+        if (text) {
+          const { tailText, llmIntent, hadJsonFirstLine, parsedActionNone } =
+            this.splitDashboardLlmResponse(text, instance.service);
+
+          let finalText: string;
+          if (hadJsonFirstLine) {
+            if (tailText) {
+              finalText = tailText;
+            } else if (llmIntent) {
+              finalText = llmIntent.text;
+            } else if (parsedActionNone) {
+              finalText = "Okay.";
+            } else {
+              finalText =
+                "I couldn't map that to a valid action. Use ids from NEARBY or itemIds from INVENTORY on line 1, or try Quick Actions.";
+            }
+          } else {
+            finalText = text;
+          }
+
+          if (llmIntent) {
+            try {
+              await this.sendCommand(
+                characterId,
+                llmIntent.command,
+                llmIntent.data,
+              );
+            } catch (cmdErr) {
+              const cmdMsg =
+                cmdErr instanceof Error ? cmdErr.message : String(cmdErr);
+              console.warn(
+                `[AgentManager] Dashboard direct LLM JSON action failed for ${characterId}:`,
+                cmdErr,
+              );
+              if (!tailText.trim() && hadJsonFirstLine) {
+                finalText = `Action failed: ${cmdMsg}`;
+              }
+            }
+          }
+
+          if (!finalText.trim()) {
+            finalText = "Okay.";
+          }
+
+          recordAgentThought(characterId, {
+            type: "thinking",
+            content: `Operator message: ${userMessage}\nModel output: ${text}\nOperator-facing: ${finalText}${llmIntent ? `\nDispatched command: ${llmIntent.command}` : ""}`,
+            decisionPath: "llm",
+            providers: [
+              direct.model === "provider default"
+                ? direct.provider
+                : `${direct.provider}:${direct.model}`,
+            ],
+          });
+
+          return {
+            ok: true,
+            text: finalText,
+            provider: direct.provider,
+            model: direct.model,
+            source: direct.source,
+          };
+        }
+      } catch (err) {
+        console.warn(
+          `[AgentManager] Dashboard direct LLM failed for ${characterId}; falling back to Eliza runtime:`,
+          err,
+        );
+      }
+    }
+
     const runtime = await this.ensureChatRuntime(characterId);
     const runtimeInfo = instance.chatRuntimeInfo;
     if (!runtime || !runtimeInfo) {
@@ -1796,7 +1917,6 @@ export class AgentManager {
       };
     }
 
-    const prompt = this.buildDashboardChatPrompt(instance, userMessage);
     const useOpts = {
       prompt,
       maxTokens: 520,

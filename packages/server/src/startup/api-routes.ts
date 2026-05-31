@@ -48,6 +48,7 @@ import { registerTemplateRoutes } from "./routes/template-routes.js";
 import { registerAdminRoutes } from "./routes/admin-routes.js";
 import { registerLayoutRoutes } from "./routes/layout-routes.js";
 import { registerDataRoutes } from "./routes/data-routes.js";
+import { registerDirectProviderRoutes } from "./routes/direct-provider-routes.js";
 import { registerAgentRuntimeProxyRoutes } from "./routes/agent-runtime-proxy-routes.js";
 import { registerSafierRoutes } from "./routes/safier-routes.js";
 import { registerStreamingRoutes } from "../routes/streaming.js";
@@ -105,6 +106,9 @@ export function registerApiRoutes(
 
   // Static game data endpoints
   registerDataRoutes(fastify);
+
+  // Direct OpenAI-compatible model/TTS provider routes without Eliza runtime
+  registerDirectProviderRoutes(fastify);
 
   // Optional proxy to external Hyades/SafierSemantics/compatible agent runtime
   registerAgentRuntimeProxyRoutes(fastify);
