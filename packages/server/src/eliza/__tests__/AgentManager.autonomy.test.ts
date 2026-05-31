@@ -4,6 +4,18 @@ import {
   getDuelArenaConfig,
   isPositionInsideCombatArena,
 } from "@hyperscape/shared";
+
+vi.mock("../managers/AgentBehaviorBridge.js", () => ({
+  AgentBehaviorBridge: class {
+    setTicker() {}
+    async start() {}
+    stop() {}
+    startAgent() {}
+    stopAgent() {}
+    handleCombatDamageDealt() {}
+  },
+}));
+
 import { AgentManager } from "../AgentManager";
 
 type Skill = { level: number; xp: number };
@@ -21,6 +33,28 @@ type CharacterRow = {
   name: string;
   savedData?: Record<string, unknown> | null;
 };
+
+function hashSeed(seed: string): number {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+}
+
+function getExpectedSafeEgressPosition(
+  playerId: string,
+  terrainHeight: number,
+): [number, number, number] {
+  const seed = hashSeed(playerId);
+  const angle = ((seed % 360) * Math.PI) / 180;
+  const radius = 3 + (seed % 5);
+  return [
+    Math.cos(angle) * radius,
+    terrainHeight + 0.1,
+    Math.sin(angle) * radius,
+  ];
+}
 
 function createMockWorld(terrainHeight: number) {
   const entities = new Map<string, TestEntity>();
@@ -243,7 +277,10 @@ describe("AgentManager autonomous loop", () => {
     ctx.addResource("resource-tree", [2, terrainHeight + 0.1, 0], "tree");
 
     const manager = new AgentManager(ctx.world as never);
-    const lobby = getDuelArenaConfig().lobbySpawnPoint;
+    const safeEgress = getExpectedSafeEgressPosition(
+      "agent-loop",
+      terrainHeight,
+    );
 
     try {
       await manager.createAgent({
@@ -277,9 +314,9 @@ describe("AgentManager autonomous loop", () => {
       expect(agent!.data.preventRespawn).toBe(false);
       expect(agent!.data.inCombat).toBe(false);
       expect(agent!.data.combatTarget).toBeNull();
-      expect(agent!.data.position[0]).toBeCloseTo(lobby.x, 5);
-      expect(agent!.data.position[1]).toBeCloseTo(terrainHeight + 0.1, 5);
-      expect(agent!.data.position[2]).toBeCloseTo(lobby.z, 5);
+      expect(agent!.data.position[0]).toBeCloseTo(safeEgress[0], 5);
+      expect(agent!.data.position[1]).toBeCloseTo(safeEgress[1], 5);
+      expect(agent!.data.position[2]).toBeCloseTo(safeEgress[2], 5);
     } finally {
       await manager.shutdown();
     }
@@ -291,7 +328,6 @@ describe("AgentManager autonomous loop", () => {
     ctx.registerCharacter("acct-5", "agent-out", "Outside Agent");
 
     const manager = new AgentManager(ctx.world as never);
-    const lobby = getDuelArenaConfig().lobbySpawnPoint;
 
     try {
       await manager.createAgent({
@@ -309,7 +345,12 @@ describe("AgentManager autonomous loop", () => {
       expect(agent).toBeDefined();
 
       // Place agent inside arena 1 while not in a duel.
-      agent!.data.position = [70, terrainHeight + 0.1, 90];
+      const arenaConfig = getDuelArenaConfig();
+      agent!.data.position = [
+        arenaConfig.baseX + 1,
+        terrainHeight + 0.1,
+        arenaConfig.baseZ + 1,
+      ];
       agent!.data.inStreamingDuel = false;
       agent!.data.preventRespawn = false;
 
@@ -325,12 +366,13 @@ describe("AgentManager autonomous loop", () => {
       expect(agent!.data.inStreamingDuel).toBe(false);
       expect(agent!.data.preventRespawn).toBe(false);
 
-      // Ejected agents should remain near the lobby area.
-      const distFromLobby = Math.hypot(
-        agent!.data.position[0] - lobby.x,
-        agent!.data.position[2] - lobby.z,
+      const safeEgress = getExpectedSafeEgressPosition(
+        "agent-out",
+        terrainHeight,
       );
-      expect(distFromLobby).toBeLessThanOrEqual(40);
+      expect(agent!.data.position[0]).toBeCloseTo(safeEgress[0], 5);
+      expect(agent!.data.position[1]).toBeCloseTo(safeEgress[1], 5);
+      expect(agent!.data.position[2]).toBeCloseTo(safeEgress[2], 5);
     } finally {
       await manager.shutdown();
     }

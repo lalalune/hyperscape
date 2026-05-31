@@ -9,7 +9,7 @@ function createMockWorld() {
     entities: {
       get: (id: string) => entities.get(id),
       add: vi.fn().mockReturnValue("new-entity-id"),
-      items: () => entities.entries(),
+      items: entities,
       [Symbol.iterator]: () => entities.entries(),
     },
     getSystem: (name: string) => systems.get(name) ?? null,
@@ -25,7 +25,47 @@ function createMockWorld() {
 
 function createActiveService() {
   const { world, entities, systems } = createMockWorld();
-  entities.set("agent-1", { data: {} });
+  entities.set("agent-1", {
+    data: {
+      id: "agent-1",
+      type: "player",
+      position: [0, 0.1, 0],
+    },
+  });
+  entities.set("bank-1", {
+    data: {
+      id: "bank-1",
+      type: "object",
+      name: "Town Bank",
+      position: [1, 0.1, 0],
+    },
+  });
+  entities.set("range-1", {
+    data: {
+      id: "range-1",
+      type: "object",
+      name: "Cooking Range",
+      position: [1, 0.1, 1],
+    },
+  });
+  systems.set("inventory", {
+    getInventory: () => ({
+      items: [
+        {
+          slot: 0,
+          itemId: "raw_shrimp",
+          quantity: 1,
+          item: { id: "raw_shrimp", name: "Raw shrimp", type: "food" },
+        },
+        {
+          slot: 1,
+          itemId: "bronze_bar",
+          quantity: 1,
+          item: { id: "bronze_bar", name: "Bronze bar", type: "resource" },
+        },
+      ],
+    }),
+  });
 
   const service = new EmbeddedHyperscapeService(
     world as never,

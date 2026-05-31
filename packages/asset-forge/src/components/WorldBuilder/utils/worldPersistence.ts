@@ -67,6 +67,8 @@ interface SerializedWorldLayers {
 }
 
 export function serializeWorld(world: WorldData): SerializedWorldData {
+  const layers = world.layers;
+
   return {
     id: world.id,
     name: world.name,
@@ -85,17 +87,17 @@ export function serializeWorld(world: WorldData): SerializedWorldData {
       roads: world.foundation.roads,
     },
     layers: {
-      biomeOverrides: Object.fromEntries(world.layers.biomeOverrides),
-      townOverrides: Object.fromEntries(world.layers.townOverrides),
-      texturePacks: Object.fromEntries(world.layers.texturePacks),
-      textureAssignments: world.layers.textureAssignments,
-      npcs: world.layers.npcs,
-      quests: world.layers.quests,
-      bosses: world.layers.bosses,
-      events: world.layers.events,
-      lore: world.layers.lore,
-      difficultyZones: world.layers.difficultyZones,
-      customPlacements: world.layers.customPlacements,
+      biomeOverrides: Object.fromEntries(layers.biomeOverrides ?? new Map()),
+      townOverrides: Object.fromEntries(layers.townOverrides ?? new Map()),
+      texturePacks: Object.fromEntries(layers.texturePacks ?? new Map()),
+      textureAssignments: layers.textureAssignments ?? [],
+      npcs: layers.npcs ?? [],
+      quests: layers.quests ?? [],
+      bosses: layers.bosses ?? [],
+      events: layers.events ?? [],
+      lore: layers.lore ?? [],
+      difficultyZones: layers.difficultyZones ?? [],
+      customPlacements: layers.customPlacements ?? [],
     },
   };
 }
