@@ -1,0 +1,32 @@
+.env
+.env.*
+!.env.example
+
+# Runtime caches and model downloads
+cache/
+hf-cache/
+huggingface/
+models/
+torch/
+tmp/
+outputs/
+output/
+
+# Generated assets
+*.glb
+*.gltf
+*.obj
+*.fbx
+*.ply
+*.npz
+*.png
+*.jpg
+*.jpeg
+*.webp
+
+# Python/runtime noise
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/

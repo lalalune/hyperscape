@@ -144,6 +144,10 @@ custom Gradio app, `PIXEL3D_GRADIO_INPUTS` can override the ordered inputs sent
 to the API. A single request can also select this provider with
 `metadata.provider: "pixel3d-gradio"`.
 
+The Hyperscape-owned deployment wrapper for the upstream Pixal3D Gradio service
+lives in [`../pixal3d-service`](../pixal3d-service). It tracks Docker/Coolify
+orchestration and API checks only; model weights, caches, temporary files, and
+generated GLBs stay out of git.
 ### Hosted Preview Rendering
 
 Browser-facing Asset Forge routes must be WebGL-safe. Shared procgen systems can
