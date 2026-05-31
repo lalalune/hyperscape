@@ -968,6 +968,8 @@ function getPanelIcon(panelId: string): string {
     minimap: "🧭",
     chat: "💬",
     friends: "👥",
+    npc: "🤖",
+    placement: "▣",
     presets: "📐",
     dashboard: "📈",
     action: "⚡",
@@ -1291,6 +1293,14 @@ export function createPanelRenderer(
           </ScrollablePanelWrapper>
         );
 
+      case "npc":
+      case "placement":
+        return (
+          <ScrollablePanelWrapper scrollable={config.scrollable}>
+            <PlaceholderPanel panelId={panelId} />
+          </ScrollablePanelWrapper>
+        );
+
       default:
         return (
           <div
@@ -1332,6 +1342,8 @@ export function getAvailablePanels(): Array<{
     { id: "chat", label: "Chat", icon: "💬", implemented: true },
     { id: "action", label: "Action Bar", icon: "⚡", implemented: true },
     { id: "friends", label: "Friends", icon: "👥", implemented: false },
+    { id: "npc", label: "NPCs", icon: "🤖", implemented: false },
+    { id: "placement", label: "3D Placement", icon: "▣", implemented: false },
     { id: "presets", label: "Layout Presets", icon: "📐", implemented: true },
     {
       id: "accessibility",

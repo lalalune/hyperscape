@@ -141,7 +141,10 @@ const AssetFilters: React.FC<AssetFiltersProps> = ({
               <option value="tool">Tools</option>
               <option value="resource">Resources</option>
               <option value="character">Characters</option>
+              <option value="npc">NPCs</option>
               <option value="environment">Environment</option>
+              <option value="prop">Props</option>
+              <option value="building">Buildings</option>
               <option value="misc">Miscellaneous</option>
             </select>
           </div>

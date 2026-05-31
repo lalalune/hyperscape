@@ -6,7 +6,7 @@
  * - Layer 1: Back panel for depth/shadow effect
  * - Layer 2: Round minimap canvas
  * - Layer 3: Beveled ring overlay (Figma-style design)
- * - 5 radial menu buttons positioned around the circumference
+ * - Radial menu buttons positioned around the circumference
  *
  * @packageDocumentation
  */
@@ -24,6 +24,8 @@ import {
   Swords,
   Star,
   MessageSquare,
+  Bot,
+  Cuboid,
   Shirt,
   Sparkles,
   Settings,
@@ -60,6 +62,8 @@ const RADIAL_BUTTONS: RadialButtonConfig[] = [
   { id: "skills", icon: Star, label: "Skills", panel: "skills" },
   { id: "prayer", icon: Sparkles, label: "Prayer", panel: "prayer" },
   { id: "quests", icon: ScrollText, label: "Quests", panel: "quests" },
+  { id: "npc", icon: Bot, label: "NPC", panel: "npc" },
+  { id: "placement", icon: Cuboid, label: "3D", panel: "placement" },
   { id: "friends", icon: Users, label: "Friends", panel: "friends" },
   { id: "settings", icon: Settings, label: "Settings", panel: "settings" },
   { id: "chat", icon: MessageSquare, label: "Chat", panel: "chat" },

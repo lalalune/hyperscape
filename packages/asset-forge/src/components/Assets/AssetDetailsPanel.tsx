@@ -30,6 +30,10 @@ interface AssetDetailsPanelProps {
   asset: Asset;
   isOpen: boolean;
   onClose: () => void;
+  onCreateVariants?: () => void;
+  onDownloadModel?: () => void;
+  onViewInEditor?: () => void;
+  onShareAsset?: () => void;
   modelInfo?: {
     vertices: number;
     faces: number;
@@ -447,6 +451,10 @@ const AssetDetailsPanel: React.FC<AssetDetailsPanelProps> = ({
   asset,
   isOpen,
   onClose,
+  onCreateVariants,
+  onDownloadModel,
+  onViewInEditor,
+  onShareAsset,
   modelInfo,
 }) => {
   const [copiedId, setCopiedId] = useState(false);
@@ -786,7 +794,11 @@ const AssetDetailsPanel: React.FC<AssetDetailsPanelProps> = ({
           {/* Actions Tab */}
           {activeTab === "actions" && (
             <div className="p-5 space-y-3">
-              <button className="w-full px-3 py-2 bg-primary bg-opacity-10 hover:bg-opacity-20 text-primary rounded-lg transition-colors flex items-center justify-between group text-xs font-medium">
+              <button
+                onClick={onCreateVariants}
+                className="w-full px-3 py-2 bg-primary bg-opacity-10 hover:bg-opacity-20 text-primary rounded-lg transition-colors flex items-center justify-between group text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={!onCreateVariants}
+              >
                 <div className="flex items-center gap-2">
                   <Palette size={14} />
                   <span>Create Variants</span>
@@ -797,7 +809,11 @@ const AssetDetailsPanel: React.FC<AssetDetailsPanelProps> = ({
                 />
               </button>
 
-              <button className="w-full px-3 py-2 bg-bg-secondary hover:bg-bg-tertiary text-text-primary rounded-lg transition-colors flex items-center justify-between group text-xs font-medium border border-border-primary">
+              <button
+                onClick={onDownloadModel}
+                className="w-full px-3 py-2 bg-bg-secondary hover:bg-bg-tertiary text-text-primary rounded-lg transition-colors flex items-center justify-between group text-xs font-medium border border-border-primary disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={!onDownloadModel || !asset.hasModel}
+              >
                 <div className="flex items-center gap-2">
                   <Download size={14} />
                   <span>Download Model</span>
@@ -808,7 +824,11 @@ const AssetDetailsPanel: React.FC<AssetDetailsPanelProps> = ({
                 />
               </button>
 
-              <button className="w-full px-3 py-2 bg-bg-secondary hover:bg-bg-tertiary text-text-primary rounded-lg transition-colors flex items-center justify-between group text-xs font-medium border border-border-primary">
+              <button
+                onClick={onViewInEditor}
+                className="w-full px-3 py-2 bg-bg-secondary hover:bg-bg-tertiary text-text-primary rounded-lg transition-colors flex items-center justify-between group text-xs font-medium border border-border-primary disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={!onViewInEditor}
+              >
                 <div className="flex items-center gap-2">
                   <Code size={14} />
                   <span>View in Editor</span>
@@ -819,7 +839,11 @@ const AssetDetailsPanel: React.FC<AssetDetailsPanelProps> = ({
                 />
               </button>
 
-              <button className="w-full px-3 py-2 bg-bg-secondary hover:bg-bg-tertiary text-text-primary rounded-lg transition-colors flex items-center justify-between group text-xs font-medium border border-border-primary">
+              <button
+                onClick={onShareAsset}
+                className="w-full px-3 py-2 bg-bg-secondary hover:bg-bg-tertiary text-text-primary rounded-lg transition-colors flex items-center justify-between group text-xs font-medium border border-border-primary disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={!onShareAsset}
+              >
                 <div className="flex items-center gap-2">
                   <Share2 size={14} />
                   <span>Share Asset</span>

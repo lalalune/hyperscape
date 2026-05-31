@@ -1,7 +1,8 @@
 import { Activity, Edit3, Layers, Upload } from "lucide-react";
 import React, { useRef, useCallback, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-import { API_ENDPOINTS } from "../constants";
+import { API_ENDPOINTS, ROUTES } from "../constants";
 import { useAssetsStore } from "../store";
 
 import AssetDetailsPanel from "@/components/Assets/AssetDetailsPanel";
@@ -25,6 +26,7 @@ import { AssetService } from "@/services/api/AssetService";
 export const AssetsPage: React.FC = () => {
   const { assets, loading, reloadAssets, forceReload } = useAssets();
   const { showNotification } = useApp();
+  const navigate = useNavigate();
 
   // Get state and actions from store
   const {
@@ -118,6 +120,33 @@ export const AssetsPage: React.FC = () => {
     },
     [reloadAssets, setSelectedAsset, showNotification],
   );
+
+  const handleDownloadModel = useCallback(() => {
+    if (!selectedAsset?.hasModel) return;
+    window.open(API_ENDPOINTS.ASSET_MODEL(selectedAsset.id), "_blank");
+  }, [selectedAsset]);
+
+  const handleViewInEditor = useCallback(() => {
+    if (selectedAsset) {
+      sessionStorage.setItem("asset-forge-editor-asset-id", selectedAsset.id);
+    }
+    navigate(ROUTES.WORLD_EDITOR);
+  }, [navigate, selectedAsset]);
+
+  const handleShareAsset = useCallback(async () => {
+    if (!selectedAsset) return;
+
+    const url = new URL(window.location.href);
+    url.pathname = ROUTES.ASSETS;
+    url.search = `asset=${encodeURIComponent(selectedAsset.id)}`;
+
+    try {
+      await navigator.clipboard.writeText(url.toString());
+      showNotification("Asset link copied", "success");
+    } catch {
+      showNotification(url.toString(), "info");
+    }
+  }, [selectedAsset, showNotification]);
 
   if (loading) {
     return <LoadingState />;
@@ -289,6 +318,10 @@ export const AssetsPage: React.FC = () => {
                   asset={selectedAsset}
                   isOpen={showDetailsPanel}
                   onClose={() => setShowDetailsPanel(false)}
+                  onCreateVariants={() => setShowRetextureModal(true)}
+                  onDownloadModel={handleDownloadModel}
+                  onViewInEditor={handleViewInEditor}
+                  onShareAsset={handleShareAsset}
                   modelInfo={modelInfo}
                 />
               </>
