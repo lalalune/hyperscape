@@ -36,6 +36,8 @@ node_modules
 # Documentation
 *.md
 !README.md
+!packages/docs-site/**/*.md
+!packages/docs-site/**/*.mdx
 
 # Large asset directories (served from CDN)
 # Keep manifests in build context so server boots even if CDN manifests are partial.
@@ -48,7 +50,6 @@ assets/
 packages/asset-forge
 packages/app
 packages/website
-packages/docs-site
 
 # Tools and publishing (not needed for build)
 tools/

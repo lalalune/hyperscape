@@ -8,14 +8,37 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 
+function getDatabaseUrl(): string | undefined {
+  if (process.env.DATABASE_URL) {
+    return process.env.DATABASE_URL;
+  }
+
+  const host = process.env.ASSET_FORGE_POSTGRES_HOST;
+  const password = process.env.ASSET_FORGE_POSTGRES_PASSWORD;
+
+  if (!host || !password) {
+    return undefined;
+  }
+
+  const user = process.env.ASSET_FORGE_POSTGRES_USER || "assetforge";
+  const port = process.env.ASSET_FORGE_POSTGRES_PORT || "5432";
+  const database = process.env.ASSET_FORGE_POSTGRES_DB || "assetforge";
+
+  return `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/${database}`;
+}
+
+const databaseUrl = getDatabaseUrl();
+
 // Validate environment
-if (!process.env.DATABASE_URL) {
-  console.error("ERROR: DATABASE_URL environment variable is required");
+if (!databaseUrl) {
+  console.error(
+    "ERROR: DATABASE_URL or ASSET_FORGE_POSTGRES_* environment variables are required",
+  );
   process.exit(1);
 }
 
 // Migration connection
-const migrationClient = postgres(process.env.DATABASE_URL, { max: 1 });
+const migrationClient = postgres(databaseUrl, { max: 1 });
 const db = drizzle(migrationClient);
 
 // Run migrations

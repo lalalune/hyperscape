@@ -1,11 +1,40 @@
 services:
+  asset-forge-postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${ASSET_FORGE_POSTGRES_USER:-assetforge}
+      POSTGRES_PASSWORD: ${ASSET_FORGE_POSTGRES_PASSWORD:?set ASSET_FORGE_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${ASSET_FORGE_POSTGRES_DB:-assetforge}
+    volumes:
+      - asset-forge-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${ASSET_FORGE_POSTGRES_USER:-assetforge} -d ${ASSET_FORGE_POSTGRES_DB:-assetforge}"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - default
+
   asset-forge:
     build:
       context: .
       dockerfile: Dockerfile.coolify-asset-forge
+    depends_on:
+      asset-forge-postgres:
+        condition: service_healthy
     environment:
       ASSET_FORGE_API_PORT: "3401"
       ASSET_FORGE_ASSETS_DIR: /app/packages/asset-forge/gdd-assets
+      ASSET_FORGE_POSTGRES_HOST: asset-forge-postgres
+      ASSET_FORGE_POSTGRES_PORT: "5432"
+      ASSET_FORGE_POSTGRES_USER: ${ASSET_FORGE_POSTGRES_USER:-assetforge}
+      ASSET_FORGE_POSTGRES_PASSWORD: ${ASSET_FORGE_POSTGRES_PASSWORD:?set ASSET_FORGE_POSTGRES_PASSWORD}
+      ASSET_FORGE_POSTGRES_DB: ${ASSET_FORGE_POSTGRES_DB:-assetforge}
       ASSET_FORGE_3D_PROVIDER: ${ASSET_FORGE_3D_PROVIDER:-}
       ASSET_FORGE_GENERATION_PROVIDER: ${ASSET_FORGE_GENERATION_PROVIDER:-meshy}
       GENERATION_3D_PROVIDER: ${GENERATION_3D_PROVIDER:-}
@@ -26,6 +55,7 @@ services:
       NEMOTRON_MODEL: ${NEMOTRON_MODEL:-}
       NEMOTRON_TEMPERATURE: ${NEMOTRON_TEMPERATURE:-0.2}
       NODE_ENV: production
+      OBJECT_STORAGE_ENABLED: ${OBJECT_STORAGE_ENABLED:-false}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       PIXEL3D_GRADIO_API_NAME: ${PIXEL3D_GRADIO_API_NAME:-/generate_3d}
       PIXEL3D_GRADIO_BASE_URL: ${PIXEL3D_GRADIO_BASE_URL:-}
@@ -33,6 +63,14 @@ services:
       PIXEL3D_RESOLUTION: ${PIXEL3D_RESOLUTION:-1024}
       PROMPT_ENHANCEMENT_PROVIDER: ${PROMPT_ENHANCEMENT_PROVIDER:-}
       PUBLIC_URL: ${COOLIFY_URL:-}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      S3_BUCKET_CONJURES: ${S3_BUCKET_CONJURES:-hyperscape-conjures}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-true}
+      S3_PUBLIC_BASE_URL: ${S3_PUBLIC_BASE_URL:-}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+      CONJURE_STORAGE_PREFIX: ${CONJURE_STORAGE_PREFIX:-conjures}
       TRIPO_API_KEY: ${TRIPO_API_KEY:-}
       VITE_GENERATION_API_URL: /api
     ports:
@@ -53,9 +91,20 @@ services:
       timeout: 10s
       start_period: 20s
       retries: 5
+    labels:
+      - "traefik.docker.network=hfwzc37pioj6o7v35o47mp8u"
     restart: unless-stopped
+    networks:
+      - default
+      - hyperscape-runtime
 
 volumes:
+  asset-forge-postgres-data:
   asset-forge-assets:
   asset-forge-temp-images:
   asset-forge-temp-shells:
+
+networks:
+  hyperscape-runtime:
+    external: true
+    name: gacg8uxuslaj2cy8rcjxsfzi

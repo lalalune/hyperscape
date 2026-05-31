@@ -764,6 +764,14 @@ Unable to initialize WebGPU
 WebGPU is not supported
 ```
 
+Hosted Asset Forge editor routes should not require WebGPU. If vegetation,
+plants, rocks, grass, flowers, terrain, retargeting, or armor fitting crashes on
+load, first verify that the route is using the WebGL preview renderer from
+`src/utils/preview-renderer.ts` and that any generated TSL/node materials are
+converted to standard Three.js materials before being added to the visible
+scene. WebGPU should be reserved for Hyperscape runtime paths or explicit
+offline/baking tools.
+
 **Causes & Solutions:**
 
 **Cause 1: Browser doesn't support WebGPU**

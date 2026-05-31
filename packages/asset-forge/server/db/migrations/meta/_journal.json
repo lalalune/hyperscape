@@ -15,6 +15,13 @@
       "when": 1762489200253,
       "tag": "0001_eager_violations",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1780164100000,
+      "tag": "0002_asset_owner_strings",
+      "breakpoints": true
     }
   ]
 }

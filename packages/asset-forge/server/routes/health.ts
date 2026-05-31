@@ -5,6 +5,7 @@
 
 import { Elysia } from "elysia";
 import * as Models from "../models";
+import { isDatabaseEnabled, queryClient } from "../db/db";
 import { ComfyUIService } from "../services/ComfyUIService";
 import { HillDGXService } from "../services/HillDGXService";
 
@@ -13,6 +14,17 @@ export const healthRoutes = new Elysia({ prefix: "/api", name: "health" }).get(
   async () => {
     const comfy = new ComfyUIService();
     const hillDGX = new HillDGXService();
+    let database = false;
+
+    if (isDatabaseEnabled && queryClient) {
+      try {
+        await queryClient`SELECT 1`;
+        database = true;
+      } catch {
+        database = false;
+      }
+    }
+
     const comfyEnabled = !!(
       process.env.ASSET_FORGE_IMAGE_PROVIDER === "comfy" ||
       process.env.ASSET_FORGE_3D_PROVIDER === "comfy" ||
@@ -28,6 +40,7 @@ export const healthRoutes = new Elysia({ prefix: "/api", name: "health" }).get(
       services: {
         meshy: !!process.env.MESHY_API_KEY,
         openai: !!process.env.OPENAI_API_KEY,
+        database,
         comfy: comfyEnabled ? await comfy.health() : false,
         comfyUrl: comfy.baseUrl,
         hillDGX: hillDGX.isConfigured ? await hillDGX.health() : false,

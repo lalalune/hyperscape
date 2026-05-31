@@ -38,22 +38,22 @@ import {
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
-import { MeshStandardNodeMaterial, MeshBasicNodeMaterial } from "three/webgpu";
 
 import type { PlantPreset as PlantPresetType } from "@/types/ProcgenPresets";
 import { notify } from "@/utils/notify";
 import {
   THREE,
-  createWebGPURenderer,
-  type AssetForgeRenderer,
-} from "@/utils/webgpu-renderer";
+  createPreviewRenderer,
+  makeObjectWebGLSafe,
+  type PreviewRenderer,
+} from "@/utils/preview-renderer";
 
 // API base
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
 export const PlantGenPage: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const rendererRef = useRef<AssetForgeRenderer | null>(null);
+  const rendererRef = useRef<PreviewRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
@@ -331,7 +331,7 @@ export const PlantGenPage: React.FC = () => {
     [preset, seed, stats],
   );
 
-  // Initialize Three.js scene with WebGPU
+  // Initialize Three.js scene with WebGL for production browser compatibility.
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -378,7 +378,7 @@ export const PlantGenPage: React.FC = () => {
 
     // Ground plane
     const groundGeo = new THREE.CircleGeometry(5, 64);
-    const groundMat = new MeshStandardNodeMaterial();
+    const groundMat = new THREE.MeshStandardMaterial();
     groundMat.color = new THREE.Color(0x2d4a3e);
     groundMat.roughness = 0.95;
     const ground = new THREE.Mesh(groundGeo, groundMat);
@@ -391,9 +391,8 @@ export const PlantGenPage: React.FC = () => {
     grid.position.y = 0.01;
     scene.add(grid);
 
-    // Async WebGPU renderer initialization
-    const initRenderer = async () => {
-      const renderer = await createWebGPURenderer({
+    const initRenderer = () => {
+      const renderer = createPreviewRenderer({
         antialias: true,
         alpha: true,
       });
@@ -453,7 +452,7 @@ export const PlantGenPage: React.FC = () => {
       ground.geometry.dispose();
       groundMat.dispose();
 
-      // Dispose WebGPU renderer
+      // Dispose preview renderer
       if (rendererRef.current) {
         if (
           container &&
@@ -498,6 +497,7 @@ export const PlantGenPage: React.FC = () => {
       });
 
       if (result.group) {
+        makeObjectWebGLSafe(result.group, 0x4d8c26);
         result.group.castShadow = true;
         result.group.receiveShadow = true;
         result.group.traverse((obj) => {
@@ -574,6 +574,7 @@ export const PlantGenPage: React.FC = () => {
         });
 
         if (result.group) {
+          makeObjectWebGLSafe(result.group, 0x4d8c26);
           // Position in grid
           const row = Math.floor(i / gridSize);
           const col = i % gridSize;
@@ -754,7 +755,7 @@ export const PlantGenPage: React.FC = () => {
 
       // Color atlas debug plane
       if (atlasTexture) {
-        const planeMat = new MeshBasicNodeMaterial();
+        const planeMat = new THREE.MeshBasicMaterial();
         planeMat.map = atlasTexture;
         planeMat.side = THREE.DoubleSide;
         const planeGeo = new THREE.PlaneGeometry(2, 2);
@@ -767,7 +768,7 @@ export const PlantGenPage: React.FC = () => {
 
       // Normal atlas debug plane
       if (normalAtlasTexture) {
-        const normalMat = new MeshBasicNodeMaterial();
+        const normalMat = new THREE.MeshBasicMaterial();
         normalMat.map = normalAtlasTexture;
         normalMat.side = THREE.DoubleSide;
         const normalGeo = new THREE.PlaneGeometry(2, 2);

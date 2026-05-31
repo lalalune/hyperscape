@@ -4,11 +4,11 @@ A React/Vite application for reviewing, generating, rigging, fitting, and
 organizing game-ready 3D assets for Hyperscape.
 
 The current asset strategy is documented in
-[`../../docs/asset-pipeline.md`](../../docs/asset-pipeline.md). Hill is the
-preferred creation and optimization pipeline, VRM Viewer owns asset inventory
-metadata, and Hyperscape imports deployable packs through
-`scripts/import-hill-manifest.mjs`. The older OpenAI/Meshy flow remains a
-legacy provider path, not the default production direction.
+[`../../docs/asset-pipeline.md`](../../docs/asset-pipeline.md). Asset Forge is
+the review and orchestration shell for generated assets, and Hyperscape imports
+deployable packs through `scripts/import-hill-manifest.mjs`. VRM Viewer can
+preview or catalog exported packs, but Asset Forge should not depend on VRM
+Viewer for normal hosted previews, default avatars, or production routing.
 
 ## Features
 
@@ -76,9 +76,9 @@ cp .env.example .env
 
 4. Add provider configuration to `.env`
 ```
-# Preferred local provider: Asset Forge calls the DGX Hill/VRM bridge.
+# Optional local provider: Asset Forge calls a Hill/DGX bridge.
 ASSET_FORGE_GENERATION_PROVIDER=hill_dgx
-HILL_API_BASE_URL=https://vrmviewer.flobots.xyz
+HILL_API_BASE_URL=https://hill.example.internal
 HILL_GENERATION_MODE=create
 HILL_EXPORT_TARGET=library
 NEMOTRON_BASE_URL=http://monumentals-mac-studio.local:12345
@@ -112,33 +112,20 @@ bun run dev:backend   # Terminal 2: API only, default port 3401
 
 The app will be available at `http://localhost:3400`, with the API on `http://localhost:3401`.
 
-### Coolify + DGX Hill Provider
+### Coolify + Generation Providers
 
-For the deployed Asset Forge, set these Coolify environment variables:
+For the deployed Asset Forge, keep the browser API same-origin and configure
+only the generation provider you actually use:
 
 ```bash
-ASSET_FORGE_GENERATION_PROVIDER=hill_dgx
-HILL_API_BASE_URL=https://vrmviewer.flobots.xyz
-HILL_GENERATION_MODE=create
-HILL_EXPORT_TARGET=library
-HILL_API_POLL_INTERVAL_MS=3000
-HILL_API_TIMEOUT_MS=1800000
-NEMOTRON_BASE_URL=http://monumentals-mac-studio.local:12345
-NEMOTRON_MODEL=mlx-community/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-mxfp4
-NEMOTRON_TEMPERATURE=0.2
-NEMOTRON_MAX_TOKENS=450
 VITE_GENERATION_API_URL=/api
 ```
 
-`HILL_API_BASE_URL` should point at the deployed VRM Viewer asset-library
-server. It must expose `/api/hill/conjure-jobs` and `/api/hill/file`, and the
-container must either mount the same `/tank` asset paths or proxy those file
-requests back to the DGX. With the provider set to
-`hill_dgx`, the existing `POST /api/generation/pipeline` endpoint stays the
-same for the UI, but the backend submits the job to Hill using the Flux Klein →
-Bruno Trellis2 `1024` no-cascade path with 2048 textures and LOD generation.
-Before submission, Asset Forge asks the local Nemotron OpenAI-compatible server
-to rewrite the creator request into a safer image-to-3D prompt.
+When using a Hill/DGX bridge, set `ASSET_FORGE_GENERATION_PROVIDER=hill_dgx`
+and point `HILL_API_BASE_URL` at that bridge, not at VRM Viewer unless VRM
+Viewer is intentionally hosting those Hill endpoints. The bridge must expose
+`/api/hill/conjure-jobs` and `/api/hill/file`, and the container must either
+mount the same asset paths or proxy file requests back to the DGX.
 
 ### Pixel3D Gradio Provider
 
@@ -161,6 +148,15 @@ The Hyperscape-owned deployment wrapper for the upstream Pixal3D Gradio service
 lives in [`../pixal3d-service`](../pixal3d-service). It tracks Docker/Coolify
 orchestration and API checks only; model weights, caches, temporary files, and
 generated GLBs stay out of git.
+### Hosted Preview Rendering
+
+Browser-facing Asset Forge routes must be WebGL-safe. Shared procgen systems can
+still use WebGPU/TSL in Hyperscape or offline tools, but hosted editor pages
+such as vegetation, plants, rocks, grass, flowers, terrain, retargeting, and
+armor preview should initialize a WebGL preview renderer and convert generated
+node materials to `MeshStandardMaterial`/`MeshBasicMaterial` before rendering.
+This keeps Coolify deployments usable on browsers where WebGPU is disabled,
+unavailable, or blocked by GPU policy.
 
 ## Project Structure
 

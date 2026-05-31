@@ -16,7 +16,6 @@ import type {
   BodyRegion,
   EquipmentSlotName,
 } from "../../services/armor-pipeline/types";
-import { createWebGPURenderer } from "../../utils/webgpu-renderer";
 
 /** Colors for each equipment slot region */
 const SLOT_COLORS: Record<EquipmentSlotName, number> = {
@@ -95,10 +94,7 @@ export const ShellPreviewViewer = forwardRef<
   const sceneRef = useRef<THREE.Scene>(new THREE.Scene());
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
-  const rendererReadyRef = useRef(false);
-  const rendererRef = useRef<Awaited<
-    ReturnType<typeof createWebGPURenderer>
-  > | null>(null);
+  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const animationIdRef = useRef<number>(0);
 
   const avatarGroupRef = useRef<THREE.Group>(new THREE.Group());
@@ -163,28 +159,15 @@ export const ShellPreviewViewer = forwardRef<
     scene.add(avatarGroupRef.current);
     scene.add(overlayGroupRef.current);
 
-    // Init WebGPU renderer
-    const initRenderer = async () => {
-      try {
-        const renderer = await createWebGPURenderer({
-          canvas,
-          antialias: true,
-        });
-
-        if (!mounted) {
-          renderer.dispose();
-          return;
-        }
-
-        renderer.setSize(w, h);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        rendererRef.current = renderer;
-        rendererReadyRef.current = true;
-      } catch (err) {
-        console.error("[ShellPreviewViewer] WebGPU init failed:", err);
-      }
-    };
-    initRenderer();
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: true,
+      alpha: true,
+    });
+    renderer.setSize(w, h);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    rendererRef.current = renderer;
 
     // Render loop with animation support
     const clock = clockRef.current;
@@ -204,7 +187,7 @@ export const ShellPreviewViewer = forwardRef<
       }
 
       controls.update();
-      if (rendererReadyRef.current && rendererRef.current) {
+      if (mounted && rendererRef.current) {
         rendererRef.current.render(scene, camera);
       }
     };
@@ -284,7 +267,6 @@ export const ShellPreviewViewer = forwardRef<
       if (rendererRef.current) {
         rendererRef.current.dispose();
         rendererRef.current = null;
-        rendererReadyRef.current = false;
       }
     };
   }, []);
