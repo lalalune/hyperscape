@@ -28,6 +28,10 @@ export interface CharacterTemplate {
       HYPERSCAPE_SERVER_URL?: string;
       wallet?: string;
       // LLM Provider API Keys (optional, depends on selected plugins)
+      HYADES_LLM_API_KEY?: string;
+      HYADES_LLM_ENDPOINT?: string;
+      HYADES_LLM_MODEL?: string;
+      HYADES_LLM_SMALL_MODEL?: string;
       OPENAI_API_KEY?: string;
       ANTHROPIC_API_KEY?: string;
       OPENROUTER_API_KEY?: string;
@@ -142,9 +146,7 @@ export function generateCharacterTemplate(
     plugins: [
       "@hyperscape/plugin-hyperscape", // Required - Hyperscape game integration
       "@elizaos/plugin-sql", // Database operations
-      "@elizaos/plugin-openrouter", // OpenRouter LLM provider
-      "@elizaos/plugin-openai", // OpenAI models (GPT-5, etc)
-      "@elizaos/plugin-anthropic", // Anthropic models (Claude)
+      "@elizaos/plugin-openai", // Hyades uses the OpenAI-compatible API
     ],
 
     settings: {
@@ -154,7 +156,12 @@ export function generateCharacterTemplate(
         HYPERSCAPE_CHARACTER_ID: undefined,
         HYPERSCAPE_SERVER_URL: GAME_WS_URL,
         wallet,
-        // LLM Provider API Keys (users can add these in the Secrets tab)
+        // Hyades/OpenAI-compatible LLM provider. Production can also supply
+        // these from server env, so UI-created agents do not need direct keys.
+        HYADES_LLM_API_KEY: "",
+        HYADES_LLM_ENDPOINT: "",
+        HYADES_LLM_MODEL: "nemotron3-omni",
+        HYADES_LLM_SMALL_MODEL: "nemotron3-omni",
         OPENAI_API_KEY: "",
         ANTHROPIC_API_KEY: "",
         OPENROUTER_API_KEY: "",

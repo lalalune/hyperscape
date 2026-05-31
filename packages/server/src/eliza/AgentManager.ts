@@ -120,7 +120,13 @@ async function getGoalsPlugin(): Promise<Plugin | null> {
  */
 type ResolvedChatModelProvider = {
   plugin: Plugin;
-  provider: "elizacloud" | "openai" | "anthropic" | "openrouter" | "ollama";
+  provider:
+    | "hyades"
+    | "elizacloud"
+    | "openai"
+    | "anthropic"
+    | "openrouter"
+    | "ollama";
   model: string;
   source: string;
   secrets: Record<string, string>;
@@ -211,6 +217,25 @@ function concreteLargeModel(
   return fallback;
 }
 
+function resolveHyadesBaseUrl(
+  secrets: Record<string, string | undefined> | null | undefined,
+): string | undefined {
+  const explicit =
+    secrets?.HYADES_LLM_ENDPOINT?.trim() || process.env.HYADES_LLM_ENDPOINT;
+  if (explicit?.trim()) {
+    return explicit.trim().replace(/\/+$/, "");
+  }
+
+  const runtimeUrl =
+    secrets?.HYADES_RUNTIME_URL?.trim() || process.env.HYADES_RUNTIME_URL;
+  if (!runtimeUrl?.trim()) {
+    return undefined;
+  }
+
+  const trimmed = runtimeUrl.trim().replace(/\/+$/, "");
+  return trimmed.endsWith("/v1") ? trimmed : `${trimmed}/v1`;
+}
+
 /**
  * Choose LLM plugin from env and/or per-agent dashboard secrets.
  */
@@ -219,6 +244,48 @@ async function getModelProviderPlugin(
 ): Promise<ResolvedChatModelProvider | null> {
   const charSec = opts?.characterSecrets ?? undefined;
   const charModel = opts?.characterModel ?? null;
+
+  const hyadesKey = pickApiKey(charSec, "HYADES_LLM_API_KEY");
+  if (hyadesKey) {
+    try {
+      const mod = await import("@elizaos/plugin-openai");
+      const plugin = mod.openaiPlugin ?? mod.default;
+      if (plugin) {
+        const model = concreteLargeModel(
+          charModel,
+          "HYADES_LLM_MODEL",
+          "HYADES_LLM_SMALL_MODEL",
+          "nemotron3-omni",
+        );
+        const baseUrl = resolveHyadesBaseUrl(charSec);
+        return {
+          plugin,
+          provider: "hyades",
+          model,
+          source: charSec?.HYADES_LLM_API_KEY?.trim()
+            ? "character HYADES_LLM_API_KEY"
+            : "HYADES_LLM_API_KEY",
+          secrets: {
+            HYADES_LLM_API_KEY: hyadesKey,
+            OPENAI_API_KEY: hyadesKey,
+            LARGE_MODEL: model,
+            SMALL_MODEL:
+              charSec?.HYADES_LLM_SMALL_MODEL?.trim() ||
+              process.env.HYADES_LLM_SMALL_MODEL?.trim() ||
+              model,
+            OPENAI_LARGE_MODEL: model,
+            OPENAI_SMALL_MODEL:
+              charSec?.HYADES_LLM_SMALL_MODEL?.trim() ||
+              process.env.HYADES_LLM_SMALL_MODEL?.trim() ||
+              model,
+            ...(baseUrl ? { OPENAI_BASE_URL: baseUrl } : {}),
+          },
+        };
+      }
+    } catch (err) {
+      console.warn("[AgentManager] Failed to load Hyades plugin:", errMsg(err));
+    }
+  }
 
   const elizaKey = pickApiKey(charSec, "ELIZAOS_CLOUD_API_KEY");
   if (elizaKey) {
@@ -391,7 +458,7 @@ async function getModelProviderPlugin(
   }
 
   console.warn(
-    "[AgentManager] No model provider available! Set API keys in the agent dashboard (Settings) or in env: ELIZAOS_CLOUD_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, OPENROUTER_API_KEY (or run Ollama locally).",
+    "[AgentManager] No model provider available! Set API keys in the agent dashboard (Settings) or in env: HYADES_LLM_API_KEY, ELIZAOS_CLOUD_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, OPENROUTER_API_KEY (or run Ollama locally).",
   );
   return null;
 }
@@ -1226,7 +1293,8 @@ export class AgentManager {
       },
       plugins: [],
       // @ts-ignore - runtime supports modelProvider even if core type lags.
-      modelProvider: provider.provider,
+      modelProvider:
+        provider.provider === "hyades" ? "openai" : provider.provider,
     } as unknown as Character;
   }
 
@@ -1717,7 +1785,7 @@ export class AgentManager {
           ok: false,
           code: "NO_PROVIDER",
           message:
-            "No usable LLM API key is configured. Add a key in Agent Settings or set OPENROUTER_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, or ELIZAOS_CLOUD_API_KEY on the server (masked or placeholder values are ignored).",
+            "No usable LLM API key is configured. Add a key in Agent Settings or set HYADES_LLM_API_KEY, OPENROUTER_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, or ELIZAOS_CLOUD_API_KEY on the server (masked or placeholder values are ignored).",
         };
       }
       return {

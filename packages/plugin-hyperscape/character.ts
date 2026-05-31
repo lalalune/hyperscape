@@ -1,6 +1,23 @@
 import type { Character } from "@elizaos/core";
 import { hyperscapePlugin } from "./src/index.js";
 
+function resolveHyadesBaseUrl(): string {
+  const explicit = process.env.HYADES_LLM_ENDPOINT?.trim();
+  if (explicit) return explicit.replace(/\/+$/, "");
+
+  const runtimeUrl = process.env.HYADES_RUNTIME_URL?.trim();
+  if (!runtimeUrl) return "";
+
+  const trimmed = runtimeUrl.replace(/\/+$/, "");
+  return trimmed.endsWith("/v1") ? trimmed : `${trimmed}/v1`;
+}
+
+const hyadesModel = process.env.HYADES_LLM_MODEL?.trim() || "nemotron3-omni";
+const hyadesSmallModel =
+  process.env.HYADES_LLM_SMALL_MODEL?.trim() || hyadesModel;
+const hyadesApiKey = process.env.HYADES_LLM_API_KEY?.trim() || "";
+const hyadesBaseUrl = resolveHyadesBaseUrl();
+
 export const character: Character = {
   name: "HyperscapeAgent",
   description: "An AI agent designed to play Hyperscape multiplayer RPG",
@@ -34,16 +51,22 @@ export const character: Character = {
     "Inventory management",
     "Player interactions",
   ],
-  plugins: [
-    hyperscapePlugin,
-    "@elizaos/plugin-sql",
-    "@elizaos/plugin-openrouter",
-    "@elizaos/plugin-openai",
-    "@elizaos/plugin-anthropic",
-  ],
+  plugins: [hyperscapePlugin, "@elizaos/plugin-sql", "@elizaos/plugin-openai"],
   clients: [],
-  modelProvider: "openrouter", // Use openrouter as primary (falls back to openai if not configured)
+  modelProvider: "openai",
   settings: {
-    secrets: {},
+    model: hyadesModel,
+    secrets: {
+      HYADES_LLM_API_KEY: hyadesApiKey,
+      HYADES_LLM_ENDPOINT: hyadesBaseUrl,
+      HYADES_LLM_MODEL: hyadesModel,
+      HYADES_LLM_SMALL_MODEL: hyadesSmallModel,
+      OPENAI_API_KEY: hyadesApiKey,
+      OPENAI_BASE_URL: hyadesBaseUrl,
+      OPENAI_LARGE_MODEL: hyadesModel,
+      OPENAI_SMALL_MODEL: hyadesSmallModel,
+      LARGE_MODEL: hyadesModel,
+      SMALL_MODEL: hyadesSmallModel,
+    },
   },
 };

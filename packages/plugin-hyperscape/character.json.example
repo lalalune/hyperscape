@@ -37,9 +37,21 @@
     "Player interactions"
   ],
   "plugins": [
-    "@hyperscape/plugin-hyperscape"
+    "@hyperscape/plugin-hyperscape",
+    "@elizaos/plugin-openai"
   ],
+  "modelProvider": "openai",
   "settings": {
-    "secrets": {}
+    "model": "nemotron3-omni",
+    "secrets": {
+      "HYADES_LLM_API_KEY": "",
+      "HYADES_LLM_ENDPOINT": "",
+      "HYADES_LLM_MODEL": "nemotron3-omni",
+      "HYADES_LLM_SMALL_MODEL": "nemotron3-omni",
+      "OPENAI_API_KEY": "",
+      "OPENAI_BASE_URL": "",
+      "OPENAI_LARGE_MODEL": "nemotron3-omni",
+      "OPENAI_SMALL_MODEL": "nemotron3-omni"
+    }
   }
 }

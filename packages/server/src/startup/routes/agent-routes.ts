@@ -4040,6 +4040,7 @@ export function registerAgentRoutes(
     const mp = src.modelProvider;
     if (
       mp === "openai" ||
+      mp === "hyades" ||
       mp === "anthropic" ||
       mp === "groq" ||
       mp === "xai" ||
