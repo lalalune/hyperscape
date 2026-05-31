@@ -51,6 +51,12 @@ type CachedValue<T> = {
   value: T;
 };
 
+type AgentRouteSelectQuery = Promise<unknown[]> & {
+  where: (condition: unknown) => AgentRouteSelectQuery;
+  orderBy: (...clauses: unknown[]) => AgentRouteSelectQuery;
+  limit: (limit: number) => Promise<unknown[]>;
+};
+
 type AgentRouteDb = {
   delete: (table: unknown) => {
     where: (condition: unknown) => Promise<unknown>;
@@ -74,9 +80,7 @@ type AgentRouteDb = {
     };
   };
   select: (fields?: unknown) => {
-    from: (table: unknown) => {
-      where: (condition: unknown) => Promise<unknown[]>;
-    };
+    from: (table: unknown) => AgentRouteSelectQuery;
   };
   update: (table: unknown) => {
     set: (values: Record<string, unknown>) => {
@@ -2679,12 +2683,29 @@ export function registerAgentRoutes(
           const { agentThoughts: agentThoughtsTable } =
             await import("../../database/schema.js");
           const { desc, eq } = await import("drizzle-orm");
-          const rows = await db
+          const rows = (await db
             .select()
             .from(agentThoughtsTable)
             .where(eq(agentThoughtsTable.characterId, characterId))
             .orderBy(desc(agentThoughtsTable.timestamp))
-            .limit(limit);
+            .limit(limit)) as Array<{
+            characterId: string;
+            type:
+              | "situation"
+              | "evaluation"
+              | "thinking"
+              | "decision"
+              | "action";
+            content: string;
+            timestamp: number;
+            decisionPath?:
+              | "short-circuit"
+              | "llm"
+              | "scripted"
+              | "planner"
+              | "curiosity"
+              | null;
+          }>;
           thoughts = rows.map((r) => ({
             id: `${r.characterId}-thought-${r.timestamp}`,
             type: r.type,

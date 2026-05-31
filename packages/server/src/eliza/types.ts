@@ -36,6 +36,7 @@ export interface AgentCharacterConfig {
   username?: string;
   system?: string;
   bio?: string[];
+  lore?: string[];
   topics?: string[];
   adjectives?: string[];
   plugins?: string[];
@@ -123,6 +124,7 @@ export interface NearbyEntityData {
   mobType?: string;
   itemId?: string;
   resourceType?: string;
+  resourceId?: string;
   equippedWeapon?: string;
 }
 

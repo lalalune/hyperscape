@@ -1001,6 +1001,37 @@ function stopAgentBehaviorLoop(agentKey: string): void {
   }
 }
 
+function getEmbeddedAgentPlanningConfig(
+  characterId: string,
+  displayName: string,
+): ModelProviderConfig {
+  return {
+    provider: "openai",
+    model: `embedded-${characterId}`,
+    displayName,
+    apiKeyEnv: "OPENAI_API_KEY",
+    pluginModule: "@elizaos/plugin-openai",
+    pluginExport: "openaiPlugin",
+  };
+}
+
+export function startEmbeddedAgentLlmPlanningLoop(
+  characterId: string,
+  runtime: AgentRuntime,
+  service: EmbeddedHyperscapeService,
+  displayName: string,
+): void {
+  const config = getEmbeddedAgentPlanningConfig(characterId, displayName);
+  startAgentBehaviorLoop(runtime, service, config);
+}
+
+export function stopEmbeddedAgentLlmPlanningLoop(characterId: string): void {
+  const config = getEmbeddedAgentPlanningConfig(characterId, characterId);
+  const agentKey = getModelAgentKey(config);
+  stopAgentBehaviorLoop(agentKey);
+  agentPlans.delete(agentKey);
+}
+
 /**
  * Execute a single behavior tick
  *

@@ -1421,9 +1421,14 @@ export class AgentManager {
 
       const adapter = new InMemoryDatabaseAdapter();
       // Eliza 2.0 alpha.76+ InMemoryDatabaseAdapter may omit `log`; only wrap when present.
-      if (typeof adapter.log === "function") {
-        const originalLog = adapter.log.bind(adapter);
-        adapter.log = async (params: Parameters<typeof originalLog>[0]) => {
+      const adapterWithLog = adapter as InMemoryDatabaseAdapter & {
+        log?: (params: unknown) => Promise<unknown>;
+      };
+      if (typeof adapterWithLog.log === "function") {
+        const originalLog = adapterWithLog.log.bind(adapter);
+        adapterWithLog.log = async (
+          params: Parameters<typeof originalLog>[0],
+        ) => {
           await originalLog(params);
           const logs = (adapter as unknown as { logs?: unknown[] }).logs;
           if (logs && logs.length > 50) {
