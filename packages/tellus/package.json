@@ -1,0 +1,30 @@
+{
+  "name": "@hyperscape/tellus",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Tellus: a tiny AI terrarium where agents shape a floating world.",
+  "scripts": {
+    "dev": "vite --host --port 3344 --strictPort",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host --port 4344",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^6.0.1",
+    "lucide-react": "^0.577.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "three": "0.183.2"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@types/three": "0.183.1",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.12",
+    "vitest": "4.1.0"
+  }
+}
