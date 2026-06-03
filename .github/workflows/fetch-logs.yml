@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Fetch PM2 Logs
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.5
         continue-on-error: true
         with:
           host: ${{ secrets.VAST_HOST }}
