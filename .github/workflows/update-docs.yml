@@ -19,7 +19,7 @@ jobs:
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
 
-      - uses: actions/github-script@v8
+      - uses: actions/github-script@v9
         if: steps.check-secrets.outputs.skip != 'true'
         continue-on-error: true
         env:
