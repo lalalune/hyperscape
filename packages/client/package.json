@@ -82,7 +82,7 @@
     "react": "19.2.5",
     "react-device-detect": "^2.2.3",
     "react-dom": "19.2.5",
-    "three": "0.183.2",
+    "three": "0.184.0",
     "three-custom-shader-material": "^6.3.7",
     "three-mesh-bvh": "^0.9.9",
     "viem": "^2.39.3",
@@ -130,7 +130,7 @@
     "bun": ">=1.1.38"
   },
   "overrides": {
-    "three": "0.183.2"
+    "three": "0.184.0"
   },
   "license": "GPL-3.0-only"
 }
