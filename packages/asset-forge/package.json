@@ -66,7 +66,7 @@
     "ai": "^6.0.116",
     "chalk": "^4.1.2",
     "clsx": "^2.0.0",
-    "concurrently": "^9.2.1",
+    "concurrently": "^10.0.3",
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.44.6",
