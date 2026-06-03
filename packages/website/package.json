@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "next": "^16.1.6",
-    "react": "19.2.4",
+    "react": "19.2.5",
     "react-dom": "19.2.4",
     "@solana/web3.js": "^1.98.4",
     "@react-three/fiber": "^9.0.0",

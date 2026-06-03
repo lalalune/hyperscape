@@ -158,7 +158,7 @@
     "lint-staged": "^16.2.6",
     "prettier": "^3.6.2",
     "puppeteer": "^24.22.0",
-    "react": "19.2.4",
+    "react": "19.2.5",
     "react-dom": "19.2.4",
     "rollup": "^4.52.4",
     "ts-jest": "^29.1.1",
@@ -169,7 +169,7 @@
     "vitest": "^4.1.4"
   },
   "overrides": {
-    "react": "19.2.4",
+    "react": "19.2.5",
     "react-dom": "19.2.4",
     "@elizaos/core": "alpha",
     "@elizaos/plugin-anthropic": "alpha",
