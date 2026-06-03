@@ -159,7 +159,7 @@
     "prettier": "^3.6.2",
     "puppeteer": "^25.1.0",
     "react": "19.2.5",
-    "react-dom": "19.2.5",
+    "react-dom": "19.2.7",
     "rollup": "^4.52.4",
     "ts-jest": "^29.1.1",
     "turbo": "^2.5.5",
@@ -170,7 +170,7 @@
   },
   "overrides": {
     "react": "19.2.5",
-    "react-dom": "19.2.5",
+    "react-dom": "19.2.7",
     "@elizaos/core": "alpha",
     "@elizaos/plugin-anthropic": "alpha",
     "@elizaos/plugin-groq": "alpha",
