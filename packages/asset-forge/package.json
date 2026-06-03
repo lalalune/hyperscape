@@ -115,7 +115,7 @@
     "knip": "^5.62.0",
     "postcss": "^8.4.32",
     "tailwindcss": "^3.3.6",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.2",
     "vite": "^8.0.0",
     "vitest": "4.1.0"
   },

@@ -85,7 +85,7 @@
     "@types/react-dom": "^19.2.3",
     "@types/three": "0.183.1",
     "three": "0.183.2",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.2",
     "vitest": "^4.0.6",
     "vite": "^8.0.0"
   },

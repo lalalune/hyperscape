@@ -165,7 +165,7 @@
     "turbo": "^2.5.5",
     "typedoc": "^0.28.14",
     "typedoc-plugin-markdown": "^4.9.0",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.2",
     "vitest": "^4.0.6"
   },
   "overrides": {
@@ -178,7 +178,7 @@
     "@elizaos/plugin-sql": "alpha",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.2",
     "three": "0.183.2",
     "jsdom": "27.0.1",
     "@types/three": "0.182.0",
