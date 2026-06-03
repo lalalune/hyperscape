@@ -19,8 +19,8 @@
  *    - DUEL_SCHEDULER_MIN_AGENTS: Minimum agents for scheduling
  */
 
-import type { World } from "@hyperscape/shared";
-import { EventType, type PlayerEntity } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
+import { EventType, type PlayerEntity } from "@hyperforge/shared";
 import { Logger } from "../ServerNetwork/services";
 
 // ============================================================================
@@ -149,7 +149,7 @@ export class DuelScheduler {
     // Subscribe to player spawn events to track agents
     // Note: We listen for both PLAYER_SPAWNED and PLAYER_JOINED because:
     // - PLAYER_SPAWNED is emitted by PlayerSystem after equipment setup (normal players)
-    // - PLAYER_JOINED is emitted by EmbeddedHyperscapeService (embedded AI agents)
+    // - PLAYER_JOINED is emitted by EmbeddedHyperiaService (embedded AI agents)
     const onPlayerSpawned = (payload: unknown) => {
       this.handlePlayerSpawned(payload);
     };

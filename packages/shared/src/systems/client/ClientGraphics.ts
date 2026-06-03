@@ -167,7 +167,7 @@ export class ClientGraphics extends System {
     if (!isWebGPUBackend) {
       throw new Error(
         "WebGPU is REQUIRED but the renderer backend is not WebGPU. " +
-          "All Hyperscape shaders use TSL which only works with WebGPU. " +
+          "All Hyperia shaders use TSL which only works with WebGPU. " +
           "Please use Chrome 113+, Edge 113+, or Safari 17+.",
       );
     }
@@ -291,7 +291,7 @@ export class ClientGraphics extends System {
     });
 
     // Set ID for Cypress tests
-    this.renderer.domElement.id = "hyperscape-world-canvas";
+    this.renderer.domElement.id = "hyperia-world-canvas";
 
     // Style canvas to fill container and scale properly
     this.renderer.domElement.style.width = "100%";

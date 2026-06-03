@@ -299,7 +299,7 @@ export interface BiomeOreConfig {
 /**
  * Configuration for decorative rock spawning in a biome.
  * These are non-harvestable environmental rocks for visual variety.
- * Uses procedural generation from @hyperscape/procgen/rock.
+ * Uses procedural generation from @hyperforge/procgen/rock.
  */
 export interface BiomeRockConfig {
   /** Whether decorative rocks are enabled for this biome */
@@ -307,7 +307,7 @@ export interface BiomeRockConfig {
   /** Rocks per 100m² (density multiplier) */
   density: number;
   /**
-   * Rock preset names from @hyperscape/procgen/rock.
+   * Rock preset names from @hyperforge/procgen/rock.
    * Available presets:
    * - Shape: boulder, pebble, crystal, asteroid, cliff, lowpoly
    * - Geology: sandstone, limestone, granite, marble, basalt, slate, obsidian, quartzite
@@ -332,7 +332,7 @@ export interface BiomeRockConfig {
 /**
  * Configuration for decorative plant spawning in a biome.
  * These are non-harvestable environmental plants for visual variety.
- * Uses procedural generation from @hyperscape/procgen/plant.
+ * Uses procedural generation from @hyperforge/procgen/plant.
  */
 export interface BiomePlantConfig {
   /** Whether decorative plants are enabled for this biome */
@@ -340,7 +340,7 @@ export interface BiomePlantConfig {
   /** Plants per 100m² (density multiplier) */
   density: number;
   /**
-   * Plant preset names from @hyperscape/procgen/plant.
+   * Plant preset names from @hyperforge/procgen/plant.
    * Common presets: fern, monstera, pothos, calathea, philodendron,
    * snakePlant, peperomia, prayer, croton, dracaena, etc.
    */

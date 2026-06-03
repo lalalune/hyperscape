@@ -66,7 +66,7 @@ import {
   lerpOctahedronGeometry,
   OctahedronType,
   type TSLImpostorMaterial,
-} from "@hyperscape/impostor";
+} from "@hyperforge/impostor";
 import type { Wind } from "./Wind";
 import { applySkyFog } from "./FogConfig";
 

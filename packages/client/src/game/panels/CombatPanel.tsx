@@ -6,7 +6,7 @@ import {
   getPanelInsetStyle,
   getPanelSurfaceStyle,
 } from "@/ui/theme/themes";
-import { EventType, getAvailableStyles, WeaponType } from "@hyperscape/shared";
+import { EventType, getAvailableStyles, WeaponType } from "@hyperforge/shared";
 import {
   PANEL_PADDING,
   PANEL_MOBILE_PADDING,
@@ -1367,7 +1367,7 @@ export function CombatPanel({ world, stats, equipment }: CombatPanelProps) {
             padding: `${p.inner}px`,
             marginTop: compactPanel ? 16 : 22,
             background:
-              theme.name === "hyperscape"
+              theme.name === "hyperia"
                 ? "linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(0, 0, 0, 0.12) 100%)"
                 : theme.colors.slot.filled,
             border: inCombat

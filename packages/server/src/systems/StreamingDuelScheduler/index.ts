@@ -13,8 +13,8 @@
  * - Broadcasting (broadcastState, getStreamingState)
  */
 
-import type { World } from "@hyperscape/shared";
-import { EventType, DEFAULT_DUEL_RULES } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
+import { EventType, DEFAULT_DUEL_RULES } from "@hyperforge/shared";
 import crypto from "node:crypto";
 
 /** Type for network with send method */
@@ -364,7 +364,7 @@ export class StreamingDuelScheduler {
   private deriveStreamingDuelKeyHex(cycleId: string): string {
     return crypto
       .createHash("sha256")
-      .update(`hyperscape-streaming-duel:${cycleId}`)
+      .update(`hyperia-streaming-duel:${cycleId}`)
       .digest("hex");
   }
 

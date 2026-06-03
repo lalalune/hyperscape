@@ -164,20 +164,20 @@ jobs:
             echo "[deploy] bun --version: $(bun --version 2>&1 || echo 'failed')"
 
             # First-time setup: clone repo if it doesn't exist
-            if [ ! -d "/root/hyperscape" ]; then
+            if [ ! -d "/root/hyperia" ]; then
               echo "[deploy] First-time setup: cloning repository..."
               cd /root
-              git clone https://github.com/HyperscapeAI/hyperscape.git
+              git clone https://github.com/PlayHyperia/hyperia.git
             fi
 
-            cd /root/hyperscape
+            cd /root/hyperia
             git fetch origin
             git checkout main
             git reset --hard origin/main
             # Write environment variables to /tmp FIRST (so git reset in deploy-vast.sh doesn't overwrite)
             # Using direct secret substitution since envs parameter doesn't work reliably
-            echo "[deploy] Writing secrets to /tmp/hyperscape-secrets.env"
-            cat > /tmp/hyperscape-secrets.env << ENVEOF
+            echo "[deploy] Writing secrets to /tmp/hyperia-secrets.env"
+            cat > /tmp/hyperia-secrets.env << ENVEOF
             DATABASE_URL=${{ secrets.DATABASE_URL }}
             JWT_SECRET=${{ secrets.JWT_SECRET }}
             ADMIN_CODE=${{ secrets.ADMIN_CODE }}
@@ -191,17 +191,17 @@ jobs:
             KICK_STREAM_KEY=${{ secrets.KICK_STREAM_KEY }}
             KICK_RTMP_URL=${{ secrets.KICK_RTMP_URL }}
             YOUTUBE_STREAM_KEY=
-            PUBLIC_CDN_URL=https://assets.hyperscape.club
+            PUBLIC_CDN_URL=https://assets.hyperia.club
             FORCE_FETCH_CDN=true
             SOLANA_DEPLOYER_PRIVATE_KEY=${{ secrets.SOLANA_DEPLOYER_PRIVATE_KEY }}
             ENVEOF
             # Clean up any leading whitespace from heredoc
-            sed -i 's/^[[:space:]]*//' /tmp/hyperscape-secrets.env
+            sed -i 's/^[[:space:]]*//' /tmp/hyperia-secrets.env
             # Debug: show what was written (masked keys)
             echo "[deploy] Secrets file contents (keys only):"
-            cut -d= -f1 /tmp/hyperscape-secrets.env
+            cut -d= -f1 /tmp/hyperia-secrets.env
             # Now run the deploy script (which will copy from /tmp after its own git reset)
-            bash /root/hyperscape/scripts/deploy-vast.sh
+            bash /root/hyperia/scripts/deploy-vast.sh
 
       # Step 3: Exit maintenance mode after successful deployment
       # The deploy script will restart PM2, so we need to wait for server to be ready

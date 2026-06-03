@@ -6,15 +6,15 @@
 
 ## General Questions
 
-### What is Hyperscape Shared?
+### What is Hyperia Shared?
 
-Hyperscape Shared is the core 3D multiplayer game engine that powers the Hyperscape RPG project. It provides Entity Component System architecture, PhysX physics, Three.js rendering, and client-server networking.
+Hyperia Shared is the core 3D multiplayer game engine that powers the Hyperia RPG project. It provides Entity Component System architecture, PhysX physics, Three.js rendering, and client-server networking.
 
 ---
 
 ### Is it free to use?
 
-Yes, Hyperscape Shared is part of the open-source Hyperscape project.
+Yes, Hyperia Shared is part of the open-source Hyperia project.
 
 ---
 
@@ -42,7 +42,7 @@ PhysX is industry-standard, highly performant, has native Node.js support, and p
 
 ### Can I use custom 3D models?
 
-Yes! Hyperscape supports GLTF/GLB models and VRM avatars. Load them with:
+Yes! Hyperia supports GLTF/GLB models and VRM avatars. Load them with:
 
 ```typescript
 const gltf = await world.loader.loadGLTF('asset://model.glb');
@@ -59,7 +59,7 @@ The engine is optimized for 50-100 concurrent players. With proper optimization,
 
 ### Can I use this for non-RPG games?
 
-Yes! While built for RPGs, Hyperscape Shared is a general-purpose 3D multiplayer engine. You can build any type of 3D multiplayer game.
+Yes! While built for RPGs, Hyperia Shared is a general-purpose 3D multiplayer engine. You can build any type of 3D multiplayer game.
 
 ---
 
@@ -148,7 +148,7 @@ The server is **authoritative** - it validates all actions and maintains true ga
 
 ### What if the player has high latency?
 
-Hyperscape uses:
+Hyperia uses:
 - Client prediction for responsiveness
 - Server reconciliation for accuracy
 - Interpolation for smooth movement
@@ -158,13 +158,13 @@ Hyperscape uses:
 
 ### Can I build a peer-to-peer game?
 
-Hyperscape is designed for client-server architecture. P2P is not currently supported.
+Hyperia is designed for client-server architecture. P2P is not currently supported.
 
 ---
 
 ## Still Have Questions?
 
-- **GitHub Issues:** https://github.com/HyperscapeAI/hyperscape/issues
+- **GitHub Issues:** https://github.com/PlayHyperia/hyperia/issues
 - **Discord:** Join our community
 - **Documentation:** Browse the [full docs](../README.md)
 

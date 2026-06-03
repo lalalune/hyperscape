@@ -7,7 +7,7 @@
  */
 
 import React, { useEffect, useState, useRef } from "react";
-import { THREE } from "@hyperscape/shared";
+import { THREE } from "@hyperforge/shared";
 import type { ClientWorld } from "../../types";
 import { MinimapStaminaOrb } from "./MinimapStaminaBar";
 import { MinimapHomeTeleportOrb } from "./MinimapHomeTeleportOrb";

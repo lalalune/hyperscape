@@ -27,7 +27,7 @@ export function ValueProps() {
                   className="font-body text-sm sm:text-base"
                   style={{ color: "var(--text-secondary)" }}
                 >
-                  Every $GOLD token equals exactly 1 gold in Hyperscape. Your
+                  Every $GOLD token equals exactly 1 gold in Hyperia. Your
                   wallet balance becomes your starting wealth.
                 </p>
               </div>
@@ -135,8 +135,8 @@ export function ValueProps() {
                   className="font-body text-sm sm:text-base mb-2"
                   style={{ color: "var(--text-secondary)" }}
                 >
-                  Hyperscape runs on Browser, iOS, Android, and Desktop. Your
-                  gold follows you everywhere.
+                  Hyperia runs on Browser, iOS, Android, and Desktop. Your gold
+                  follows you everywhere.
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {platforms.map((p) => (

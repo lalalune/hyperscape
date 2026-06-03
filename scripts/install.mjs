@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Hyperscape install bootstrap
+ * Hyperia install bootstrap
  *
  * Ensures local prerequisites used by `bun run duel` are ready:
  * - synced game assets
@@ -35,9 +35,9 @@ function main() {
     "scripts/ensure-assets.mjs",
   ]);
 
-  if (process.env.HYPERSCAPE_SKIP_BROWSER_INSTALL === "true") {
+  if (process.env.HYPERIA_SKIP_BROWSER_INSTALL === "true") {
     console.log(
-      "[install] Skipping browser installation (HYPERSCAPE_SKIP_BROWSER_INSTALL=true)",
+      "[install] Skipping browser installation (HYPERIA_SKIP_BROWSER_INSTALL=true)",
     );
   } else {
     run(

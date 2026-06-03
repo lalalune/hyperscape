@@ -285,8 +285,8 @@ export interface ClientPlayerToken {
   sessionId: string;
   machineId: string;
   clientVersion: string;
-  hyperscapeUserId: string;
-  hyperscapeLinked: boolean;
+  hyperiaUserId: string;
+  hyperiaLinked: boolean;
   persistenceVersion: number;
 }
 

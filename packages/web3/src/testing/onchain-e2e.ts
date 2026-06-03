@@ -17,21 +17,21 @@ const ANVIL_OPERATOR_KEY =
 
 const WORLD_ABI = [
   {
-    name: "hyperscape__getItemCount",
+    name: "hyperia__getItemCount",
     type: "function",
     stateMutability: "view",
     inputs: [],
     outputs: [{ name: "count", type: "uint32" }],
   },
   {
-    name: "hyperscape__getNumericId",
+    name: "hyperia__getNumericId",
     type: "function",
     stateMutability: "view",
     inputs: [{ name: "stringId", type: "string" }],
     outputs: [{ name: "numericId", type: "uint32" }],
   },
   {
-    name: "hyperscape__registerPlayer",
+    name: "hyperia__registerPlayer",
     type: "function",
     stateMutability: "nonpayable",
     inputs: [
@@ -42,21 +42,21 @@ const WORLD_ABI = [
     outputs: [],
   },
   {
-    name: "hyperscape__getPlayerAddress",
+    name: "hyperia__getPlayerAddress",
     type: "function",
     stateMutability: "view",
     inputs: [{ name: "characterId", type: "bytes32" }],
     outputs: [{ name: "playerAddress", type: "address" }],
   },
   {
-    name: "hyperscape__isPlayerRegistered",
+    name: "hyperia__isPlayerRegistered",
     type: "function",
     stateMutability: "view",
     inputs: [{ name: "playerAddress", type: "address" }],
     outputs: [{ name: "registered", type: "bool" }],
   },
   {
-    name: "hyperscape__setInventorySlotBatch",
+    name: "hyperia__setInventorySlotBatch",
     type: "function",
     stateMutability: "nonpayable",
     inputs: [
@@ -68,7 +68,7 @@ const WORLD_ABI = [
     outputs: [],
   },
   {
-    name: "hyperscape__setEquipmentSlotBatch",
+    name: "hyperia__setEquipmentSlotBatch",
     type: "function",
     stateMutability: "nonpayable",
     inputs: [
@@ -80,7 +80,7 @@ const WORLD_ABI = [
     outputs: [],
   },
   {
-    name: "hyperscape__getInventorySlot",
+    name: "hyperia__getInventorySlot",
     type: "function",
     stateMutability: "view",
     inputs: [
@@ -93,7 +93,7 @@ const WORLD_ABI = [
     ],
   },
   {
-    name: "hyperscape__setGold",
+    name: "hyperia__setGold",
     type: "function",
     stateMutability: "nonpayable",
     inputs: [
@@ -103,14 +103,14 @@ const WORLD_ABI = [
     outputs: [],
   },
   {
-    name: "hyperscape__getGold",
+    name: "hyperia__getGold",
     type: "function",
     stateMutability: "view",
     inputs: [{ name: "characterId", type: "bytes32" }],
     outputs: [{ name: "amount", type: "uint64" }],
   },
   {
-    name: "hyperscape__balanceOf",
+    name: "hyperia__balanceOf",
     type: "function",
     stateMutability: "view",
     inputs: [
@@ -120,7 +120,7 @@ const WORLD_ABI = [
     outputs: [{ name: "balance", type: "uint256" }],
   },
   {
-    name: "hyperscape__createTrade",
+    name: "hyperia__createTrade",
     type: "function",
     stateMutability: "nonpayable",
     inputs: [
@@ -131,7 +131,7 @@ const WORLD_ABI = [
     outputs: [],
   },
   {
-    name: "hyperscape__offerItem",
+    name: "hyperia__offerItem",
     type: "function",
     stateMutability: "nonpayable",
     inputs: [
@@ -142,7 +142,7 @@ const WORLD_ABI = [
     outputs: [],
   },
   {
-    name: "hyperscape__offerGold",
+    name: "hyperia__offerGold",
     type: "function",
     stateMutability: "nonpayable",
     inputs: [
@@ -152,21 +152,21 @@ const WORLD_ABI = [
     outputs: [],
   },
   {
-    name: "hyperscape__acceptTrade",
+    name: "hyperia__acceptTrade",
     type: "function",
     stateMutability: "nonpayable",
     inputs: [{ name: "tradeId", type: "bytes32" }],
     outputs: [],
   },
   {
-    name: "hyperscape__cancelTrade",
+    name: "hyperia__cancelTrade",
     type: "function",
     stateMutability: "nonpayable",
     inputs: [{ name: "tradeId", type: "bytes32" }],
     outputs: [],
   },
   {
-    name: "hyperscape__getTradeSession",
+    name: "hyperia__getTradeSession",
     type: "function",
     stateMutability: "view",
     inputs: [{ name: "tradeId", type: "bytes32" }],
@@ -181,7 +181,7 @@ const WORLD_ABI = [
     ],
   },
   {
-    name: "hyperscape__commitCombatResult",
+    name: "hyperia__commitCombatResult",
     type: "function",
     stateMutability: "nonpayable",
     inputs: [
@@ -196,21 +196,21 @@ const WORLD_ABI = [
     outputs: [],
   },
   {
-    name: "hyperscape__recordDeath",
+    name: "hyperia__recordDeath",
     type: "function",
     stateMutability: "nonpayable",
     inputs: [{ name: "characterId", type: "bytes32" }],
     outputs: [],
   },
   {
-    name: "hyperscape__recordPlayerKill",
+    name: "hyperia__recordPlayerKill",
     type: "function",
     stateMutability: "nonpayable",
     inputs: [{ name: "killerCharacterId", type: "bytes32" }],
     outputs: [],
   },
   {
-    name: "hyperscape__recordDuel",
+    name: "hyperia__recordDuel",
     type: "function",
     stateMutability: "nonpayable",
     inputs: [
@@ -225,7 +225,7 @@ const WORLD_ABI = [
     outputs: [],
   },
   {
-    name: "hyperscape__getPlayerStats",
+    name: "hyperia__getPlayerStats",
     type: "function",
     stateMutability: "view",
     inputs: [{ name: "characterId", type: "bytes32" }],
@@ -242,7 +242,7 @@ const WORLD_ABI = [
     ],
   },
   {
-    name: "hyperscape__getNpcKillCount",
+    name: "hyperia__getNpcKillCount",
     type: "function",
     stateMutability: "view",
     inputs: [
@@ -377,7 +377,7 @@ async function main() {
     const numericId = (await publicClient.readContract({
       address: world,
       abi: WORLD_ABI,
-      functionName: "hyperscape__getNumericId",
+      functionName: "hyperia__getNumericId",
       args: [itemStringId],
       account: operator.address,
     })) as number;
@@ -393,7 +393,7 @@ async function main() {
     return (await publicClient.readContract({
       address: world,
       abi: WORLD_ABI,
-      functionName: "hyperscape__balanceOf",
+      functionName: "hyperia__balanceOf",
       args: [account, BigInt(tokenId)],
       account: operator.address,
     })) as bigint;
@@ -407,7 +407,7 @@ async function main() {
       const [slotItemId, slotQty] = (await publicClient.readContract({
         address: world,
         abi: WORLD_ABI,
-        functionName: "hyperscape__getInventorySlot",
+        functionName: "hyperia__getInventorySlot",
         args: [characterId, slot],
         account: operator.address,
       })) as readonly [number | bigint, number | bigint];
@@ -423,7 +423,7 @@ async function main() {
       const [slotItemId, slotQty] = (await publicClient.readContract({
         address: world,
         abi: WORLD_ABI,
-        functionName: "hyperscape__getInventorySlot",
+        functionName: "hyperia__getInventorySlot",
         args: [characterId, slot],
         account: operator.address,
       })) as readonly [number | bigint, number | bigint];
@@ -442,7 +442,7 @@ async function main() {
   const itemCount = (await publicClient.readContract({
     address: world,
     abi: WORLD_ABI,
-    functionName: "hyperscape__getItemCount",
+    functionName: "hyperia__getItemCount",
     account: operator.address,
   })) as number;
   assert(itemCount > 0, "Item registry is empty on-chain");
@@ -463,7 +463,7 @@ async function main() {
     operatorClient.writeContract({
       address: world,
       abi: WORLD_ABI,
-      functionName: "hyperscape__registerPlayer",
+      functionName: "hyperia__registerPlayer",
       args: [agentA.address, characterA, `AgentA-${runNonce.slice(-6)}`],
     }),
   );
@@ -471,7 +471,7 @@ async function main() {
     operatorClient.writeContract({
       address: world,
       abi: WORLD_ABI,
-      functionName: "hyperscape__registerPlayer",
+      functionName: "hyperia__registerPlayer",
       args: [agentB.address, characterB, `AgentB-${runNonce.slice(-6)}`],
     }),
   );
@@ -479,14 +479,14 @@ async function main() {
   const ownerA = (await publicClient.readContract({
     address: world,
     abi: WORLD_ABI,
-    functionName: "hyperscape__getPlayerAddress",
+    functionName: "hyperia__getPlayerAddress",
     args: [characterA],
     account: operator.address,
   })) as Address;
   const ownerB = (await publicClient.readContract({
     address: world,
     abi: WORLD_ABI,
-    functionName: "hyperscape__getPlayerAddress",
+    functionName: "hyperia__getPlayerAddress",
     args: [characterB],
     account: operator.address,
   })) as Address;
@@ -504,14 +504,14 @@ async function main() {
   const registeredA = (await publicClient.readContract({
     address: world,
     abi: WORLD_ABI,
-    functionName: "hyperscape__isPlayerRegistered",
+    functionName: "hyperia__isPlayerRegistered",
     args: [agentA.address],
     account: operator.address,
   })) as boolean;
   const registeredB = (await publicClient.readContract({
     address: world,
     abi: WORLD_ABI,
-    functionName: "hyperscape__isPlayerRegistered",
+    functionName: "hyperia__isPlayerRegistered",
     args: [agentB.address],
     account: operator.address,
   })) as boolean;
@@ -522,7 +522,7 @@ async function main() {
     operatorClient.writeContract({
       address: world,
       abi: WORLD_ABI,
-      functionName: "hyperscape__setInventorySlotBatch",
+      functionName: "hyperia__setInventorySlotBatch",
       args: [characterA, [0], [bronzeSwordId], [1]],
     }),
   );
@@ -530,7 +530,7 @@ async function main() {
     operatorClient.writeContract({
       address: world,
       abi: WORLD_ABI,
-      functionName: "hyperscape__setInventorySlotBatch",
+      functionName: "hyperia__setInventorySlotBatch",
       args: [characterB, [0], [ironSwordId], [1]],
     }),
   );
@@ -538,7 +538,7 @@ async function main() {
     operatorClient.writeContract({
       address: world,
       abi: WORLD_ABI,
-      functionName: "hyperscape__setEquipmentSlotBatch",
+      functionName: "hyperia__setEquipmentSlotBatch",
       args: [characterA, [10], [bronzeArrowId], [1_000_000]],
     }),
   );
@@ -546,7 +546,7 @@ async function main() {
     operatorClient.writeContract({
       address: world,
       abi: WORLD_ABI,
-      functionName: "hyperscape__setGold",
+      functionName: "hyperia__setGold",
       args: [characterA, 500n],
     }),
   );
@@ -554,7 +554,7 @@ async function main() {
     operatorClient.writeContract({
       address: world,
       abi: WORLD_ABI,
-      functionName: "hyperscape__setGold",
+      functionName: "hyperia__setGold",
       args: [characterB, 200n],
     }),
   );
@@ -583,7 +583,7 @@ async function main() {
       await attackerClient.writeContract({
         address: world,
         abi: WORLD_ABI,
-        functionName: "hyperscape__createTrade",
+        functionName: "hyperia__createTrade",
         args: [
           keccak256(stringToHex(`trade-bad-${runNonce}`)),
           agentA.address,
@@ -596,7 +596,7 @@ async function main() {
     await agentAClient.writeContract({
       address: world,
       abi: WORLD_ABI,
-      functionName: "hyperscape__createTrade",
+      functionName: "hyperia__createTrade",
       args: [
         keccak256(stringToHex(`trade-self-${runNonce}`)),
         agentA.address,
@@ -609,7 +609,7 @@ async function main() {
     agentAClient.writeContract({
       address: world,
       abi: WORLD_ABI,
-      functionName: "hyperscape__createTrade",
+      functionName: "hyperia__createTrade",
       args: [tradeId, agentA.address, agentB.address],
     }),
   );
@@ -618,7 +618,7 @@ async function main() {
     const [initiator, recipient, status] = (await publicClient.readContract({
       address: world,
       abi: WORLD_ABI,
-      functionName: "hyperscape__getTradeSession",
+      functionName: "hyperia__getTradeSession",
       args: [tradeId],
       account: operator.address,
     })) as readonly [
@@ -647,7 +647,7 @@ async function main() {
     await attackerClient.writeContract({
       address: world,
       abi: WORLD_ABI,
-      functionName: "hyperscape__cancelTrade",
+      functionName: "hyperia__cancelTrade",
       args: [tradeId],
     });
   });
@@ -655,7 +655,7 @@ async function main() {
     await attackerClient.writeContract({
       address: world,
       abi: WORLD_ABI,
-      functionName: "hyperscape__offerItem",
+      functionName: "hyperia__offerItem",
       args: [tradeId, 0, 1],
     });
   });
@@ -663,7 +663,7 @@ async function main() {
     await agentAClient.writeContract({
       address: world,
       abi: WORLD_ABI,
-      functionName: "hyperscape__offerItem",
+      functionName: "hyperia__offerItem",
       args: [tradeId, 0, 2],
     });
   });
@@ -672,7 +672,7 @@ async function main() {
     agentAClient.writeContract({
       address: world,
       abi: WORLD_ABI,
-      functionName: "hyperscape__offerItem",
+      functionName: "hyperia__offerItem",
       args: [tradeId, 0, 1],
     }),
   );
@@ -680,7 +680,7 @@ async function main() {
     agentAClient.writeContract({
       address: world,
       abi: WORLD_ABI,
-      functionName: "hyperscape__offerGold",
+      functionName: "hyperia__offerGold",
       args: [tradeId, 50n],
     }),
   );
@@ -688,7 +688,7 @@ async function main() {
     agentBClient.writeContract({
       address: world,
       abi: WORLD_ABI,
-      functionName: "hyperscape__offerItem",
+      functionName: "hyperia__offerItem",
       args: [tradeId, 0, 1],
     }),
   );
@@ -696,7 +696,7 @@ async function main() {
     agentBClient.writeContract({
       address: world,
       abi: WORLD_ABI,
-      functionName: "hyperscape__offerGold",
+      functionName: "hyperia__offerGold",
       args: [tradeId, 20n],
     }),
   );
@@ -713,7 +713,7 @@ async function main() {
     ] = (await publicClient.readContract({
       address: world,
       abi: WORLD_ABI,
-      functionName: "hyperscape__getTradeSession",
+      functionName: "hyperia__getTradeSession",
       args: [tradeId],
       account: operator.address,
     })) as readonly [
@@ -740,7 +740,7 @@ async function main() {
     agentAClient.writeContract({
       address: world,
       abi: WORLD_ABI,
-      functionName: "hyperscape__acceptTrade",
+      functionName: "hyperia__acceptTrade",
       args: [tradeId],
     }),
   );
@@ -748,7 +748,7 @@ async function main() {
     agentBClient.writeContract({
       address: world,
       abi: WORLD_ABI,
-      functionName: "hyperscape__acceptTrade",
+      functionName: "hyperia__acceptTrade",
       args: [tradeId],
     }),
   );
@@ -757,7 +757,7 @@ async function main() {
     const [, , status] = (await publicClient.readContract({
       address: world,
       abi: WORLD_ABI,
-      functionName: "hyperscape__getTradeSession",
+      functionName: "hyperia__getTradeSession",
       args: [tradeId],
       account: operator.address,
     })) as readonly [
@@ -800,14 +800,14 @@ async function main() {
   const goldAAfterTrade = (await publicClient.readContract({
     address: world,
     abi: WORLD_ABI,
-    functionName: "hyperscape__getGold",
+    functionName: "hyperia__getGold",
     args: [characterA],
     account: operator.address,
   })) as bigint;
   const goldBAfterTrade = (await publicClient.readContract({
     address: world,
     abi: WORLD_ABI,
-    functionName: "hyperscape__getGold",
+    functionName: "hyperia__getGold",
     args: [characterB],
     account: operator.address,
   })) as bigint;
@@ -820,7 +820,7 @@ async function main() {
     operatorClient.writeContract({
       address: world,
       abi: WORLD_ABI,
-      functionName: "hyperscape__commitCombatResult",
+      functionName: "hyperia__commitCombatResult",
       args: [combatResultId, characterA, goblinNpcId, 75, [bonesId], [2], [2]],
     }),
   );
@@ -833,7 +833,7 @@ async function main() {
   const goldAAfterMobKill = (await publicClient.readContract({
     address: world,
     abi: WORLD_ABI,
-    functionName: "hyperscape__getGold",
+    functionName: "hyperia__getGold",
     args: [characterA],
     account: operator.address,
   })) as bigint;
@@ -842,7 +842,7 @@ async function main() {
   const statsAAfterMob = (await publicClient.readContract({
     address: world,
     abi: WORLD_ABI,
-    functionName: "hyperscape__getPlayerStats",
+    functionName: "hyperia__getPlayerStats",
     args: [characterA],
     account: operator.address,
   })) as readonly [
@@ -878,7 +878,7 @@ async function main() {
   const goblinKills = (await publicClient.readContract({
     address: world,
     abi: WORLD_ABI,
-    functionName: "hyperscape__getNpcKillCount",
+    functionName: "hyperia__getNpcKillCount",
     args: [characterA, goblinNpcId],
     account: operator.address,
   })) as number | bigint;
@@ -895,7 +895,7 @@ async function main() {
     operatorClient.writeContract({
       address: world,
       abi: WORLD_ABI,
-      functionName: "hyperscape__setInventorySlotBatch",
+      functionName: "hyperia__setInventorySlotBatch",
       args: [characterA, [ironSlotA!], [0], [0]],
     }),
   );
@@ -905,7 +905,7 @@ async function main() {
       operatorClient.writeContract({
         address: world,
         abi: WORLD_ABI,
-        functionName: "hyperscape__setInventorySlotBatch",
+        functionName: "hyperia__setInventorySlotBatch",
         args: [characterB, [emptySlotB], [ironSwordId], [1]],
       }),
   );
@@ -913,7 +913,7 @@ async function main() {
     operatorClient.writeContract({
       address: world,
       abi: WORLD_ABI,
-      functionName: "hyperscape__recordDeath",
+      functionName: "hyperia__recordDeath",
       args: [characterA],
     }),
   );
@@ -921,7 +921,7 @@ async function main() {
     operatorClient.writeContract({
       address: world,
       abi: WORLD_ABI,
-      functionName: "hyperscape__recordPlayerKill",
+      functionName: "hyperia__recordPlayerKill",
       args: [characterB],
     }),
   );
@@ -930,7 +930,7 @@ async function main() {
     operatorClient.writeContract({
       address: world,
       abi: WORLD_ABI,
-      functionName: "hyperscape__recordDuel",
+      functionName: "hyperia__recordDuel",
       args: [
         duelId,
         agentA.address,
@@ -957,7 +957,7 @@ async function main() {
   const statsA = (await publicClient.readContract({
     address: world,
     abi: WORLD_ABI,
-    functionName: "hyperscape__getPlayerStats",
+    functionName: "hyperia__getPlayerStats",
     args: [characterA],
     account: operator.address,
   })) as readonly [
@@ -974,7 +974,7 @@ async function main() {
   const statsB = (await publicClient.readContract({
     address: world,
     abi: WORLD_ABI,
-    functionName: "hyperscape__getPlayerStats",
+    functionName: "hyperia__getPlayerStats",
     args: [characterB],
     account: operator.address,
   })) as readonly [
@@ -998,7 +998,7 @@ async function main() {
     await attackerClient.writeContract({
       address: world,
       abi: WORLD_ABI,
-      functionName: "hyperscape__setInventorySlotBatch",
+      functionName: "hyperia__setInventorySlotBatch",
       args: [characterA, [0], [bronzeSwordId], [999999]],
     });
   });
@@ -1006,7 +1006,7 @@ async function main() {
     await attackerClient.writeContract({
       address: world,
       abi: WORLD_ABI,
-      functionName: "hyperscape__recordDeath",
+      functionName: "hyperia__recordDeath",
       args: [characterA],
     });
   });
@@ -1014,7 +1014,7 @@ async function main() {
     await attackerClient.writeContract({
       address: world,
       abi: WORLD_ABI,
-      functionName: "hyperscape__commitCombatResult",
+      functionName: "hyperia__commitCombatResult",
       args: [
         keccak256(stringToHex(`bad-combat-${runNonce}`)),
         characterA,
@@ -1030,7 +1030,7 @@ async function main() {
     await attackerClient.writeContract({
       address: world,
       abi: WORLD_ABI,
-      functionName: "hyperscape__recordDuel",
+      functionName: "hyperia__recordDuel",
       args: [
         duelId,
         agentA.address,
@@ -1046,7 +1046,7 @@ async function main() {
     await operatorClient.writeContract({
       address: world,
       abi: WORLD_ABI,
-      functionName: "hyperscape__recordDuel",
+      functionName: "hyperia__recordDuel",
       args: [
         keccak256(stringToHex(`duel-invalid-winner-${runNonce}`)),
         agentA.address,
@@ -1062,7 +1062,7 @@ async function main() {
     await agentAClient.writeContract({
       address: world,
       abi: WORLD_ABI,
-      functionName: "hyperscape__offerItem",
+      functionName: "hyperia__offerItem",
       args: [tradeId, 0, 1],
     });
   });

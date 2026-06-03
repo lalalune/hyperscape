@@ -295,7 +295,7 @@ fine grain, polished finish"
 
 ### Default Material Presets
 
-**Location**: `/Users/home/hyperscape-1/packages/asset-forge/public/prompts/material-presets.json`
+**Location**: `/Users/home/hyperia-1/packages/asset-forge/public/prompts/material-presets.json`
 
 ### Preset Structure
 

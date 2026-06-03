@@ -15,7 +15,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { ThreeResourceManager } from "@/lib/ThreeResourceManager";
-import { THREE } from "@hyperscape/shared";
+import { THREE } from "@hyperforge/shared";
 
 /** Resource types that can be tracked */
 type ThreeResource = THREE.Object3D;

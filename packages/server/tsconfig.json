@@ -15,8 +15,8 @@
     // Modules
     "baseUrl": ".",
     "paths": {
-      "@hyperscape/plugin-hyperscape": ["../plugin-hyperscape/src/index.ts"],
-      "@hyperscape/plugin-hyperscape/*": ["../plugin-hyperscape/src/*"]
+      "@hyperforge/plugin-hyperia": ["../plugin-hyperia/src/index.ts"],
+      "@hyperforge/plugin-hyperia/*": ["../plugin-hyperia/src/*"]
     },
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,

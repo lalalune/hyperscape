@@ -414,12 +414,12 @@ This document provides comprehensive links to external documentation, tools, lib
 - **Chrome Extension**: https://chrome.google.com/webstore/detail/redux-devtools/lmhkpmbekcpmknklioeibfkpmmfibljd
 - **Zustand Integration**: https://docs.pmnd.rs/zustand/guides/dev-tools
 
-## Hyperscape Project
+## Hyperia Project
 
 ### Official Documentation
 
 **Main Project**
-- **GitHub Repository**: https://github.com/HyperscapeAI/hyperscape
+- **GitHub Repository**: https://github.com/PlayHyperia/hyperia
 - **Main README**: Located in repository root
 - **Architecture Docs**: See project documentation
 
@@ -432,7 +432,7 @@ This document provides comprehensive links to external documentation, tools, lib
 - **Client**: `/packages/client/`
 - **Server**: `/packages/server/`
 - **Shared**: `/packages/shared/`
-- **Plugin Hyperscape**: `/packages/plugin-hyperscape/`
+- **Plugin Hyperia**: `/packages/plugin-hyperia/`
 
 ### Project Communication
 

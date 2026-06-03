@@ -10,7 +10,7 @@ import {
   getContextMenuItemStyle,
   getContextMenuSurfaceStyle,
 } from "@/ui/theme/themes";
-import { CONTEXT_MENU_COLORS } from "@hyperscape/shared";
+import { CONTEXT_MENU_COLORS } from "@hyperforge/shared";
 import type {
   ActionBarSlotContent,
   ContextMenuItem,

@@ -81,7 +81,7 @@
       ],
       "cache": true
     },
-    "plugin-hyperscape#build": {
+    "plugin-hyperia#build": {
       "dependsOn": [
         "^build",
         "shared#build"
@@ -103,21 +103,21 @@
       ],
       "cache": true
     },
-    "@hyperscape/app#build": {
+    "@hyperforge/app#build": {
       "dependsOn": [
-        "@hyperscape/client#build"
+        "@hyperforge/client#build"
       ],
       "outputs": [],
       "cache": false
     },
-    "@hyperscape/contracts#build": {
+    "@hyperforge/contracts#build": {
       "dependsOn": [
         "^build"
       ],
       "outputs": [],
       "cache": true
     },
-    "@hyperscape/solana-prediction-market#build": {
+    "@hyperforge/solana-prediction-market#build": {
       "dependsOn": [
         "^build"
       ],

@@ -18,7 +18,7 @@ jobs:
         with:
           node-version: 20
           registry-url: https://npm.pkg.github.com
-          scope: "@hyperscapeai"
+          scope: "@playhyperia"
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2.2.0

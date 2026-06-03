@@ -9,7 +9,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { DuelCombatResolver } from "../DuelCombatResolver";
 import { createMockWorld, createDuelPlayers, type MockWorld } from "./mocks";
 import type { ServerDuelSession } from "../DuelSessionManager";
-import { EventType, createSlotNumber, createItemID } from "@hyperscape/shared";
+import { EventType, createSlotNumber, createItemID } from "@hyperforge/shared";
 import { LOBBY_SPAWN_WINNER, LOBBY_SPAWN_LOSER } from "../config";
 
 // Stable singleton mock so tests can verify calls

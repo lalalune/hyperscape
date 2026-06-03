@@ -2,7 +2,7 @@
 
 This repository publishes signed native app artifacts via `.github/workflows/build-app.yml` and exposes downloads via GitHub Pages at:
 
-- <https://hyperscapeai.github.io/hyperscape/>
+- <https://playhyperia.github.io/hyperia/>
 
 ## Release trigger
 

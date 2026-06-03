@@ -27,7 +27,7 @@ import {
   StoreSystem,
   SessionType,
   INPUT_LIMITS,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import type { ServerSocket } from "../../../shared/types";
 import { InventoryRepository } from "../../../database/repositories/InventoryRepository";
 import * as schema from "../../../database/schema";

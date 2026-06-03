@@ -7,7 +7,7 @@ import type {
   DuelArenaOracleResolutionEvent,
   DuelArenaOracleRecord,
 } from "../../../src/oracle/types.js";
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 
 // We mock the internals tightly used by publisher
 vi.mock("viem", async () => ({
@@ -20,7 +20,7 @@ vi.mock("viem/accounts", async () => ({
   privateKeyToAccount: vi.fn(),
 }));
 
-vi.mock("@hyperscape/shared", () => ({}));
+vi.mock("@hyperforge/shared", () => ({}));
 
 vi.mock("@solana/web3.js", async () => ({
   Connection: vi.fn(),

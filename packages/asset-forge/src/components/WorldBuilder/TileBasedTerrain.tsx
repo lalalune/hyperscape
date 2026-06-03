@@ -3,7 +3,7 @@
  *
  * This component renders terrain exactly as it appears in the game:
  * - Individual 100m x 100m tiles as separate THREE.Mesh objects
- * - Same terrain generation via TerrainGenerator from @hyperscape/procgen
+ * - Same terrain generation via TerrainGenerator from @hyperforge/procgen
  * - Tile loading/unloading based on camera position
  * - Fly camera controls for exploration
  * - Town markers showing generated towns
@@ -11,8 +11,8 @@
  * Uses WebGPU renderer for TSL/node materials compatibility.
  */
 
-import { BuildingGenerator } from "@hyperscape/procgen/building";
-import { TownGenerator } from "@hyperscape/procgen/building/town";
+import { BuildingGenerator } from "@hyperforge/procgen/building";
+import { TownGenerator } from "@hyperforge/procgen/building/town";
 import {
   TerrainGenerator,
   createConfigFromPreset,
@@ -20,7 +20,7 @@ import {
   createTerrainMaterial as createGameTerrainMaterial,
   type TerrainConfig,
   type TerrainUniforms,
-} from "@hyperscape/procgen/terrain";
+} from "@hyperforge/procgen/terrain";
 import React, {
   useEffect,
   useRef,

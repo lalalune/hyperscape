@@ -151,7 +151,7 @@ const API_BASE = (
   process.env.NEXT_PUBLIC_ARENA_API_BASE_URL ||
   (process.env.NODE_ENV === "development"
     ? "http://localhost:5555"
-    : "https://hyperscape-production.up.railway.app")
+    : "https://hyperia-production.up.railway.app")
 ).replace(/\/$/, "");
 const STREAM_EMBED_URL = (
   process.env.NEXT_PUBLIC_ARENA_STREAM_EMBED_URL || ""
@@ -177,7 +177,7 @@ const WS_URL =
       ? "ws://127.0.0.1:8900"
       : `wss://api.${SOLANA_CLUSTER}.solana.com`);
 const LOCAL_INVITE_ORIGIN = "http://localhost:4179";
-const WEBSITE_INVITE_ORIGIN = "https://hyperscape.bet";
+const WEBSITE_INVITE_ORIGIN = "https://hyperia.bet";
 const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey(
   process.env.NEXT_PUBLIC_SOLANA_ASSOCIATED_TOKEN_PROGRAM_ID ??
     "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
@@ -1079,7 +1079,7 @@ export default function ArenaBettingPage() {
           {STREAM_EMBED_URL ? (
             <iframe
               src={STREAM_EMBED_URL}
-              title="Hyperscape Arena Stream"
+              title="Hyperia Arena Stream"
               className="h-[360px] w-full rounded-xl border border-[var(--border-subtle)] md:h-[520px]"
               allow="autoplay; encrypted-media; picture-in-picture"
             />

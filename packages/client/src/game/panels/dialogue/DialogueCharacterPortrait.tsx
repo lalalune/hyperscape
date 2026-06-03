@@ -4,7 +4,7 @@ import {
   EventType,
   THREE,
   type EntityConfig,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import type { VRM } from "@pixiv/three-vrm";
 import { useThemeStore } from "@/ui";
 import { createAvatarPreviewViewport } from "@/game/character/avatarPreviewViewport";

@@ -11,7 +11,7 @@
  */
 
 import type { ServerSocket } from "../../shared/types";
-import { EventType, World, writePacket } from "@hyperscape/shared";
+import { EventType, World, writePacket } from "@hyperforge/shared";
 import { notifyFriendsOfStatusChange } from "./handlers/friends";
 import type { BroadcastManager } from "./broadcast";
 

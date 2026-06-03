@@ -15,7 +15,7 @@ import type { DragState } from "../../../../src/game/panels/BankPanel/hooks";
 import { TAB_INDEX_ALL } from "../../../../src/game/panels/BankPanel/constants";
 import {
   getInteractiveTileStyle,
-  hyperscapeTheme,
+  hyperiaTheme,
 } from "../../../../src/ui/theme/themes";
 
 describe("BankTabBar", () => {
@@ -328,10 +328,10 @@ describe("BankTabBar", () => {
 
       const plusButton = screen.getByText("+").closest("button");
       const expectedBackground = String(
-        getInteractiveTileStyle(hyperscapeTheme, {
+        getInteractiveTileStyle(hyperiaTheme, {
           hovered: true,
-          radius: hyperscapeTheme.borderRadius.sm,
-          accentColor: hyperscapeTheme.colors.state.success,
+          radius: hyperiaTheme.borderRadius.sm,
+          accentColor: hyperiaTheme.colors.state.success,
         }).background,
       );
       expect(plusButton?.style.background).toBe(expectedBackground);

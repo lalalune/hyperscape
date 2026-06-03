@@ -43,7 +43,7 @@ function getDb(): Promise<IDBDatabase> {
   if (dbPromise) return dbPromise;
 
   dbPromise = new Promise((resolve, reject) => {
-    const request = indexedDB.open("hyperscape", 1);
+    const request = indexedDB.open("hyperia", 1);
 
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve(request.result);

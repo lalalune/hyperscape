@@ -136,8 +136,8 @@ export function UsernameSelectionScreen({
           <div className="relative">
             <div className="mx-auto mb-8 w-full flex items-center justify-center">
               <img
-                src="/images/hyperscape_wordmark.png"
-                alt="Hyperscape"
+                src="/images/hyperia_wordmark.png"
+                alt="Hyperia"
                 className="h-20 md:h-32 object-contain"
               />
             </div>
@@ -149,7 +149,7 @@ export function UsernameSelectionScreen({
               className="text-2xl font-bold mb-2"
               style={{ color: theme.colors.text.accent }}
             >
-              Welcome to Hyperscape!
+              Welcome to Hyperia!
             </h2>
             <p
               className="text-sm"

@@ -14,7 +14,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
-import { HOME_TELEPORT_CONSTANTS, EventType, Emotes } from "@hyperscape/shared";
+import { HOME_TELEPORT_CONSTANTS, EventType, Emotes } from "@hyperforge/shared";
 import {
   initHomeTeleportManager,
   getHomeTeleportManager,

@@ -1,4 +1,4 @@
-import { HOME_TELEPORT_CONSTANTS } from "@hyperscape/shared";
+import { HOME_TELEPORT_CONSTANTS } from "@hyperforge/shared";
 
 export function readHomeTeleportRemainingMs(event?: unknown): number {
   const payload = event as { remainingMs?: number } | undefined;

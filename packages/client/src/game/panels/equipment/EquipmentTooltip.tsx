@@ -7,7 +7,7 @@ import {
   getTooltipStatusStyle,
   getTooltipTitleStyle,
 } from "@/ui/core/tooltip/tooltipStyles";
-import { getItem } from "@hyperscape/shared";
+import { getItem } from "@hyperforge/shared";
 import type { Item } from "../../../types";
 
 /** Rarity colors shared across equipment UI */

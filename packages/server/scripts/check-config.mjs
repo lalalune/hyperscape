@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Configuration checker - verifies your Hyperscape environment is set up correctly
+ * Configuration checker - verifies your Hyperia environment is set up correctly
  * Usage: node scripts/check-config.mjs [--mobile]
  */
 
@@ -62,7 +62,7 @@ function loadEnvFile() {
   return env;
 }
 
-console.log('\n🔍 Hyperscape Configuration Check\n');
+console.log('\n🔍 Hyperia Configuration Check\n');
 console.log('═'.repeat(60));
 
 // Load .env

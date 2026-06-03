@@ -3,7 +3,7 @@
  * Sync all game assets to Cloudflare R2 bucket
  * 
  * This script uploads all assets from packages/server/world/assets/ to the
- * hyperscape-assets R2 bucket for CDN delivery.
+ * hyperia-assets R2 bucket for CDN delivery.
  * 
  * Usage:
  *   bun run sync:r2           # Sync all assets
@@ -19,7 +19,7 @@ import { fileURLToPath } from "url";
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const ROOT_DIR = join(__dirname, "..");
 const ASSETS_DIR = join(ROOT_DIR, "packages/server/world/assets");
-const BUCKET_NAME = "hyperscape-assets";
+const BUCKET_NAME = "hyperia-assets";
 
 // Content type mapping
 const CONTENT_TYPES = {
@@ -220,7 +220,7 @@ async function main() {
   }
 
   console.log("\n✅ All assets synced to R2!");
-  console.log(`   CDN URL: https://assets.hyperscape.club/`);
+  console.log(`   CDN URL: https://assets.hyperia.club/`);
 }
 
 main().catch((error) => {

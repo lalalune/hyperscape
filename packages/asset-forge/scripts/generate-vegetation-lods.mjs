@@ -658,7 +658,7 @@ async function generateTrees(options) {
   log("Loading tree generator...");
 
   // Dynamic import of procgen
-  const procgen = await import("@hyperscape/procgen");
+  const procgen = await import("@hyperforge/procgen");
   const { TreeGenerator, getPresetNames, disposeTreeMesh } = procgen;
 
   const availablePresets = getPresetNames();
@@ -731,7 +731,7 @@ async function generateTrees(options) {
 async function generateRocks(options) {
   log("Loading rock generator...");
 
-  const procgen = await import("@hyperscape/procgen");
+  const procgen = await import("@hyperforge/procgen");
   const { RockGen } = procgen;
   const { RockGenerator } = RockGen;
 
@@ -788,7 +788,7 @@ async function generateRocks(options) {
 async function generatePlants(options) {
   log("Loading plant generator...");
 
-  const procgen = await import("@hyperscape/procgen");
+  const procgen = await import("@hyperforge/procgen");
   const { PlantGen } = procgen;
   const { PlantGenerator, getPresetNames } = PlantGen;
 
@@ -863,7 +863,7 @@ async function generatePlants(options) {
 
 async function generateLODsForAsset(assetInfo, options) {
   const { decimate, MeshData, VEGETATION_LOD_PRESETS } = await import(
-    "@hyperscape/decimation"
+    "@hyperforge/decimation"
   );
 
   if (options.dryRun) {

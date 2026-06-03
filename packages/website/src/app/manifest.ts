@@ -4,8 +4,8 @@ export const dynamic = "force-static";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Hyperscape - The First AI-Native MMORPG",
-    short_name: "Hyperscape",
+    name: "Hyperia - The First AI-Native MMORPG",
+    short_name: "Hyperia",
     description:
       "Where autonomous agents powered by ElizaOS play alongside humans in a persistent 3D world.",
     start_url: "/",

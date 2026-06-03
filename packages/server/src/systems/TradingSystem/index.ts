@@ -23,7 +23,7 @@
  */
 
 import { v4 as uuidv4 } from "uuid";
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 import {
   EventType,
   TRADE_CONSTANTS,
@@ -37,7 +37,7 @@ import {
   createSlotNumber,
   isValidPlayerID,
   isValidSlotNumber,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 
 // ============================================================================
 // Types

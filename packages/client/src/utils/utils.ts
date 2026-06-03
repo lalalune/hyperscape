@@ -1,7 +1,7 @@
 /**
  * Client Utility Functions
  *
- * This module provides core utility functions for the Hyperscape client application:
+ * This module provides core utility functions for the Hyperia client application:
  * - Device detection for touch vs. pointer interfaces (isTouch)
  * - File hashing for content verification and deduplication (hashFile)
  *

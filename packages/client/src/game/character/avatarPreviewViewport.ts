@@ -1,4 +1,4 @@
-import { THREE, createRenderer, type WebGPURenderer } from "@hyperscape/shared";
+import { THREE, createRenderer, type WebGPURenderer } from "@hyperforge/shared";
 import { ThreeResourceManager } from "@/lib/ThreeResourceManager";
 
 export interface AvatarPreviewViewport {

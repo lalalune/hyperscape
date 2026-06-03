@@ -66,7 +66,7 @@ export function GoldCTA() {
                 style={{ color: "var(--text-secondary)" }}
               >
                 Join the adventure and claim your place among the richest
-                players in Hyperscape.
+                players in Hyperia.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-3 justify-center mb-5">

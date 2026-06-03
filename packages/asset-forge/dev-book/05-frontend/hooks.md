@@ -92,7 +92,7 @@ General-purpose API request hook with error handling and loading states.
 
 ### File Location
 
-`/Users/home/hyperscape-1/packages/asset-forge/src/hooks/useApi.ts`
+`/Users/home/hyperia-1/packages/asset-forge/src/hooks/useApi.ts`
 
 ### Signature
 
@@ -238,7 +238,7 @@ Sets up and manages a Three.js scene with camera, renderer, and controls.
 
 ### File Location
 
-`/Users/home/hyperscape-1/packages/asset-forge/src/hooks/useThreeScene.ts`
+`/Users/home/hyperia-1/packages/asset-forge/src/hooks/useThreeScene.ts`
 
 ### Signature
 
@@ -466,7 +466,7 @@ Fetches and manages the list of assets with reload capabilities.
 
 ### File Location
 
-`/Users/home/hyperscape-1/packages/asset-forge/src/hooks/useAssets.ts`
+`/Users/home/hyperia-1/packages/asset-forge/src/hooks/useAssets.ts`
 
 ### Signature
 
@@ -574,7 +574,7 @@ Orchestrates armor fitting operations with the ArmorFittingViewer.
 
 ### File Location
 
-`/Users/home/hyperscape-1/packages/asset-forge/src/hooks/useArmorFitting.ts`
+`/Users/home/hyperia-1/packages/asset-forge/src/hooks/useArmorFitting.ts`
 
 ### Signature
 
@@ -701,7 +701,7 @@ Provides CRUD operations for assets with viewer integration.
 
 ### File Location
 
-`/Users/home/hyperscape-1/packages/asset-forge/src/hooks/useAssetActions.ts`
+`/Users/home/hyperia-1/packages/asset-forge/src/hooks/useAssetActions.ts`
 
 ### Signature
 
@@ -856,7 +856,7 @@ Polls pipeline status and updates UI in real-time.
 
 ### File Location
 
-`/Users/home/hyperscape-1/packages/asset-forge/src/hooks/usePipelineStatus.ts`
+`/Users/home/hyperia-1/packages/asset-forge/src/hooks/usePipelineStatus.ts`
 
 ### Signature
 
@@ -1023,7 +1023,7 @@ Loads prompt templates from the backend.
 
 ### File Location
 
-`/Users/home/hyperscape-1/packages/asset-forge/src/hooks/usePrompts.ts`
+`/Users/home/hyperia-1/packages/asset-forge/src/hooks/usePrompts.ts`
 
 ### Signatures
 
@@ -1108,7 +1108,7 @@ Manages material preset CRUD operations.
 
 ### File Location
 
-`/Users/home/hyperscape-1/packages/asset-forge/src/hooks/useMaterialPresets.ts`
+`/Users/home/hyperia-1/packages/asset-forge/src/hooks/useMaterialPresets.ts`
 
 ### Signature
 
@@ -1158,7 +1158,7 @@ Utilities for exporting fitted armor models.
 
 ### File Location
 
-`/Users/home/hyperscape-1/packages/asset-forge/src/hooks/useArmorExport.ts`
+`/Users/home/hyperia-1/packages/asset-forge/src/hooks/useArmorExport.ts`
 
 ### Signature
 
@@ -1211,7 +1211,7 @@ Accesses the navigation context.
 
 ### File Location
 
-`/Users/home/hyperscape-1/packages/asset-forge/src/hooks/useNavigation.ts`
+`/Users/home/hyperia-1/packages/asset-forge/src/hooks/useNavigation.ts`
 
 ### Signature
 

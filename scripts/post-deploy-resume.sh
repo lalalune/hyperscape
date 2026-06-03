@@ -7,7 +7,7 @@
 # 2. Re-enables duel scheduling and betting
 #
 # Required environment variables:
-# - SERVER_URL: Base URL of the Hyperscape server (e.g., https://api.hyperscape.game)
+# - SERVER_URL: Base URL of the Hyperia server (e.g., https://api.hyperia.game)
 # - ADMIN_CODE: Admin API authentication code
 #
 

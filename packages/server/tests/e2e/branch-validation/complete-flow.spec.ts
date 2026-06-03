@@ -302,17 +302,17 @@ test.describe("Complete Flow End-to-End (plugin-work branch)", () => {
         id: charData.character.id,
         name: charData.character.name,
         username: "lifecycle_test",
-        system: `You are ${charData.character.name}, an AI agent in Hyperscape.`,
+        system: `You are ${charData.character.name}, an AI agent in Hyperia.`,
         bio: ["I am a test agent for lifecycle testing."],
-        topics: ["hyperscape", "testing"],
+        topics: ["hyperia", "testing"],
         adjectives: ["adventurous", "reliable"],
-        plugins: ["@hyperscape/plugin-hyperscape"],
+        plugins: ["@hyperforge/plugin-hyperia"],
         settings: {
           secrets: {
-            HYPERSCAPE_CHARACTER_ID: charData.character.id,
-            HYPERSCAPE_AUTH_TOKEN: credentials.authToken,
-            HYPERSCAPE_ACCOUNT_ID: testUser.userId,
-            HYPERSCAPE_SERVER_URL: WS_URL,
+            HYPERIA_CHARACTER_ID: charData.character.id,
+            HYPERIA_AUTH_TOKEN: credentials.authToken,
+            HYPERIA_ACCOUNT_ID: testUser.userId,
+            HYPERIA_SERVER_URL: WS_URL,
             wallet: "0xLIFECYCLE",
           },
           avatar: "lifecycle-avatar.vrm",
@@ -536,7 +536,7 @@ test.describe("Complete Flow End-to-End (plugin-work branch)", () => {
 
   /**
    * TEST 3: Agent Deletion and Cleanup
-   * Delete agent → verify cleanup in both ElizaOS and Hyperscape
+   * Delete agent → verify cleanup in both ElizaOS and Hyperia
    */
   test("Agent deletion and cleanup", async () => {
     const testName = "agent-deletion-cleanup";
@@ -596,12 +596,12 @@ test.describe("Complete Flow End-to-End (plugin-work branch)", () => {
         bio: ["Test"],
         topics: ["test"],
         adjectives: ["test"],
-        plugins: ["@hyperscape/plugin-hyperscape"],
+        plugins: ["@hyperforge/plugin-hyperia"],
         settings: {
           secrets: {
-            HYPERSCAPE_CHARACTER_ID: charData.character.id,
-            HYPERSCAPE_AUTH_TOKEN: credentials.authToken,
-            HYPERSCAPE_ACCOUNT_ID: testUser.userId,
+            HYPERIA_CHARACTER_ID: charData.character.id,
+            HYPERIA_AUTH_TOKEN: credentials.authToken,
+            HYPERIA_ACCOUNT_ID: testUser.userId,
           },
           accountId: testUser.userId,
         },
@@ -634,8 +634,8 @@ test.describe("Complete Flow End-to-End (plugin-work branch)", () => {
       });
       logs.push(`[${testName}] ✅ Mapping saved`);
 
-      // Delete from Hyperscape
-      logs.push(`[${testName}] PHASE 1: Deleting from Hyperscape...`);
+      // Delete from Hyperia
+      logs.push(`[${testName}] PHASE 1: Deleting from Hyperia...`);
       const deleteMappingResponse = await httpRequest(
         `${SERVER_URL}/api/agents/mappings/${agentId}`,
         {
@@ -643,7 +643,7 @@ test.describe("Complete Flow End-to-End (plugin-work branch)", () => {
         },
       );
       logs.push(
-        `[${testName}] Hyperscape mapping delete status: ${deleteMappingResponse.status}`,
+        `[${testName}] Hyperia mapping delete status: ${deleteMappingResponse.status}`,
       );
 
       // Delete from ElizaOS
@@ -661,7 +661,7 @@ test.describe("Complete Flow End-to-End (plugin-work branch)", () => {
       // Verify deletion
       logs.push(`[${testName}] PHASE 3: Verifying deletion...`);
 
-      // Check Hyperscape mapping
+      // Check Hyperia mapping
       const verifyMappingResponse = await httpRequest(
         `${SERVER_URL}/api/agents/mappings/${testUser.userId}`,
       );
@@ -673,9 +673,9 @@ test.describe("Complete Flow End-to-End (plugin-work branch)", () => {
         const stillExists = mappings.agentIds.includes(agentId);
 
         if (!stillExists) {
-          logs.push(`[${testName}] ✅ Mapping deleted from Hyperscape`);
+          logs.push(`[${testName}] ✅ Mapping deleted from Hyperia`);
         } else {
-          logs.push(`[${testName}] ⚠️  Mapping still exists in Hyperscape`);
+          logs.push(`[${testName}] ⚠️  Mapping still exists in Hyperia`);
         }
       }
 
@@ -694,7 +694,7 @@ test.describe("Complete Flow End-to-End (plugin-work branch)", () => {
       logs.push(`[${testName}] ✅ DELETION AND CLEANUP VERIFIED`);
       logs.push(`[${testName}]   - Agent created ✓`);
       logs.push(`[${testName}]   - Mapping saved ✓`);
-      logs.push(`[${testName}]   - Hyperscape deletion ✓`);
+      logs.push(`[${testName}]   - Hyperia deletion ✓`);
       logs.push(`[${testName}]   - ElizaOS deletion ✓`);
       logs.push(`[${testName}]   - Cleanup verified ✓`);
 
@@ -782,12 +782,12 @@ test.describe("Complete Flow End-to-End (plugin-work branch)", () => {
           bio: [`I am agent ${i}`],
           topics: ["test"],
           adjectives: ["test"],
-          plugins: ["@hyperscape/plugin-hyperscape"],
+          plugins: ["@hyperforge/plugin-hyperia"],
           settings: {
             secrets: {
-              HYPERSCAPE_CHARACTER_ID: charData.character.id,
-              HYPERSCAPE_AUTH_TOKEN: credentials.authToken,
-              HYPERSCAPE_ACCOUNT_ID: testUser.userId,
+              HYPERIA_CHARACTER_ID: charData.character.id,
+              HYPERIA_AUTH_TOKEN: credentials.authToken,
+              HYPERIA_ACCOUNT_ID: testUser.userId,
             },
             accountId: testUser.userId,
           },

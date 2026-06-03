@@ -3,7 +3,7 @@
     "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",
-      "package_name": "com.hyperscape.game",
+      "package_name": "com.hyperia.game",
       "sha256_cert_fingerprints": [
         "DE:6E:83:43:0E:5A:E5:8A:9D:B7:85:04:CB:74:B8:17:7C:0E:B2:D0:72:5A:24:E1:5A:E1:2E:5F:00:DC:32:2D",
         "D8:62:DA:68:4E:7C:54:35:7B:48:20:8D:C3:9A:20:4E:F3:63:F2:19:BE:4B:97:12:BD:5F:63:25:26:6C:11:E0"

@@ -117,8 +117,8 @@ optional = true
 version = "0.21"
 
 [dependencies.bincode]
-package = "hyperscape-bincode"
-path = "../hyperscape-bincode"
+package = "hyperforge-bincode"
+path = "../hyperforge-bincode"
 
 [dependencies.borsh]
 version = "0.10.3"

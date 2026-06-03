@@ -91,7 +91,7 @@ const getJwtSecret = (): string => {
     "[Security] Using insecure development JWT secret. " +
       "This is only acceptable for local development.",
   );
-  return "hyperscape-dev-secret-key-12345";
+  return "hyperia-dev-secret-key-12345";
 };
 
 const jwtSecret = getJwtSecret();

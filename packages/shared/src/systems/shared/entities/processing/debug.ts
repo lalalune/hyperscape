@@ -17,7 +17,7 @@
 
 /**
  * Enable verbose processing system logging.
- * - In development: controlled by HYPERSCAPE_DEBUG_PROCESSING env var
+ * - In development: controlled by HYPERIA_DEBUG_PROCESSING env var
  * - In production: always false (dead code elimination)
  */
 function getDebugProcessing(): boolean {
@@ -26,7 +26,7 @@ function getDebugProcessing(): boolean {
     if (typeof process !== "undefined" && process?.env) {
       return (
         process.env.NODE_ENV !== "production" &&
-        process.env.HYPERSCAPE_DEBUG_PROCESSING === "true"
+        process.env.HYPERIA_DEBUG_PROCESSING === "true"
       );
     }
   } catch {

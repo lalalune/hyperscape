@@ -83,7 +83,7 @@ function getDockerComposeCommand() {
 
 function isCDNRunning() {
   try {
-    const status = runDocker(['ps', '--filter', 'name=^/hyperscape-cdn$', '--format', '{{.Status}}'], {
+    const status = runDocker(['ps', '--filter', 'name=^/hyperia-cdn$', '--format', '{{.Status}}'], {
       encoding: 'utf8',
       cwd: serverDir
     }).trim()
@@ -96,14 +96,14 @@ function isCDNRunning() {
 function removeExistingCDNContainer() {
   try {
     const existing = runDocker(
-      ['ps', '-a', '--filter', 'name=^/hyperscape-cdn$', '--format', '{{.ID}}'],
+      ['ps', '-a', '--filter', 'name=^/hyperia-cdn$', '--format', '{{.ID}}'],
       { encoding: 'utf8', cwd: serverDir },
     ).trim()
 
     if (!existing) return false
 
-    console.log(`${colors.yellow}Removing existing hyperscape-cdn container...${colors.reset}`)
-    runDocker(['rm', '-f', 'hyperscape-cdn'], {
+    console.log(`${colors.yellow}Removing existing hyperia-cdn container...${colors.reset}`)
+    runDocker(['rm', '-f', 'hyperia-cdn'], {
       stdio: 'inherit',
       cwd: serverDir,
     })
@@ -139,8 +139,8 @@ function copyPhysXAssets() {
   const assetsWebDir = path.join(assetsDir, 'web')
   fs.mkdirSync(assetsWebDir, { recursive: true })
 
-  const physxWasm = path.join(rootDir, 'node_modules/@hyperscape/physx-js-webidl/dist/physx-js-webidl.wasm')
-  const physxJs = path.join(rootDir, 'node_modules/@hyperscape/physx-js-webidl/dist/physx-js-webidl.js')
+  const physxWasm = path.join(rootDir, 'node_modules/@hyperforge/physx-js-webidl/dist/physx-js-webidl.wasm')
+  const physxJs = path.join(rootDir, 'node_modules/@hyperforge/physx-js-webidl/dist/physx-js-webidl.js')
 
   if (fs.existsSync(physxWasm)) {
     fs.copyFileSync(physxWasm, path.join(assetsWebDir, 'physx-js-webidl.wasm'))
@@ -199,7 +199,7 @@ async function ensureCDNRunning() {
       }
 
       console.log(
-        `${colors.yellow}⚠️  hyperscape-cdn exists but is not reachable at http://localhost:8080 (likely wrong port mapping). Recreating...${colors.reset}`,
+        `${colors.yellow}⚠️  hyperia-cdn exists but is not reachable at http://localhost:8080 (likely wrong port mapping). Recreating...${colors.reset}`,
       )
       restartCDN()
       return await waitForHealthy()

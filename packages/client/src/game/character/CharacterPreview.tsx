@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
-import { THREE, createRenderer } from "@hyperscape/shared";
-import type { WebGPURenderer } from "@hyperscape/shared";
+import { THREE, createRenderer } from "@hyperforge/shared";
+import type { WebGPURenderer } from "@hyperforge/shared";
 import {
   GLTFLoader,
   type GLTFParser,

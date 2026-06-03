@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * Deploy Hyperscape Client to Cloudflare Pages
+ * Deploy Hyperia Client to Cloudflare Pages
  *
  * NOTE: Production deployments normally run via the GitHub Actions workflow.
  * This script is for manual/preview deployments or emergency production deploys.
  *
- * Production domains: https://hyperscape.club, https://hyperscape.gg
+ * Production domains: https://hyperia.club, https://hyperia.gg
  */
 
 import { execSync } from 'child_process'
@@ -17,14 +17,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const rootDir = path.join(__dirname, '..')
 
 // Project name matches Cloudflare Pages project
-const PROJECT_NAME = process.env.CLOUDFLARE_PROJECT_NAME || 'hyperscape'
+const PROJECT_NAME = process.env.CLOUDFLARE_PROJECT_NAME || 'hyperia'
 const PRODUCTION = process.argv.includes('--production')
 
 async function main() {
-  console.log('🚀 Deploying Hyperscape to Cloudflare Pages')
+  console.log('🚀 Deploying Hyperia to Cloudflare Pages')
   console.log(`   Project: ${PROJECT_NAME}`)
   console.log(`   Environment: ${PRODUCTION ? 'Production' : 'Preview'}`)
-  console.log('   Domains: https://hyperscape.club, https://hyperscape.gg')
+  console.log('   Domains: https://hyperia.club, https://hyperia.gg')
   
   if (PRODUCTION) {
     console.log('\n⚠️  Note: Production deploys normally run from GitHub Actions.')
@@ -62,7 +62,7 @@ async function main() {
     console.log('\n✅ Deployment successful!')
     
     if (PRODUCTION) {
-      console.log('\n📡 Production URLs: https://hyperscape.club, https://hyperscape.gg')
+      console.log('\n📡 Production URLs: https://hyperia.club, https://hyperia.gg')
     } else {
       console.log(`\n📡 Preview URL: Check output above`)
     }

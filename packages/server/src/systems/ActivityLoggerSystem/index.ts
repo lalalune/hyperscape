@@ -3,9 +3,9 @@
  * Batches events and flushes to database periodically for efficiency.
  */
 
-import { SystemBase } from "@hyperscape/shared";
-import type { World } from "@hyperscape/shared";
-import { EventType } from "@hyperscape/shared";
+import { SystemBase } from "@hyperforge/shared";
+import type { World } from "@hyperforge/shared";
+import { EventType } from "@hyperforge/shared";
 import { inArray } from "drizzle-orm";
 import type { DatabaseSystem } from "../DatabaseSystem/index.js";
 import type { ActivityLogEntry } from "../../shared/types/index.js";

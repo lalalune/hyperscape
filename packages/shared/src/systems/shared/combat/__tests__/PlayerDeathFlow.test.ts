@@ -2,7 +2,7 @@
  * PlayerDeathSystem Unit Tests
  *
  * Tests the death-to-respawn pipeline and security guards using mocked systems.
- * (True integration tests use Playwright with real Hyperscape instances.)
+ * (True integration tests use Playwright with real Hyperia instances.)
  *
  * Verifies:
  * - Death processing guard prevents respawn race conditions

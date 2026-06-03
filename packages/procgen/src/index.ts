@@ -1,10 +1,10 @@
 /**
- * @hyperscape/procgen
+ * @hyperforge/procgen
  *
  * Procedural generation toolkit for trees, plants, rocks, buildings, grass, and flowers.
  * Tree generation is based on the Weber & Penn algorithm.
  *
- * For impostor/LOD functionality, import from @hyperscape/impostor.
+ * For impostor/LOD functionality, import from @hyperforge/impostor.
  *
  * @packageDocumentation
  */
@@ -154,8 +154,8 @@ export {
 // Export utilities
 export { exportToGLB, exportToGLBFile } from "./export/index.js";
 
-// Tree Impostor (tree-specific wrapper for @hyperscape/impostor)
-// For core impostor functionality, import from @hyperscape/impostor directly
+// Tree Impostor (tree-specific wrapper for @hyperforge/impostor)
+// For core impostor functionality, import from @hyperforge/impostor directly
 export {
   TreeImpostor,
   bakeTreeImpostor,

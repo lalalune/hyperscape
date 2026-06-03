@@ -1,0 +1,41 @@
+{
+  "id": "@hyperforge/plugin-hyperia",
+  "name": "Hyperia",
+  "description": "Connect ElizaOS AI agents to Hyperia 3D multiplayer RPG worlds and expose a viewer/session bridge for host apps.",
+  "version": "1.0.0",
+  "configSchema": {},
+  "app": {
+    "displayName": "Hyperia",
+    "category": "game",
+    "launchType": "connect",
+    "launchUrl": "{HYPERIA_CLIENT_URL}",
+    "runtimePlugin": "@hyperforge/plugin-hyperia",
+    "bridgeExport": "./app",
+    "capabilities": [
+      "combat",
+      "skills",
+      "inventory",
+      "banking",
+      "social-chat",
+      "exploration",
+      "crafting"
+    ],
+    "viewer": {
+      "url": "{HYPERIA_CLIENT_URL}",
+      "embedParams": {
+        "embedded": "true",
+        "mode": "spectator",
+        "surface": "agent-control",
+        "followEntity": "{HYPERIA_CHARACTER_ID}",
+        "hiddenUI": "chat,inventory,minimap,hotbar,stats",
+        "quality": "medium"
+      },
+      "postMessageAuth": true,
+      "sandbox": "allow-scripts allow-same-origin allow-popups allow-forms"
+    },
+    "session": {
+      "mode": "spectate-and-steer",
+      "features": ["commands", "telemetry", "pause", "resume", "suggestions"]
+    }
+  }
+}

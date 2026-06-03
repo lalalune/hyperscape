@@ -307,8 +307,8 @@ export interface TownCandidate {
  * Implement this to provide terrain data to the TownGenerator
  *
  * This interface can be implemented by:
- * - TerrainGenerator from @hyperscape/procgen/terrain
- * - TerrainSystem from @hyperscape/shared
+ * - TerrainGenerator from @hyperforge/procgen/terrain
+ * - TerrainSystem from @hyperforge/shared
  * - Custom terrain implementations
  */
 export interface TerrainProvider {
@@ -348,7 +348,7 @@ export interface NoiseProvider {
 
 /**
  * Helper type for creating TerrainProvider from TerrainGenerator
- * This interface matches the TerrainGenerator API from @hyperscape/procgen/terrain
+ * This interface matches the TerrainGenerator API from @hyperforge/procgen/terrain
  */
 export interface TerrainGeneratorLike {
   getHeightAt(worldX: number, worldZ: number): number;
@@ -378,7 +378,7 @@ export interface TownGenerationOptions {
 
 /**
  * Create a TerrainProvider from a TerrainGenerator-like object
- * This allows seamless integration with @hyperscape/procgen/terrain
+ * This allows seamless integration with @hyperforge/procgen/terrain
  */
 export function createTerrainProviderFromGenerator(
   generator: TerrainGeneratorLike,

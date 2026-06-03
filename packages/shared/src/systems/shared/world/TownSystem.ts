@@ -3,7 +3,7 @@
  * Generates deterministic towns with flatness-based placement.
  * Towns are safe zones with bank/store/anvil buildings.
  *
- * This system delegates procedural generation to @hyperscape/procgen/building/town
+ * This system delegates procedural generation to @hyperforge/procgen/building/town
  * while handling runtime concerns (manifest loading, terrain integration, queries).
  *
  * **Building Collision:**
@@ -42,7 +42,7 @@ import {
   type GeneratedTown,
   type TerrainProvider,
   DEFAULT_LANDMARK_CONFIG,
-} from "@hyperscape/procgen/building/town";
+} from "@hyperforge/procgen/building/town";
 import {
   BuildingGenerator,
   type BuildingLayout,
@@ -56,7 +56,7 @@ import {
   snapToBuildingGrid,
   getCellCenter,
   getSideVector,
-} from "@hyperscape/procgen/building";
+} from "@hyperforge/procgen/building";
 import { BuildingCollisionService } from "./BuildingCollisionService";
 import type {
   FlatZone,
@@ -307,7 +307,7 @@ export class TownSystem extends System {
   }
 
   /**
-   * Initialize the TownGenerator from @hyperscape/procgen with terrain provider
+   * Initialize the TownGenerator from @hyperforge/procgen with terrain provider
    */
   private initializeTownGenerator(): void {
     // Create a terrain provider adapter for the terrain system
@@ -712,7 +712,7 @@ export class TownSystem extends System {
   }
 
   /**
-   * Generate procedural towns using the TownGenerator from @hyperscape/procgen
+   * Generate procedural towns using the TownGenerator from @hyperforge/procgen
    */
   private generateTowns(): void {
     // Convert existing manifest towns to GeneratedTown format for avoidance
@@ -774,7 +774,7 @@ export class TownSystem extends System {
   }
 
   /**
-   * Convert a GeneratedTown from @hyperscape/procgen to ProceduralTown
+   * Convert a GeneratedTown from @hyperforge/procgen to ProceduralTown
    */
   private convertGeneratedTown(generated: GeneratedTown): ProceduralTown {
     // Convert buildings

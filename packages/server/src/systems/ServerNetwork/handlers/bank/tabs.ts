@@ -5,7 +5,7 @@
  * Tab 0 is the main tab, tabs 1-9 are custom user tabs.
  */
 
-import { type World, SessionType } from "@hyperscape/shared";
+import { type World, SessionType } from "@hyperforge/shared";
 import type { ServerSocket } from "../../../../shared/types";
 import { sql } from "drizzle-orm";
 

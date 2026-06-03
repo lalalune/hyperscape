@@ -6,7 +6,7 @@
 
 ## Overview
 
-Hyperscape Shared leverages modern web technologies to deliver a high-performance 3D multiplayer game engine that runs in browsers and Node.js environments.
+Hyperia Shared leverages modern web technologies to deliver a high-performance 3D multiplayer game engine that runs in browsers and Node.js environments.
 
 ---
 
@@ -64,7 +64,7 @@ entity.addComponent<CombatComponent>('combat', {
 
 **Usage:**
 ```typescript
-// Hyperscape wraps Three.js
+// Hyperia wraps Three.js
 const mesh = new THREE.Mesh(
   new THREE.BoxGeometry(1, 1, 1),
   new THREE.MeshStandardMaterial({ color: 0xff0000 })
@@ -497,7 +497,7 @@ export default [
 
 ## Summary
 
-Hyperscape Shared leverages:
+Hyperia Shared leverages:
 
 1. **Modern Web Stack**: TypeScript, Vite, ESM
 2. **Proven 3D Engine**: Three.js for rendering

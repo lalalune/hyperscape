@@ -251,7 +251,7 @@ export const ModalWindow = memo(function ModalWindow({
     bottom: 0,
     backgroundColor: "rgba(7, 9, 12, 0.74)",
     backgroundImage:
-      theme.name === "hyperscape"
+      theme.name === "hyperia"
         ? "radial-gradient(circle at top, rgba(190, 165, 123, 0.07), transparent 30%), radial-gradient(circle at center, rgba(255, 255, 255, 0.028), transparent 44%)"
         : "radial-gradient(circle at top, rgba(255, 255, 255, 0.04), transparent 42%)",
     display: "flex",
@@ -327,7 +327,7 @@ export const ModalWindow = memo(function ModalWindow({
     padding: theme.spacing.md,
     overscrollBehavior: "contain",
     background:
-      theme.name === "hyperscape"
+      theme.name === "hyperia"
         ? "linear-gradient(180deg, rgba(255, 255, 255, 0.028) 0%, rgba(255, 255, 255, 0.014) 18%, rgba(0, 0, 0, 0.08) 100%)"
         : "transparent",
     pointerEvents: "auto",
@@ -404,7 +404,7 @@ export const ModalWindow = memo(function ModalWindow({
               inset: 0,
               pointerEvents: "none",
               background:
-                theme.name === "hyperscape"
+                theme.name === "hyperia"
                   ? "linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0%, transparent 14%, transparent 82%, rgba(0, 0, 0, 0.055) 100%)"
                   : "linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, transparent 16%, transparent 84%, rgba(0, 0, 0, 0.06) 100%)",
               zIndex: 0,

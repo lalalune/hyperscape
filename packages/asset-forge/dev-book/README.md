@@ -117,7 +117,7 @@ Additional resources:
 
 ### What is Asset Forge?
 
-Asset Forge is a comprehensive AI-powered 3D asset generation and management system built for the Hyperscape RPG project. It combines multiple AI services to create a complete text-to-3D pipeline with advanced features like automatic rigging, armor fitting, hand rigging for weapons, and material variant generation.
+Asset Forge is a comprehensive AI-powered 3D asset generation and management system built for the Hyperia RPG project. It combines multiple AI services to create a complete text-to-3D pipeline with advanced features like automatic rigging, armor fitting, hand rigging for weapons, and material variant generation.
 
 ### Key Features
 
@@ -228,15 +228,15 @@ See [Development Guide](11-development/setup-guide.md) for contributing guidelin
 
 ## 📝 License
 
-Part of the Hyperscape project.
+Part of the Hyperia project.
 
 ---
 
 ## 🔗 Related Documentation
 
-- [Hyperscape Main README](../../../README.md)
-- [Hyperscape Package Docs](../../hyperscape/README.md)
-- [Plugin Hyperscape Docs](../../plugin-hyperscape/README.md)
+- [Hyperia Main README](../../../README.md)
+- [Hyperia Package Docs](../../hyperia/README.md)
+- [Plugin Hyperia Docs](../../plugin-hyperia/README.md)
 
 ---
 

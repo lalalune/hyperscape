@@ -44,7 +44,7 @@ async function callOpenRouter(
         headers: {
           Authorization: `Bearer ${API_KEY}`,
           "Content-Type": "application/json",
-          "HTTP-Referer": "https://hyperscape.ai",
+          "HTTP-Referer": "https://hyperia.ai",
         },
         body: JSON.stringify({
           model: "meta-llama/llama-3.3-70b-instruct:free",

@@ -7,7 +7,7 @@
 
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { getItem } from "@hyperscape/shared";
+import { getItem } from "@hyperforge/shared";
 import {
   getContextMenuItemStyle,
   getContextMenuSurfaceStyle,

@@ -65,7 +65,7 @@ import THREE, {
   MeshBasicNodeMaterial,
 } from "../../../extras/three/three";
 import type { World } from "../../../core/World";
-import type { BranchCluster } from "@hyperscape/procgen";
+import type { BranchCluster } from "@hyperforge/procgen";
 import type { Wind } from "./Wind";
 
 // ============================================================================

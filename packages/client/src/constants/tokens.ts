@@ -1,5 +1,5 @@
 /**
- * Design Tokens - Hyperscape UI Design System
+ * Design Tokens - Hyperia UI Design System
  *
  * Single source of truth for all design values.
  * Based on UI_UX_DESIGN_SYSTEM.md specifications (January 2026).
@@ -15,7 +15,7 @@
  */
 
 import type { CSSProperties } from "react";
-import { INVENTORY_CONSTANTS } from "@hyperscape/shared";
+import { INVENTORY_CONSTANTS } from "@hyperforge/shared";
 
 /**
  * Spacing - 8px Base Unit System
@@ -481,16 +481,16 @@ export const statusColors = {
  * Use these instead of hardcoding styles in individual panels.
  */
 export const panelStyles = {
-  /** Base container for all panels - Hyperscape theme (RS3-inspired dark with bronze accents) */
+  /** Base container for all panels - Hyperia theme (RS3-inspired dark with bronze accents) */
   container: {
-    background: "#0f0f12", // Matches hyperscapeTheme.colors.background.primary
+    background: "#0f0f12", // Matches hyperiaTheme.colors.background.primary
     border: "1px solid #4d4540",
     borderRadius: "8px",
     boxShadow:
       "0 4px 12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(212, 168, 75, 0.1)",
   },
 
-  /** Section within a panel (like a card) - Hyperscape theme */
+  /** Section within a panel (like a card) - Hyperia theme */
   section: {
     background: "#1a1a20", // Slightly lighter than container for depth
     border: "1px solid #4d4540",
@@ -499,9 +499,9 @@ export const panelStyles = {
       "inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 2px 4px rgba(0, 0, 0, 0.3)",
   },
 
-  /** Grid item (inventory slot, skill box, etc.) - Hyperscape theme */
+  /** Grid item (inventory slot, skill box, etc.) - Hyperia theme */
   gridItem: {
-    background: "#1a1a20", // Matches hyperscapeTheme.colors.slot.empty
+    background: "#1a1a20", // Matches hyperiaTheme.colors.slot.empty
     border: "1px solid #4d4540",
     borderRadius: "4px",
     boxShadow:
@@ -539,7 +539,7 @@ export const panelStyles = {
     opacity: "0.6",
   },
 
-  /** Input field styling - Hyperscape theme */
+  /** Input field styling - Hyperia theme */
   input: {
     background: "#0f0f12", // Matches container background
     border: "1px solid #4d4540",
@@ -547,21 +547,21 @@ export const panelStyles = {
     boxShadow: "inset 0 2px 4px rgba(0, 0, 0, 0.4)",
   },
 
-  /** Tab styling - Hyperscape theme */
+  /** Tab styling - Hyperia theme */
   tab: {
     inactive: {
       background: "#1a1a20",
       border: "1px solid #4d4540",
-      color: "#9a8d78", // Matches hyperscapeTheme.colors.text.muted
+      color: "#9a8d78", // Matches hyperiaTheme.colors.text.muted
     },
     active: {
-      background: "#22222a", // Matches hyperscapeTheme.colors.background.secondary
+      background: "#22222a", // Matches hyperiaTheme.colors.background.secondary
       border: "1px solid #6a5f50",
-      color: "#d4a84b", // Matches hyperscapeTheme.colors.accent.primary
+      color: "#d4a84b", // Matches hyperiaTheme.colors.accent.primary
     },
   },
 
-  /** Divider/separator - Hyperscape theme */
+  /** Divider/separator - Hyperia theme */
   divider: {
     background: "linear-gradient(90deg, transparent, #4d4540, transparent)",
     height: "1px",

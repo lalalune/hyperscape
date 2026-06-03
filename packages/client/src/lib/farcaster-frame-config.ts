@@ -1,12 +1,12 @@
 /**
  * Farcaster Frame v2 Configuration
- * Provides metadata for deploying Hyperscape as a Farcaster mini-app
+ * Provides metadata for deploying Hyperia as a Farcaster mini-app
  */
 
 /**
  * Farcaster Frame v2 configuration object
  *
- * Defines metadata for deploying Hyperscape as a Farcaster Frame (mini-app).
+ * Defines metadata for deploying Hyperia as a Farcaster Frame (mini-app).
  *
  * @public
  */
@@ -76,10 +76,10 @@ export function getFarcasterFrameConfig(): FarcasterFrameConfig | null {
     version: "next",
     imageUrl: `${appUrl}/images/preview.jpg`,
     button: {
-      title: "Play Hyperscape",
+      title: "Play Hyperia",
       action: {
         type: "launch_frame",
-        name: "Hyperscape",
+        name: "Hyperia",
         url: appUrl,
         splashImageUrl: `${appUrl}/images/preview.jpg`,
         splashBackgroundColor: "#0a0a0f",
@@ -92,7 +92,7 @@ export function getFarcasterFrameConfig(): FarcasterFrameConfig | null {
  * Generates HTML meta tags for Farcaster Frame v2
  *
  * Creates properly formatted Open Graph and Frame-specific meta tags
- * for embedding Hyperscape in Farcaster posts. Returns an empty string
+ * for embedding Hyperia in Farcaster posts. Returns an empty string
  * if Farcaster is disabled.
  *
  * @returns HTML string with meta tags (for SSR/static HTML)
@@ -122,8 +122,8 @@ export function generateFarcasterMetaTags(): string {
     `<meta property="fc:frame:button:1:action" content="${config.button.action.type}" />`,
     `<meta property="fc:frame:button:1:target" content="${config.button.action.url}" />`,
     `<meta property="og:image" content="${config.imageUrl}" />`,
-    `<meta property="og:title" content="Hyperscape - 3D Multiplayer RPG" />`,
-    `<meta property="og:description" content="A 3D multiplayer RPG adventure powered by Hyperscape" />`,
+    `<meta property="og:title" content="Hyperia - 3D Multiplayer RPG" />`,
+    `<meta property="og:description" content="A 3D multiplayer RPG adventure powered by Hyperia" />`,
   ];
 
   if (config.button.action.splashImageUrl) {
@@ -180,10 +180,10 @@ export function injectFarcasterMetaTags(): void {
     },
     { property: "fc:frame:button:1:target", content: config.button.action.url },
     { property: "og:image", content: config.imageUrl },
-    { property: "og:title", content: "Hyperscape - 3D Multiplayer RPG" },
+    { property: "og:title", content: "Hyperia - 3D Multiplayer RPG" },
     {
       property: "og:description",
-      content: "A 3D multiplayer RPG adventure powered by Hyperscape",
+      content: "A 3D multiplayer RPG adventure powered by Hyperia",
     },
   ];
 

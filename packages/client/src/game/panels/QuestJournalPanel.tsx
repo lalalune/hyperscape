@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useEffect } from "react";
-import { EventType } from "@hyperscape/shared";
+import { EventType } from "@hyperforge/shared";
 import type { ClientWorld } from "../../types";
 import { useThemeStore } from "@/ui";
 import {

@@ -38,7 +38,7 @@ jobs:
           requires_deploy=false
           while IFS= read -r file; do
             case "$file" in
-              packages/shared/*|packages/client/*|packages/server/*|packages/plugin-hyperscape/*|package.json|bun.lock|nixpacks.toml|railway.server.json|Dockerfile.server)
+              packages/shared/*|packages/client/*|packages/server/*|packages/plugin-hyperia/*|package.json|bun.lock|nixpacks.toml|railway.server.json|Dockerfile.server)
                 requires_deploy=true
                 break
                 ;;
@@ -49,7 +49,7 @@ jobs:
             gh api "repos/$REPO/statuses/$SHA" \
               -X POST \
               -f state=success \
-              -f context="hyperscape - hyperscape" \
+              -f context="hyperia - hyperia" \
               -f description="No Railway deployment required" \
               -f target_url="$WORKFLOW_URL"
             exit 0
@@ -61,7 +61,7 @@ jobs:
             gh api "repos/$REPO/statuses/$SHA" \
               -X POST \
               -f state=failure \
-              -f context="hyperscape - hyperscape" \
+              -f context="hyperia - hyperia" \
               -f description="Expected Railway deploy workflow did not run" \
               -f target_url="$WORKFLOW_URL"
             exit 1
@@ -89,6 +89,6 @@ jobs:
           gh api "repos/$REPO/statuses/$SHA" \
             -X POST \
             -f state="$state" \
-            -f context="hyperscape - hyperscape" \
+            -f context="hyperia - hyperia" \
             -f description="$description" \
             -f target_url="$details_url"

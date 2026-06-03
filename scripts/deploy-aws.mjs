@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * AWS Deployment Script for Hyperscape
+ * AWS Deployment Script for Hyperia
  *
  * This script handles the complete deployment process:
  * 1. Build and push server Docker image to ECR
@@ -42,7 +42,7 @@ const flags = {
 
 // Configuration
 const config = {
-  project: "hyperscape",
+  project: "hyperia",
   region: flags.region,
   environment: flags.env,
   accountId: process.env.AWS_ACCOUNT_ID || "",
@@ -180,10 +180,10 @@ async function deployFrontend() {
   logStep("1/4", "Building frontend...");
 
   // Get all URLs for frontend environment
-  const frontendUrl = getTerraformOutput("frontend_url") || "https://hyperscape.club";
+  const frontendUrl = getTerraformOutput("frontend_url") || "https://hyperia.club";
   // Backend is hosted on Railway
-  const apiUrl = "https://hyperscape-production.up.railway.app";
-  const wsUrl = "wss://hyperscape-production.up.railway.app/ws";
+  const apiUrl = "https://hyperia-production.up.railway.app";
+  const wsUrl = "wss://hyperia-production.up.railway.app/ws";
 
   // Set environment variables for build
   // CRITICAL: Set ALL production URLs to prevent localhost values from .env files
@@ -410,7 +410,7 @@ async function deployAssetForgeApi() {
 async function main() {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════╗
-║                   HYPERSCAPE AWS DEPLOYMENT                       ║
+║                   HYPERIA AWS DEPLOYMENT                       ║
 ╠══════════════════════════════════════════════════════════════════╣
 ║  Region: ${config.region.padEnd(54)}║
 ║  Environment: ${config.environment.padEnd(49)}║

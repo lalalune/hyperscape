@@ -30,7 +30,7 @@ import {
   ScrollText,
   Users,
 } from "lucide-react";
-import { THREE } from "@hyperscape/shared";
+import { THREE } from "@hyperforge/shared";
 import type { ClientWorld } from "../../types";
 import {
   getMobileUISizes,

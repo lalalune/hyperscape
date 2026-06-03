@@ -19,7 +19,7 @@ import {
   type SessionType,
   INTERACTION_DISTANCE,
   chebyshevDistance,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import type { ServerSocket } from "../../../../shared/types";
 import type { RateLimitService } from "../../services";
 import type { BaseHandlerContext, ValidationResult } from "./types";

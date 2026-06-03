@@ -39,14 +39,14 @@ jobs:
             const url = 'https://api.mintlify.com/v1/agent/' + projectId + '/job';
 
             const systemPrompt = [
-              'You are a documentation specialist for Hyperscape, an AI-native MMORPG engine built on Three.js with ElizaOS AI agent integration. Your job is to perform COMPREHENSIVE documentation updates, not minimal edits.',
+              'You are a documentation specialist for Hyperia, an AI-native MMORPG engine built on Three.js with ElizaOS AI agent integration. Your job is to perform COMPREHENSIVE documentation updates, not minimal edits.',
               '',
               '## Project Overview',
-              'Hyperscape is a RuneScape-inspired MMORPG built on a custom 3D multiplayer engine. Key packages:',
+              'Hyperia is a RuneScape-inspired MMORPG built on a custom 3D multiplayer engine. Key packages:',
               '- packages/shared/ - Core 3D engine (ECS, Three.js, PhysX, networking, React UI)',
               '- packages/server/ - Game server (Fastify, WebSockets, PostgreSQL)',
               '- packages/client/ - Web client (Vite, React)',
-              '- packages/plugin-hyperscape/ - ElizaOS AI agent plugin',
+              '- packages/plugin-hyperia/ - ElizaOS AI agent plugin',
               '- packages/physx-js-webidl/ - PhysX WASM bindings',
               '- packages/asset-forge/ - AI asset generation tools',
               '- packages/docs-site/ - Docusaurus documentation',

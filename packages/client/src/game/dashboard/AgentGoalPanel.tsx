@@ -96,7 +96,7 @@ export const AgentGoalPanel: React.FC<AgentGoalPanelProps> = ({
     if (inFlightRef.current) return;
     inFlightRef.current = true;
     try {
-      // Call Hyperscape server API
+      // Call Hyperia server API
       const result = await apiClient.get<{
         goal?: Goal;
         availableGoals?: AvailableGoal[];

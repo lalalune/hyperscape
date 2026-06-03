@@ -5,8 +5,8 @@ import {
 } from "@/lib/api-config";
 import type { PublicRuntimeEnv, StreamingWindow } from "@/lib/streamingWindow";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { THREE, createClientWorld, System } from "@hyperscape/shared";
-import { World } from "@hyperscape/shared";
+import { THREE, createClientWorld, System } from "@hyperforge/shared";
+import { World } from "@hyperforge/shared";
 import { CoreUI } from "../game/CoreUI";
 import { ErrorBoundary } from "../components/common/ErrorBoundary";
 import { ThreeResourceManager } from "@/lib/ThreeResourceManager";
@@ -114,8 +114,8 @@ function CriticalErrorScreen({ error }: { error: string }) {
         {isWebGPUError ? (
           <>
             <p style={{ fontSize: "16px", marginBottom: "24px", opacity: 0.9 }}>
-              Hyperscape requires WebGPU for rendering. Your browser or device
-              does not support WebGPU.
+              Hyperia requires WebGPU for rendering. Your browser or device does
+              not support WebGPU.
             </p>
             <div
               style={{
@@ -392,8 +392,8 @@ export function GameClient({
           ? "renderer_unavailable"
           : "initialization_failed";
         const win = window as StreamingWindow;
-        win.__HYPERSCAPE_STREAM_READY__ = false;
-        win.__HYPERSCAPE_STREAM_RENDERER_HEALTH__ = {
+        win.__HYPERIA_STREAM_READY__ = false;
+        win.__HYPERIA_STREAM_RENDERER_HEALTH__ = {
           ready: false,
           degradedReason,
           updatedAt: Date.now(),

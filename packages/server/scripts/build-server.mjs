@@ -21,7 +21,7 @@ const serverCtx = await esbuild.context({
   minify: false,
   sourcemap: true,
   packages: 'external',
-  external: ['@hyperscape/shared'],
+  external: ['@hyperforge/shared'],
   target: 'node22',
   loader: {
     '.ts': 'ts',
@@ -42,7 +42,7 @@ const workerCtx = await esbuild.context({
   minify: false,
   sourcemap: true,
   packages: 'external',
-  external: ['@hyperscape/shared'],
+  external: ['@hyperforge/shared'],
   target: 'node22',
   loader: {
     '.ts': 'ts',
@@ -68,7 +68,7 @@ if (fs.existsSync(physxWasm)) {
   console.log('✓ PhysX assets copied to world/assets/web/')
 } else {
   console.error('❌ PhysX WASM not found at:', physxWasm)
-  throw new Error('PhysX WASM files missing - ensure @hyperscape/physx-js-webidl is built first')
+  throw new Error('PhysX WASM files missing - ensure @hyperforge/physx-js-webidl is built first')
 }
 
 console.log('✓ Server built successfully')

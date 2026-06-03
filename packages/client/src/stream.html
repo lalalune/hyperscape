@@ -3,8 +3,8 @@
 
 <head>
   <meta charset="utf-8" />
-  <title>Hyperscape Stream</title>
-  <meta name="description" content="Hyperscape streaming capture page" />
+  <title>Hyperia Stream</title>
+  <meta name="description" content="Hyperia streaming capture page" />
   <meta name="viewport"
     content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
   <meta name="theme-color" content="#000000" />
@@ -41,11 +41,11 @@
           searchParams.get("internalCapture"),
         );
         const productionHosts = [
-          "hyperscape.club",
-          "www.hyperscape.club",
-          "hyperscape.gg",
-          "www.hyperscape.gg",
-          "hyperscape-production.up.railway.app",
+          "hyperia.club",
+          "www.hyperia.club",
+          "hyperia.gg",
+          "www.hyperia.gg",
+          "hyperia-production.up.railway.app",
         ];
         const isLoopbackHost = [
           "localhost",
@@ -55,11 +55,11 @@
         ].includes(window.location.hostname);
         const shouldResetProductionCaches =
           productionHosts.includes(window.location.hostname) &&
-          !localStorage.getItem("__hyperscape_prod_sw_reset_20260407__");
+          !localStorage.getItem("__hyperia_prod_sw_reset_20260407__");
         const shouldResetLocalCaches =
           isInternalCapture || isLoopbackHost || shouldResetProductionCaches;
-        const storageKey = "__hyperscape_prod_sw_reset_20260407__";
-        const reloadMarker = "__hyperscape_stream_sw_reset__";
+        const storageKey = "__hyperia_prod_sw_reset_20260407__";
+        const reloadMarker = "__hyperia_stream_sw_reset__";
         let shouldReload = false;
 
         if (
@@ -94,7 +94,7 @@
             const localCacheKeys = cacheKeys.filter(
               (cacheKey) =>
                 cacheKey.startsWith("workbox") ||
-                cacheKey.startsWith("hyperscape"),
+                cacheKey.startsWith("hyperia"),
             );
             if (localCacheKeys.length > 0) {
               await Promise.all(

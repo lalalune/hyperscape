@@ -1,4 +1,4 @@
-import { THREE } from "@hyperscape/shared";
+import { THREE } from "@hyperforge/shared";
 
 /**
  * Create Emote Factory - Animation Retargeting for VRM

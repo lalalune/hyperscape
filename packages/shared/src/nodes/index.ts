@@ -1,10 +1,10 @@
 /**
- * nodes/index.ts - Hyperscape Node System Exports
+ * nodes/index.ts - HyperForge Node System Exports
  *
- * Central export point for all Node types in Hyperscape's custom scene graph system.
+ * Central export point for all Node types in Hyperia's custom scene graph system.
  *
  * **What are Nodes?**
- * Nodes are Hyperscape's alternative to raw THREE.Object3D instances.
+ * Nodes are Hyperia's alternative to raw THREE.Object3D instances.
  * They provide lifecycle hooks, physics integration, and automatic state management.
  *
  * **Available Node Types:**

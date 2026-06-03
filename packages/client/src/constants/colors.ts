@@ -1,5 +1,5 @@
 /**
- * Color System - Hyperscape UI Theme
+ * Color System - Hyperia UI Theme
  *
  * RuneScape-inspired color palette with modern glass morphism.
  * All colors meet WCAG 2.1 AA contrast requirements.
@@ -9,7 +9,7 @@
 
 /**
  * Core Color Palette - Dark Theme
- * Matches hyperscapeTheme for consistency
+ * Matches hyperiaTheme for consistency
  */
 export const COLORS = {
   // ===========================================
@@ -26,14 +26,14 @@ export const COLORS = {
   CHAT_ACCENT: "#e8c55a",
 
   // ===========================================
-  // BACKGROUND COLORS (Hyperscape Theme)
+  // BACKGROUND COLORS (Hyperia Theme)
   // ===========================================
 
-  /** Primary panel background - Matches hyperscapeTheme.colors.background.primary */
+  /** Primary panel background - Matches hyperiaTheme.colors.background.primary */
   BG_PRIMARY: "#0f0f12",
-  /** Secondary background - Matches hyperscapeTheme.colors.background.secondary */
+  /** Secondary background - Matches hyperiaTheme.colors.background.secondary */
   BG_SECONDARY: "#22222a",
-  /** Tertiary/accent background - Matches hyperscapeTheme.colors.background.tertiary */
+  /** Tertiary/accent background - Matches hyperiaTheme.colors.background.tertiary */
   BG_TERTIARY: "#363640",
   /** Solid dark background */
   BG_SOLID: "#0f0f12",
@@ -43,16 +43,16 @@ export const COLORS = {
   BG_OVERLAY: "rgba(0, 0, 0, 0.75)",
 
   // ===========================================
-  // BORDER COLORS (Hyperscape Theme)
+  // BORDER COLORS (Hyperia Theme)
   // ===========================================
 
-  /** Primary border - Matches hyperscapeTheme.colors.border.default */
+  /** Primary border - Matches hyperiaTheme.colors.border.default */
   BORDER_PRIMARY: "#4d4540",
   /** Secondary/subtle border - Hover state */
   BORDER_SECONDARY: "#6a5f50",
   /** Accent border (gold) - Active state */
   BORDER_ACCENT: "#8b7a60",
-  /** Focus ring color - Matches hyperscapeTheme.colors.border.focus */
+  /** Focus ring color - Matches hyperiaTheme.colors.border.focus */
   BORDER_FOCUS: "#f0d060",
 
   // ===========================================
@@ -92,12 +92,12 @@ export const COLORS = {
   INFO_DARK: "#3b82f6",
 
   // ===========================================
-  // INTERACTIVE STATES (Hyperscape Theme)
+  // INTERACTIVE STATES (Hyperia Theme)
   // ===========================================
 
-  /** Hover overlay - Matches hyperscapeTheme.colors.slot.hover */
+  /** Hover overlay - Matches hyperiaTheme.colors.slot.hover */
   HOVER: "#3a3844",
-  /** Active/pressed overlay - Matches hyperscapeTheme.colors.slot.selected */
+  /** Active/pressed overlay - Matches hyperiaTheme.colors.slot.selected */
   ACTIVE: "#5a5248",
   /** Disabled overlay */
   DISABLED: "#101012",
@@ -109,10 +109,10 @@ export const COLORS = {
  * Gradient Definitions - Dark Theme
  */
 export const GRADIENTS = {
-  /** Panel background gradient - Hyperscape theme */
+  /** Panel background gradient - Hyperia theme */
   PANEL: "linear-gradient(135deg, #0f0f12 0%, #1a1a20 50%, #0f0f12 100%)",
 
-  /** Header gradient - Hyperscape theme */
+  /** Header gradient - Hyperia theme */
   HEADER: "linear-gradient(180deg, #22222a 0%, #1a1a20 100%)",
 
   /** Button gradient - Gold accent */

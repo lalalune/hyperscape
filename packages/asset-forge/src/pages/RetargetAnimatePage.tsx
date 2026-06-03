@@ -83,7 +83,7 @@ export const RetargetAnimatePage: React.FC = () => {
       // Convert to VRM
       const result = await convertGLBToVRM(gltf.scene, {
         avatarName: sourceModelAssetId || "Converted Avatar",
-        author: "Hyperscape",
+        author: "Hyperia",
         version: "1.0",
         commercialUsage: "personalNonProfit",
       });

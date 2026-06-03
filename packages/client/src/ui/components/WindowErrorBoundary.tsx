@@ -69,7 +69,7 @@ export class WindowErrorBoundary extends Component<
       process.env?.NODE_ENV !== "production"
     ) {
       console.error(
-        `[Hyperscape UI] Error in window "${windowId}":`,
+        `[Hyperia UI] Error in window "${windowId}":`,
         error,
         errorInfo,
       );

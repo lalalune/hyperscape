@@ -34,7 +34,7 @@ import {
   SOCIAL_CONSTANTS,
   isValidPlayerID,
   SystemLogger,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import type { ServerSocket } from "../../../shared/types";
 import { FriendRepository } from "../../../database/repositories/FriendRepository";
 import { RateLimitService } from "../services";

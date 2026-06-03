@@ -15,7 +15,7 @@
 import * as THREE from "three";
 
 // Database configuration
-const DB_NAME = "hyperscape-procgen-cache";
+const DB_NAME = "hyperia-procgen-cache";
 const DB_VERSION = 1;
 
 // Store names for different procgen types

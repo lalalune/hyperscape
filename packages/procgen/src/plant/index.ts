@@ -1,11 +1,11 @@
 /**
- * @hyperscape/procgen/plant
+ * @hyperforge/procgen/plant
  *
  * Procedural plant and foliage generation for Three.js WebGPU
  *
  * @example
  * ```typescript
- * import { PlantGenerator, generateFromPreset } from '@hyperscape/procgen/plant';
+ * import { PlantGenerator, generateFromPreset } from '@hyperforge/procgen/plant';
  *
  * // Quick generation from preset
  * const result = generateFromPreset('monstera', 12345);

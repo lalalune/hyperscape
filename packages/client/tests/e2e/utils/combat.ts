@@ -1,8 +1,8 @@
 /**
- * Combat Testing Helpers for Hyperscape E2E Tests
+ * Combat Testing Helpers for Hyperia E2E Tests
  *
  * Provides functions for testing combat interactions and verifying damage.
- * Per project rules: Tests use real Hyperscape instances, no mocks.
+ * Per project rules: Tests use real Hyperia instances, no mocks.
  *
  * @packageDocumentation
  */

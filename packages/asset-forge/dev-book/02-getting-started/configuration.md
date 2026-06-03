@@ -134,7 +134,7 @@ API_PORT=3004
 **Default**: 3004
 
 **Why 3004?**
-- Port 3001 is used by Hyperscape core
+- Port 3001 is used by HyperForge core
 - Port 3000 is used by Vite frontend
 - Port 3004 avoids conflicts
 
@@ -159,7 +159,7 @@ IMAGE_SERVER_PORT=8081
 **Default**: 8081
 
 **Why 8081?**
-- Port 8080 is used by Hyperscape core
+- Port 8080 is used by HyperForge core
 - Port 8081 avoids conflicts
 
 **Custom Port:**

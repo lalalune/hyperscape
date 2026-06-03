@@ -18,7 +18,7 @@
  * machine. This handler is just the network entry point with validation.
  */
 
-import { type World, EventType } from "@hyperscape/shared";
+import { type World, EventType } from "@hyperforge/shared";
 import type { ServerSocket } from "../../../shared/types";
 import { isValidNpcId, isValidResponseIndex } from "../services";
 import { getPlayerId, sendErrorToast } from "./common";

@@ -1,6 +1,6 @@
 import { EventEmitter } from "events";
 import { describe, expect, it, vi } from "vitest";
-import { EventType } from "@hyperscape/shared";
+import { EventType } from "@hyperforge/shared";
 import { EventBridge } from "../event-bridge";
 
 class MockWorld extends EventEmitter {

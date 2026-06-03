@@ -1,11 +1,11 @@
 /**
  * LODWorker - Worker-based mesh decimation with sync fallback.
- * Sync path uses real @hyperscape/decimation (seam-aware QSlim).
+ * Sync path uses real @hyperforge/decimation (seam-aware QSlim).
  * Worker path uses simplified stride decimation (ES modules can't load in workers).
  */
 
 import { WorkerPool } from "./WorkerPool";
-import { decimateOptimized, optimized } from "@hyperscape/decimation";
+import { decimateOptimized, optimized } from "@hyperforge/decimation";
 
 // Use optimized functions that support skin weights
 const { fromBufferGeometry, toBufferGeometryData } = optimized;

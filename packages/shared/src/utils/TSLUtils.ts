@@ -27,7 +27,7 @@ import {
 } from "three/tsl";
 
 // Configuration - adjust these based on your world size
-const MAP_SIZE = 800; // Hyperscape world size
+const MAP_SIZE = 800; // Hyperia world size
 const HALF_MAP_SIZE = MAP_SIZE / 2;
 
 // TSL types - use any for dynamic TSL function signatures

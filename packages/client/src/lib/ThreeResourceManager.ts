@@ -3,7 +3,7 @@
  * Provides safe and comprehensive cleanup of Three.js resources to prevent memory leaks
  */
 
-import { THREE } from "@hyperscape/shared";
+import { THREE } from "@hyperforge/shared";
 
 /**
  * ThreeResourceManager - Memory management for Three.js resources

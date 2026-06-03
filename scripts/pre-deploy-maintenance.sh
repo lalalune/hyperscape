@@ -8,7 +8,7 @@
 # 3. Exits with status indicating if safe to deploy
 #
 # Required environment variables:
-# - SERVER_URL: Base URL of the Hyperscape server (e.g., https://api.hyperscape.game)
+# - SERVER_URL: Base URL of the Hyperia server (e.g., https://api.hyperia.game)
 # - ADMIN_CODE: Admin API authentication code
 #
 # Optional:

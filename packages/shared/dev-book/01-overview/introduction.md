@@ -1,16 +1,16 @@
-# Introduction to Hyperscape Shared
+# Introduction to Hyperia Shared
 
 [← Back to Index](../README.md)
 
 ---
 
-## What is Hyperscape Shared?
+## What is Hyperia Shared?
 
-Hyperscape Shared is the **core 3D multiplayer game engine** that powers the Hyperscape RPG project. It provides a complete, production-ready framework for building multiplayer 3D games with advanced physics, networking, and rendering capabilities.
+Hyperia Shared is the **core 3D multiplayer game engine** that powers the Hyperia RPG project. It provides a complete, production-ready framework for building multiplayer 3D games with advanced physics, networking, and rendering capabilities.
 
 ### Purpose
 
-Hyperscape Shared solves the challenge of building multiplayer 3D games by providing:
+Hyperia Shared solves the challenge of building multiplayer 3D games by providing:
 
 - **Complete ECS Architecture**: Entity Component System for scalable game objects
 - **Authoritative Server**: Server-side physics and game logic with client prediction
@@ -21,7 +21,7 @@ Hyperscape Shared solves the challenge of building multiplayer 3D games by provi
 
 ### Built for Multiplayer RPGs
 
-Hyperscape Shared was specifically created for the [Hyperscape RPG project](../../../README.md), a multiplayer 3D game. It provides:
+Hyperia Shared was specifically created for the [Hyperia RPG project](../../../README.md), a multiplayer 3D game. It provides:
 
 - **Players**: Avatar loading (VRM), character controllers, animations
 - **Combat**: Melee and ranged combat with stats and equipment
@@ -236,7 +236,7 @@ world.depositItem(playerId, bankId, itemId, quantity);
 
 ## World Types
 
-Hyperscape Shared supports three world types:
+Hyperia Shared supports three world types:
 
 ### Client World
 **Environment:** Browser (WebGPU)
@@ -278,7 +278,7 @@ Hyperscape Shared supports three world types:
 
 ## Architecture Philosophy
 
-Hyperscape Shared follows key design principles:
+Hyperia Shared follows key design principles:
 
 ### 1. Entity Component System (ECS)
 
@@ -343,13 +343,13 @@ Hyperscape Shared follows key design principles:
 
 ---
 
-## Integration with Hyperscape Ecosystem
+## Integration with Hyperia Ecosystem
 
-Hyperscape Shared is the foundation of the Hyperscape ecosystem:
+Hyperia Shared is the foundation of the Hyperia ecosystem:
 
 ### Asset Forge
 **Purpose:** AI-powered 3D asset generation
-**Integration:** Generates models that Hyperscape loads
+**Integration:** Generates models that Hyperia loads
 
 ```typescript
 // Load Asset Forge generated model
@@ -357,7 +357,7 @@ const asset = await world.loader.loadModel('asset://steel-sword.glb');
 world.spawnItem(asset, position);
 ```
 
-### Plugin Hyperscape
+### Plugin Hyperia
 **Purpose:** ElizaOS AI agent integration
 **Integration:** AI agents control NPCs and interact with world
 
@@ -384,14 +384,14 @@ packages/
 │   │   └── ...
 │   └── dev-book/        # This documentation
 ├── asset-forge/         # 3D asset generation
-└── plugin-hyperscape/   # AI agent integration
+└── plugin-hyperia/   # AI agent integration
 ```
 
 ---
 
 ## Next Steps
 
-Now that you understand what Hyperscape Shared is, explore:
+Now that you understand what Hyperia Shared is, explore:
 
 - [Features Overview](features.md) - Detailed feature list
 - [Architecture](architecture.md) - System design

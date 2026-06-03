@@ -111,7 +111,7 @@
 
 ## Getting Help
 
-- **GitHub Issues:** https://github.com/HyperscapeAI/hyperscape/issues
+- **GitHub Issues:** https://github.com/PlayHyperia/hyperia/issues
 - **Discord:** Join our community
 - **Documentation:** Read the [User Guides](../03-user-guides/creating-worlds.md)
 

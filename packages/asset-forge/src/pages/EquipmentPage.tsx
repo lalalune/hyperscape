@@ -133,7 +133,7 @@ export const EquipmentPage: React.FC = () => {
     if (!selectedEquipment || !selectedAvatar) return;
 
     const config = {
-      hyperscapeAttachment: {
+      hyperiaAttachment: {
         vrmBoneName:
           equipmentSlot === "Hand_R"
             ? "rightHand"
@@ -239,7 +239,7 @@ export const EquipmentPage: React.FC = () => {
     }
 
     const config = {
-      hyperscapeAttachment: {
+      hyperiaAttachment: {
         vrmBoneName:
           equipmentSlot === "Hand_R"
             ? "rightHand"

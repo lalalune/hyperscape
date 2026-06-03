@@ -68,7 +68,7 @@
  * @public
  */
 
-import type PhysX from "@hyperscape/physx-js-webidl";
+import type PhysX from "@hyperforge/physx-js-webidl";
 import { createNode } from "../../extras/three/createNode";
 import { Layers } from "../../physics/Layers";
 import { Emotes, essentialEmotes } from "../../data/playerEmotes";
@@ -195,7 +195,7 @@ function getCameraSystem(world: World): CameraSystem | null {
   return getCameraSystemUtil(world);
 }
 
-// Hyperscape-specific object types using the imported interface
+// Hyperia-specific object types using the imported interface
 
 // PhysX is available via getPhysX() from PhysXManager
 
@@ -378,7 +378,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
   }
 
   // Player interface implementation
-  hyperscapePlayerId: string = "";
+  hyperiaPlayerId: string = "";
   alive: boolean = true;
   // Player interface properties (separate from Entity properties to avoid conflicts)
   private _playerHealth: PlayerHealth = { current: 100, max: 100 };
@@ -450,7 +450,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
   getPlayerData(): Player {
     return {
       id: this.id,
-      hyperscapePlayerId: this.hyperscapePlayerId,
+      hyperiaPlayerId: this.hyperiaPlayerId,
       name: this.data.name || "Unknown Player",
       health: this._playerHealth,
       alive: this.alive,
@@ -689,7 +689,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
       current: currentHealth,
       max: maxHealth,
     };
-    this.hyperscapePlayerId = data.id || "";
+    this.hyperiaPlayerId = data.id || "";
 
     // Apply auto-retaliate setting from server if provided (persisted from DB)
     const autoRetaliateFromData = (data as { autoRetaliate?: boolean })

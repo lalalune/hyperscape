@@ -11,7 +11,7 @@
  */
 
 import type { ServerSocket } from "../../../../shared/types";
-import type { World, SessionType } from "@hyperscape/shared";
+import type { World, SessionType } from "@hyperforge/shared";
 import type pg from "pg";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type * as schema from "../../../../database/schema";

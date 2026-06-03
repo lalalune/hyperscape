@@ -64,7 +64,7 @@ export function exportToOBJ(
   const color = geometry.attributes.color;
   const filename = options.filename || "rock";
 
-  let obj = "# Procedural Rock - @hyperscape/procgen/rock\n";
+  let obj = "# Procedural Rock - @hyperforge/procgen/rock\n";
   obj += `# Vertices: ${position.count}\n\n`;
 
   // Vertices with optional colors

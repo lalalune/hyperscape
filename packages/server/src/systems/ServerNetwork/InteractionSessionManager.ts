@@ -30,7 +30,7 @@ import {
   type ISessionReader,
   type InteractionSession as SharedInteractionSession,
   type SessionCloseReason,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import type { BroadcastManager } from "./broadcast";
 import type { TickSystem } from "../TickSystem";
 import { TickPriority } from "../TickSystem";

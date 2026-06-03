@@ -80,7 +80,7 @@ export const AgentDynamicPanel: React.FC<AgentDynamicPanelProps> = ({
           </div>
         )}
 
-        {/* Overlay for Hyperscape theme hint */}
+        {/* Overlay for Hyperia theme hint */}
         <div className="absolute inset-0 pointer-events-none border-4 border-[#f2d08a]/5 rounded-lg" />
       </div>
     </div>

@@ -88,7 +88,7 @@ async function main() {
     const batch = stringIds.slice(i, i + REGISTRATION_BATCH_SIZE);
     const callData = encodeFunctionData({
       abi: ITEM_REGISTRY_ABI,
-      functionName: "hyperscape__registerItemBatch",
+      functionName: "hyperia__registerItemBatch",
       args: [batch],
     });
 
@@ -129,7 +129,7 @@ async function main() {
     const stringBatch = notedStringIds.slice(i, i + NOTED_BATCH_SIZE);
     const callData = encodeFunctionData({
       abi: ITEM_REGISTRY_ABI,
-      functionName: "hyperscape__registerItemWithIdBatch",
+      functionName: "hyperia__registerItemWithIdBatch",
       args: [numericBatch, stringBatch],
     });
 
@@ -183,7 +183,7 @@ async function main() {
 
     const callData = encodeFunctionData({
       abi: ITEM_REGISTRY_ABI,
-      functionName: "hyperscape__setItemDefinitionBatch",
+      functionName: "hyperia__setItemDefinitionBatch",
       args: [numericIds, names, packedStaticsHex],
     });
 
@@ -228,7 +228,7 @@ async function main() {
 
     const callData = encodeFunctionData({
       abi: ITEM_REGISTRY_ABI,
-      functionName: "hyperscape__setItemRequirementsBatch",
+      functionName: "hyperia__setItemRequirementsBatch",
       args: [idBatch, packedReqHex],
     });
 
@@ -250,13 +250,13 @@ async function main() {
 // ABI fragments for ItemRegistrySystem calls
 const ITEM_REGISTRY_ABI = [
   {
-    name: "hyperscape__registerItemBatch",
+    name: "hyperia__registerItemBatch",
     type: "function",
     inputs: [{ name: "stringIds", type: "string[]" }],
     outputs: [{ name: "numericIds", type: "uint32[]" }],
   },
   {
-    name: "hyperscape__registerItemWithIdBatch",
+    name: "hyperia__registerItemWithIdBatch",
     type: "function",
     inputs: [
       { name: "numericIds", type: "uint32[]" },
@@ -265,7 +265,7 @@ const ITEM_REGISTRY_ABI = [
     outputs: [],
   },
   {
-    name: "hyperscape__setItemDefinitionBatch",
+    name: "hyperia__setItemDefinitionBatch",
     type: "function",
     inputs: [
       { name: "numericIds", type: "uint32[]" },
@@ -275,7 +275,7 @@ const ITEM_REGISTRY_ABI = [
     outputs: [],
   },
   {
-    name: "hyperscape__setItemRequirementsBatch",
+    name: "hyperia__setItemRequirementsBatch",
     type: "function",
     inputs: [
       { name: "numericIds", type: "uint32[]" },

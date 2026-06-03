@@ -693,7 +693,7 @@ export const Window = memo(function Window({
           inset: 0,
           pointerEvents: "none",
           background:
-            theme.name === "hyperscape"
+            theme.name === "hyperia"
               ? "linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, transparent 14%, transparent 78%, rgba(0, 0, 0, 0.075) 100%), radial-gradient(circle at top right, rgba(190, 165, 123, 0.04), transparent 32%)"
               : "linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, transparent 16%, transparent 84%, rgba(0, 0, 0, 0.06) 100%)",
           opacity: isFocusedWindow ? 1 : 0.7,

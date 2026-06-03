@@ -8,7 +8,7 @@
  * - findFreeSlotFromSet: Find next available slot
  */
 
-import { type World, EventType, getItem } from "@hyperscape/shared";
+import { type World, EventType, getItem } from "@hyperforge/shared";
 import { sql } from "drizzle-orm";
 import type { ServerSocket } from "../../../../shared/types";
 import { executeSecureTransaction, sendToSocket } from "../common";
@@ -168,7 +168,7 @@ export async function executeTradeSwap(
         socket: { id: "trade-swap" } as ServerSocket,
         world,
         db,
-        sessionType: "trade" as import("@hyperscape/shared").SessionType,
+        sessionType: "trade" as import("@hyperforge/shared").SessionType,
       },
       {
         execute: async (tx): Promise<TradeSwapResult> => {

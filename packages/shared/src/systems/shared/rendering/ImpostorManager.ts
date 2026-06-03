@@ -46,7 +46,7 @@ import {
   type ImpostorBakeConfig,
   type CompatibleRenderer,
   type DissolveConfig,
-} from "@hyperscape/impostor";
+} from "@hyperforge/impostor";
 import type { World } from "../../../types";
 import { LoadPriority } from "../../../types";
 import { getKTX2Loader } from "../../../extras/three/ktx2TextureLoader";
@@ -73,7 +73,7 @@ export const IMPOSTOR_CONFIG = {
   /** Minimum time between bakes (ms) */
   MIN_BAKE_INTERVAL: 100,
   /** IndexedDB database name */
-  DB_NAME: "hyperscape-impostors",
+  DB_NAME: "hyperia-impostors",
   /** IndexedDB store name */
   STORE_NAME: "atlases",
   /** Cache version (increment to invalidate old caches) */

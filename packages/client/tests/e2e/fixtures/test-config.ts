@@ -1,5 +1,5 @@
 /**
- * Test Configuration and Shared Constants for Hyperscape E2E Tests
+ * Test Configuration and Shared Constants for Hyperia E2E Tests
  *
  * Contains server URLs, ports, timeouts, and health check utilities.
  */
@@ -14,11 +14,11 @@ export const CLIENT_PORT = Number(process.env.VITE_PORT ?? 3333);
 /** Default server port (Fastify game server) */
 export const SERVER_PORT = Number(process.env.PORT ?? 5555);
 
-/** Base URL for the Hyperscape client */
+/** Base URL for the Hyperia client */
 export const BASE_URL =
   process.env.TEST_URL ?? `http://localhost:${CLIENT_PORT}`;
 
-/** Base URL for the Hyperscape game server API */
+/** Base URL for the Hyperia game server API */
 export const SERVER_URL =
   process.env.TEST_SERVER_URL ?? `http://localhost:${SERVER_PORT}`;
 
@@ -51,7 +51,7 @@ export function sleep(ms: number): Promise<void> {
 }
 
 /**
- * Check if the Hyperscape client is reachable.
+ * Check if the Hyperia client is reachable.
  * Retries multiple times to handle slow startup.
  */
 export async function assertClientHealthy(
@@ -88,7 +88,7 @@ export async function assertClientHealthy(
 }
 
 /**
- * Check if the Hyperscape game server is reachable.
+ * Check if the Hyperia game server is reachable.
  * Hits the API health endpoint.
  */
 export async function assertServerHealthy(

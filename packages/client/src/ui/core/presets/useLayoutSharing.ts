@@ -37,7 +37,7 @@ interface SerializedWindow {
 const SHARE_CODE_VERSION = 1;
 
 /** Share code prefix */
-const SHARE_CODE_PREFIX = "HSL"; // HyperScape Layout
+const SHARE_CODE_PREFIX = "HSL"; // Hyperia Layout
 
 /** Return value from useLayoutSharing */
 export interface LayoutSharingResult {

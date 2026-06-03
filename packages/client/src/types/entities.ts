@@ -4,7 +4,7 @@
  * Types for entities, players, and entity management in the client.
  */
 
-import { THREE } from "@hyperscape/shared";
+import { THREE } from "@hyperforge/shared";
 
 // Client-specific entity data
 export interface EntityData {

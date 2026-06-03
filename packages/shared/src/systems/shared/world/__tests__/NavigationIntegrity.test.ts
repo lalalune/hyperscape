@@ -482,7 +482,7 @@ describe("Floor Tracking Correctness", () => {
 
   it("should track player building state correctly", () => {
     const entityId =
-      "player-1" as unknown as import("@hyperscape/shared").EntityID;
+      "player-1" as unknown as import("@hyperforge/shared").EntityID;
 
     // Initial state
     const state = collisionService.getPlayerBuildingState(entityId);
@@ -1337,7 +1337,7 @@ describe("Comprehensive Navigation Integrity", () => {
 
     // CHECK 3: Floor tracking works
     const entityId =
-      "test-player" as unknown as import("@hyperscape/shared").EntityID;
+      "test-player" as unknown as import("@hyperforge/shared").EntityID;
     const state = collisionService.getPlayerBuildingState(entityId);
     expect(state).toBeDefined();
     expect(typeof state.currentFloor).toBe("number");

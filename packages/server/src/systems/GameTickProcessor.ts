@@ -17,8 +17,8 @@
  * @see COMBAT_SYSTEM_AUDIT.md for full OSRS research
  */
 
-import type { World } from "@hyperscape/shared";
-import { EventType, TICK_DURATION_MS } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
+import { EventType, TICK_DURATION_MS } from "@hyperforge/shared";
 import type { ActionQueue } from "./ServerNetwork/action-queue";
 import type { TileMovementManager } from "./ServerNetwork/tile-movement";
 import type { MobTileMovementManager } from "./ServerNetwork/mob-tile-movement";

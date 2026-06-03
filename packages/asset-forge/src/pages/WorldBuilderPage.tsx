@@ -3,19 +3,19 @@ import {
   getPresetNames as getTreePresetNames,
   disposeTreeMesh,
   type TreeMeshResult,
-} from "@hyperscape/procgen";
+} from "@hyperforge/procgen";
 import {
   generateFromPreset as generatePlant,
   getPresetNames as getPlantPresetNames,
   RenderQualityEnum,
   type PlantPresetName,
   type PlantGenerationResult,
-} from "@hyperscape/procgen/plant";
+} from "@hyperforge/procgen/plant";
 import {
   RockGenerator,
   SHAPE_PRESETS as ROCK_SHAPE_PRESETS,
   type GeneratedRock,
-} from "@hyperscape/procgen/rock";
+} from "@hyperforge/procgen/rock";
 import {
   AlertTriangle,
   Building2,

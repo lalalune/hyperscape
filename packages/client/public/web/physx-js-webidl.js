@@ -106264,7 +106264,7 @@ var PhysX = (() => {
     })();
     // end include: glue.js
 
-    // include: /Users/shawwalters/hyperscape/packages/physx-js-webidl/PhysX/physx/source/webidlbindings/src/wasm/onload.js
+    // include: /Users/shawwalters/hyperia/packages/physx-js-webidl/PhysX/physx/source/webidlbindings/src/wasm/onload.js
     /**
      * Makes the API a little less verbose
      */
@@ -106317,7 +106317,7 @@ var PhysX = (() => {
           return Module[emscript]();
         },
       });
-    } // end include: /Users/shawwalters/hyperscape/packages/physx-js-webidl/PhysX/physx/source/webidlbindings/src/wasm/onload.js
+    } // end include: /Users/shawwalters/hyperia/packages/physx-js-webidl/PhysX/physx/source/webidlbindings/src/wasm/onload.js
 
     // include: postamble_modularize.js
     // In MODULARIZE mode we wrap the generated code in a factory function

@@ -4,7 +4,7 @@
  * Types for the client world instance, systems, and managers.
  */
 
-import { THREE, World } from "@hyperscape/shared";
+import { THREE, World } from "@hyperforge/shared";
 import type { Entity } from "./entities";
 
 // Client World type: the actual World instance

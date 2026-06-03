@@ -31,7 +31,7 @@ import type { SystemDatabase } from "./network/database";
  * Use strongly typed interfaces without optional properties or unknown types.
  */
 
-// Re-export core Hyperscape types
+// Re-export core Hyperia types
 // NOTE: Import directly from source file to avoid circular dependency through systems/shared barrel
 export { SystemBase } from "../systems/shared/infrastructure/SystemBase";
 
@@ -217,18 +217,18 @@ export const ERROR_CODES = {
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
 
 // Error types
-export class HyperscapeError extends Error {
+export class HyperiaError extends Error {
   constructor(
     message: string,
     public readonly code: ErrorCode,
     public readonly context: Record<string, string | number | boolean> = {},
   ) {
     super(message);
-    this.name = "HyperscapeError";
+    this.name = "HyperiaError";
   }
 }
 
-export class SystemError extends HyperscapeError {
+export class SystemError extends HyperiaError {
   constructor(
     systemName: string,
     message: string,
@@ -242,7 +242,7 @@ export class SystemError extends HyperscapeError {
   }
 }
 
-export class PlayerError extends HyperscapeError {
+export class PlayerError extends HyperiaError {
   constructor(
     playerId: string,
     message: string,
@@ -256,7 +256,7 @@ export class PlayerError extends HyperscapeError {
   }
 }
 
-export class ItemError extends HyperscapeError {
+export class ItemError extends HyperiaError {
   constructor(
     itemId: string,
     message: string,

@@ -2,7 +2,7 @@
 /**
  * Ensure Assets Script
  *
- * Clones the HyperscapeAI/assets repo into packages/server/world/assets/
+ * Clones the PlayHyperia/assets repo into packages/server/world/assets/
  * so the server has access to manifests, models, audio, and textures.
  *
  * Behavior:
@@ -21,7 +21,7 @@ import path from "path";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.join(__dirname, "..");
 const assetsDir = path.join(rootDir, "packages/server/world/assets");
-const assetsRepo = "https://github.com/HyperscapeAI/assets.git";
+const assetsRepo = "https://github.com/PlayHyperia/assets.git";
 
 // Local CDN URL for development
 const LOCAL_CDN_URL = "http://localhost:8080";

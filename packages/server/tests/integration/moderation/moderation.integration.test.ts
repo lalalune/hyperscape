@@ -32,7 +32,7 @@ import {
   hasModPermission,
   hasAdminPermission,
   isProtectedFromModAction,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import pg from "pg";
 import * as dotenv from "dotenv";
 import * as path from "path";

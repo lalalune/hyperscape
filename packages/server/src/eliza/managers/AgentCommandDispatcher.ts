@@ -1,11 +1,11 @@
 /**
- * AgentCommandDispatcher - Routes commands to an agent's EmbeddedHyperscapeService
+ * AgentCommandDispatcher - Routes commands to an agent's EmbeddedHyperiaService
  *
  * Extracted from AgentManager.sendCommand() to isolate the command dispatch
  * switch/case logic into a dedicated, single-responsibility class.
  */
 
-import type { EmbeddedHyperscapeService } from "../EmbeddedHyperscapeService.js";
+import type { EmbeddedHyperiaService } from "../EmbeddedHyperiaService.js";
 import type { AgentState } from "../types.js";
 
 /**
@@ -13,7 +13,7 @@ import type { AgentState } from "../types.js";
  * Avoids coupling to the full AgentInstance interface internal to AgentManager.
  */
 export interface DispatchableAgent {
-  service: EmbeddedHyperscapeService;
+  service: EmbeddedHyperiaService;
   state: AgentState;
   lastActivity: number;
   operatorCommandAt: number;
@@ -29,7 +29,7 @@ export interface DispatchableAgent {
 
 /**
  * AgentCommandDispatcher routes string-based commands to the appropriate
- * method on an agent's EmbeddedHyperscapeService.
+ * method on an agent's EmbeddedHyperiaService.
  */
 export class AgentCommandDispatcher {
   constructor(

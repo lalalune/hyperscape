@@ -60,8 +60,8 @@ export default defineConfig({
       // Path alias to match vite.config.ts
       "@": path.resolve(__dirname, "src"),
       // Use actual shared package - per project rules, no mocks allowed
-      // Tests should use real Hyperscape instances with Playwright
-      "@hyperscape/shared": path.resolve(
+      // Tests should use real Hyperia instances with Playwright
+      "@hyperforge/shared": path.resolve(
         __dirname,
         "../shared/build/framework.client.js",
       ),

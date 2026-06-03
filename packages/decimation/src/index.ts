@@ -7,7 +7,7 @@
  * Based on "Seamless: Seam erasure and seam-aware decal projection for 3D meshes"
  * SIGGRAPH Asia 2017
  *
- * @module @hyperscape/decimation
+ * @module @hyperforge/decimation
  */
 
 import {
@@ -41,7 +41,7 @@ import {
  *   decimateOptimized,
  *   fromLegacyMeshData,
  *   toLegacyMeshData,
- * } from '@hyperscape/decimation/optimized';
+ * } from '@hyperforge/decimation/optimized';
  *
  * // Convert from legacy format
  * const optimizedMesh = fromLegacyMeshData(mesh);
@@ -199,7 +199,7 @@ export interface DecimationResult {
  *
  * @example
  * ```typescript
- * import { decimate, MeshData } from '@hyperscape/decimation';
+ * import { decimate, MeshData } from '@hyperforge/decimation';
  *
  * const mesh = new MeshData(vertices, faces, texCoords, faceTexCoords);
  * const result = decimate(mesh, { targetPercent: 50 }); // Reduce to 50%
@@ -394,7 +394,7 @@ export const VEGETATION_LOD_PRESETS: Record<string, LODLevelConfig[]> = {
  *
  * @example
  * ```typescript
- * import { generateLODLevels, MeshData, VEGETATION_LOD_PRESETS } from '@hyperscape/decimation';
+ * import { generateLODLevels, MeshData, VEGETATION_LOD_PRESETS } from '@hyperforge/decimation';
  *
  * const mesh = new MeshData(vertices, faces, texCoords, faceTexCoords);
  *

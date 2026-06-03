@@ -37,7 +37,7 @@ import "@solana/wallet-adapter-react-ui/styles.css";
 if (typeof window !== "undefined") {
   registerMwa({
     appIdentity: {
-      name: "Hyperscape",
+      name: "Hyperia",
       uri: `${window.location.protocol}//${window.location.host}`,
       icon: "images/app-icon-192.png",
     },
@@ -130,7 +130,7 @@ export function SolanaWalletProvider({ children }: SolanaWalletProviderProps) {
       <WalletProvider
         wallets={wallets}
         autoConnect={true}
-        localStorageKey="hyperscape-solana-wallet"
+        localStorageKey="hyperia-solana-wallet"
       >
         <WalletModalProvider>{children}</WalletModalProvider>
       </WalletProvider>

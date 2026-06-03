@@ -15,7 +15,7 @@ import {
   CombatSystem,
   HOME_TELEPORT_CONSTANTS,
   Emotes,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 
 interface CastingState {
   endTick: number;

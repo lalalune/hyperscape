@@ -1,6 +1,6 @@
 /**
  * Skills Panel
- * Hyperscape-themed skills interface (Prayer is now in separate PrayerPanel)
+ * Hyperia-themed skills interface (Prayer is now in separate PrayerPanel)
  * Uses project theme colors (gold #f2d08a, brown borders)
  * Supports drag-drop to action bar
  * Uses shared SKILL_DEFINITIONS for data-driven skill display
@@ -32,7 +32,7 @@ import {
   SKILL_DEFINITIONS,
   getUnlocksForSkill,
   type SkillDefinition,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import { SkillGuidePanel } from "./SkillGuidePanel";
 
 interface SkillsPanelProps {

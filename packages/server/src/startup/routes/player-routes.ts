@@ -15,7 +15,7 @@
  */
 
 import type { FastifyInstance } from "fastify";
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 import { timingSafeEqual } from "crypto";
 
 /**

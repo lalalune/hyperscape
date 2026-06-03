@@ -8,18 +8,18 @@
 
 /**
  * Enable verbose face direction logging.
- * - In development: controlled by HYPERSCAPE_DEBUG_FACE_DIRECTION env var
+ * - In development: controlled by HYPERIA_DEBUG_FACE_DIRECTION env var
  * - In production: always false (dead code elimination)
  */
 export const DEBUG_FACE_DIRECTION =
   process.env.NODE_ENV !== "production" &&
-  process.env.HYPERSCAPE_DEBUG_FACE_DIRECTION === "true";
+  process.env.HYPERIA_DEBUG_FACE_DIRECTION === "true";
 
 /**
  * Enable verbose pending gather logging.
- * - In development: controlled by HYPERSCAPE_DEBUG_PENDING_GATHER env var
+ * - In development: controlled by HYPERIA_DEBUG_PENDING_GATHER env var
  * - In production: always false (dead code elimination)
  */
 export const DEBUG_PENDING_GATHER =
   process.env.NODE_ENV !== "production" &&
-  process.env.HYPERSCAPE_DEBUG_PENDING_GATHER === "true";
+  process.env.HYPERIA_DEBUG_PENDING_GATHER === "true";

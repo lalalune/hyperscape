@@ -16,7 +16,7 @@ import type {
   PathInfo,
   NavStats,
   NavigationVisualizerOptions,
-} from "@hyperscape/procgen/building/viewer";
+} from "@hyperforge/procgen/building/viewer";
 import {
   Building2,
   MapPin,
@@ -48,12 +48,12 @@ const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3401";
 
 // Lazy load the viewers to avoid SSR issues with Three.js
 const BuildingViewer = React.lazy(() =>
-  import("@hyperscape/procgen/building/viewer").then((m) => ({
+  import("@hyperforge/procgen/building/viewer").then((m) => ({
     default: m.BuildingViewer,
   })),
 );
 const TownViewer = React.lazy(() =>
-  import("@hyperscape/procgen/building/viewer").then((m) => ({
+  import("@hyperforge/procgen/building/viewer").then((m) => ({
     default: m.TownViewer,
   })),
 );

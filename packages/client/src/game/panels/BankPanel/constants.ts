@@ -43,7 +43,7 @@ export const DRAG_THROTTLE_MS = 16;
 // THEME
 // ============================================================================
 
-/** Hyperscape Black & Gold Theme */
+/** Hyperia Black & Gold Theme */
 export const BANK_THEME = Object.freeze({
   // Panel backgrounds - deep black with slight warmth
   PANEL_BG: "rgba(15, 12, 8, 0.98)",

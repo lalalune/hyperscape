@@ -5,7 +5,7 @@
  * controls for configuring procedural world generation.
  */
 
-import { TERRAIN_PRESETS } from "@hyperscape/procgen/terrain";
+import { TERRAIN_PRESETS } from "@hyperforge/procgen/terrain";
 import {
   Mountain,
   Droplet,

@@ -1,5 +1,5 @@
 /**
- * Hyperscape Interface Components
+ * Hyperia Interface Components
  *
  * Customizable windows, tabs, and layout presets for game UI.
  *

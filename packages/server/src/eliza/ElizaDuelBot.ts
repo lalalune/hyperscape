@@ -2,10 +2,10 @@
  * ElizaDuelBot - ElizaOS-powered duel bot
  *
  * Drop-in replacement for DuelBot that uses a real ElizaOS AgentRuntime
- * with hyperscapePlugin. Each bot uses a different AI model for TEXT_LARGE
+ * with hyperiaPlugin. Each bot uses a different AI model for TEXT_LARGE
  * decisions and a cheap small model for TEXT_SMALL.
  *
- * The HyperscapeService's AutonomousBehaviorManager handles the LLM decision
+ * The HyperiaService's AutonomousBehaviorManager handles the LLM decision
  * loop (movement, combat, prayer switching, etc.). The matchmaker just
  * initiates challenges between bots.
  */
@@ -17,7 +17,7 @@ import {
   InMemoryDatabaseAdapter,
 } from "@elizaos/core";
 import { EventEmitter } from "events";
-import { hyperscapePlugin } from "@hyperscape/plugin-hyperscape";
+import { hyperiaPlugin } from "@hyperforge/plugin-hyperia";
 import { createJWT } from "../shared/utils.js";
 import { errMsg } from "../shared/errMsg.js";
 import type { ModelProviderConfig } from "./ModelAgentSpawner.js";
@@ -27,8 +27,8 @@ import { duelLogError, duelLogInfo, duelLogWarn } from "./logging.js";
 // Re-export for convenience
 export { MODEL_AGENTS } from "./ModelAgentSpawner.js";
 
-/** Minimal interface for the HyperscapeService accessed through the runtime. */
-interface HyperscapeServiceHandle {
+/** Minimal interface for the HyperiaService accessed through the runtime. */
+interface HyperiaServiceHandle {
   executeDuelChallenge?: (params: { targetPlayerId: string }) => Promise<void>;
   getPlayerEntity?: () => {
     position?: [number, number, number] | { x: number; y: number; z: number };
@@ -147,18 +147,18 @@ export class ElizaDuelBot extends EventEmitter {
     return this._id;
   }
 
-  private getHyperscapeService(): HyperscapeServiceHandle | null {
+  private getHyperiaService(): HyperiaServiceHandle | null {
     if (!this.runtime) return null;
     return this.runtime.getService(
-      "hyperscapeService",
-    ) as HyperscapeServiceHandle | null;
+      "hyperiaService",
+    ) as HyperiaServiceHandle | null;
   }
 
   private async waitForPlayerSpawnReady(timeoutMs: number): Promise<void> {
     const deadline = Date.now() + timeoutMs;
 
     while (Date.now() < deadline) {
-      const playerEntity = this.getHyperscapeService()?.getPlayerEntity?.();
+      const playerEntity = this.getHyperiaService()?.getPlayerEntity?.();
       if (playerEntity) {
         return;
       }
@@ -211,22 +211,22 @@ export class ElizaDuelBot extends EventEmitter {
           name,
           smallModel: this.config.smallModel,
           secrets: {
-            HYPERSCAPE_SERVER_URL: wsUrl,
-            HYPERSCAPE_AUTH_TOKEN: authToken,
-            HYPERSCAPE_PRIVY_USER_ID: accountId,
-            HYPERSCAPE_CHARACTER_ID: "",
-            HYPERSCAPE_AUTONOMY_MODE: "llm",
-            HYPERSCAPE_AUTO_ACCEPT_DUELS: "true",
+            HYPERIA_SERVER_URL: wsUrl,
+            HYPERIA_AUTH_TOKEN: authToken,
+            HYPERIA_PRIVY_USER_ID: accountId,
+            HYPERIA_CHARACTER_ID: "",
+            HYPERIA_AUTONOMY_MODE: "llm",
+            HYPERIA_AUTO_ACCEPT_DUELS: "true",
           },
         });
         if (character.settings?.secrets) {
           (
             character.settings.secrets as Record<string, string>
-          ).HYPERSCAPE_CHARACTER_ID = characterId;
+          ).HYPERIA_CHARACTER_ID = characterId;
         }
 
         // Build plugins (no SQL plugin — InMemoryDatabaseAdapter replaces PGLite WASM)
-        const plugins: Plugin[] = [modelPlugin, hyperscapePlugin];
+        const plugins: Plugin[] = [modelPlugin, hyperiaPlugin];
 
         // Create a memory-safe adapter (cap logs)
         const adapter = new InMemoryDatabaseAdapter();
@@ -278,19 +278,19 @@ export class ElizaDuelBot extends EventEmitter {
         }
 
         // ElizaOS v2 lazy-starts services — they aren't started during
-        // runtime.initialize().  Explicitly ensure HyperscapeService is
+        // runtime.initialize().  Explicitly ensure HyperiaService is
         // started so the WebSocket connection + player spawn can proceed.
         const runtimeWithService = this.runtime as unknown as {
           _ensureServiceStarted?: (serviceName: string) => Promise<unknown>;
         };
         if (typeof runtimeWithService._ensureServiceStarted === "function") {
-          await runtimeWithService._ensureServiceStarted("hyperscapeService");
+          await runtimeWithService._ensureServiceStarted("hyperiaService");
         }
 
         await this.waitForPlayerSpawnReady(this.config.connectTimeoutMs);
 
         // Start autonomous behavior so agents mine/chop/fish between duels
-        const service = this.getHyperscapeService();
+        const service = this.getHyperiaService();
         if (service?.startAutonomousBehavior) {
           service.startAutonomousBehavior();
         }
@@ -301,7 +301,7 @@ export class ElizaDuelBot extends EventEmitter {
         this.metrics.connectedAt = Date.now();
         this.state = "idle";
 
-        // Listen for duel events from HyperscapeService
+        // Listen for duel events from HyperiaService
         this.setupDuelEventListeners();
 
         duelLogInfo(
@@ -369,7 +369,7 @@ export class ElizaDuelBot extends EventEmitter {
 
   /**
    * Challenge another player to a duel.
-   * Uses HyperscapeService.executeDuelChallenge() via the runtime.
+   * Uses HyperiaService.executeDuelChallenge() via the runtime.
    */
   challengePlayer(targetId: string): void {
     if (this.state !== "idle") {
@@ -385,11 +385,11 @@ export class ElizaDuelBot extends EventEmitter {
       return;
     }
 
-    const service = this.getHyperscapeService();
+    const service = this.getHyperiaService();
     if (!service?.executeDuelChallenge) {
       duelLogWarn(
         "ElizaDuelBot",
-        `${this.config.name} - HyperscapeService not available yet`,
+        `${this.config.name} - HyperiaService not available yet`,
       );
       this.state = "idle";
       return;
@@ -419,7 +419,7 @@ export class ElizaDuelBot extends EventEmitter {
   }
 
   getPosition(): { x: number; y: number; z: number } | null {
-    const service = this.getHyperscapeService();
+    const service = this.getHyperiaService();
     const playerEntity = service?.getPlayerEntity?.();
     if (!playerEntity) return null;
     const pos = playerEntity.position;
@@ -436,7 +436,7 @@ export class ElizaDuelBot extends EventEmitter {
     // Guard against duplicate listener registration across reconnects
     if (this.duelListenersRegistered) return;
 
-    const service = this.getHyperscapeService();
+    const service = this.getHyperiaService();
     if (!service) {
       // Service may not be ready yet — retry after a short delay.
       // Track the timer so disconnect() can cancel it.
@@ -505,7 +505,7 @@ export class ElizaDuelBot extends EventEmitter {
       return;
     }
 
-    const service = this.getHyperscapeService();
+    const service = this.getHyperiaService();
     if (service?.offGameEvent) {
       if (this.duelFightStartHandler) {
         service.offGameEvent("DUEL_FIGHT_START", this.duelFightStartHandler);

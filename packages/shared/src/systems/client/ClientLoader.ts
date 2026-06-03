@@ -109,7 +109,7 @@ THREE.Cache.enabled = true;
  */
 
 /** IndexedDB database name for asset cache */
-const ASSET_DB_NAME = "hyperscape-assets";
+const ASSET_DB_NAME = "hyperia-assets";
 const ASSET_STORE_NAME = "files";
 const ASSET_DB_VERSION = 1;
 

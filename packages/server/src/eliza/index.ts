@@ -1,7 +1,7 @@
 /**
  * Embedded Eliza Agent Module
  *
- * This module provides embedded ElizaOS agent support for the Hyperscape server.
+ * This module provides embedded ElizaOS agent support for the Hyperia server.
  * Agents run directly in the server process with direct world access, eliminating
  * the need for external ElizaOS processes and WebSocket connections.
  *
@@ -18,13 +18,13 @@
  * ```
  */
 
-export { EmbeddedHyperscapeService } from "./EmbeddedHyperscapeService.js";
+export { EmbeddedHyperiaService } from "./EmbeddedHyperiaService.js";
 export {
   AgentManager,
   getAgentManager,
   setAgentManager,
 } from "./AgentManager.js";
-export type { HyperscapeService } from "./AgentManager.js";
+export type { HyperiaService } from "./AgentManager.js";
 export type {
   EmbeddedAgentConfig,
   EmbeddedAgentInfo,
@@ -32,7 +32,7 @@ export type {
   AgentCharacterConfig,
   EmbeddedGameState,
   NearbyEntityData,
-  IEmbeddedHyperscapeService,
+  IEmbeddedHyperiaService,
 } from "./types.js";
 
 export {
@@ -71,7 +71,7 @@ export {
   COMPETITIVE_SYSTEM_PROMPT,
 } from "./agentHelpers.js";
 
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 import { AgentManager, setAgentManager } from "./AgentManager.js";
 import { spawnModelAgents, getAvailableModels } from "./ModelAgentSpawner.js";
 
@@ -95,7 +95,7 @@ interface ServerConfig {
  *
  * This should be called during server startup after the world is created.
  *
- * @param world - The Hyperscape world instance
+ * @param world - The Hyperia world instance
  * @param config - Server configuration
  * @returns The initialized AgentManager
  */

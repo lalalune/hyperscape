@@ -1,7 +1,7 @@
 /**
  * Node.js ESM resolution hooks
  *
- * Fixes two Bun-isms in workspace packages (e.g., @hyperscape/procgen)
+ * Fixes two Bun-isms in workspace packages (e.g., @hyperforge/procgen)
  * whose TypeScript build output relies on Bun's lenient module resolution:
  *   1. Extensionless imports: `from "./Foo"` → `from "./Foo.js"`
  *   2. Directory imports:     `from "./bar"` → `from "./bar/index.js"`

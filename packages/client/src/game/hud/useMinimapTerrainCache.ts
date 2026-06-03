@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, type MutableRefObject } from "react";
-import { TERRAIN_CONSTANTS } from "@hyperscape/shared";
+import { TERRAIN_CONSTANTS } from "@hyperforge/shared";
 import type { ClientWorld } from "../../types";
 
 const TERRAIN_BASE_SAMPLE_SIZE = 96;

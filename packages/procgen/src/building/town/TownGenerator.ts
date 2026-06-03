@@ -194,12 +194,12 @@ export class TownGenerator {
 
   /**
    * Create a TownGenerator from a TerrainGenerator
-   * This provides seamless integration with @hyperscape/procgen/terrain
+   * This provides seamless integration with @hyperforge/procgen/terrain
    *
    * @example
    * ```typescript
-   * import { TerrainGenerator } from '@hyperscape/procgen/terrain';
-   * import { TownGenerator } from '@hyperscape/procgen/building/town';
+   * import { TerrainGenerator } from '@hyperforge/procgen/terrain';
+   * import { TownGenerator } from '@hyperforge/procgen/building/town';
    *
    * const terrainGen = new TerrainGenerator({ seed: 12345 });
    * const townGen = TownGenerator.fromTerrainGenerator(terrainGen);

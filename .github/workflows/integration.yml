@@ -19,9 +19,9 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_USER: hyperscape
-          POSTGRES_PASSWORD: hyperscape_test
-          POSTGRES_DB: hyperscape_test
+          POSTGRES_USER: hyperia
+          POSTGRES_PASSWORD: hyperia_test
+          POSTGRES_DB: hyperia_test
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -39,7 +39,7 @@ jobs:
       - name: Clone assets repository
         run: |
           rm -rf packages/server/world/assets
-          git clone --depth 1 https://github.com/HyperscapeAI/assets.git packages/server/world/assets
+          git clone --depth 1 https://github.com/PlayHyperia/assets.git packages/server/world/assets
           echo "✓ Assets cloned ($(ls packages/server/world/assets/manifests/*.json 2>/dev/null | wc -l) manifest files)"
 
       - name: Setup Bun
@@ -68,7 +68,7 @@ jobs:
         working-directory: packages/server
         run: bunx drizzle-kit push
         env:
-          DATABASE_URL: postgresql://hyperscape:hyperscape_test@localhost:5432/hyperscape_test
+          DATABASE_URL: postgresql://hyperia:hyperia_test@localhost:5432/hyperia_test
 
       - name: Start server in background
         working-directory: packages/server
@@ -77,14 +77,14 @@ jobs:
           bun run start > logs/server.log 2>&1 &
           echo "Server PID: $!"
         env:
-          DATABASE_URL: postgresql://hyperscape:hyperscape_test@localhost:5432/hyperscape_test
+          DATABASE_URL: postgresql://hyperia:hyperia_test@localhost:5432/hyperia_test
           NODE_ENV: test
           PORT: 5555
           CI: "true"
           SKIP_MIGRATIONS: "true"
           SKIP_MANIFESTS: "true"
           SKIP_VALIDATION: "true"
-          PUBLIC_CDN_URL: https://assets.hyperscape.club
+          PUBLIC_CDN_URL: https://assets.hyperia.club
 
       - name: Wait for server to be ready
         working-directory: packages/server

@@ -241,8 +241,8 @@ export const AgentViewport: React.FC<AgentViewportProps> = ({ agent }) => {
           Waiting for Agent to Connect
         </h2>
         <p className="text-center max-w-md mb-4">
-          The agent is starting up and connecting to Hyperscape. This viewport
-          will activate automatically once the agent enters the game world.
+          The agent is starting up and connecting to Hyperia. This viewport will
+          activate automatically once the agent enters the game world.
         </p>
         <div className="flex items-center gap-2 text-[#f2d08a]/40 text-sm">
           <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-[#f2d08a]/40"></div>
@@ -268,7 +268,7 @@ export const AgentViewport: React.FC<AgentViewportProps> = ({ agent }) => {
   }
 
   // Build iframe URL for spectator mode
-  // authToken is now a permanent Hyperscape JWT (obtained by exchanging Privy token)
+  // authToken is now a permanent Hyperia JWT (obtained by exchanging Privy token)
   // This JWT never expires, solving the session timeout issue
   const privyUserId = user?.id || "";
 

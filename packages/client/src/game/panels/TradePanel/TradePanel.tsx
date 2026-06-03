@@ -29,7 +29,7 @@ import {
   getPanelSurfaceStyle,
   getShellControlButtonStyle,
 } from "@/ui/theme/themes";
-import type { TradeOfferItem } from "@hyperscape/shared";
+import type { TradeOfferItem } from "@hyperforge/shared";
 import { UI } from "@/ui/core";
 
 // Import from split modules

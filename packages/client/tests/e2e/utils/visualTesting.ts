@@ -1,7 +1,7 @@
 /**
- * Visual Testing Utilities for Hyperscape E2E Tests
+ * Visual Testing Utilities for Hyperia E2E Tests
  *
- * Per project rules: Tests use real Hyperscape instances with colored cube proxies
+ * Per project rules: Tests use real Hyperia instances with colored cube proxies
  * for visual verification. Each entity type has a specific color:
  * - Red (0xFF0000): Players
  * - Green (0x00FF00): Goblins/Mobs

@@ -1,5 +1,5 @@
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
-import { Curve, downloadFile, hashFile } from "@hyperscape/shared";
+import { Curve, downloadFile, hashFile } from "@hyperforge/shared";
 import type { ClientWorld } from "../types";
 import { CurvePane } from "./CurvePane";
 import { CurvePreview } from "./CurvePreview";

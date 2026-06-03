@@ -1,4 +1,4 @@
-# Hyperscape Duel Index + Perp Simulator
+# Hyperia Duel Index + Perp Simulator
 
 This package is a research simulator for target-state market design. It is not a proof that the currently deployed Solana perps program implements every protection modeled here.
 

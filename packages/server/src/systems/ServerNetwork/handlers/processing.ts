@@ -16,7 +16,7 @@
  */
 
 import type { ServerSocket } from "../../../shared/types";
-import { EventType, World } from "@hyperscape/shared";
+import { EventType, World } from "@hyperforge/shared";
 import type { TileMovementManager } from "../tile-movement";
 import type { PendingCookManager } from "../PendingCookManager";
 import type { PendingGatherManager } from "../PendingGatherManager";

@@ -29,7 +29,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
-      "@hyperscape/procgen": path.resolve(__dirname, "../procgen/src"),
+      "@hyperforge/procgen": path.resolve(__dirname, "../procgen/src"),
     },
   },
 });

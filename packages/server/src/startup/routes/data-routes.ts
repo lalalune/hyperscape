@@ -15,7 +15,7 @@
  */
 
 import type { FastifyInstance } from "fastify";
-import { getAllSkillUnlocks } from "@hyperscape/shared";
+import { getAllSkillUnlocks } from "@hyperforge/shared";
 
 /**
  * Register data endpoints

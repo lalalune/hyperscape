@@ -7,7 +7,7 @@
  * @packageDocumentation
  */
 
-import type { Item } from "@hyperscape/shared";
+import type { Item } from "@hyperforge/shared";
 
 /**
  * Raw equipment slot format from server network cache

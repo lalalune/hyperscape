@@ -37,8 +37,8 @@ name = "solana_address_lookup_table_interface"
 path = "src/lib.rs"
 
 [dependencies.bincode]
-package = "hyperscape-bincode"
-path = "../hyperscape-bincode"
+package = "hyperforge-bincode"
+path = "../hyperforge-bincode"
 optional = true
 [dependencies.bytemuck]
 version = "1.21.0"

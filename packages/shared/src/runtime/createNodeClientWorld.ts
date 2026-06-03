@@ -5,7 +5,7 @@
  * This is useful for:
  * - Automated testing (connecting bots to test multiplayer)
  * - Load testing (spinning up many headless clients)
- * - AI agents (ElizaOS agents connecting to Hyperscape worlds)
+ * - AI agents (ElizaOS agents connecting to Hyperia worlds)
  * - Server-side rendering or analysis
  * - Development tools that need to connect as clients
  *
@@ -40,7 +40,7 @@
  * // Headless client is now connected to server
  * ```
  *
- * Used by: Plugin-Hyperscape (ElizaOS agents), testing tools, load testing
+ * Used by: Plugin-Hyperia (ElizaOS agents), testing tools, load testing
  * References: World.ts, NodeClient.ts, ClientNetwork.ts
  */
 

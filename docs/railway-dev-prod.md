@@ -37,24 +37,24 @@ Production service/environment IDs are currently pinned in
 2. Confirm each environment has a service instance for this app.
 3. Copy the `serviceId` and `environmentId` for development into GitHub variables.
 
-## Point `hyperscape.gg` to Production
+## Point `hyperia.gg` to Production
 
 1. In Railway:
    - Open the production service.
    - Go to `Settings -> Domains`.
-   - Add `hyperscape.gg` as a custom domain.
-   - Optionally add `www.hyperscape.gg` and redirect it to apex.
+   - Add `hyperia.gg` as a custom domain.
+   - Optionally add `www.hyperia.gg` and redirect it to apex.
 2. Railway will show the exact DNS record(s) required. Create those records at your DNS provider exactly as shown.
 3. If you use Cloudflare DNS, set proxy to DNS-only until certificate issuance completes.
 4. Wait for domain verification and TLS certificate status to become active in Railway.
 5. Validate:
-   - `https://hyperscape.gg/status`
-   - `wss://hyperscape.gg/ws`
+   - `https://hyperia.gg/status`
+   - `wss://hyperia.gg/ws`
 
 ## Optional Dev Domain
 
 Recommended custom domain for development:
 
-- `dev.hyperscape.gg`
+- `dev.hyperia.gg`
 
 Add it in the development Railway environment and create matching DNS records from Railway's instructions.

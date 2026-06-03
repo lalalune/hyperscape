@@ -583,7 +583,7 @@ export class ClientNetwork extends SystemBase {
     }
 
     // For embedded spectator viewfinders (dashboard agent live view), the spectator
-    // JWT is passed as a URL param on the iframe and stored in __HYPERSCAPE_CONFIG__.authToken.
+    // JWT is passed as a URL param on the iframe and stored in __HYPERIA_CONFIG__.authToken.
     // It is intentionally NOT put in the WebSocket URL by EmbeddedGameClient (security
     // concern about token leaking in logs), but the server requires it to pass the
     // STREAMING_PUBLIC_DELAY_MS access gate for agent spectating.  Use it here if no
@@ -596,9 +596,9 @@ export class ClientNetwork extends SystemBase {
     ) {
       const embeddedAuth = (
         window as {
-          __HYPERSCAPE_CONFIG__?: { authToken?: string };
+          __HYPERIA_CONFIG__?: { authToken?: string };
         }
-      ).__HYPERSCAPE_CONFIG__?.authToken;
+      ).__HYPERIA_CONFIG__?.authToken;
       if (embeddedAuth) {
         authToken = embeddedAuth;
       }
@@ -638,17 +638,17 @@ export class ClientNetwork extends SystemBase {
 
     // Read embedded configuration once at initialization
     if (typeof window !== "undefined") {
-      const isEmbedded = (window as { __HYPERSCAPE_EMBEDDED__?: boolean })
-        .__HYPERSCAPE_EMBEDDED__;
+      const isEmbedded = (window as { __HYPERIA_EMBEDDED__?: boolean })
+        .__HYPERIA_EMBEDDED__;
       const embeddedConfig = (
         window as {
-          __HYPERSCAPE_CONFIG__?: {
+          __HYPERIA_CONFIG__?: {
             mode?: string;
             characterId?: string;
             followEntity?: string;
           };
         }
-      ).__HYPERSCAPE_CONFIG__;
+      ).__HYPERIA_CONFIG__;
 
       if (isEmbedded && embeddedConfig) {
         this.isEmbeddedSpectator = embeddedConfig.mode === "spectator";
@@ -661,12 +661,12 @@ export class ClientNetwork extends SystemBase {
         // and can't be overwritten by streaming state broadcasts.
         if (
           originalFollowTarget &&
-          !(window as { __HYPERSCAPE_ORIGINAL_FOLLOW__?: string })
-            .__HYPERSCAPE_ORIGINAL_FOLLOW__
+          !(window as { __HYPERIA_ORIGINAL_FOLLOW__?: string })
+            .__HYPERIA_ORIGINAL_FOLLOW__
         ) {
           (
-            window as { __HYPERSCAPE_ORIGINAL_FOLLOW__?: string }
-          ).__HYPERSCAPE_ORIGINAL_FOLLOW__ = originalFollowTarget;
+            window as { __HYPERIA_ORIGINAL_FOLLOW__?: string }
+          ).__HYPERIA_ORIGINAL_FOLLOW__ = originalFollowTarget;
         }
 
         this.logger.debug("[ClientNetwork] Embedded config loaded", {
@@ -5466,8 +5466,8 @@ export class ClientNetwork extends SystemBase {
     const frozenFollow =
       this.embeddedCharacterId ||
       (typeof window !== "undefined" &&
-        (window as { __HYPERSCAPE_ORIGINAL_FOLLOW__?: string })
-          .__HYPERSCAPE_ORIGINAL_FOLLOW__) ||
+        (window as { __HYPERIA_ORIGINAL_FOLLOW__?: string })
+          .__HYPERIA_ORIGINAL_FOLLOW__) ||
       null;
     if (frozenFollow) {
       return;
@@ -5483,10 +5483,10 @@ export class ClientNetwork extends SystemBase {
 
     if (typeof window !== "undefined") {
       const w = window as Window & {
-        __HYPERSCAPE_CONFIG__?: { followEntity?: string };
+        __HYPERIA_CONFIG__?: { followEntity?: string };
       };
-      if (w.__HYPERSCAPE_CONFIG__) {
-        w.__HYPERSCAPE_CONFIG__.followEntity = nextTargetId;
+      if (w.__HYPERIA_CONFIG__) {
+        w.__HYPERIA_CONFIG__.followEntity = nextTargetId;
       }
     }
 

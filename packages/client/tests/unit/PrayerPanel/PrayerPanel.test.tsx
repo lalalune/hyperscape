@@ -16,7 +16,7 @@ import {
   asClientWorld,
   createEventTracker,
 } from "../../mocks/MockWorld";
-import type { PlayerStats, Skills, SkillData } from "@hyperscape/shared";
+import type { PlayerStats, Skills, SkillData } from "@hyperforge/shared";
 
 // ============================================================================
 // TEST DATA FACTORIES

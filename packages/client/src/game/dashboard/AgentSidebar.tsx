@@ -39,7 +39,7 @@ export const AgentSidebar: React.FC<AgentSidebarProps> = ({
         </div>
         <div>
           <h1 className="font-bold text-[#f2d08a] text-sm uppercase tracking-wider">
-            Hyperscape
+            Hyperia
           </h1>
           <p className="text-xs text-[#f2d08a]/60">Control Panel</p>
         </div>

@@ -221,7 +221,7 @@ export function clearAllAuthData(): void {
   const authKeys = [
     "privy_auth_token",
     "privy_user_id",
-    "hyperscape_player_token",
+    "hyperia_player_token",
   ];
 
   for (const key of authKeys) {

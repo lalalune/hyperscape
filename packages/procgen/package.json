@@ -1,5 +1,5 @@
 {
-  "name": "@hyperscape/procgen",
+  "name": "@hyperforge/procgen",
   "version": "1.0.0",
   "type": "module",
   "description": "Procedural generation toolkit for trees, plants, rocks, and buildings (Three.js)",
@@ -76,7 +76,7 @@
     "react-dom": "19.2.4"
   },
   "dependencies": {
-    "@hyperscape/impostor": "workspace:*",
+    "@hyperforge/impostor": "workspace:*",
     "delaunator": "^5.0.1"
   },
   "devDependencies": {
@@ -111,11 +111,11 @@
     "biome",
     "3d"
   ],
-  "author": "Hyperscape Team",
+  "author": "Hyperia Team",
   "license": "GPL-3.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/HyperscapeAI/hyperscape.git",
+    "url": "https://github.com/PlayHyperia/hyperia.git",
     "directory": "packages/tree-gen"
   },
   "engines": {

@@ -1,5 +1,5 @@
 /**
- * Hyperscape Server - Startup orchestrator
+ * Hyperia Server - Startup orchestrator
  *
  * This module contains the actual server initialization logic.
  * It is loaded dynamically from `src/index.ts` after polyfills are installed.
@@ -31,7 +31,7 @@ import {
   startMemoryMonitor as startMemoryMonitorInfra,
   type MemoryMonitorConfig,
 } from "./infrastructure/memory-monitor.js";
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 
 function resolveBooleanEnvFlag(name: string, defaultEnabled: boolean): boolean {
   const raw = process.env[name];
@@ -45,7 +45,7 @@ function resolveBooleanEnvFlag(name: string, defaultEnabled: boolean): boolean {
 }
 
 /**
- * Starts the Hyperscape server
+ * Starts the Hyperia server
  *
  * This is the main entry point for server initialization. It orchestrates
  * all startup modules in the correct sequence to bring the server online.
@@ -55,17 +55,17 @@ function resolveBooleanEnvFlag(name: string, defaultEnabled: boolean): boolean {
 async function startServer() {
   // Prevent duplicate server initialization
   const globalWithFlag = globalThis as typeof globalThis & {
-    __HYPERSCAPE_SERVER_STARTING__?: boolean;
+    __HYPERIA_SERVER_STARTING__?: boolean;
   };
 
-  if (globalWithFlag.__HYPERSCAPE_SERVER_STARTING__) {
+  if (globalWithFlag.__HYPERIA_SERVER_STARTING__) {
     console.warn(
       "[Server] Server already starting, skipping duplicate initialization",
     );
     return;
   }
 
-  globalWithFlag.__HYPERSCAPE_SERVER_STARTING__ = true;
+  globalWithFlag.__HYPERIA_SERVER_STARTING__ = true;
 
   // Step 1: Load configuration
   const config = await loadConfig();
@@ -601,9 +601,9 @@ startServer().catch((err) => {
 
   // Clear the flag so hot reload can retry
   const globalWithFlag = globalThis as typeof globalThis & {
-    __HYPERSCAPE_SERVER_STARTING__?: boolean;
+    __HYPERIA_SERVER_STARTING__?: boolean;
   };
-  globalWithFlag.__HYPERSCAPE_SERVER_STARTING__ = false;
+  globalWithFlag.__HYPERIA_SERVER_STARTING__ = false;
 
   process.exit(1);
 });

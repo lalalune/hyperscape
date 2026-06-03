@@ -3,7 +3,7 @@ pragma solidity >=0.8.24;
 
 /**
  * @title Errors
- * @notice Custom error definitions for all Hyperscape systems.
+ * @notice Custom error definitions for all HyperForge systems.
  * Using custom errors instead of require strings saves gas.
  */
 library Errors {

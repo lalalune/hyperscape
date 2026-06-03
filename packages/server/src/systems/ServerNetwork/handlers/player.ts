@@ -13,7 +13,7 @@
  */
 
 import type { ServerSocket } from "../../../shared/types";
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 import type { FollowManager } from "../FollowManager";
 import { validateRequestTimestamp } from "../services/InputValidation";
 import { getFollowRateLimiter } from "../services/SlidingWindowRateLimiter";

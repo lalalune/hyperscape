@@ -5,9 +5,9 @@
 //
 // Example production content:
 //   window.env = {
-//     PUBLIC_CDN_URL: "https://assets.hyperscape.club",
-//     PUBLIC_WS_URL: "wss://hyperscape.gg/ws",
-//     PUBLIC_API_URL: "https://hyperscape.gg",
+//     PUBLIC_CDN_URL: "https://assets.hyperia.club",
+//     PUBLIC_WS_URL: "wss://hyperia.gg/ws",
+//     PUBLIC_API_URL: "https://hyperia.gg",
 //   };
 //
 // In local Vite dev, serve sane runtime defaults so the client does not inherit

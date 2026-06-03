@@ -137,7 +137,7 @@ export const useComplexityStore = create<ComplexityStoreState>()(
       },
     }),
     {
-      name: "hyperscape-complexity",
+      name: "hyperia-complexity",
       version: 1, // Bump version for migration
       partialize: (state) => ({
         mode: state.mode,

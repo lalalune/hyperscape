@@ -1,10 +1,10 @@
-import { getItem, isFood } from "@hyperscape/shared";
+import { getItem, isFood } from "@hyperforge/shared";
 import type {
   AgentQuestInfo,
   AgentQuestProgress,
   NearbyEntityData,
 } from "./types.js";
-import type { EmbeddedHyperscapeService } from "./EmbeddedHyperscapeService.js";
+import type { EmbeddedHyperiaService } from "./EmbeddedHyperiaService.js";
 import { ServerNetwork } from "../systems/ServerNetwork/index.js";
 import { agentThoughts as agentThoughtsTable } from "../database/schema.js";
 import type { Database } from "../database/client.js";
@@ -821,7 +821,7 @@ type InventoryEntry = {
 };
 
 function getInventoryEntries(
-  service: EmbeddedHyperscapeService,
+  service: EmbeddedHyperiaService,
 ): InventoryEntry[] {
   return service.getInventoryItems().map((entry) => {
     const item = getItem(entry.itemId);
@@ -896,7 +896,7 @@ function resolveBestHealingItem(
 }
 
 function resolveNpcCandidate(
-  service: EmbeddedHyperscapeService,
+  service: EmbeddedHyperiaService,
   targetPhrase: string,
 ): { npcId: string; name: string } | null {
   const allNpcs = service.getAllNPCPositions();
@@ -979,10 +979,10 @@ function placeNameMatchesPhrase(
 
 export function findWorldMapMoveTarget(
   moveTargetPhrase: string,
-  service: EmbeddedHyperscapeService,
+  service: EmbeddedHyperiaService,
   playerPosition: [number, number, number] | null,
 ): [number, number, number] | null {
-  type ServiceWithWorldMap = EmbeddedHyperscapeService & {
+  type ServiceWithWorldMap = EmbeddedHyperiaService & {
     getWorldMap?: () => Record<string, unknown>;
   };
   const worldMap = (service as ServiceWithWorldMap).getWorldMap?.();
@@ -1135,7 +1135,7 @@ export function findWorldMapMoveTarget(
 }
 
 function findGlobalResourceTarget(
-  service: EmbeddedHyperscapeService,
+  service: EmbeddedHyperiaService,
   playerPosition: [number, number, number] | null,
   typeKeywords: string[],
 ): { id: string; position: [number, number, number]; name: string } | null {
@@ -1158,7 +1158,7 @@ function findGlobalResourceTarget(
       position?: { x: number; y: number; z: number };
     };
   };
-  type ServiceWithWorld = EmbeddedHyperscapeService & {
+  type ServiceWithWorld = EmbeddedHyperiaService & {
     getWorld?: () => { entities?: { items?: Map<string, WorldEntity> } };
   };
   const world = (service as ServiceWithWorld).getWorld?.();
@@ -1221,7 +1221,7 @@ function findGlobalResourceTarget(
 }
 
 function findGlobalMobTarget(
-  service: EmbeddedHyperscapeService,
+  service: EmbeddedHyperiaService,
   playerPosition: [number, number, number] | null,
   targetPhrase: string,
 ): { id: string; position: [number, number, number]; name: string } | null {
@@ -1232,7 +1232,7 @@ function findGlobalMobTarget(
     mobType?: string;
     position?: { x: number; y: number; z: number };
   };
-  type ServiceWithWorld = EmbeddedHyperscapeService & {
+  type ServiceWithWorld = EmbeddedHyperiaService & {
     getWorld?: () => { entities?: { items?: Map<string, WorldEntity> } };
   };
   const world = (service as ServiceWithWorld).getWorld?.();
@@ -1276,7 +1276,7 @@ function findGlobalMobTarget(
 
 export function resolveDashboardIntent(
   content: string,
-  service: EmbeddedHyperscapeService,
+  service: EmbeddedHyperiaService,
 ): ResolvedDashboardIntent | null {
   const raw = normalizeText(content);
   if (!raw) {
@@ -1997,7 +1997,7 @@ function isGatherableDashboardEntity(entity: NearbyEntityData): boolean {
  */
 export function tryResolveDashboardLlmAction(
   parsed: Record<string, unknown>,
-  service: EmbeddedHyperscapeService,
+  service: EmbeddedHyperiaService,
 ): ResolvedDashboardIntent | null {
   const actionRaw = parsed.action;
   if (typeof actionRaw !== "string") {

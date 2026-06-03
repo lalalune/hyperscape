@@ -1,5 +1,5 @@
 #!/bin/bash
-# Configure CORS for Hyperscape R2 asset buckets
+# Configure CORS for Hyperia R2 asset buckets
 #
 # Prerequisites:
 #   - Wrangler CLI installed: npm install -g wrangler
@@ -13,9 +13,9 @@ set -e
 ENV="${1:-production}"
 
 if [ "$ENV" = "production" ]; then
-  BUCKET="hyperscape-assets"
+  BUCKET="hyperia-assets"
 elif [ "$ENV" = "staging" ]; then
-  BUCKET="hyperscape-assets-staging"
+  BUCKET="hyperia-assets-staging"
 else
   echo "Usage: $0 [production|staging]"
   exit 1
@@ -30,15 +30,15 @@ CORS_CONFIG=$(cat <<'EOF'
     {
       "allowed": {
         "origins": [
-          "https://hyperscape.gg",
-          "https://www.hyperscape.gg",
+          "https://hyperia.gg",
+          "https://www.hyperia.gg",
           "https://hyperbet.win",
           "https://www.hyperbet.win",
-          "https://hyperscape.bet",
-          "https://www.hyperscape.bet",
-          "https://hyperscape-production.up.railway.app",
-          "https://*.hyperscape.pages.dev",
-          "https://*.hyperscape-betting.pages.dev",
+          "https://hyperia.bet",
+          "https://www.hyperia.bet",
+          "https://hyperia-production.up.railway.app",
+          "https://*.hyperia.pages.dev",
+          "https://*.hyperia-betting.pages.dev",
           "https://*.hyperbet.pages.dev",
           "https://*.hyperbet-solana.pages.dev",
           "https://*.hyperbet-bsc.pages.dev",
@@ -72,15 +72,15 @@ rm "$TEMP_FILE"
 echo "CORS configured successfully for $BUCKET"
 echo ""
 echo "Allowed origins:"
-echo "  - https://hyperscape.gg"
-echo "  - https://www.hyperscape.gg"
+echo "  - https://hyperia.gg"
+echo "  - https://www.hyperia.gg"
 echo "  - https://hyperbet.win"
 echo "  - https://www.hyperbet.win"
-echo "  - https://hyperscape.bet"
-echo "  - https://www.hyperscape.bet"
-echo "  - https://hyperscape-production.up.railway.app"
-echo "  - https://*.hyperscape.pages.dev"
-echo "  - https://*.hyperscape-betting.pages.dev"
+echo "  - https://hyperia.bet"
+echo "  - https://www.hyperia.bet"
+echo "  - https://hyperia-production.up.railway.app"
+echo "  - https://*.hyperia.pages.dev"
+echo "  - https://*.hyperia-betting.pages.dev"
 echo "  - https://*.hyperbet.pages.dev"
 echo "  - https://*.hyperbet-solana.pages.dev"
 echo "  - https://*.hyperbet-bsc.pages.dev"

@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 import { getDuelArenaOraclePublisher } from "../../oracle/DuelArenaOraclePublisher.js";
 
 export function registerDuelOracleRoutes(

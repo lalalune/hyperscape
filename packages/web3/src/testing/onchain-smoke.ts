@@ -16,28 +16,28 @@ const DEFAULT_ANVIL_PRIVATE_KEY =
 
 const WORLD_ABI = [
   {
-    name: "hyperscape__getItemCount",
+    name: "hyperia__getItemCount",
     type: "function",
     stateMutability: "view",
     inputs: [],
     outputs: [{ name: "count", type: "uint32" }],
   },
   {
-    name: "hyperscape__getNumericId",
+    name: "hyperia__getNumericId",
     type: "function",
     stateMutability: "view",
     inputs: [{ name: "stringId", type: "string" }],
     outputs: [{ name: "numericId", type: "uint32" }],
   },
   {
-    name: "hyperscape__getPlayerAddress",
+    name: "hyperia__getPlayerAddress",
     type: "function",
     stateMutability: "view",
     inputs: [{ name: "characterId", type: "bytes32" }],
     outputs: [{ name: "playerAddress", type: "address" }],
   },
   {
-    name: "hyperscape__balanceOf",
+    name: "hyperia__balanceOf",
     type: "function",
     stateMutability: "view",
     inputs: [
@@ -47,7 +47,7 @@ const WORLD_ABI = [
     outputs: [{ name: "balance", type: "uint256" }],
   },
   {
-    name: "hyperscape__registerPlayer",
+    name: "hyperia__registerPlayer",
     type: "function",
     stateMutability: "nonpayable",
     inputs: [
@@ -58,7 +58,7 @@ const WORLD_ABI = [
     outputs: [],
   },
   {
-    name: "hyperscape__setInventorySlotBatch",
+    name: "hyperia__setInventorySlotBatch",
     type: "function",
     stateMutability: "nonpayable",
     inputs: [
@@ -70,7 +70,7 @@ const WORLD_ABI = [
     outputs: [],
   },
   {
-    name: "hyperscape__setEquipmentSlotBatch",
+    name: "hyperia__setEquipmentSlotBatch",
     type: "function",
     stateMutability: "nonpayable",
     inputs: [
@@ -127,7 +127,7 @@ async function main() {
   const itemCount = (await publicClient.readContract({
     address: config.worldAddress,
     abi: WORLD_ABI,
-    functionName: "hyperscape__getItemCount",
+    functionName: "hyperia__getItemCount",
     account: account.address,
   })) as number;
   assert(itemCount > 0, "Item registry is empty");
@@ -135,7 +135,7 @@ async function main() {
   const bronzeArrowId = (await publicClient.readContract({
     address: config.worldAddress,
     abi: WORLD_ABI,
-    functionName: "hyperscape__getNumericId",
+    functionName: "hyperia__getNumericId",
     args: ["bronze_arrow"],
     account: account.address,
   })) as number;
@@ -150,7 +150,7 @@ async function main() {
   const registerHash = await walletClient.writeContract({
     address: config.worldAddress,
     abi: WORLD_ABI,
-    functionName: "hyperscape__registerPlayer",
+    functionName: "hyperia__registerPlayer",
     args: [playerAddress, characterId, `Smoke-${nonceSeed.slice(-6)}`],
   });
   await publicClient.waitForTransactionReceipt({ hash: registerHash });
@@ -158,7 +158,7 @@ async function main() {
   const inventoryHash = await walletClient.writeContract({
     address: config.worldAddress,
     abi: WORLD_ABI,
-    functionName: "hyperscape__setInventorySlotBatch",
+    functionName: "hyperia__setInventorySlotBatch",
     args: [characterId, [0], [bronzeArrowId], [5]],
   });
   await publicClient.waitForTransactionReceipt({ hash: inventoryHash });
@@ -166,7 +166,7 @@ async function main() {
   const equipmentHash = await walletClient.writeContract({
     address: config.worldAddress,
     abi: WORLD_ABI,
-    functionName: "hyperscape__setEquipmentSlotBatch",
+    functionName: "hyperia__setEquipmentSlotBatch",
     args: [characterId, [0], [bronzeArrowId], [1]],
   });
   await publicClient.waitForTransactionReceipt({ hash: equipmentHash });
@@ -174,7 +174,7 @@ async function main() {
   const afterEquip = (await publicClient.readContract({
     address: config.worldAddress,
     abi: WORLD_ABI,
-    functionName: "hyperscape__balanceOf",
+    functionName: "hyperia__balanceOf",
     args: [playerAddress, BigInt(bronzeArrowId)],
     account: account.address,
   })) as bigint;
@@ -183,7 +183,7 @@ async function main() {
   const clearInventoryHash = await walletClient.writeContract({
     address: config.worldAddress,
     abi: WORLD_ABI,
-    functionName: "hyperscape__setInventorySlotBatch",
+    functionName: "hyperia__setInventorySlotBatch",
     args: [characterId, [0], [0], [0]],
   });
   await publicClient.waitForTransactionReceipt({ hash: clearInventoryHash });
@@ -191,7 +191,7 @@ async function main() {
   const clearEquipmentHash = await walletClient.writeContract({
     address: config.worldAddress,
     abi: WORLD_ABI,
-    functionName: "hyperscape__setEquipmentSlotBatch",
+    functionName: "hyperia__setEquipmentSlotBatch",
     args: [characterId, [0], [0], [0]],
   });
   await publicClient.waitForTransactionReceipt({ hash: clearEquipmentHash });
@@ -199,7 +199,7 @@ async function main() {
   const finalBalance = (await publicClient.readContract({
     address: config.worldAddress,
     abi: WORLD_ABI,
-    functionName: "hyperscape__balanceOf",
+    functionName: "hyperia__balanceOf",
     args: [playerAddress, BigInt(bronzeArrowId)],
     account: account.address,
   })) as bigint;
@@ -208,7 +208,7 @@ async function main() {
   const resolvedOwner = (await publicClient.readContract({
     address: config.worldAddress,
     abi: WORLD_ABI,
-    functionName: "hyperscape__getPlayerAddress",
+    functionName: "hyperia__getPlayerAddress",
     args: [characterId],
     account: account.address,
   })) as Address;

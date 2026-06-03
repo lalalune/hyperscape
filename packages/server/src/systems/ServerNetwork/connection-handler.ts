@@ -31,7 +31,7 @@
  */
 
 import net from "node:net";
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 import {
   Socket,
   EventType,
@@ -40,7 +40,7 @@ import {
   readPacket,
   uuid,
   ALL_WORLD_AREAS,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import type {
   ConnectionParams,
   NodeWebSocket,
@@ -1325,7 +1325,7 @@ export class ConnectionHandler {
       playerId,
       userId,
       player:
-        socket.player as unknown as import("@hyperscape/shared").PlayerLocal,
+        socket.player as unknown as import("@hyperforge/shared").PlayerLocal,
     });
 
     try {

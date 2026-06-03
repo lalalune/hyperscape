@@ -23,7 +23,7 @@
  * @see FaceDirectionManager - handles OSRS-accurate rotation
  */
 
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 import {
   EventType,
   worldToTileInto,
@@ -33,7 +33,7 @@ import {
   type ResourceFootprint,
   FOOTPRINT_SIZES,
   GATHERING_CONSTANTS,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import type { TileMovementManager } from "./tile-movement";
 
 /**

@@ -535,7 +535,7 @@ export class Stage extends SystemBase {
 
   // IStage interface methods
   add(object: unknown): void {
-    // Check if the object is a Hyperscape Node
+    // Check if the object is a HyperForge Node
     if (
       object &&
       typeof object === "object" &&
@@ -543,9 +543,9 @@ export class Stage extends SystemBase {
       "type" in object &&
       "children" in object
     ) {
-      // This appears to be a Hyperscape Node, not a THREE.Object3D
+      // This appears to be a HyperForge Node, not a THREE.Object3D
       console.warn(
-        "[Stage] Attempted to add a Hyperscape Node to the scene. Nodes should be converted to THREE.Object3D first.",
+        "[Stage] Attempted to add a HyperForge Node to the scene. Nodes should be converted to THREE.Object3D first.",
       );
 
       // If it's a Node with a mesh property, add the mesh instead
@@ -573,7 +573,7 @@ export class Stage extends SystemBase {
   }
 
   remove(object: unknown): void {
-    // Check if the object is a Hyperscape Node
+    // Check if the object is a HyperForge Node
     if (
       object &&
       typeof object === "object" &&
@@ -592,7 +592,7 @@ export class Stage extends SystemBase {
       }
 
       console.warn(
-        "[Stage] Attempted to remove a Hyperscape Node from the scene.",
+        "[Stage] Attempted to remove a HyperForge Node from the scene.",
       );
       return;
     }

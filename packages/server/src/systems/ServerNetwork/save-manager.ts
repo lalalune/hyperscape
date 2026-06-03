@@ -18,8 +18,8 @@
  * ```
  */
 
-import type { World } from "@hyperscape/shared";
-import { dbHelpers } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
+import { dbHelpers } from "@hyperforge/shared";
 import type { SystemDatabase } from "../../shared/types";
 
 // Read interval from environment or default to 15 seconds

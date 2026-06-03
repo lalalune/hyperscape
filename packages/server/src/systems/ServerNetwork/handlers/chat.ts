@@ -6,7 +6,7 @@
  */
 
 import type { ServerSocket, ChatMessage } from "../../../shared/types";
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 import { getChatRateLimiter } from "../services/SlidingWindowRateLimiter";
 
 /** Maximum chat message length */

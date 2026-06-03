@@ -106,7 +106,7 @@ export const ChoiceButton = memo(function ChoiceButton({
       isHighlighted ? theme.colors.accent.primary : theme.colors.border.default
     }`,
     backgroundColor: isHighlighted
-      ? theme.name === "hyperscape"
+      ? theme.name === "hyperia"
         ? "rgba(201, 165, 74, 0.2)"
         : "rgba(74, 158, 255, 0.2)"
       : "transparent",

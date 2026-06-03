@@ -4,7 +4,7 @@
  * OSRS-style bank organization: swap mode and insert mode.
  */
 
-import { type World, SessionType } from "@hyperscape/shared";
+import { type World, SessionType } from "@hyperforge/shared";
 import type { ServerSocket } from "../../../../shared/types";
 import { sql } from "drizzle-orm";
 

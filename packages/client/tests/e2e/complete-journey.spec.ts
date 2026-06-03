@@ -11,7 +11,7 @@
  *   7. Player spawns in world
  *   8. Player can walk around
  *
- * Per project rules: NO MOCKS. Uses real Hyperscape instances with Playwright.
+ * Per project rules: NO MOCKS. Uses real Hyperia instances with Playwright.
  */
 
 import { expect } from "@playwright/test";
@@ -365,7 +365,7 @@ test.describe("Complete Journey: Login to Walking", () => {
           scene?: unknown;
           camera?: unknown;
         };
-        __HYPERSCAPE_LOADING__?: { ready?: boolean };
+        __HYPERIA_LOADING__?: { ready?: boolean };
       };
 
       const world = win.world;
@@ -380,7 +380,7 @@ test.describe("Complete Journey: Login to Walking", () => {
         hasCamera: Boolean(world.camera),
         hasNetwork: Boolean(world.network),
         networkId: world.network?.id ?? null,
-        loadingReady: win.__HYPERSCAPE_LOADING__?.ready ?? false,
+        loadingReady: win.__HYPERIA_LOADING__?.ready ?? false,
         entityCount: world.entities?.entities?.size ?? 0,
       };
     });

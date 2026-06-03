@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { EventType } from "@hyperscape/shared";
+import { EventType } from "@hyperforge/shared";
 import { AgentManager } from "../AgentManager";
 import { StreamingDuelScheduler } from "../../systems/StreamingDuelScheduler";
 import { isDuelFoodItemId } from "../../systems/duelFood";

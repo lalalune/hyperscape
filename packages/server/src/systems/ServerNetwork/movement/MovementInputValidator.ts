@@ -10,7 +10,7 @@
  * @see MOVEMENT_SYSTEM_HARDENING_PLAN.md for security rationale
  */
 
-import type { TileCoord } from "@hyperscape/shared";
+import type { TileCoord } from "@hyperforge/shared";
 
 /**
  * Severity levels for movement violations

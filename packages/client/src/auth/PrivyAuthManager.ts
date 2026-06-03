@@ -1,6 +1,6 @@
 /**
  * Privy Authentication Manager
- * Handles Privy authentication state and token management for Hyperscape
+ * Handles Privy authentication state and token management for Hyperia
  */
 
 import type { User } from "@privy-io/react-auth";

@@ -122,7 +122,7 @@ export function LoginScreen() {
           }
         `}</style>
         <div className="login-content">
-          <img src="/images/logo.png" alt="Hyperscape" className="login-logo" />
+          <img src="/images/logo.png" alt="Hyperia" className="login-logo" />
           <div className="login-bottom">
             <div className="login-subtitle">Loading...</div>
             <div className="loading-spinner"></div>
@@ -318,11 +318,7 @@ export function LoginScreen() {
         `}</style>
         <div className="login-content">
           <div>
-            <img
-              src="/images/logo.png"
-              alt="Hyperscape"
-              className="login-logo"
-            />
+            <img src="/images/logo.png" alt="Hyperia" className="login-logo" />
             {!isFarcasterContext && (
               <div className="login-tagline">
                 A 3D multiplayer RPG adventure
@@ -404,7 +400,7 @@ export function LoginScreen() {
         }
       `}</style>
       <div className="login-content">
-        <img src="/images/logo.png" alt="Hyperscape" className="login-logo" />
+        <img src="/images/logo.png" alt="Hyperia" className="login-logo" />
         <div className="login-bottom">
           <div className="login-subtitle">
             {isFarcasterContext

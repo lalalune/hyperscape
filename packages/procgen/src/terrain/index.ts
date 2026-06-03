@@ -6,7 +6,7 @@
  *
  * @example
  * ```typescript
- * import { TerrainGenerator, createConfigFromPreset } from '@hyperscape/procgen/terrain';
+ * import { TerrainGenerator, createConfigFromPreset } from '@hyperforge/procgen/terrain';
  *
  * // Create from preset
  * const config = createConfigFromPreset('large-island', { seed: 12345 });

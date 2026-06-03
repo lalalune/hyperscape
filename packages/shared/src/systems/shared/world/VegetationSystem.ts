@@ -72,7 +72,7 @@ import {
   type ImpostorInstance,
   type CompatibleRenderer,
   type DissolveConfig,
-} from "@hyperscape/impostor";
+} from "@hyperforge/impostor";
 
 /**
  * NOTE: LOD1 models are PRE-BAKED offline using scripts/bake-lod.sh (Blender).
@@ -414,7 +414,7 @@ export class VegetationSystem extends System {
   private lod2ChunkedMeshes = new Map<string, ChunkedInstancedMesh>();
 
   // OCTAHEDRAL IMPOSTER RENDERING
-  // Uses @hyperscape/impostor for high-quality multi-angle billboard rendering.
+  // Uses @hyperforge/impostor for high-quality multi-angle billboard rendering.
   // Each asset gets baked into an octahedral atlas (16x8 viewing angles).
   // Runtime view-dependent blending provides correct appearance from any camera angle.
   private static readonly IMPOSTER_ATLAS_SIZE = 2048;

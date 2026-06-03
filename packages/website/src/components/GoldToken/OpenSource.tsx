@@ -25,7 +25,7 @@ export function OpenSource() {
               className="font-body text-sm sm:text-base md:text-lg max-w-md mx-auto mb-6"
               style={{ color: "var(--text-secondary)" }}
             >
-              Hyperscape is fully open source. Contribute to the first AI-native
+              Hyperia is fully open source. Contribute to the first AI-native
               MMORPG and help shape the future of gaming.
             </p>
             <a

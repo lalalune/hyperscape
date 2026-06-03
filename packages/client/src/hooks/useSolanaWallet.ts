@@ -1,6 +1,6 @@
 /**
  * Solana Wallet Hook
- * Provides Solana wallet functionality for the Hyperscape client.
+ * Provides Solana wallet functionality for the Hyperia client.
  * Supports Mobile Wallet Adapter (MWA) on Saga, Seeker, and other Android devices.
  */
 
@@ -141,7 +141,7 @@ export function useSolanaWallet() {
       }
 
       const domain = options?.domain ?? window.location.host;
-      const statement = options?.statement ?? "Sign in to Hyperscape";
+      const statement = options?.statement ?? "Sign in to Hyperia";
       const nonce = generateNonce();
       const issuedAt = new Date().toISOString();
 

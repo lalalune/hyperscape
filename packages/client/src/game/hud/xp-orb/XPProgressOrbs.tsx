@@ -76,16 +76,16 @@ export function XPProgressOrbs({
         padding: "6px 12px",
         borderRadius: theme.borderRadius.full,
         background:
-          theme.name === "hyperscape"
+          theme.name === "hyperia"
             ? "linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.012) 28%, rgba(0,0,0,0.1) 100%), rgba(15, 18, 24, 0.44)"
             : "transparent",
         boxShadow:
-          theme.name === "hyperscape"
+          theme.name === "hyperia"
             ? "0 8px 24px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.05)"
             : "none",
-        backdropFilter: theme.name === "hyperscape" ? "blur(6px)" : undefined,
+        backdropFilter: theme.name === "hyperia" ? "blur(6px)" : undefined,
         WebkitBackdropFilter:
-          theme.name === "hyperscape" ? "blur(6px)" : undefined,
+          theme.name === "hyperia" ? "blur(6px)" : undefined,
       },
       singleOrbContainer: {
         display: "flex",

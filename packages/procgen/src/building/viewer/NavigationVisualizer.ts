@@ -9,7 +9,7 @@
  * - A→B pathfinding with BFS
  * - Demo paths showing outside→inside navigation
  *
- * **UNIFIED WITH ENGINE:** Uses @hyperscape/shared systems (BFSPathfinder, types)
+ * **UNIFIED WITH ENGINE:** Uses @hyperforge/shared systems (BFSPathfinder, types)
  * so testing here tests the same code the game uses.
  */
 
@@ -29,7 +29,7 @@ import {
 } from "../generator/constants.js";
 
 // ============================================================================
-// IMPORTS FROM @hyperscape/shared (ENGINE SYSTEMS)
+// IMPORTS FROM @hyperforge/shared (ENGINE SYSTEMS)
 // ============================================================================
 
 import {
@@ -49,7 +49,7 @@ import {
   buildingTileKey as tileKey,
   // Tile utilities - use shared implementation instead of duplicating
   parseTileKey,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 
 // ============================================================================
 // LOCAL TYPES (visualization-specific, not in shared)

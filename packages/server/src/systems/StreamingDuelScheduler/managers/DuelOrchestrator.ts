@@ -6,7 +6,7 @@
  * management, HP tracking, fight resolution, and post-duel cleanup.
  */
 
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 import {
   AttackType,
   COMBAT_SPELLS,
@@ -20,7 +20,7 @@ import {
   getDuelArenaConfig,
   getItem,
   isPositionInsideCombatArena,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import { DuelCombatAI } from "../../../duel/DuelCombatAI.js";
 import {
   type StreamingDuelCycle,
@@ -3479,7 +3479,7 @@ export class DuelOrchestrator {
 
     // Clear ALL combat-related entity data fields. The `ct` (serialized
     // combatTarget) and `attackTarget` fields are checked by
-    // EmbeddedHyperscapeService.getGameState() — leaving them stale causes
+    // EmbeddedHyperiaService.getGameState() — leaving them stale causes
     // agents to think they're still in combat and return "idle" from every
     // behavior tick instead of moving or attacking.
     (entity.data as AgentCombatData).combatTarget = null;

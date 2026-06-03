@@ -1,11 +1,11 @@
 /**
  * Additional Panel E2E Tests
  *
- * Tests for bank, quest, prayer, and settings panels using real Hyperscape instances.
+ * Tests for bank, quest, prayer, and settings panels using real Hyperia instances.
  * NO MOCKS - these tests run against actual game servers.
  *
  * Per project rules:
- * - Use real Hyperscape worlds
+ * - Use real Hyperia worlds
  * - Test via Three.js scene introspection
  * - Visual verification with screenshots
  *

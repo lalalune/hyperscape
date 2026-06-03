@@ -1,5 +1,5 @@
 /**
- * Structured Error Codes for Hyperscape Client
+ * Structured Error Codes for Hyperia Client
  *
  * Provides consistent error codes for error handling and reporting.
  * Each error code is unique and can be used for debugging and analytics.

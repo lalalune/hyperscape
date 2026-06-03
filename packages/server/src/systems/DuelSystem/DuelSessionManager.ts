@@ -12,17 +12,17 @@
  * - Arena management (ArenaPoolManager)
  */
 
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 import type {
   DuelRules,
   StakedItem,
   DuelState,
   EquipmentRestrictions,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import {
   DEFAULT_DUEL_RULES,
   DEFAULT_EQUIPMENT_RESTRICTIONS,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import { generateDuelId } from "./config";
 import {
   type SessionStore,
@@ -30,7 +30,7 @@ import {
 } from "../../infrastructure/session-store";
 
 // Re-export for consumers that import from this module
-export type { EquipmentRestrictions } from "@hyperscape/shared";
+export type { EquipmentRestrictions } from "@hyperforge/shared";
 
 /**
  * Server-side duel session structure.

@@ -109,7 +109,7 @@ const HistoryEntry = memo(function HistoryEntry({
         return {
           align: "right",
           bgColor:
-            theme.name === "hyperscape"
+            theme.name === "hyperia"
               ? "rgba(201, 165, 74, 0.15)"
               : "rgba(74, 158, 255, 0.15)",
           textColor: theme.colors.text.primary,

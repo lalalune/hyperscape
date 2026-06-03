@@ -45,7 +45,7 @@ export function removeEquipmentVisual(
 export function extractEquipmentAttachmentData(
   root: THREE.Object3D,
 ): EquipmentAttachmentData | undefined {
-  const rootAttachment = root.userData.hyperscape as
+  const rootAttachment = root.userData.hyperia as
     | EquipmentAttachmentData
     | undefined;
 
@@ -53,7 +53,7 @@ export function extractEquipmentAttachmentData(
     return rootAttachment;
   }
 
-  return root.children[0]?.userData?.hyperscape as
+  return root.children[0]?.userData?.hyperia as
     | EquipmentAttachmentData
     | undefined;
 }

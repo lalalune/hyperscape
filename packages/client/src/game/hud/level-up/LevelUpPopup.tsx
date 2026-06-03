@@ -10,7 +10,7 @@
  * - Non-blocking (player can continue actions)
  */
 
-import { SKILL_ICONS } from "@hyperscape/shared";
+import { SKILL_ICONS } from "@hyperforge/shared";
 import { AchievementPopup } from "@/ui";
 import type { LevelUpEvent } from "./useLevelUpState";
 import { capitalizeSkill } from "./utils";

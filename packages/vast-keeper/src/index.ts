@@ -339,10 +339,10 @@ async function deployToServer(sshHost: string, sshPort: number) {
 
   const bootstrapCmd = `
         apt-get update && apt-get install -y git curl unzip;
-        if [ ! -d /root/hyperscape ]; then
-            git clone -b hackathon https://github.com/HyperscapeAI/hyperscape.git /root/hyperscape;
+        if [ ! -d /root/hyperia ]; then
+            git clone -b hackathon https://github.com/PlayHyperia/hyperia.git /root/hyperia;
         fi;
-        cd /root/hyperscape;
+        cd /root/hyperia;
         
         # Install bun if missing
         if ! command -v bun &> /dev/null; then

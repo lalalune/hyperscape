@@ -57,7 +57,7 @@ export function Header() {
           <a href="/" className="flex items-center gap-2">
             <Image
               src="/images/wordmark.png"
-              alt="Hyperscape"
+              alt="Hyperia"
               width={160}
               height={32}
               className="h-6 md:h-8 w-auto"

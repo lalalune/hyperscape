@@ -28,7 +28,7 @@ import {
   writePacket,
   storage,
   AVATAR_OPTIONS,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import React from "react";
 import { CharacterPreview } from "../game/character/CharacterPreview";
 import { usePrivy, useCreateWallet } from "@privy-io/react-auth";
@@ -322,7 +322,7 @@ export function CharacterSelectScreen({
   const selectedTemplateRef = React.useRef(selectedTemplate);
   const userRef = React.useRef(user);
 
-  // Check if ElizaOS is available with Hyperscape plugin
+  // Check if ElizaOS is available with Hyperia plugin
   React.useEffect(() => {
     const checkElizaOS = async () => {
       try {
@@ -337,7 +337,7 @@ export function CharacterSelectScreen({
           return;
         }
 
-        // ElizaOS is running - assume Hyperscape plugin is available
+        // ElizaOS is running - assume Hyperia plugin is available
         // (Plugin availability is verified during agent creation)
         setElizaOSAvailable(true);
         console.log("[CharacterSelect] ✅ ElizaOS detected and available");
@@ -833,10 +833,10 @@ export function CharacterSelectScreen({
                       AVATAR_OPTIONS[currentSelectedAvatarIndex]?.url || "",
                     secrets: {
                       ...baseSecrets,
-                      HYPERSCAPE_AUTH_TOKEN: credentials.authToken,
-                      HYPERSCAPE_CHARACTER_ID: c.id,
-                      HYPERSCAPE_ACCOUNT_ID: accountId,
-                      HYPERSCAPE_SERVER_URL: GAME_WS_URL,
+                      HYPERIA_AUTH_TOKEN: credentials.authToken,
+                      HYPERIA_CHARACTER_ID: c.id,
+                      HYPERIA_ACCOUNT_ID: accountId,
+                      HYPERIA_SERVER_URL: GAME_WS_URL,
                       wallet: c.wallet || "",
                     },
                   },
@@ -902,10 +902,10 @@ export function CharacterSelectScreen({
                 // Store agent ID for dashboard
                 localStorage.setItem("last_created_agent_id", agentId);
 
-                // Step 3: Create agent mapping in Hyperscape database (CRITICAL for dashboard)
+                // Step 3: Create agent mapping in Hyperia database (CRITICAL for dashboard)
                 // This must happen BEFORE redirect so agent shows in dashboard even if user cancels editor
                 console.log(
-                  "[CharacterSelect] 📝 Creating agent mapping in Hyperscape database...",
+                  "[CharacterSelect] 📝 Creating agent mapping in Hyperia database...",
                 );
                 try {
                   const mappingResult = await apiClient.post(
@@ -1081,9 +1081,9 @@ export function CharacterSelectScreen({
             const agentExists = agents.some(
               (agent: {
                 name?: string;
-                settings?: { secrets?: { HYPERSCAPE_CHARACTER_ID?: string } };
+                settings?: { secrets?: { HYPERIA_CHARACTER_ID?: string } };
               }) =>
-                agent.settings?.secrets?.HYPERSCAPE_CHARACTER_ID === id ||
+                agent.settings?.secrets?.HYPERIA_CHARACTER_ID === id ||
                 agent.name === character.name,
             );
 
@@ -1099,23 +1099,23 @@ export function CharacterSelectScreen({
                 "[CharacterSelect] ⚠️ Agent doesn't exist, redirecting to editor...",
               );
 
-              // Fetch full character data from Hyperscape DB to get avatar
+              // Fetch full character data from Hyperia DB to get avatar
               const accountId = user?.id;
               if (!accountId) {
                 throw new Error("No account ID - user not authenticated");
               }
-              const hyperscapeResult = await apiClient.get<{
+              const hyperiaResult = await apiClient.get<{
                 characters?: { id: string; avatar?: string }[];
               }>(`/api/characters/${accountId}`);
 
               let avatarUrl = "";
-              if (hyperscapeResult.ok && hyperscapeResult.data) {
-                const hyperscapeChar = hyperscapeResult.data.characters?.find(
+              if (hyperiaResult.ok && hyperiaResult.data) {
+                const hyperiaChar = hyperiaResult.data.characters?.find(
                   (c: { id: string }) => c.id === id,
                 );
-                avatarUrl = hyperscapeChar?.avatar || "";
+                avatarUrl = hyperiaChar?.avatar || "";
                 console.log(
-                  "[CharacterSelect] Loaded avatar from Hyperscape DB:",
+                  "[CharacterSelect] Loaded avatar from Hyperia DB:",
                   avatarUrl,
                 );
               }
@@ -1404,8 +1404,8 @@ export function CharacterSelectScreen({
           <div className="relative">
             <div className="mx-auto mt-20 md:mt-0 mb-2 w-full max-w-2xl flex items-center justify-center">
               <img
-                src="/images/hyperscape_wordmark.png"
-                alt="Hyperscape"
+                src="/images/hyperia_wordmark.png"
+                alt="Hyperia"
                 className="h-20 md:h-36 object-contain"
               />
             </div>

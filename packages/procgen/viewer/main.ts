@@ -11,7 +11,7 @@ import {
   OctahedronType,
   type ImpostorBakeResult,
   type ImpostorInstance,
-} from "@hyperscape/impostor";
+} from "@hyperforge/impostor";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";

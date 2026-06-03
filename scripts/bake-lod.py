@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-LOD Baking Script for Hyperscape
+LOD Baking Script for Hyperia
 
 Generates LOD1 (low-poly) versions of vegetation and resource models using Blender.
 The LOD1 models are saved alongside the originals with '_lod1' suffix.
@@ -40,7 +40,7 @@ else:
 TEMP_DIR = os.environ.get("LOD_TEMP_DIR", "")
 
 # Configuration
-# Note: Rocks are now procedurally generated via @hyperscape/procgen/rock
+# Note: Rocks are now procedurally generated via @hyperforge/procgen/rock
 # and do not need static LOD GLB files
 CONFIG = {
     "dry_run": False,
@@ -484,7 +484,7 @@ def process_multi_level_files(configs: List[Dict]) -> List[Dict]:
 
 def main():
     print("=" * 60)
-    print("LOD Baking Script for Hyperscape")
+    print("LOD Baking Script for Hyperia")
     print("=" * 60)
     print(f"Dry run: {CONFIG['dry_run']}")
     print(f"Verbose: {CONFIG['verbose']}")

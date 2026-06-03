@@ -1,8 +1,8 @@
-# @hyperscape/procgen
+# @hyperforge/procgen
 
 Procedural tree generation based on the Weber & Penn algorithm - a TypeScript implementation for Three.js WebGPU.
 
-This package now bundles tree, plant, rock, and building generators. Tree APIs are exported from the root module, while additional generators are available under subpaths like `@hyperscape/procgen/plant`, `@hyperscape/procgen/rock`, and `@hyperscape/procgen/building`.
+This package now bundles tree, plant, rock, and building generators. Tree APIs are exported from the root module, while additional generators are available under subpaths like `@hyperforge/procgen/plant`, `@hyperforge/procgen/rock`, and `@hyperforge/procgen/building`.
 
 ## Overview
 
@@ -21,15 +21,15 @@ This package provides a complete port of the Python `tree-gen` Blender plugin to
 ## Installation
 
 ```bash
-npm install @hyperscape/procgen three
+npm install @hyperforge/procgen three
 # or
-bun add @hyperscape/procgen three
+bun add @hyperforge/procgen three
 ```
 
 ## Quick Start
 
 ```typescript
-import { generateTree, QUAKING_ASPEN } from '@hyperscape/procgen';
+import { generateTree, QUAKING_ASPEN } from '@hyperforge/procgen';
 import * as THREE from 'three';
 
 // Create a scene
@@ -44,7 +44,7 @@ const result = generateTree(QUAKING_ASPEN, {
 scene.add(result.group);
 
 // Clean up when done
-import { disposeTreeMesh } from '@hyperscape/procgen';
+import { disposeTreeMesh } from '@hyperforge/procgen';
 disposeTreeMesh(result);
 ```
 
@@ -84,7 +84,7 @@ Available tree presets:
 ### Low-Level API
 
 ```typescript
-import { Tree, getPreset } from '@hyperscape/procgen';
+import { Tree, getPreset } from '@hyperforge/procgen';
 
 // Generate just the tree data
 const params = getPreset('blackOak');
@@ -96,7 +96,7 @@ console.log(`Stems: ${data.stems.length}`);
 console.log(`Leaves: ${data.leaves.length}`);
 
 // Generate geometry separately
-import { generateBranchGeometry, generateLeafGeometry } from '@hyperscape/procgen';
+import { generateBranchGeometry, generateLeafGeometry } from '@hyperforge/procgen';
 const branchGeometry = generateBranchGeometry(data.stems, data.params);
 const leafGeometry = generateLeafGeometry(data.leaves, data.params, data.treeScale);
 ```
@@ -104,7 +104,7 @@ const leafGeometry = generateLeafGeometry(data.leaves, data.params, data.treeSca
 ### Custom Parameters
 
 ```typescript
-import { createTreeParams, TreeShape, LeafShape } from '@hyperscape/procgen';
+import { createTreeParams, TreeShape, LeafShape } from '@hyperforge/procgen';
 
 const myTreeParams = createTreeParams({
   shape: TreeShape.Hemispherical,
@@ -186,4 +186,4 @@ GPL-3.0 (matching the original tree-gen)
 
 - Original Python implementation: [tree-gen](https://github.com/ChrisP-Ghub/tree-gen)
 - Algorithm: Weber & Penn "Creation and Rendering of Realistic Trees"
-- TypeScript port: Hyperscape Team
+- TypeScript port: Hyperia Team

@@ -7,7 +7,7 @@
  * When both players accept, an arena is reserved and countdown begins.
  */
 
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 import type { ServerSocket } from "../../../../shared/types";
 import {
   sendDuelError,

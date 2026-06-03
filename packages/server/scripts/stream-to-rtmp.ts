@@ -39,7 +39,7 @@
  *   X_RTMP_URL               - X/Twitter RTMP URL
  *   RTMP_DESTINATIONS_JSON   - JSON array fanout config
  *   STREAMING_VIEWER_ACCESS_TOKEN - Optional token appended as #streamToken for gated viewer WS bootstrap
- *   GAME_URL                 - URL to Hyperscape (default: http://localhost:3333/?page=stream)
+ *   GAME_URL                 - URL to Hyperia (default: http://localhost:3333/?page=stream)
  *   GAME_FALLBACK_URLS       - Comma-separated fallback URLs
  *   RTMP_BRIDGE_PORT         - WebSocket port for legacy bridge (default: 8765)
  */
@@ -132,7 +132,7 @@ const STREAM_CAPTURE_DISABLE_WEBGPU = /^(1|true|yes|on)$/i.test(
 );
 if (STREAM_CAPTURE_DISABLE_WEBGPU) {
   throw new Error(
-    "STREAM_CAPTURE_DISABLE_WEBGPU is not supported. Hyperscape capture is WebGPU-only.",
+    "STREAM_CAPTURE_DISABLE_WEBGPU is not supported. Hyperia capture is WebGPU-only.",
   );
 }
 const CDP_QUALITY = Math.min(
@@ -358,37 +358,34 @@ async function probeRendererHealth(
     // Playwright evaluate runs in the browser context, so runtime imports are
     // intentionally avoided here.
     const win = window as unknown as {
-      __HYPERSCAPE_STREAM_READY__?: boolean;
-      __HYPERSCAPE_STREAM_RENDERER_HEALTH__?: {
+      __HYPERIA_STREAM_READY__?: boolean;
+      __HYPERIA_STREAM_RENDERER_HEALTH__?: {
         ready?: boolean;
         degradedReason?: string | null;
         updatedAt?: number | null;
         phase?: string | null;
       } | null;
-      __HYPERSCAPE_STREAM_BOOT_STATUS__?: string | null;
+      __HYPERIA_STREAM_BOOT_STATUS__?: string | null;
     };
     const explicitHealth =
-      win.__HYPERSCAPE_STREAM_RENDERER_HEALTH__ &&
-      typeof win.__HYPERSCAPE_STREAM_RENDERER_HEALTH__ === "object"
+      win.__HYPERIA_STREAM_RENDERER_HEALTH__ &&
+      typeof win.__HYPERIA_STREAM_RENDERER_HEALTH__ === "object"
         ? {
-            ready: win.__HYPERSCAPE_STREAM_RENDERER_HEALTH__.ready === true,
+            ready: win.__HYPERIA_STREAM_RENDERER_HEALTH__.ready === true,
             degradedReason:
-              typeof win.__HYPERSCAPE_STREAM_RENDERER_HEALTH__
-                .degradedReason === "string"
-                ? win.__HYPERSCAPE_STREAM_RENDERER_HEALTH__.degradedReason
+              typeof win.__HYPERIA_STREAM_RENDERER_HEALTH__.degradedReason ===
+              "string"
+                ? win.__HYPERIA_STREAM_RENDERER_HEALTH__.degradedReason
                 : null,
             updatedAt:
-              typeof win.__HYPERSCAPE_STREAM_RENDERER_HEALTH__.updatedAt ===
+              typeof win.__HYPERIA_STREAM_RENDERER_HEALTH__.updatedAt ===
                 "number" &&
-              Number.isFinite(
-                win.__HYPERSCAPE_STREAM_RENDERER_HEALTH__.updatedAt,
-              )
-                ? win.__HYPERSCAPE_STREAM_RENDERER_HEALTH__.updatedAt
+              Number.isFinite(win.__HYPERIA_STREAM_RENDERER_HEALTH__.updatedAt)
+                ? win.__HYPERIA_STREAM_RENDERER_HEALTH__.updatedAt
                 : null,
             phase:
-              typeof win.__HYPERSCAPE_STREAM_RENDERER_HEALTH__.phase ===
-              "string"
-                ? win.__HYPERSCAPE_STREAM_RENDERER_HEALTH__.phase
+              typeof win.__HYPERIA_STREAM_RENDERER_HEALTH__.phase === "string"
+                ? win.__HYPERIA_STREAM_RENDERER_HEALTH__.phase
                 : null,
           }
         : null;
@@ -397,8 +394,8 @@ async function probeRendererHealth(
     // document.body.textContent which forces full text computation of
     // the game DOM every probe interval and can cause layout thrashing.
     const bootStatus =
-      typeof win.__HYPERSCAPE_STREAM_BOOT_STATUS__ === "string"
-        ? win.__HYPERSCAPE_STREAM_BOOT_STATUS__
+      typeof win.__HYPERIA_STREAM_BOOT_STATUS__ === "string"
+        ? win.__HYPERIA_STREAM_BOOT_STATUS__
         : null;
 
     const hasStreamingBootUi =
@@ -410,7 +407,7 @@ async function probeRendererHealth(
     return {
       explicitHealth,
       hasCanvas: document.querySelector("canvas") !== null,
-      readyFlag: win.__HYPERSCAPE_STREAM_READY__ === true,
+      readyFlag: win.__HYPERIA_STREAM_READY__ === true,
       hasStreamingBootUi,
       hasCriticalErrorUi,
     };
@@ -665,13 +662,13 @@ async function setupBrowser() {
   // emit sparse frames and stall downstream HLS/RTMP cadence.
   await page.addInitScript(() => {
     const win = window as unknown as {
-      __HYPERSCAPE_REPAINT_TICKER__?: boolean;
+      __HYPERIA_REPAINT_TICKER__?: boolean;
     };
-    if (win.__HYPERSCAPE_REPAINT_TICKER__) return;
-    win.__HYPERSCAPE_REPAINT_TICKER__ = true;
+    if (win.__HYPERIA_REPAINT_TICKER__) return;
+    win.__HYPERIA_REPAINT_TICKER__ = true;
 
     const ticker = document.createElement("div");
-    ticker.id = "__hyperscape-repaint-ticker";
+    ticker.id = "__hyperia-repaint-ticker";
     ticker.style.position = "fixed";
     ticker.style.right = "0";
     ticker.style.bottom = "0";
@@ -1103,7 +1100,7 @@ async function waitForCaptureTraffic(
 
 async function main() {
   console.log("=".repeat(60));
-  console.log(`Hyperscape RTMP Streaming (${CAPTURE_MODE.toUpperCase()} mode)`);
+  console.log(`Hyperia RTMP Streaming (${CAPTURE_MODE.toUpperCase()} mode)`);
   console.log("=".repeat(60));
   console.log("");
 

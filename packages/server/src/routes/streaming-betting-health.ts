@@ -1,8 +1,8 @@
-import type { StreamingGuardrailPhase } from "@hyperscape/shared";
+import type { StreamingGuardrailPhase } from "@hyperforge/shared";
 import {
   deriveStreamingGuardrailReason,
   isActiveStreamingGuardrailPhase,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import type { StreamingDuelCycle } from "../systems/StreamingDuelScheduler/types.js";
 import { getStreamCapture } from "../streaming/stream-capture.js";
 import type { BettingFeedRendererHealth } from "./streaming-betting-feed.js";

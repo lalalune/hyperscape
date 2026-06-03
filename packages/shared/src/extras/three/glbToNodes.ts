@@ -1,8 +1,8 @@
 /**
- * glbToNodes.ts - GLB to Hyperscape Node Converter
+ * glbToNodes.ts - GLB to HyperForge Node Converter
  *
- * Converts GLTF/GLB scene graphs into Hyperscape's custom Node system.
- * This enables GLB files exported from Blender to work with Hyperscape's physics,
+ * Converts GLTF/GLB scene graphs into Hyperia's custom Node system.
+ * This enables GLB files exported from Blender to work with Hyperia's physics,
  * networking, and lifecycle systems.
  *
  * Conversion Process:
@@ -136,7 +136,7 @@ function getTriplanarSample(): TSLShaderFn {
 }
 
 /**
- * Convert GLB Scene Graph to Hyperscape Nodes
+ * Convert GLB Scene Graph to HyperForge Nodes
  *
  * Recursively processes a GLB's THREE.js scene graph and converts it to Nodes.
  *

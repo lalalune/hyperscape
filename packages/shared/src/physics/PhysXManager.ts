@@ -434,7 +434,7 @@ class PhysXManager extends EventEmitter {
       } else {
         // Node.js/server environment - use dynamic import for ESM compatibility
         console.log("[PhysXManager] Starting server PhysX load...");
-        const physxModule = await import("@hyperscape/physx-js-webidl");
+        const physxModule = await import("@hyperforge/physx-js-webidl");
         const PhysXLoader = physxModule.default || physxModule;
 
         // Strong type assumption - PhysXLoader is a function that returns PhysXModule

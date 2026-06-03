@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Initial Release
 
-This is the first official release of Asset Forge, a comprehensive AI-powered 3D asset generation system built for the Hyperscape RPG project.
+This is the first official release of Asset Forge, a comprehensive AI-powered 3D asset generation system built for the Hyperia RPG project.
 
 ### Added
 
@@ -249,7 +249,7 @@ None (initial release)
 #### Integration Features
 - **Unity Export**: Direct export to Unity package format
 - **Unreal Export**: Export with Unreal-specific settings
-- **Hyperscape Integration**: Direct asset import to Hyperscape game
+- **Hyperia Integration**: Direct asset import to Hyperia game
 - **API Webhooks**: Notification webhooks for pipeline completion
 - **CLI Tool**: Command-line interface for batch operations
 

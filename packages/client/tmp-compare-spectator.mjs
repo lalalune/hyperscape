@@ -25,7 +25,7 @@ for (const [idx, url] of urls.entries()) {
 
   const state = await page.evaluate(() => {
     const world = window.world;
-    const cfg = window.__HYPERSCAPE_CONFIG__ || null;
+    const cfg = window.__HYPERIA_CONFIG__ || null;
     const net = world?.getSystem?.('network');
     const cam = world?.getSystem?.('client-camera-system') || world?.getSystem?.('client-camera') || world?.getSystem?.('camera');
     const target = cam?.target || cam?.targetEntity || cam?.followTarget || null;
@@ -59,6 +59,6 @@ for (const [idx, url] of urls.entries()) {
   console.log(JSON.stringify(state));
   console.log('--- logs ---');
   for (const l of logs.slice(-60)) console.log(l);
-  await page.screenshot({ path: `/Users/shawwalters/eliza-workspace/hyperscape/tmp-spectator-compare-${idx+1}.png`, fullPage: true });
+  await page.screenshot({ path: `/Users/shawwalters/eliza-workspace/hyperia/tmp-spectator-compare-${idx+1}.png`, fullPage: true });
   await browser.close();
 }

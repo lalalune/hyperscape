@@ -1,10 +1,10 @@
 /**
  * Tree Impostor Module
  *
- * Tree-specific impostor utilities that wrap @hyperscape/impostor.
+ * Tree-specific impostor utilities that wrap @hyperforge/impostor.
  *
  * For core impostor functionality (OctahedralImpostor, ImpostorBaker, etc.),
- * import directly from @hyperscape/impostor.
+ * import directly from @hyperforge/impostor.
  *
  * @module TreeImpostor
  */

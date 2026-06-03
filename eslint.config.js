@@ -13,7 +13,7 @@ export default [
       "**/public/**",
       "**/libs/**",
       "**/core/libs/**",
-      "packages/hyperscape/src/core/libs/**",
+      "packages/hyperia/src/core/libs/**",
     ],
   },
   {

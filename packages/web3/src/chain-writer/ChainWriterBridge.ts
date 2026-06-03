@@ -2,7 +2,7 @@ import { ChainWriter } from "./ChainWriter.js";
 import type { Address } from "viem";
 
 /**
- * Event payload types from the Hyperscape game server.
+ * Event payload types from the Hyperia game server.
  * These match the EventType events emitted by the shared systems.
  */
 interface InventoryUpdatePayload {
@@ -82,7 +82,7 @@ const EQUIP_SLOT_TO_TYPE: Record<string, number> = {
  * and translates them into ChainWriter queue calls. The ChainWriter then batches
  * and sends them to the chain optimistically.
  *
- * This is the glue between Hyperscape's ECS event system and the MUD World contract.
+ * This is the glue between HyperForge's ECS event system and the MUD World contract.
  *
  * Usage in server startup:
  * ```typescript
@@ -286,7 +286,7 @@ export class ChainWriterBridge {
     });
 
     // Player deaths — listen to ENTITY_DEATH (PLAYER_DIED is deprecated/never emitted)
-    // String literal "entity:death" must match EventType.ENTITY_DEATH from @hyperscape/shared
+    // String literal "entity:death" must match EventType.ENTITY_DEATH from @hyperforge/shared
     world.on("entity:death", (payload: unknown) => {
       const data = payload as {
         entityId: string;

@@ -4,7 +4,7 @@
  * Provides intelligent tooltip positioning with automatic axis flipping
  * when tooltips would overflow viewport boundaries.
  *
- * Similar to Floating UI/Popper.js but lightweight and built for Hyperscape UI.
+ * Similar to Floating UI/Popper.js but lightweight and built for Hyperia UI.
  *
  * @packageDocumentation
  */

@@ -24,8 +24,8 @@ import type {
   Entity,
   StreamingGuardrailAgentSnapshot,
   StreamingGuardrailPhase,
-} from "@hyperscape/shared";
-import { EventType, deriveStreamingGuardrailReason } from "@hyperscape/shared";
+} from "@hyperforge/shared";
+import { EventType, deriveStreamingGuardrailReason } from "@hyperforge/shared";
 import type { StreamingWindow } from "@/lib/streamingWindow";
 import { GAME_WS_URL, GAME_API_URL } from "../lib/api-config";
 import { getStreamingAccessToken } from "../lib/streamingAccessToken";
@@ -278,9 +278,9 @@ export function StreamingMode() {
       worldRef.current = world;
       setConnected(true);
       const win = window as StreamingWindow;
-      win.__HYPERSCAPE_STREAM_READY__ = false;
-      win.__HYPERSCAPE_STREAM_RENDERER_HEALTH__ = null;
-      win.__HYPERSCAPE_STREAM_BOOT_STATUS__ = "initializing";
+      win.__HYPERIA_STREAM_READY__ = false;
+      win.__HYPERIA_STREAM_RENDERER_HEALTH__ = null;
+      win.__HYPERIA_STREAM_BOOT_STATUS__ = "initializing";
       setWorldReady(false);
       setTerrainReady(false);
       setTerrainStalled(false);
@@ -912,9 +912,9 @@ export function StreamingMode() {
   useEffect(() => {
     return () => {
       const win = window as StreamingWindow;
-      win.__HYPERSCAPE_STREAM_READY__ = false;
-      win.__HYPERSCAPE_STREAM_RENDERER_HEALTH__ = null;
-      win.__HYPERSCAPE_STREAM_BOOT_STATUS__ = null;
+      win.__HYPERIA_STREAM_READY__ = false;
+      win.__HYPERIA_STREAM_RENDERER_HEALTH__ = null;
+      win.__HYPERIA_STREAM_BOOT_STATUS__ = null;
       if (worldReadyTimeoutRef.current) {
         clearTimeout(worldReadyTimeoutRef.current);
         worldReadyTimeoutRef.current = null;
@@ -972,8 +972,8 @@ export function StreamingMode() {
 
   useEffect(() => {
     const win = window as StreamingWindow;
-    win.__HYPERSCAPE_STREAM_READY__ = rendererHealth.ready;
-    win.__HYPERSCAPE_STREAM_RENDERER_HEALTH__ = rendererHealth;
+    win.__HYPERIA_STREAM_READY__ = rendererHealth.ready;
+    win.__HYPERIA_STREAM_RENDERER_HEALTH__ = rendererHealth;
   }, [rendererHealth]);
 
   // Write boot status to a window global so the capture pipeline's renderer
@@ -981,24 +981,24 @@ export function StreamingMode() {
   useEffect(() => {
     const win = window as StreamingWindow;
     if (loadingDismissed) {
-      win.__HYPERSCAPE_STREAM_BOOT_STATUS__ = null;
+      win.__HYPERIA_STREAM_BOOT_STATUS__ = null;
     } else if (clientInitError) {
       const lower = clientInitError.toLowerCase();
       if (lower.includes("webgpu")) {
-        win.__HYPERSCAPE_STREAM_BOOT_STATUS__ = "error:webgpu_required";
+        win.__HYPERIA_STREAM_BOOT_STATUS__ = "error:webgpu_required";
       } else if (lower.includes("http error")) {
-        win.__HYPERSCAPE_STREAM_BOOT_STATUS__ = "error:http";
+        win.__HYPERIA_STREAM_BOOT_STATUS__ = "error:http";
       } else {
-        win.__HYPERSCAPE_STREAM_BOOT_STATUS__ = "error:init_failed";
+        win.__HYPERIA_STREAM_BOOT_STATUS__ = "error:init_failed";
       }
     } else if (!connected) {
-      win.__HYPERSCAPE_STREAM_BOOT_STATUS__ = "connecting";
+      win.__HYPERIA_STREAM_BOOT_STATUS__ = "connecting";
     } else if (!worldReady) {
-      win.__HYPERSCAPE_STREAM_BOOT_STATUS__ = "initializing";
+      win.__HYPERIA_STREAM_BOOT_STATUS__ = "initializing";
     } else if (!terrainReady) {
-      win.__HYPERSCAPE_STREAM_BOOT_STATUS__ = "loading_assets";
+      win.__HYPERIA_STREAM_BOOT_STATUS__ = "loading_assets";
     } else {
-      win.__HYPERSCAPE_STREAM_BOOT_STATUS__ = "finalizing";
+      win.__HYPERIA_STREAM_BOOT_STATUS__ = "finalizing";
     }
   }, [clientInitError, connected, loadingDismissed, terrainReady, worldReady]);
 
@@ -1026,7 +1026,7 @@ export function StreamingMode() {
   const showLoading = !loadingDismissed && !clientInitError;
 
   const loadingHeadline = !connected
-    ? "Connecting to Hyperscape..."
+    ? "Connecting to Hyperia..."
     : !worldReady
       ? "Initializing world systems..."
       : !terrainReady

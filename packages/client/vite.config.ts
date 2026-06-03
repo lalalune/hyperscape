@@ -5,12 +5,12 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DEFAULT_PRODUCTION_HYPERSCAPE_APP_URL = "https://hyperscape.club";
-const DEFAULT_PRODUCTION_HYPERSCAPE_API_URL =
-  "https://hyperscape-production.up.railway.app";
-const DEFAULT_PRODUCTION_HYPERSCAPE_WS_URL =
-  "wss://hyperscape-production.up.railway.app/ws";
-const DEFAULT_PRODUCTION_HYPERSCAPE_CDN_URL = "https://assets.hyperscape.club";
+const DEFAULT_PRODUCTION_HYPERIA_APP_URL = "https://hyperia.club";
+const DEFAULT_PRODUCTION_HYPERIA_API_URL =
+  "https://hyperia-production.up.railway.app";
+const DEFAULT_PRODUCTION_HYPERIA_WS_URL =
+  "wss://hyperia-production.up.railway.app/ws";
+const DEFAULT_PRODUCTION_HYPERIA_CDN_URL = "https://assets.hyperia.club";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -26,19 +26,19 @@ export default defineConfig(({ mode }) => {
   const productionPublicApiUrl =
     process.env.PUBLIC_API_URL ||
     env.PUBLIC_API_URL ||
-    DEFAULT_PRODUCTION_HYPERSCAPE_API_URL;
+    DEFAULT_PRODUCTION_HYPERIA_API_URL;
   const productionPublicWsUrl =
     process.env.PUBLIC_WS_URL ||
     env.PUBLIC_WS_URL ||
-    DEFAULT_PRODUCTION_HYPERSCAPE_WS_URL;
+    DEFAULT_PRODUCTION_HYPERIA_WS_URL;
   const productionPublicCdnUrl =
     process.env.PUBLIC_CDN_URL ||
     env.PUBLIC_CDN_URL ||
-    DEFAULT_PRODUCTION_HYPERSCAPE_CDN_URL;
+    DEFAULT_PRODUCTION_HYPERIA_CDN_URL;
   const productionPublicAppUrl =
     process.env.PUBLIC_APP_URL ||
     env.PUBLIC_APP_URL ||
-    DEFAULT_PRODUCTION_HYPERSCAPE_APP_URL;
+    DEFAULT_PRODUCTION_HYPERIA_APP_URL;
   const resolvedPublicApiUrl = isProductionBuild
     ? productionPublicApiUrl
     : process.env.PUBLIC_API_URL ||
@@ -98,7 +98,7 @@ export default defineConfig(({ mode }) => {
   );
 
   const optimizeDepsExclude = [
-    "@hyperscape/shared", // CRITICAL: Exclude from dep optimization so changes are detected
+    "@hyperforge/shared", // CRITICAL: Exclude from dep optimization so changes are detected
     "@playwright/test", // Exclude Playwright from optimization
     "fs-extra", // Exclude Node.js modules
     "fs",
@@ -139,8 +139,8 @@ export default defineConfig(({ mode }) => {
           "images/app-icon-512.png",
         ],
         manifest: {
-          name: "Hyperscape",
-          short_name: "Hyperscape",
+          name: "Hyperia",
+          short_name: "Hyperia",
           description: "An AI-native MMORPG built on Solana",
           theme_color: "#1a1a1a",
           background_color: "#000000",
@@ -174,8 +174,8 @@ export default defineConfig(({ mode }) => {
           related_applications: [
             {
               platform: "play",
-              url: DEFAULT_PRODUCTION_HYPERSCAPE_APP_URL,
-              id: "com.hyperscape.game",
+              url: DEFAULT_PRODUCTION_HYPERIA_APP_URL,
+              id: "com.hyperia.game",
             },
           ],
         },
@@ -202,7 +202,7 @@ export default defineConfig(({ mode }) => {
               urlPattern: /\.(?:js|css)$/i,
               handler: "NetworkFirst",
               options: {
-                cacheName: "hyperscape-code",
+                cacheName: "hyperia-code",
                 expiration: {
                   maxEntries: 50,
                   maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
@@ -217,7 +217,7 @@ export default defineConfig(({ mode }) => {
               urlPattern: /\.(?:png|jpg|jpeg|gif|webp)$/i,
               handler: "NetworkFirst",
               options: {
-                cacheName: "hyperscape-images",
+                cacheName: "hyperia-images",
                 expiration: {
                   maxEntries: 100,
                   maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
@@ -225,10 +225,10 @@ export default defineConfig(({ mode }) => {
               },
             },
             {
-              urlPattern: /^https:\/\/assets\.hyperscape\.club\/.*/i,
+              urlPattern: /^https:\/\/assets\.hyperia\.club\/.*/i,
               handler: "CacheFirst",
               options: {
-                cacheName: "hyperscape-cdn-assets",
+                cacheName: "hyperia-cdn-assets",
                 expiration: {
                   maxEntries: 100,
                   maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
@@ -428,7 +428,7 @@ export default defineConfig(({ mode }) => {
       "process.env.PUBLIC_CDN_URL": JSON.stringify(
         env.PUBLIC_CDN_URL ||
           (mode === "production"
-            ? "https://assets.hyperscape.club"
+            ? "https://assets.hyperia.club"
             : "http://localhost:5555/game-assets"),
       ),
       "process.env.PUBLIC_STARTER_ITEMS": JSON.stringify(
@@ -442,7 +442,7 @@ export default defineConfig(({ mode }) => {
       // NOTE: mode is passed from Vite - "production" for `vite build`, "development" for `vite dev`
       // Use environment variables if set, otherwise use defaults
       //
-      // Production: Frontend and API on hyperscape.gg
+      // Production: Frontend and API on hyperia.gg
       "import.meta.env.PUBLIC_API_URL": JSON.stringify(resolvedPublicApiUrl),
       "import.meta.env.PUBLIC_WS_URL": JSON.stringify(resolvedPublicWsUrl),
       // CDN URL - Cloudflare R2 with custom domain
@@ -507,12 +507,12 @@ export default defineConfig(({ mode }) => {
 
     resolve: {
       // IMPORTANT: Use array format for aliases to ensure correct matching order
-      // More specific paths (e.g., @hyperscape/procgen/items/dock) must be listed
-      // BEFORE less specific ones (e.g., @hyperscape/procgen) to prevent incorrect resolution
+      // More specific paths (e.g., @hyperforge/procgen/items/dock) must be listed
+      // BEFORE less specific ones (e.g., @hyperforge/procgen) to prevent incorrect resolution
       alias: [
         // Use client-only build of shared package to avoid Node.js module leakage
         {
-          find: "@hyperscape/shared",
+          find: "@hyperforge/shared",
           replacement: path.resolve(
             __dirname,
             "../shared/build/framework.client.js",
@@ -520,69 +520,69 @@ export default defineConfig(({ mode }) => {
         },
         // Workspace package aliases (these are kept external in shared's build)
         {
-          find: "@hyperscape/decimation",
+          find: "@hyperforge/decimation",
           replacement: path.resolve(__dirname, "../decimation/dist/index.js"),
         },
         {
-          find: "@hyperscape/impostor",
+          find: "@hyperforge/impostor",
           replacement: path.resolve(__dirname, "../impostors/dist/index.js"),
         },
         // Procgen package aliases - MOST SPECIFIC PATHS FIRST
         {
-          find: "@hyperscape/procgen/building/town",
+          find: "@hyperforge/procgen/building/town",
           replacement: path.resolve(
             __dirname,
             "../procgen/dist/building/town/index.js",
           ),
         },
         {
-          find: "@hyperscape/procgen/building",
+          find: "@hyperforge/procgen/building",
           replacement: path.resolve(
             __dirname,
             "../procgen/dist/building/index.js",
           ),
         },
         {
-          find: "@hyperscape/procgen/items/dock",
+          find: "@hyperforge/procgen/items/dock",
           replacement: path.resolve(
             __dirname,
             "../procgen/dist/items/dock/index.js",
           ),
         },
         {
-          find: "@hyperscape/procgen/items",
+          find: "@hyperforge/procgen/items",
           replacement: path.resolve(
             __dirname,
             "../procgen/dist/items/index.js",
           ),
         },
         {
-          find: "@hyperscape/procgen/terrain",
+          find: "@hyperforge/procgen/terrain",
           replacement: path.resolve(
             __dirname,
             "../procgen/dist/terrain/index.js",
           ),
         },
         {
-          find: "@hyperscape/procgen/vegetation",
+          find: "@hyperforge/procgen/vegetation",
           replacement: path.resolve(
             __dirname,
             "../procgen/dist/vegetation/index.js",
           ),
         },
         {
-          find: "@hyperscape/procgen/grass",
+          find: "@hyperforge/procgen/grass",
           replacement: path.resolve(
             __dirname,
             "../procgen/dist/grass/index.js",
           ),
         },
         {
-          find: "@hyperscape/procgen/rock",
+          find: "@hyperforge/procgen/rock",
           replacement: path.resolve(__dirname, "../procgen/dist/rock/index.js"),
         },
         {
-          find: "@hyperscape/procgen/plant",
+          find: "@hyperforge/procgen/plant",
           replacement: path.resolve(
             __dirname,
             "../procgen/dist/plant/index.js",
@@ -590,7 +590,7 @@ export default defineConfig(({ mode }) => {
         },
         // Base procgen alias LAST
         {
-          find: "@hyperscape/procgen",
+          find: "@hyperforge/procgen",
           replacement: path.resolve(__dirname, "../procgen/dist/index.js"),
         },
         // Generic app-source alias LAST so it doesn't shadow scoped packages.

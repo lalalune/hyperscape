@@ -5,7 +5,7 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 import type { DatabaseSystem } from "../../systems/DatabaseSystem/index.js";
 import * as schema from "../../database/schema.js";
 import { eq } from "drizzle-orm";
@@ -125,7 +125,7 @@ const RESERVED_USERNAMES = new Set([
   "help",
   "official",
   // Game-related
-  "hyperscape",
+  "hyperia",
   "player",
   "npc",
   "bot",

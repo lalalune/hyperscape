@@ -277,7 +277,7 @@ export const SystemStatus: React.FC = () => {
                 <span className="text-[#e8ebf4]/80 font-mono">
                   {GAME_API_URL}
                 </span>
-                <span className="text-[#f2d08a]/40">Hyperscape Server</span>
+                <span className="text-[#f2d08a]/40">Hyperia Server</span>
               </div>
 
               <div className="flex items-center gap-2 py-1">

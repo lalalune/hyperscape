@@ -34,7 +34,7 @@ delete process.env.NO_COLOR;
 /**
  * Playwright Configuration for Client Tests
  *
- * Tests run against real Hyperscape instances - NO MOCKS.
+ * Tests run against real Hyperia instances - NO MOCKS.
  * Uses visual testing with colored cube proxies per project rules.
  *
  * Supports two test categories:

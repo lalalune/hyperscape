@@ -571,12 +571,12 @@ export class MobVisualManager {
           version?: number;
           relativeMatrix?: number[];
         };
-        let attachmentData = weaponMesh.userData.hyperscape as
+        let attachmentData = weaponMesh.userData.hyperia as
           | AttachmentMeta
           | undefined;
-        if (!attachmentData && weaponMesh.children[0]?.userData?.hyperscape) {
+        if (!attachmentData && weaponMesh.children[0]?.userData?.hyperia) {
           attachmentData = weaponMesh.children[0].userData
-            .hyperscape as AttachmentMeta;
+            .hyperia as AttachmentMeta;
         }
 
         const boneName = attachmentData?.vrmBoneName || "rightHand";

@@ -13,8 +13,8 @@
  */
 
 // Re-export Socket base class from shared
-export type { Socket } from "@hyperscape/shared";
-import { Socket } from "@hyperscape/shared";
+export type { Socket } from "@hyperforge/shared";
+import { Socket } from "@hyperforge/shared";
 import type { PlayerEntity } from "./game.types.js";
 
 // ============================================================================

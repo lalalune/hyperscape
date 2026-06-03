@@ -6,7 +6,7 @@
  * far chunks are large and low-resolution.
  *
  * Inspired by infinite-world-master's Chunk/Chunks system, adapted for
- * Hyperscape's terrain pipeline.
+ * Hyperia's terrain pipeline.
  *
  * This is a CLIENT-ONLY visual system. Server and gameplay logic still use
  * the flat 100m tile grid (TerrainTile). getHeightAt() is unaffected.

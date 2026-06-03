@@ -39,9 +39,9 @@ updates:
       interval: weekly
     open-pull-requests-limit: 5
 
-  # Plugin Hyperscape
+  # Plugin Hyperia
   - package-ecosystem: npm
-    directory: "/packages/plugin-hyperscape"
+    directory: "/packages/plugin-hyperia"
     schedule:
       interval: weekly
     open-pull-requests-limit: 5

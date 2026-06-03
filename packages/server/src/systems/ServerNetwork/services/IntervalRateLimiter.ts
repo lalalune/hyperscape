@@ -17,7 +17,7 @@
 import {
   TRANSACTION_RATE_LIMIT_MS,
   type IRateLimiter,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 
 /** @deprecated Use IntervalRateLimiter - kept for backwards compatibility */
 export { IntervalRateLimiter as RateLimitService };

@@ -10,7 +10,7 @@
  */
 
 import React, { useEffect, useState, useCallback } from "react";
-import { EventType } from "@hyperscape/shared";
+import { EventType } from "@hyperforge/shared";
 import type { ClientWorld } from "../../types";
 import { UI } from "../../constants/ui";
 import { zIndex } from "../../constants/tokens";

@@ -9,7 +9,7 @@
 
 /**
  * Note suffix used for noted items.
- * Mirrors the NOTE_SUFFIX constant from @hyperscape/shared NoteGenerator.ts
+ * Mirrors the NOTE_SUFFIX constant from @hyperforge/shared NoteGenerator.ts
  */
 const NOTE_SUFFIX = "_noted";
 

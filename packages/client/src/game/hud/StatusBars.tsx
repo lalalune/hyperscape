@@ -34,7 +34,7 @@ import { HUD_FRAME, HUD_LAYERS } from "./layout";
 
 export const STATUSBAR_CONFIG_STORAGE_KEY = "statusbar-config";
 export const STATUSBAR_CONFIG_CHANGED_EVENT =
-  "hyperscape:statusbar-config:changed";
+  "hyperia:statusbar-config:changed";
 
 /** Display mode type */
 export type DisplayMode = "bars" | "orbs";

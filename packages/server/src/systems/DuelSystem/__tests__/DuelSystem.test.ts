@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { EventType, getDuelArenaConfig } from "@hyperscape/shared";
+import { EventType, getDuelArenaConfig } from "@hyperforge/shared";
 import { DuelSystem } from "../index";
 import { createMockWorld, createDuelPlayers, type MockWorld } from "./mocks";
 

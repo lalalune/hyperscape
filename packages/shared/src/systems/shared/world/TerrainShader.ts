@@ -3,9 +3,9 @@
  * Biome textures via triplanar/top-down mapping, blended by height/slope/noise
  *
  * **SHARED CODE:**
- * The core terrain material is also available in @hyperscape/procgen TerrainGen module.
+ * The core terrain material is also available in @hyperforge/procgen TerrainGen module.
  * For standalone terrain rendering (Asset Forge, viewers), use:
- *   import { TerrainGen } from '@hyperscape/procgen';
+ *   import { TerrainGen } from '@hyperforge/procgen';
  *   const material = TerrainGen.createTerrainMaterial();
  *
  * This file (TerrainShader.ts) includes additional game-specific integrations

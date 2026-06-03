@@ -1,6 +1,6 @@
 /**
  * Slider - Reusable slider component for range settings
- * Hyperscape UI theme styling with gold accent colors
+ * Hyperia UI theme styling with gold accent colors
  */
 
 import React from "react";

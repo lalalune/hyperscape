@@ -9,7 +9,7 @@
  *
  * @example
  * ```ts
- * import { GrassGen } from "@hyperscape/procgen";
+ * import { GrassGen } from "@hyperforge/procgen";
  *
  * // Quick grass field generation
  * const field = GrassGen.GrassGenerator.generateField({

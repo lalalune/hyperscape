@@ -25,10 +25,10 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@hyperscape/procgen": resolve(__dirname, "../src"),
-      "@hyperscape/impostor": resolve(__dirname, "../../impostors/src"),
+      "@hyperforge/procgen": resolve(__dirname, "../src"),
+      "@hyperforge/impostor": resolve(__dirname, "../../impostors/src"),
       // Prefer built client bundle when available, fall back to source.
-      "@hyperscape/shared": sharedClientEntry,
+      "@hyperforge/shared": sharedClientEntry,
     },
   },
   optimizeDeps: {

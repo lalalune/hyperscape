@@ -496,7 +496,7 @@ export function getRewardSummary(rewards: QuestReward[]): string {
 // ============================================================================
 
 /**
- * Shared package quest status type (from @hyperscape/shared)
+ * Shared package quest status type (from @hyperforge/shared)
  * Matches: "not_started" | "in_progress" | "ready_to_complete" | "completed"
  */
 export type SharedQuestStatus =
@@ -506,7 +506,7 @@ export type SharedQuestStatus =
   | "completed";
 
 /**
- * Shared package quest difficulty type (from @hyperscape/shared)
+ * Shared package quest difficulty type (from @hyperforge/shared)
  */
 export type SharedQuestDifficulty =
   | "novice"

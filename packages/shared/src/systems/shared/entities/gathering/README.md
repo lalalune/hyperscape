@@ -34,7 +34,7 @@ gathering/
 | `ToolUtils.ts` | Map item IDs to tool categories, validate tool requirements |
 | `SuccessRateCalculator.ts` | Calculate success rates using OSRS LERP formula |
 | `types.ts` | TypeScript interfaces for sessions, timers, tuning data |
-| `debug.ts` | Environment-based debug flag (`HYPERSCAPE_DEBUG_GATHERING`) |
+| `debug.ts` | Environment-based debug flag (`HYPERIA_DEBUG_GATHERING`) |
 
 ### Server Files
 
@@ -115,7 +115,7 @@ rate = low + (high - low) * (level - 1) / 98
 
 Enable debug logging via environment variable:
 ```bash
-HYPERSCAPE_DEBUG_GATHERING=true bun run dev
+HYPERIA_DEBUG_GATHERING=true bun run dev
 ```
 
 Debug logs include:

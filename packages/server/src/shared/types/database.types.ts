@@ -14,8 +14,8 @@
  */
 
 // Re-export database utilities from shared
-export { dbHelpers, isDatabaseInstance } from "@hyperscape/shared";
-export type { SystemDatabase } from "@hyperscape/shared";
+export { dbHelpers, isDatabaseInstance } from "@hyperforge/shared";
+export type { SystemDatabase } from "@hyperforge/shared";
 
 // ============================================================================
 // DATABASE ROW TYPES

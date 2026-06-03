@@ -365,7 +365,7 @@ export const createAssetRoutes = (
               tags: ["Assets"],
               summary: "Batch apply fitting configuration",
               description:
-                "Applies a fitting configuration (e.g., hyperscapeAttachment) to multiple asset metadata files.",
+                "Applies a fitting configuration (e.g., hyperiaAttachment) to multiple asset metadata files.",
             },
           },
         )

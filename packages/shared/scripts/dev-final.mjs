@@ -65,7 +65,7 @@ async function buildAll(contexts) {
  * Main Dev Process with Watch Mode
  */
 async function main() {
-  console.log('Starting @hyperscape/shared in watch mode...')
+  console.log('Starting @hyperforge/shared in watch mode...')
   
   // Create esbuild contexts for watch mode
   const contexts = []
@@ -175,13 +175,13 @@ async function main() {
   let typecheckTimeout
   watcher.on('change', (filepath) => {
     console.log(`\n⚡ File changed: ${filepath}`)
-    console.log('🔄 Rebuilding @hyperscape/shared...')
+    console.log('🔄 Rebuilding @hyperforge/shared...')
     
     // Debounce type checking
     clearTimeout(typecheckTimeout)
     typecheckTimeout = setTimeout(() => {
       runTypeCheck()
-      console.log('✅ @hyperscape/shared rebuild complete - dependent packages will reload\n')
+      console.log('✅ @hyperforge/shared rebuild complete - dependent packages will reload\n')
     }, 1000)
   })
   

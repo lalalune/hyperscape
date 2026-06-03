@@ -115,9 +115,9 @@ Set `IMGUR_CLIENT_ID` in `.env` for automatic upload
 ### Step 1: Clone the Repository
 
 ```bash
-# Clone Hyperscape monorepo
-git clone https://github.com/HyperscapeAI/hyperscape-1.git
-cd hyperscape-1
+# Clone Hyperia monorepo
+git clone https://github.com/PlayHyperia/hyperia-1.git
+cd hyperia-1
 
 # Navigate to asset-forge
 cd packages/asset-forge

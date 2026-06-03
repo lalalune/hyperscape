@@ -1,4 +1,4 @@
-//! Hyperscape Tauri Application
+//! Hyperia Tauri Application
 //!
 //! Core application logic for both desktop and mobile platforms.
 //! Uses Tauri v2 for native windowing and system integration.
@@ -74,7 +74,7 @@ const MWA_INTENT_BRIDGE_JS: &str = r#"
         try {
             var s = String(url);
             if (s.indexOf('solana-wallet:') === 0 || s.indexOf('intent:') === 0) {
-                console.log('[Hyperscape] MWA: forwarding intent to system:', s);
+                console.log('[Hyperia] MWA: forwarding intent to system:', s);
                 if (window.__TAURI__ && window.__TAURI__.core) {
                     window.__TAURI__.core.invoke('open_external', { url: s });
                 }
@@ -91,13 +91,13 @@ const WEBGPU_CHECK_JS: &str = r#"
 (async () => {
     if (navigator.gpu) {
         const adapter = await navigator.gpu.requestAdapter();
-        console.log('[Hyperscape] WebGPU available:', !!adapter);
+        console.log('[Hyperia] WebGPU available:', !!adapter);
         if (adapter) {
             const info = await adapter.requestAdapterInfo();
-            console.log('[Hyperscape] GPU:', info.vendor, info.architecture, info.description);
+            console.log('[Hyperia] GPU:', info.vendor, info.architecture, info.description);
         }
     } else {
-        console.warn('[Hyperscape] WebGPU not available in this webview');
+        console.warn('[Hyperia] WebGPU not available in this webview');
     }
 })();
 "#;
@@ -106,10 +106,10 @@ const WEBGPU_CHECK_JS: &str = r#"
 fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     // Configure deep link handler for OAuth
     setup_deep_link_handler(app);
-    
+
     // Log platform info
-    log::info!("Hyperscape starting on {} {}", 
-        std::env::consts::OS, 
+    log::info!("Hyperia starting on {} {}",
+        std::env::consts::OS,
         std::env::consts::ARCH
     );
 
@@ -119,7 +119,7 @@ fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         #[cfg(target_os = "android")]
         {
             let _ = window.eval(MWA_INTENT_BRIDGE_JS);
-            log::info!("Hyperscape: MWA intent bridge injected for Android");
+            log::info!("Hyperia: MWA intent bridge injected for Android");
         }
 
         // Log WebGPU status
@@ -162,5 +162,5 @@ pub fn run() {
             Ok(())
         })
         .run(tauri::generate_context!())
-        .expect("error while running Hyperscape");
+        .expect("error while running Hyperia");
 }

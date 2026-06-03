@@ -15,9 +15,9 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { World } from "@hyperscape/shared";
-import { BuildingCollisionService } from "@hyperscape/shared";
-import type { BuildingLayoutInput } from "@hyperscape/shared";
+import { World } from "@hyperforge/shared";
+import { BuildingCollisionService } from "@hyperforge/shared";
+import type { BuildingLayoutInput } from "@hyperforge/shared";
 
 const TEST_TIMEOUT = 60000;
 
@@ -338,7 +338,7 @@ describe("Building-Terrain Interaction", () => {
 
       // Player standing on a hole tile should NOT be classified as inside the building
       const entityId =
-        "lshape-hole-tile" as import("@hyperscape/shared").EntityID;
+        "lshape-hole-tile" as import("@hyperforge/shared").EntityID;
       collisionService.updatePlayerBuildingState(
         entityId,
         holeTile.x,
@@ -914,7 +914,7 @@ describe("Building at Origin Position", () => {
 // Test for TERRAIN_CONSTANTS centralization
 describe("TERRAIN_CONSTANTS Centralization", () => {
   it("should export TERRAIN_CONSTANTS from GameConstants", async () => {
-    const { TERRAIN_CONSTANTS } = await import("@hyperscape/shared");
+    const { TERRAIN_CONSTANTS } = await import("@hyperforge/shared");
 
     expect(TERRAIN_CONSTANTS).toBeDefined();
     expect(TERRAIN_CONSTANTS.WATER_THRESHOLD).toBeDefined();
@@ -923,14 +923,14 @@ describe("TERRAIN_CONSTANTS Centralization", () => {
   });
 
   it("should have consistent WATER_THRESHOLD value", async () => {
-    const { TERRAIN_CONSTANTS } = await import("@hyperscape/shared");
+    const { TERRAIN_CONSTANTS } = await import("@hyperforge/shared");
 
     // WATER_THRESHOLD should be 16 (as per GameConstants)
     expect(TERRAIN_CONSTANTS.WATER_THRESHOLD).toBe(16);
   });
 
   it("should have consistent MAX_WALKABLE_SLOPE value", async () => {
-    const { TERRAIN_CONSTANTS } = await import("@hyperscape/shared");
+    const { TERRAIN_CONSTANTS } = await import("@hyperforge/shared");
 
     // MAX_WALKABLE_SLOPE should be 2.5
     expect(TERRAIN_CONSTANTS.MAX_WALKABLE_SLOPE).toBe(2.5);

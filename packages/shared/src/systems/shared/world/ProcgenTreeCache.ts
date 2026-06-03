@@ -718,7 +718,7 @@ const presetCache = new Map<string, PresetCache>();
 /**
  * TreeGenerator import (lazy loaded to avoid circular deps).
  */
-let TreeGenerator: typeof import("@hyperscape/procgen").TreeGenerator | null =
+let TreeGenerator: typeof import("@hyperforge/procgen").TreeGenerator | null =
   null;
 let procgenLoaded = false;
 let procgenLoadPromise: Promise<void> | null = null;
@@ -741,17 +741,17 @@ async function loadProcgen(): Promise<boolean> {
     return procgenLoaded;
   }
 
-  console.log("[ProcgenTreeCache] Loading @hyperscape/procgen...");
+  console.log("[ProcgenTreeCache] Loading @hyperforge/procgen...");
 
   procgenLoadPromise = (async () => {
     try {
-      const procgen = await import("@hyperscape/procgen");
+      const procgen = await import("@hyperforge/procgen");
       TreeGenerator = procgen.TreeGenerator;
       procgenLoaded = true;
-      console.log("[ProcgenTreeCache] Successfully loaded @hyperscape/procgen");
+      console.log("[ProcgenTreeCache] Successfully loaded @hyperforge/procgen");
     } catch (error) {
       console.error(
-        "[ProcgenTreeCache] Failed to load @hyperscape/procgen:",
+        "[ProcgenTreeCache] Failed to load @hyperforge/procgen:",
         error,
       );
       procgenLoadFailed = true;

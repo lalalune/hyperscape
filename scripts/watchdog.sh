@@ -1,33 +1,33 @@
 #!/bin/bash
-# Hyperscape Production Watchdog
+# Hyperia Production Watchdog
 # Auto-restarts the game server and client on crash
 set -e
 
 export PATH="/root/.bun/bin:$PATH"
-cd /root/hyperscape
+cd /root/hyperia
 
-LOG_DIR="/root/hyperscape/logs"
+LOG_DIR="/root/hyperia/logs"
 mkdir -p "$LOG_DIR"
 
-echo "[watchdog] Starting Hyperscape production watchdog..."
+echo "[watchdog] Starting Hyperia production watchdog..."
 
 # Function to start the game server (bypass chain setup - no Anvil needed)
 start_server() {
   echo "[watchdog] Starting game server..."
-  cd /root/hyperscape/packages/server
+  cd /root/hyperia/packages/server
   nohup bun scripts/dev.mjs > "$LOG_DIR/server.log" 2>&1 &
   echo $! > "$LOG_DIR/server.pid"
-  cd /root/hyperscape
+  cd /root/hyperia
   echo "[watchdog] Server started (PID: $(cat $LOG_DIR/server.pid))"
 }
 
 # Function to start the client dev server
 start_client() {
   echo "[watchdog] Starting client..."
-  cd /root/hyperscape/packages/client
+  cd /root/hyperia/packages/client
   nohup bun run dev > "$LOG_DIR/client.log" 2>&1 &
   echo $! > "$LOG_DIR/client.pid"
-  cd /root/hyperscape
+  cd /root/hyperia
   echo "[watchdog] Client started (PID: $(cat $LOG_DIR/client.pid))"
 }
 

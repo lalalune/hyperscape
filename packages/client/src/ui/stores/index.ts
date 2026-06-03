@@ -21,7 +21,7 @@ export {
   useThemeStore,
   useTheme,
   baseTheme,
-  hyperscapeTheme,
+  hyperiaTheme,
   type ThemeStoreState,
 } from "./themeStore";
 

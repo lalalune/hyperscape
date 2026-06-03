@@ -17,7 +17,7 @@ import type {
   InventorySlotItem,
   PlayerEquipmentItems,
 } from "../../types";
-import type { PlayerStats } from "@hyperscape/shared";
+import type { PlayerStats } from "@hyperforge/shared";
 import { MenuButton, type MenuIconName } from "@/ui";
 import {
   ActionBarPanel,

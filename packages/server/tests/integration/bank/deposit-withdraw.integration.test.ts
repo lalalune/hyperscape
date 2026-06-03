@@ -4,7 +4,7 @@
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
-import { EventType } from "@hyperscape/shared";
+import { EventType } from "@hyperforge/shared";
 import * as schema from "../../../src/database/schema";
 import {
   handleBankClose,

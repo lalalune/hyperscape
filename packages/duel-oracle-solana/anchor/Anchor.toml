@@ -22,7 +22,7 @@ startup_wait = 60000
 
 [provider]
 cluster = "localnet"
-wallet = "~/.config/solana/hyperscape-keys/deployer.json"
+wallet = "~/.config/solana/hyperia-keys/deployer.json"
 
 [workspace]
 members = ["programs/fight_oracle"]

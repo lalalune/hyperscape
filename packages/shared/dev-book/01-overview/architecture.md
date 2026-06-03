@@ -6,7 +6,7 @@
 
 ## System Architecture
 
-Hyperscape Shared follows a layered architecture with clear separation of concerns. This document provides a high-level overview of the system design.
+Hyperia Shared follows a layered architecture with clear separation of concerns. This document provides a high-level overview of the system design.
 
 ---
 
@@ -651,7 +651,7 @@ entity.addComponent('myComponent', { customValue: 42 });
 
 ## Summary
 
-Hyperscape Shared architecture:
+Hyperia Shared architecture:
 
 - **Layered Design:** Clear separation of concerns
 - **ECS Pattern:** Scalable game object architecture

@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect, useRef } from "react";
-import type { TradeOfferItem } from "@hyperscape/shared";
+import type { TradeOfferItem } from "@hyperforge/shared";
 import {
   REMOVED_ITEM_DISPLAY_MS,
   REMOVED_ITEM_CHECK_INTERVAL_MS,

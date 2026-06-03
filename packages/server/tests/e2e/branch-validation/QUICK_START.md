@@ -3,15 +3,15 @@
 ## TL;DR
 
 ```bash
-cd /Users/home/hyperscape/packages/server
+cd /Users/home/hyperia/packages/server
 npm test tests/branch-validation
 ```
 
 ## Prerequisites
 
-### 1. Start Hyperscape Server
+### 1. Start Hyperia Server
 ```bash
-cd /Users/home/hyperscape/packages/server
+cd /Users/home/hyperia/packages/server
 bun start
 ```
 
@@ -27,7 +27,7 @@ ElizaOS API should be running on `http://localhost:4001`
 
 ### 3. Verify Services
 ```bash
-# Check Hyperscape
+# Check Hyperia
 curl http://localhost:5555/api/characters
 
 # Check ElizaOS
@@ -40,7 +40,7 @@ curl http://localhost:4001/api/agents
 
 ### All Tests (27 test cases)
 ```bash
-cd /Users/home/hyperscape/packages/server
+cd /Users/home/hyperia/packages/server
 npm test tests/branch-validation
 ```
 
@@ -79,18 +79,18 @@ npm test tests/branch-validation/complete-flow.spec.ts
 
 ### View Logs
 ```bash
-cd /Users/home/hyperscape/logs/branch-validation
+cd /Users/home/hyperia/logs/branch-validation
 ls -la
 ```
 
 ### View Specific Test Log
 ```bash
-cat /Users/home/hyperscape/logs/branch-validation/agent-creation-valid.log
+cat /Users/home/hyperia/logs/branch-validation/agent-creation-valid.log
 ```
 
 ### View Summary
 ```bash
-cat /Users/home/hyperscape/logs/branch-validation/TEST_SUMMARY.md
+cat /Users/home/hyperia/logs/branch-validation/TEST_SUMMARY.md
 ```
 
 ---
@@ -101,13 +101,13 @@ cat /Users/home/hyperscape/logs/branch-validation/TEST_SUMMARY.md
 
 **Check services are running:**
 ```bash
-lsof -i :5555  # Hyperscape server
+lsof -i :5555  # Hyperia server
 lsof -i :3000  # ElizaOS API
 ```
 
 **Check database:**
 ```bash
-cd /Users/home/hyperscape/packages/server
+cd /Users/home/hyperia/packages/server
 # Verify database connection in .env
 ```
 
@@ -131,7 +131,7 @@ lsof -ti:3000 | xargs kill -9
 
 ```bash
 # Check .env file
-cat /Users/home/hyperscape/packages/server/.env
+cat /Users/home/hyperia/packages/server/.env
 
 # Verify DATABASE_URL is set correctly
 ```
@@ -165,7 +165,7 @@ Tests dashboard components:
 - System status
 
 ### plugin-integration.spec.ts
-Tests HyperscapeService plugin:
+Tests HyperiaService plugin:
 - Service initialization
 - Connection retry
 - Packet encoding/decoding
@@ -212,7 +212,7 @@ End-to-end integration tests:
   ❌ Character list includes avatar, wallet, and isAgent fields
     Error: Timeout waiting for packet: characterList
 
-Check log file: /Users/home/hyperscape/logs/branch-validation/character-list-new-fields.log
+Check log file: /Users/home/hyperia/logs/branch-validation/character-list-new-fields.log
 ```
 
 ---
@@ -237,10 +237,10 @@ npm test tests/branch-validation && railway up
 
 ## Support
 
-- **README:** `/Users/home/hyperscape/packages/server/tests/branch-validation/README.md`
-- **Summary:** `/Users/home/hyperscape/logs/branch-validation/TEST_SUMMARY.md`
-- **Logs:** `/Users/home/hyperscape/logs/branch-validation/`
-- **Auth Helper:** `/Users/home/hyperscape/packages/server/tests/helpers/auth-helper.ts`
+- **README:** `/Users/home/hyperia/packages/server/tests/branch-validation/README.md`
+- **Summary:** `/Users/home/hyperia/logs/branch-validation/TEST_SUMMARY.md`
+- **Logs:** `/Users/home/hyperia/logs/branch-validation/`
+- **Auth Helper:** `/Users/home/hyperia/packages/server/tests/helpers/auth-helper.ts`
 
 ---
 
@@ -260,8 +260,8 @@ npm test tests/branch-validation/character-selection.spec.ts
 npm test tests/branch-validation -- --grep "Agent creation"
 
 # View logs
-ls /Users/home/hyperscape/logs/branch-validation
+ls /Users/home/hyperia/logs/branch-validation
 
 # View test summary
-cat /Users/home/hyperscape/logs/branch-validation/TEST_SUMMARY.md
+cat /Users/home/hyperia/logs/branch-validation/TEST_SUMMARY.md
 ```

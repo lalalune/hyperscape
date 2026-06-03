@@ -12,9 +12,9 @@
  * - Combat chat reactions
  */
 
-import { getItem, EventType } from "@hyperscape/shared";
+import { getItem, EventType } from "@hyperforge/shared";
 import type { AgentRuntime } from "@elizaos/core";
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 import {
   ejectAgentFromCombatArena,
   recoverAgentFromDeathLoop,
@@ -38,7 +38,7 @@ import type {
   NearbyEntityData,
   AgentQuestProgress,
 } from "../types.js";
-import type { EmbeddedHyperscapeService } from "../EmbeddedHyperscapeService.js";
+import type { EmbeddedHyperiaService } from "../EmbeddedHyperiaService.js";
 
 /**
  * Yield to the event loop so game ticks and I/O can process.
@@ -93,7 +93,7 @@ export interface PendingChatReaction {
  */
 export interface AgentInstance {
   config: EmbeddedAgentConfig;
-  service: EmbeddedHyperscapeService;
+  service: EmbeddedHyperiaService;
   chatRuntime: AgentRuntime | null;
   /** Fingerprint of secrets/model used to build chatRuntime; cleared when stale. */
   chatRuntimeConfigSig?: string;
@@ -233,14 +233,14 @@ const GATHER_STUCK_MOVEMENT_THRESHOLD = 1.25;
 const GATHER_BLACKLIST_MS = 45000;
 
 /**
- * Interface for the HyperscapeService methods used by the ticker.
+ * Interface for the HyperiaService methods used by the ticker.
  */
-interface HyperscapeService {
+interface HyperiaService {
   setAutonomousBehaviorEnabled?(enabled: boolean): void;
 }
 
 export function setAgentAutonomyIfSupported(
-  service: HyperscapeService,
+  service: HyperiaService,
   enabled: boolean,
 ): boolean {
   if (typeof service.setAutonomousBehaviorEnabled !== "function") {

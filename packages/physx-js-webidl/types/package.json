@@ -1,5 +1,5 @@
 {
-  "name": "@hyperscape/physx-js-webidl",
+  "name": "@hyperforge/physx-js-webidl",
   "type": "module",
   "devDependencies": {
     "@milkshakeio/webidl2ts": "^1.0.8",

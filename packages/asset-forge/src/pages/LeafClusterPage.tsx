@@ -23,7 +23,7 @@ import {
   type TreeData,
   type TreeParams,
   type BranchClusterResult,
-} from "@hyperscape/procgen";
+} from "@hyperforge/procgen";
 import {
   TreePine,
   RefreshCw,

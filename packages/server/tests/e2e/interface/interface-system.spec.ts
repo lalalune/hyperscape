@@ -1035,7 +1035,7 @@ test.describe("Tab Split and Merge Operations", () => {
 // ============================================================================
 
 test.describe("Layout Persistence Across Sessions", () => {
-  const LAYOUT_TEST_KEY = "hyperscape-layout-test";
+  const LAYOUT_TEST_KEY = "hyperia-layout-test";
 
   test("should persist window positions to localStorage", async ({ page }) => {
     await page.goto("http://localhost:3333");
@@ -1065,7 +1065,7 @@ test.describe("Layout Persistence Across Sessions", () => {
 
         // Check localStorage for saved layout
         const savedLayout = await page.evaluate(() => {
-          return localStorage.getItem("hyperscape-window-layout");
+          return localStorage.getItem("hyperia-window-layout");
         });
 
         expect(savedLayout).not.toBeNull();
@@ -1175,7 +1175,7 @@ test.describe("Layout Persistence Across Sessions", () => {
 
         // Check localStorage
         const savedLayout = await page.evaluate(() => {
-          const layout = localStorage.getItem("hyperscape-window-layout");
+          const layout = localStorage.getItem("hyperia-window-layout");
           return layout ? JSON.parse(layout) : null;
         });
 
@@ -1229,7 +1229,7 @@ test.describe("Layout Persistence Across Sessions", () => {
 
           // Verify preset was saved
           const presets = await page.evaluate(() => {
-            const presetsStr = localStorage.getItem("hyperscape-presets");
+            const presetsStr = localStorage.getItem("hyperia-presets");
             return presetsStr ? JSON.parse(presetsStr) : null;
           });
 

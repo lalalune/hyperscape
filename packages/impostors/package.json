@@ -1,5 +1,5 @@
 {
-  "name": "@hyperscape/impostor",
+  "name": "@hyperforge/impostor",
   "version": "0.1.0",
   "description": "Three.js library for creating and rendering octahedral impostors",
   "type": "module",

@@ -7,7 +7,7 @@
  * - handleTradeSetQuantity: Change quantity of item in trade
  */
 
-import { type World, getItem, isValidSlotNumber } from "@hyperscape/shared";
+import { type World, getItem, isValidSlotNumber } from "@hyperforge/shared";
 import type { ServerSocket } from "../../../../shared/types";
 import { InventoryRepository } from "../../../../database/repositories/InventoryRepository";
 import type { DatabaseConnection } from "./types";

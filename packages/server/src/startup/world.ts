@@ -1,7 +1,7 @@
 /**
  * World Module - Game world initialization and entity loading
  *
- * Handles creation of the Hyperscape ECS world, system registration,
+ * Handles creation of the Hyperia ECS world, system registration,
  * world configuration, and entity loading from world.json.
  *
  * Responsibilities:
@@ -24,9 +24,9 @@ import path from "path";
 import {
   createServerWorld,
   installThreeJSExtensions,
-} from "@hyperscape/shared";
-import { NodeStorage as Storage } from "@hyperscape/shared";
-import type { World, SystemDatabase } from "@hyperscape/shared";
+} from "@hyperforge/shared";
+import { NodeStorage as Storage } from "@hyperforge/shared";
+import type { World, SystemDatabase } from "@hyperforge/shared";
 import { ServerNetwork } from "../systems/ServerNetwork/index.js";
 import type { ServerConfig } from "./config.js";
 import type { DatabaseContext } from "./database.js";
@@ -52,7 +52,7 @@ interface WorldConfig {
 }
 
 /**
- * Initialize Hyperscape world with systems and entities
+ * Initialize Hyperia world with systems and entities
  *
  * This function creates the game world, registers all server systems,
  * configures world settings, initializes the ECS, and loads entities

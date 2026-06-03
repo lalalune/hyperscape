@@ -15,9 +15,9 @@
 import { Worker } from "node:worker_threads";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { EventType } from "@hyperscape/shared";
-import { ITEMS } from "@hyperscape/shared";
-import type { World } from "@hyperscape/shared";
+import { EventType } from "@hyperforge/shared";
+import { ITEMS } from "@hyperforge/shared";
+import type { World } from "@hyperforge/shared";
 import {
   ejectAgentFromCombatArena,
   recoverAgentFromDeathLoop,

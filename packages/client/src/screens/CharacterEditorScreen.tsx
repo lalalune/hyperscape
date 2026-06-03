@@ -180,11 +180,11 @@ export const CharacterEditorScreen: React.FC = () => {
           const existingAgent = agents.find(
             (agent: {
               id?: string;
-              settings?: { secrets?: { HYPERSCAPE_CHARACTER_ID?: string } };
+              settings?: { secrets?: { HYPERIA_CHARACTER_ID?: string } };
             }) =>
               agent.id === agentIdParam ||
               agent.id === characterIdParam ||
-              agent.settings?.secrets?.HYPERSCAPE_CHARACTER_ID ===
+              agent.settings?.secrets?.HYPERIA_CHARACTER_ID ===
                 characterIdParam,
           );
 
@@ -260,7 +260,7 @@ export const CharacterEditorScreen: React.FC = () => {
                 characterIdParam,
                 accountId,
               );
-              loadedAgent.settings.secrets.HYPERSCAPE_AUTH_TOKEN = authToken;
+              loadedAgent.settings.secrets.HYPERIA_AUTH_TOKEN = authToken;
             } catch (error) {
               console.error(
                 "[CharacterEditor] Failed to fetch JWT after retries:",
@@ -269,8 +269,8 @@ export const CharacterEditorScreen: React.FC = () => {
             }
 
             // Pre-fill other fields from URL params (only if not already set)
-            if (!loadedAgent.settings.secrets.HYPERSCAPE_CHARACTER_ID) {
-              loadedAgent.settings.secrets.HYPERSCAPE_CHARACTER_ID =
+            if (!loadedAgent.settings.secrets.HYPERIA_CHARACTER_ID) {
+              loadedAgent.settings.secrets.HYPERIA_CHARACTER_ID =
                 characterIdParam;
             }
             if (wallet && !loadedAgent.settings.secrets.wallet) {
@@ -308,8 +308,8 @@ export const CharacterEditorScreen: React.FC = () => {
           characterIdParam,
           accountId,
         );
-        template.settings.secrets.HYPERSCAPE_AUTH_TOKEN = authToken;
-        template.settings.secrets.HYPERSCAPE_CHARACTER_ID = characterIdParam;
+        template.settings.secrets.HYPERIA_AUTH_TOKEN = authToken;
+        template.settings.secrets.HYPERIA_CHARACTER_ID = characterIdParam;
       } catch (error) {
         console.error(
           "[CharacterEditor] Failed to generate JWT after retries:",
@@ -353,10 +353,10 @@ export const CharacterEditorScreen: React.FC = () => {
       }
 
       // Ensure all required secrets are present (with retry logic)
-      if (!character.settings?.secrets?.HYPERSCAPE_AUTH_TOKEN) {
-        // Generate permanent Hyperscape JWT for agent with retry logic
+      if (!character.settings?.secrets?.HYPERIA_AUTH_TOKEN) {
+        // Generate permanent Hyperia JWT for agent with retry logic
         const authToken = await generateJWTWithRetry(characterId, accountId);
-        character.settings.secrets.HYPERSCAPE_AUTH_TOKEN = authToken;
+        character.settings.secrets.HYPERIA_AUTH_TOKEN = authToken;
       }
 
       // Update character with complete settings
@@ -369,9 +369,9 @@ export const CharacterEditorScreen: React.FC = () => {
           characterType: "ai-agent",
           secrets: {
             ...character.settings.secrets,
-            HYPERSCAPE_CHARACTER_ID: characterId,
-            HYPERSCAPE_ACCOUNT_ID: accountId,
-            HYPERSCAPE_SERVER_URL: GAME_WS_URL,
+            HYPERIA_CHARACTER_ID: characterId,
+            HYPERIA_ACCOUNT_ID: accountId,
+            HYPERIA_SERVER_URL: GAME_WS_URL,
           },
         },
       };
@@ -419,7 +419,7 @@ export const CharacterEditorScreen: React.FC = () => {
         // Embedded server: data.agent.id. Legacy Eliza: data.character.id
         const newAgentId = result.data?.agent?.id ?? result.data?.character?.id;
         if (newAgentId) {
-          // Save agent mapping to Hyperscape database (CRITICAL - rollback if fails)
+          // Save agent mapping to Hyperia database (CRITICAL - rollback if fails)
           try {
             const mappingResult = await apiClient.post("/api/agents/mappings", {
               agentId: newAgentId,
@@ -503,7 +503,7 @@ export const CharacterEditorScreen: React.FC = () => {
 
       const result = await updateResponse.json();
 
-      // Update agent mapping in Hyperscape database (CRITICAL)
+      // Update agent mapping in Hyperia database (CRITICAL)
       if (agentId) {
         try {
           const mappingResult = await apiClient.post("/api/agents/mappings", {
@@ -539,7 +539,7 @@ export const CharacterEditorScreen: React.FC = () => {
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
       const missingPlugins = (character.plugins || []).filter(
-        (p) => p !== "@hyperscape/plugin-hyperscape",
+        (p) => p !== "@hyperforge/plugin-hyperia",
       );
 
       if (
@@ -1019,8 +1019,8 @@ const PluginsTab: React.FC<{
   }, []);
 
   const handlePluginAdd = (plugin: string) => {
-    // Only show tooltip for non-hyperscape plugins
-    if (plugin !== "@hyperscape/plugin-hyperscape") {
+    // Only show tooltip for non-hyperia plugins
+    if (plugin !== "@hyperforge/plugin-hyperia") {
       // Clear any existing timeout
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
@@ -1040,7 +1040,7 @@ const PluginsTab: React.FC<{
     <div className="space-y-6">
       <div className="bg-[#1a1005] border border-[#f2d08a]/20 rounded-lg p-4">
         <p className="text-sm text-[#f2d08a]/60">
-          The Hyperscape plugin is required and pre-selected. You can add
+          The Hyperia plugin is required and pre-selected. You can add
           additional ElizaOS plugins if needed.
         </p>
       </div>
@@ -1108,7 +1108,7 @@ const PluginsTab: React.FC<{
           </p>
           <div className="space-y-1">
             {character.plugins
-              .filter((p) => p !== "@hyperscape/plugin-hyperscape")
+              .filter((p) => p !== "@hyperforge/plugin-hyperia")
               .map((plugin, i) => (
                 <code
                   key={i}
@@ -1153,13 +1153,13 @@ const SecretsTab: React.FC<{
 
       <div className="space-y-2">
         <label className="block text-sm font-medium text-[#f2d08a]/80">
-          Hyperscape Auth Token (JWT)
+          Hyperia Auth Token (JWT)
         </label>
         <div className="relative">
           <input
             type="text"
             value={
-              character.settings.secrets.HYPERSCAPE_AUTH_TOKEN ||
+              character.settings.secrets.HYPERIA_AUTH_TOKEN ||
               "Not generated yet"
             }
             onChange={(e) =>
@@ -1169,7 +1169,7 @@ const SecretsTab: React.FC<{
                   ...character.settings,
                   secrets: {
                     ...character.settings.secrets,
-                    HYPERSCAPE_AUTH_TOKEN: e.target.value,
+                    HYPERIA_AUTH_TOKEN: e.target.value,
                   },
                 },
               })
@@ -1177,11 +1177,11 @@ const SecretsTab: React.FC<{
             className="w-full bg-[#1a1005] border border-[#8b4513]/30 rounded-lg p-3 pr-24 text-[#e8ebf4] focus:border-[#f2d08a] outline-none transition-colors font-mono text-xs"
             readOnly
           />
-          {character.settings.secrets.HYPERSCAPE_AUTH_TOKEN && (
+          {character.settings.secrets.HYPERIA_AUTH_TOKEN && (
             <button
               onClick={() =>
                 handleCopy(
-                  character.settings.secrets.HYPERSCAPE_AUTH_TOKEN || "",
+                  character.settings.secrets.HYPERIA_AUTH_TOKEN || "",
                   "authToken",
                 )
               }
@@ -1198,11 +1198,11 @@ const SecretsTab: React.FC<{
 
       <div className="space-y-2">
         <label className="block text-sm font-medium text-[#f2d08a]/80">
-          Hyperscape Character ID
+          Hyperia Character ID
         </label>
         <input
           type="text"
-          value={character.settings.secrets.HYPERSCAPE_CHARACTER_ID || ""}
+          value={character.settings.secrets.HYPERIA_CHARACTER_ID || ""}
           onChange={(e) =>
             onChange({
               ...character,
@@ -1210,7 +1210,7 @@ const SecretsTab: React.FC<{
                 ...character.settings,
                 secrets: {
                   ...character.settings.secrets,
-                  HYPERSCAPE_CHARACTER_ID: e.target.value,
+                  HYPERIA_CHARACTER_ID: e.target.value,
                 },
               },
             })
@@ -1225,11 +1225,11 @@ const SecretsTab: React.FC<{
 
       <div className="space-y-2">
         <label className="block text-sm font-medium text-[#f2d08a]/80">
-          Hyperscape Server URL
+          Hyperia Server URL
         </label>
         <input
           type="text"
-          value={character.settings.secrets.HYPERSCAPE_SERVER_URL || ""}
+          value={character.settings.secrets.HYPERIA_SERVER_URL || ""}
           onChange={(e) =>
             onChange({
               ...character,
@@ -1237,7 +1237,7 @@ const SecretsTab: React.FC<{
                 ...character.settings,
                 secrets: {
                   ...character.settings.secrets,
-                  HYPERSCAPE_SERVER_URL: e.target.value,
+                  HYPERIA_SERVER_URL: e.target.value,
                 },
               },
             })

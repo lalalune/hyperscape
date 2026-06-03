@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { storage } from "@hyperscape/shared";
+import { storage } from "@hyperforge/shared";
 
 interface PaneInfo {
   v: number;

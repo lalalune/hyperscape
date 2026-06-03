@@ -16,7 +16,7 @@
  */
 
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 import { getDefaultPublicWsUrl } from "../../shared/public-ws-url.js";
 import { createJWT } from "../../shared/utils.js";
 import {
@@ -314,7 +314,7 @@ export function registerAgentRoutes(
 
   /**
    * Resolve dashboard / Eliza route param to embedded agent characterId.
-   * Accepts either Hyperscape character UUID or stored mapping agent_id (e.g. Eliza id).
+   * Accepts either Hyperia character UUID or stored mapping agent_id (e.g. Eliza id).
    */
   const resolveDashboardAgentCharacterId = async (
     routeAgentId: string,
@@ -400,7 +400,7 @@ export function registerAgentRoutes(
    * POST /api/agents/credentials
    *
    * Generate authentication credentials for an AI agent character.
-   * This endpoint creates a 7-day Hyperscape JWT,
+   * This endpoint creates a 7-day Hyperia JWT,
    * allowing the agent to connect autonomously.
    *
    * Request body:
@@ -470,7 +470,7 @@ export function registerAgentRoutes(
 
       console.log("[AgentRoutes] Character verified:", character.name);
 
-      // Generate 7-day Hyperscape JWT
+      // Generate 7-day Hyperia JWT
       const authToken = await createJWT({
         userId: accountId,
         characterId: characterId,
@@ -483,7 +483,7 @@ export function registerAgentRoutes(
 
       // Get server URL from environment or use default
       const serverUrl =
-        process.env.HYPERSCAPE_SERVER_URL ||
+        process.env.HYPERIA_SERVER_URL ||
         process.env.PUBLIC_WS_URL ||
         getDefaultPublicWsUrl();
 
@@ -653,7 +653,7 @@ export function registerAgentRoutes(
       });
 
       const serverUrl =
-        process.env.HYPERSCAPE_SERVER_URL ||
+        process.env.HYPERIA_SERVER_URL ||
         process.env.PUBLIC_WS_URL ||
         getDefaultPublicWsUrl();
 
@@ -1141,7 +1141,7 @@ export function registerAgentRoutes(
   /**
    * DELETE /api/agents/mappings/:agentId
    *
-   * Delete agent mapping from Hyperscape database.
+   * Delete agent mapping from Hyperia database.
    * This removes the link between an ElizaOS agent and the user's account.
    *
    * Response:
@@ -1204,7 +1204,7 @@ export function registerAgentRoutes(
    *
    * Operator → agent chat: scripted intent (if matched) or LLM reply only.
    * Does not return synthetic “posted to chat” text — start the agent and fix model config instead.
-   * SECURITY: User must own the agent (Bearer Privy or Hyperscape JWT).
+   * SECURITY: User must own the agent (Bearer Privy or Hyperia JWT).
    */
   fastify.post("/api/agents/:agentId/message", async (request, reply) => {
     try {

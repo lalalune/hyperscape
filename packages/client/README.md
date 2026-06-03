@@ -1,10 +1,10 @@
-# Hyperscape RPG Engine
+# Hyperia RPG Engine
 
-A comprehensive RPG system built on the Hyperscape 3D multiplayer game engine, featuring RuneScape-inspired mechanics with AI-generated content.
+A comprehensive RPG system built on the Hyperia 3D multiplayer game engine, featuring RuneScape-inspired mechanics with AI-generated content.
 
 ## Overview
 
-The Hyperscape RPG is a persistent multiplayer RPG featuring:
+The Hyperia RPG is a persistent multiplayer RPG featuring:
 - Real-time combat with melee and ranged weapons
 - Skill-based progression system (9 skills)
 - Resource gathering and crafting
@@ -17,7 +17,7 @@ The Hyperscape RPG is a persistent multiplayer RPG featuring:
 ### TL;DR - Get Playing Fast
 
 ```bash
-cd packages/hyperscape
+cd packages/hyperia
 bun install
 bun run dev
 # Open http://localhost:3333 and start playing!
@@ -35,8 +35,8 @@ bun run dev
 
 ```bash
 # Clone the repository
-git clone https://github.com/hyperscapeai/hyperscape
-cd hyperscape/packages/hyperscape
+git clone https://github.com/playhyperia/hyperia
+cd hyperia/packages/hyperia
 
 # Install dependencies
 bun install
@@ -53,7 +53,7 @@ The frontend will start on `http://localhost:3333` and backend on `http://localh
 
 > **⚠️ OPTIONAL**: You can skip this entire section for local development. The game works without authentication!
 
-Hyperscape uses **Privy** for user authentication, supporting wallet login, email, social accounts, and Farcaster. This enables:
+Hyperia uses **Privy** for user authentication, supporting wallet login, email, social accounts, and Farcaster. This enables:
 - 💾 **Persistent accounts** across devices
 - 🔐 **Secure authentication** via wallet, email, or social
 - 🎭 **Farcaster integration** for Frame deployment
@@ -149,7 +149,7 @@ PRIVY_APP_SECRET=your-secret
 
 ### Configuration
 
-Hyperscape uses environment variables for flexible deployment. The system works great with defaults for local development, but you can customize it for mobile, LAN testing, or production deployment.
+Hyperia uses environment variables for flexible deployment. The system works great with defaults for local development, but you can customize it for mobile, LAN testing, or production deployment.
 
 **Check your configuration**:
 ```bash
@@ -161,7 +161,7 @@ See [CONFIG.md](./CONFIG.md) for complete configuration documentation.
 
 ### Mobile Development
 
-Hyperscape supports iOS and Android through CapacitorJS.
+Hyperia supports iOS and Android through CapacitorJS.
 
 **Quick Start:**
 ```bash
@@ -182,7 +182,7 @@ See [MOBILE-QUICKSTART.md](./MOBILE-QUICKSTART.md) for quick reference or [MOBIL
 
 ### Farcaster Frame v2 Deployment
 
-Deploy Hyperscape as a Farcaster mini-app (Frame v2):
+Deploy Hyperia as a Farcaster mini-app (Frame v2):
 
 #### Prerequisites
 
@@ -271,7 +271,7 @@ bun run dev
 ### Account Security
 
 - All authentication handled by Privy (industry-standard security)
-- No passwords stored on Hyperscape servers
+- No passwords stored on Hyperia servers
 - JWT tokens for secure session management
 - Automatic session refresh and token rotation
 
@@ -408,7 +408,7 @@ Spawn Player in World
 
 ### Architecture
 
-The RPG is built using Hyperscape's Entity Component System:
+The RPG is built using Hyperia's Entity Component System:
 
 - **Systems**: Handle game logic (combat, inventory, etc.)
 - **Entities**: Players, mobs, items, world objects
@@ -429,7 +429,7 @@ The RPG is built using Hyperscape's Entity Component System:
 ### File Structure
 
 ```
-packages/hyperscape/src/
+packages/hyperia/src/
 ├── rpg/
 │   ├── systems/           # Core RPG systems
 │   ├── components/        # Entity components
@@ -443,7 +443,7 @@ packages/hyperscape/src/
 
 ## Testing
 
-The Hyperscape RPG includes a comprehensive unified test suite that validates all game systems through real browser automation and visual verification.
+The Hyperia RPG includes a comprehensive unified test suite that validates all game systems through real browser automation and visual verification.
 
 ### Unified Test Suite
 
@@ -486,7 +486,7 @@ Individual test suites are still available:
 # Legacy test commands (for specific debugging)
 bun run test:legacy:rpg           # RPG comprehensive tests
 bun run test:legacy:integration   # System integration tests
-bun run test:legacy:hyperscape       # Framework validation tests
+bun run test:legacy:hyperia       # Framework validation tests
 bun run test:legacy:gameplay      # Gameplay scenario tests
 ```
 
@@ -508,7 +508,7 @@ The unified test suite includes:
    - Database persistence
    - UI integration
 
-3. **⚡ Hyperscape Framework Tests** - Engine and framework validation
+3. **⚡ Hyperia Framework Tests** - Engine and framework validation
    - 3D rendering and WebGL functionality
    - Physics simulation and collision detection
    - Network synchronization
@@ -624,7 +624,7 @@ POST /api/actions/attack
 - Check that `PRIVY_APP_SECRET` matches your Privy dashboard
 - Ensure Privy app is configured to allow your domain in redirect URLs
 - For Farcaster: Enable Farcaster login in Privy dashboard settings
-- For mobile: Add `hyperscape://` scheme to Privy allowed redirect URIs
+- For mobile: Add `hyperia://` scheme to Privy allowed redirect URIs
 
 **Farcaster Frame not working**
 - Ensure `PUBLIC_ENABLE_FARCASTER=true` in `.env`
@@ -634,8 +634,8 @@ POST /api/actions/attack
 - Make sure Farcaster login is enabled in Privy dashboard
 
 **OAuth redirects fail on mobile**
-- Add `hyperscape://` to Capacitor config schemes
-- Update Privy dashboard with mobile redirect URIs: `hyperscape://oauth-callback`
+- Add `hyperia://` to Capacitor config schemes
+- Update Privy dashboard with mobile redirect URIs: `hyperia://oauth-callback`
 - Rebuild and resync mobile apps after config changes
 
 **Visual rendering issues**
@@ -654,7 +654,7 @@ Enable debug logging:
 
 ```bash
 # Start with debug output
-DEBUG=hyperscape:* bun run dev
+DEBUG=hyperia:* bun run dev
 
 # Enable RPG system debugging
 DEBUG=rpg:* bun run dev
@@ -703,4 +703,4 @@ MIT License - see LICENSE file for details
 
 ---
 
-Built with ❤️ using Hyperscape, Three.js, and modern web technologies.
+Built with ❤️ using Hyperia, Three.js, and modern web technologies.

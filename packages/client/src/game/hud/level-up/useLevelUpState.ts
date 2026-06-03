@@ -12,8 +12,8 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { EventType } from "@hyperscape/shared";
-import type { SkillsLevelUpEvent } from "@hyperscape/shared";
+import { EventType } from "@hyperforge/shared";
+import type { SkillsLevelUpEvent } from "@hyperforge/shared";
 import type { ClientWorld } from "../../../types";
 
 /** Level-up event data for popup display */

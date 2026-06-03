@@ -10,7 +10,7 @@ import {
   getItem,
   type TradeOfferView,
   type TradeOfferItem,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import type { ServerSocket } from "../../../../shared/types";
 import { RateLimitService } from "../../services";
 import { sendToSocket, getPlayerId, getEntityPosition } from "../common";

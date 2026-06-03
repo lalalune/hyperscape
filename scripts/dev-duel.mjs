@@ -340,10 +340,10 @@ async function loadMatchmaker() {
 
   // Fallback: try the compiled server build
   try {
-    const mod = await import("@hyperscape/server/eliza");
+    const mod = await import("@hyperforge/server/eliza");
     if (mod?.ElizaDuelMatchmaker) return mod;
   } catch (err) {
-    console.warn(`[dev-duel] Failed to import @hyperscape/server/eliza:`, err.message);
+    console.warn(`[dev-duel] Failed to import @hyperforge/server/eliza:`, err.message);
   }
 
   // Final fallback: try loading the old DuelMatchmaker from shared
@@ -376,10 +376,10 @@ function formatTime(ms) {
 }
 
 async function runMatchmaker() {
-  // Set HYPERSCAPE_SERVER_URL before importing the plugin so its static config
+  // Set HYPERIA_SERVER_URL before importing the plugin so its static config
   // picks up the uWS port instead of defaulting to the Fastify HTTP port.
-  if (!process.env.HYPERSCAPE_SERVER_URL) {
-    process.env.HYPERSCAPE_SERVER_URL = opts.url;
+  if (!process.env.HYPERIA_SERVER_URL) {
+    process.env.HYPERIA_SERVER_URL = opts.url;
   }
 
   const { ElizaDuelMatchmaker } = await loadMatchmaker();

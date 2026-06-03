@@ -9,7 +9,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ContextMenu } from "../../../../../src/game/panels/BankPanel/components/modals/ContextMenu";
 import type { ContextMenuState } from "../../../../../src/game/panels/BankPanel/types";
-import { ITEMS, type Item } from "@hyperscape/shared";
+import { ITEMS, type Item } from "@hyperforge/shared";
 
 describe("ContextMenu", () => {
   const mockOnAction = vi.fn();

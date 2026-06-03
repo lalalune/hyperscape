@@ -15,7 +15,7 @@
 
 ## Introduction
 
-Asset Forge is an **AI-powered 3D asset generation system** designed to create game-ready assets for RPG games like Hyperscape. It combines multiple AI services (OpenAI GPT-4, DALL-E, Meshy AI) with sophisticated 3D processing capabilities to generate, texture, rig, and fit 3D models.
+Asset Forge is an **AI-powered 3D asset generation system** designed to create game-ready assets for RPG games like Hyperia. It combines multiple AI services (OpenAI GPT-4, DALL-E, Meshy AI) with sophisticated 3D processing capabilities to generate, texture, rig, and fit 3D models.
 
 ### System Goals
 1. **Automated 3D Asset Creation**: Generate complete 3D assets from text descriptions

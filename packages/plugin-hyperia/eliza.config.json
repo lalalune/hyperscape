@@ -1,0 +1,7 @@
+{
+  "name": "hyperia-plugin",
+  "description": "Hyperia ElizaOS Plugin - Agents created dynamically via UI",
+  "agents": [
+    "./character.json"
+  ]
+}

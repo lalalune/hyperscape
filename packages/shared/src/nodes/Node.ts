@@ -1,7 +1,7 @@
 /**
  * Node.ts - Base Node Class
  *
- * Base class for all nodes in Hyperscape's scene graph system. Provides transform hierarchy, lifecycle hooks, and dirty tracking.
+ * Base class for all nodes in Hyperia's scene graph system. Provides transform hierarchy, lifecycle hooks, and dirty tracking.
  */
 
 import * as THREE from "../extras/three/three";

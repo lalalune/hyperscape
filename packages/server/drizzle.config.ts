@@ -14,14 +14,14 @@ const getDatabaseUrl = () => {
   }
 
   // Build from individual POSTGRES_* env vars
-  const user = process.env.POSTGRES_USER || "hyperscape";
-  const password = process.env.POSTGRES_PASSWORD || "hyperscape_dev_password";
+  const user = process.env.POSTGRES_USER || "hyperia";
+  const password = process.env.POSTGRES_PASSWORD || "hyperia_dev_password";
   if (!process.env.POSTGRES_PASSWORD && process.env.NODE_ENV === "production") {
     throw new Error(
       "POSTGRES_PASSWORD is required in production when DATABASE_URL/POSTGRES_URL is not set.",
     );
   }
-  const db = process.env.POSTGRES_DB || "hyperscape";
+  const db = process.env.POSTGRES_DB || "hyperia";
   const port = process.env.POSTGRES_PORT || "5488";
   const host = process.env.POSTGRES_HOST || "localhost";
 

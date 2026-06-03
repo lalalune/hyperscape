@@ -42,7 +42,7 @@ console.log(`\n📊 Results: ${passed}/${tests.length} tests passed\n`)
 
 if (failed > 0) {
   console.log('⚠️  Some tests failed. Check:')
-  console.log('  1. Docker CDN is running: docker ps | grep hyperscape-cdn')
+  console.log('  1. Docker CDN is running: docker ps | grep hyperia-cdn')
   console.log('  2. Assets exist: ls world/assets/music/normal/')
   console.log('  3. CDN logs: bun run cdn:logs')
   process.exit(1)

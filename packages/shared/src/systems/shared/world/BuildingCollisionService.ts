@@ -80,7 +80,7 @@ import {
   ENTRANCE_STEP_COUNT,
   TERRAIN_STEP_COUNT,
   FOUNDATION_OVERHANG,
-} from "@hyperscape/procgen/building";
+} from "@hyperforge/procgen/building";
 
 /** Wall direction to CollisionFlag mapping */
 const WALL_DIRECTION_TO_FLAG: Record<WallDirection, number> = {

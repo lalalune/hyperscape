@@ -1,9 +1,9 @@
 /**
- * Theme System for Hyperscape UI
+ * Theme System for Hyperia UI
  *
  * Two theme variants:
  * - base: Clean, minimal dark theme
- * - hyperscape: RS3-inspired dark theme with gold/bronze accents and glassmorphism
+ * - hyperia: RS3-inspired dark theme with gold/bronze accents and glassmorphism
  *
  * Based on Runescape 3 visual design specifications.
  *
@@ -20,7 +20,7 @@ export type ShellControlButtonStyle = React.CSSProperties & {
 /** Complete theme interface */
 export interface Theme {
   /** Theme identifier */
-  name: "base" | "hyperscape";
+  name: "base" | "hyperia";
 
   /** Color palette */
   colors: {
@@ -368,12 +368,12 @@ export const baseTheme: Theme = {
 };
 
 /**
- * Hyperscape Theme
+ * Hyperia Theme
  * RS3-inspired dark theme with gold/bronze accents and enhanced glassmorphism
  * Updated with more polished color palette for modern game UI
  */
-export const hyperscapeTheme: Theme = {
-  name: "hyperscape",
+export const hyperiaTheme: Theme = {
+  name: "hyperia",
 
   colors: {
     background: {
@@ -538,14 +538,14 @@ export const hyperscapeTheme: Theme = {
 /** All available themes */
 export const themes = {
   base: baseTheme,
-  hyperscape: hyperscapeTheme,
+  hyperia: hyperiaTheme,
   // Legacy aliases
   dark: baseTheme,
   light: baseTheme, // No light theme in game context
 } as const;
 
 /** Theme name type */
-export type ThemeName = "base" | "hyperscape";
+export type ThemeName = "base" | "hyperia";
 
 // Legacy exports for backwards compatibility
 export const darkTheme = baseTheme;
@@ -618,7 +618,7 @@ export function getPanelSurfaceStyle(
     border: `1px solid ${borderColor}`,
     borderRadius: theme.borderRadius.lg,
     backgroundImage:
-      theme.name === "hyperscape"
+      theme.name === "hyperia"
         ? `linear-gradient(180deg, rgba(255, 255, 255, 0.065) 0%, rgba(255, 255, 255, 0.022) 18%, rgba(0, 0, 0, 0.1) 100%),
            radial-gradient(circle at top right, rgba(190, 165, 123, 0.045), transparent 28%),
            radial-gradient(circle at bottom left, rgba(93, 103, 116, 0.075), transparent 34%),
@@ -641,7 +641,7 @@ export function getPanelSurfaceStyle(
 export function getPanelHeaderStyle(theme: Theme): React.CSSProperties {
   return {
     background:
-      theme.name === "hyperscape"
+      theme.name === "hyperia"
         ? `linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, transparent 48%),
            radial-gradient(circle at top right, rgba(190, 165, 123, 0.055), transparent 34%),
            linear-gradient(90deg, rgba(255,255,255,0.012) 0%, transparent 12%, transparent 88%, rgba(255,255,255,0.01) 100%),
@@ -718,7 +718,7 @@ export function getWindowSurfaceStyle(
       : theme.colors.border.default;
   const shadow = getThemedWindowShadow(theme, state);
   const accentGlow =
-    theme.name === "hyperscape"
+    theme.name === "hyperia"
       ? `0 0 0 1px rgba(190, 165, 123, ${state === "dragging" ? 0.12 : 0.06})`
       : "none";
 
@@ -728,7 +728,7 @@ export function getWindowSurfaceStyle(
       `${alpha})`,
     ),
     backgroundImage:
-      theme.name === "hyperscape"
+      theme.name === "hyperia"
         ? `linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.022) 28%, rgba(0, 0, 0, 0.12) 100%),
            radial-gradient(circle at top right, rgba(190, 165, 123, 0.045), transparent 34%),
            radial-gradient(circle at bottom left, rgba(93, 103, 116, 0.06), transparent 34%),
@@ -768,7 +768,7 @@ export function getTabBarChromeStyle(
   return {
     backgroundColor: theme.colors.background.secondary,
     backgroundImage:
-      theme.name === "hyperscape"
+      theme.name === "hyperia"
         ? "linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.018) 22%, rgba(0, 0, 0, 0.11) 100%), radial-gradient(circle at top right, rgba(190, 165, 123, 0.04), transparent 28%), repeating-linear-gradient(90deg, rgba(255,255,255,0.01) 0, rgba(255,255,255,0.01) 1px, transparent 1px, transparent 18px)"
         : "linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.015) 100%)",
     borderBottom: `1px solid ${borderBottomColor}`,
@@ -887,7 +887,7 @@ export function getPanelInsetStyle(
 
   return {
     background:
-      theme.name === "hyperscape"
+      theme.name === "hyperia"
         ? emphasis === "strong"
           ? "linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0.016) 16%, rgba(0, 0, 0, 0.12) 100%), radial-gradient(circle at top right, rgba(190, 165, 123, 0.035), transparent 26%), repeating-linear-gradient(135deg, rgba(255,255,255,0.008) 0, rgba(255,255,255,0.008) 1px, transparent 1px, transparent 8px), linear-gradient(180deg, rgba(31, 35, 42, 0.98) 0%, rgba(18, 21, 26, 0.99) 100%)"
           : "linear-gradient(180deg, rgba(255, 255, 255, 0.032) 0%, rgba(255, 255, 255, 0.012) 18%, rgba(0, 0, 0, 0.1) 100%), repeating-linear-gradient(135deg, rgba(255,255,255,0.006) 0, rgba(255,255,255,0.006) 1px, transparent 1px, transparent 9px), linear-gradient(180deg, rgba(27, 31, 38, 0.96) 0%, rgba(17, 20, 25, 0.98) 100%)"
@@ -914,7 +914,7 @@ export function getHudClusterSurfaceStyle(
 
   return {
     background:
-      theme.name === "hyperscape"
+      theme.name === "hyperia"
         ? active
           ? "linear-gradient(180deg, rgba(255, 255, 255, 0.075) 0%, rgba(255, 255, 255, 0.026) 18%, rgba(0, 0, 0, 0.18) 100%), radial-gradient(circle at top center, rgba(226, 213, 184, 0.08), transparent 44%), linear-gradient(180deg, rgba(34, 39, 47, 0.9) 0%, rgba(17, 20, 25, 0.92) 100%)"
           : "linear-gradient(180deg, rgba(255, 255, 255, 0.065) 0%, rgba(255, 255, 255, 0.02) 20%, rgba(0, 0, 0, 0.16) 100%), radial-gradient(circle at top center, rgba(226, 213, 184, 0.055), transparent 42%), linear-gradient(180deg, rgba(32, 37, 45, 0.86) 0%, rgba(16, 19, 24, 0.88) 100%)"
@@ -939,7 +939,7 @@ export function getContextMenuSurfaceStyle(
   return {
     ...getPanelSurfaceStyle(theme, { emphasis: "strong" }),
     background:
-      theme.name === "hyperscape"
+      theme.name === "hyperia"
         ? "linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.022) 18%, rgba(0, 0, 0, 0.18) 100%), radial-gradient(circle at top right, rgba(226, 213, 184, 0.08), transparent 34%), linear-gradient(180deg, rgba(37, 43, 52, 0.95) 0%, rgba(18, 22, 28, 0.97) 100%)"
         : theme.colors.background.panelPrimary,
     border: `1px solid ${theme.colors.border.hover}`,
@@ -1058,7 +1058,7 @@ export function getStatusBarGradient(
  * Get decorative panel border style (RS3-style bronze border)
  */
 export function getDecorativeBorderStyle(theme: Theme): React.CSSProperties {
-  if (theme.name === "hyperscape") {
+  if (theme.name === "hyperia") {
     return {
       border: `1px solid ${theme.colors.border.decorative}`,
       boxShadow: `inset 0 0 0 1px rgba(139, 90, 43, 0.2), ${theme.shadows.window}`,

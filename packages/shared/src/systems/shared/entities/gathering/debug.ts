@@ -17,7 +17,7 @@
 
 /**
  * Enable verbose gathering system logging.
- * - In development: controlled by HYPERSCAPE_DEBUG_GATHERING env var
+ * - In development: controlled by HYPERIA_DEBUG_GATHERING env var
  * - In production: always false (dead code elimination)
  */
 function getDebugGathering(): boolean {
@@ -26,7 +26,7 @@ function getDebugGathering(): boolean {
     if (typeof process !== "undefined" && process?.env) {
       return (
         process.env.NODE_ENV !== "production" &&
-        process.env.HYPERSCAPE_DEBUG_GATHERING === "true"
+        process.env.HYPERIA_DEBUG_GATHERING === "true"
       );
     }
   } catch {

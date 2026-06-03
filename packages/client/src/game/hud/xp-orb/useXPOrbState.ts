@@ -12,7 +12,7 @@
  */
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
-import { EventType, SKILL_ICONS } from "@hyperscape/shared";
+import { EventType, SKILL_ICONS } from "@hyperforge/shared";
 import type { ClientWorld } from "../../../types";
 
 // === CONSTANTS ===

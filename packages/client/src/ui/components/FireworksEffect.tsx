@@ -22,7 +22,7 @@ import React, { useMemo, useEffect, memo } from "react";
 
 /** Default particle colors (celebration palette) */
 const DEFAULT_COLORS = [
-  "#f2d08a", // Gold (Hyperscape primary)
+  "#f2d08a", // Gold (Hyperia primary)
   "#FF6B6B", // Red/coral
   "#4ECDC4", // Teal
   "#45B7D1", // Sky blue

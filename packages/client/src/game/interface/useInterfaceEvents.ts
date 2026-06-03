@@ -10,7 +10,7 @@
  */
 
 import { useEffect, useCallback, useState } from "react";
-import { EventType } from "@hyperscape/shared";
+import { EventType } from "@hyperforge/shared";
 import type { ClientWorld } from "../../types";
 
 /**

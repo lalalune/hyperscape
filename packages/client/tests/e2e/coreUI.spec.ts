@@ -8,7 +8,7 @@
  * - Toast notifications
  * - Connection indicator states
  *
- * Per project rules: Uses real Hyperscape instances with Playwright
+ * Per project rules: Uses real Hyperia instances with Playwright
  *
  * @packageDocumentation
  */
@@ -61,7 +61,7 @@ async function waitForStableAppSurface(
         }
 
         const hasCanvas =
-          document.querySelector("#hyperscape-world-canvas, canvas") !== null;
+          document.querySelector("#hyperia-world-canvas, canvas") !== null;
         const hasLoginSurface =
           document.querySelector(".login-screen") !== null;
         const hasEntryButton = Array.from(
@@ -156,9 +156,9 @@ test.describe("Loading Screen", () => {
       .waitForFunction(
         () => {
           const win = window as unknown as {
-            __HYPERSCAPE_LOADING__?: { ready?: boolean };
+            __HYPERIA_LOADING__?: { ready?: boolean };
           };
-          return win.__HYPERSCAPE_LOADING__?.ready === true;
+          return win.__HYPERIA_LOADING__?.ready === true;
         },
         { timeout: 60000 },
       )
@@ -170,7 +170,7 @@ test.describe("Loading Screen", () => {
     expect(stableSurfaceReady).toBe(true);
 
     const canvasVisible = await page
-      .locator("#hyperscape-world-canvas, canvas")
+      .locator("#hyperia-world-canvas, canvas")
       .first()
       .isVisible({ timeout: 2000 })
       .catch(() => false);

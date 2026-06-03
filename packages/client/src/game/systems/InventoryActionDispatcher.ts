@@ -17,7 +17,7 @@ import {
   getItem,
   type Item,
   type ClientNetwork,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import type { ClientWorld } from "../../types";
 
 export interface InventoryActionContext {

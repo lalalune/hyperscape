@@ -4,7 +4,7 @@ Instructions for AI coding assistants (GitHub Copilot, Cursor, etc.) working wit
 
 ## CRITICAL: WebGPU Required (NO WebGL)
 
-**Hyperscape requires WebGPU. WebGL WILL NOT WORK.**
+**Hyperia requires WebGPU. WebGL WILL NOT WORK.**
 
 This is a hard requirement. DO NOT:
 - Add WebGL fallback code
@@ -31,7 +31,7 @@ This is a hard requirement. DO NOT:
 
 ## Project Overview
 
-Hyperscape is a RuneScape-style MMORPG built on Three.js WebGPURenderer with TSL shaders.
+Hyperia is a RuneScape-style MMORPG built on Three.js WebGPURenderer with TSL shaders.
 
 ## CRITICAL: Secrets and Private Keys
 

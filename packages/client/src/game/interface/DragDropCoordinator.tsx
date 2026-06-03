@@ -10,7 +10,7 @@
  */
 
 import { useCallback, useState, type MutableRefObject } from "react";
-import { EventType, getItem } from "@hyperscape/shared";
+import { EventType, getItem } from "@hyperforge/shared";
 import {
   PointerSensor,
   TouchSensor,

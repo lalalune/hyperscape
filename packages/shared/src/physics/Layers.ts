@@ -26,7 +26,7 @@
  *
  * Usage Example:
  * ```ts
- * import { Layers } from '@hyperscape/shared';
+ * import { Layers } from '@hyperforge/shared';
  *
  * // Set up collision filtering for a PhysX shape
  * const filterData = new PHYSX.PxFilterData(

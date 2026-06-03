@@ -6,7 +6,7 @@
  * - handleTradeRequestRespond: Player B accepts/declines trade request
  */
 
-import { type World, isValidPlayerID, uuid } from "@hyperscape/shared";
+import { type World, isValidPlayerID, uuid } from "@hyperforge/shared";
 import type { ServerSocket } from "../../../../shared/types";
 import { sendSuccessToast, hasActiveInterfaceSession } from "../common";
 import {

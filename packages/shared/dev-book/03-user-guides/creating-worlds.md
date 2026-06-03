@@ -6,7 +6,7 @@
 
 ## World Types
 
-Hyperscape supports three world types for different use cases.
+Hyperia supports three world types for different use cases.
 
 ---
 
@@ -15,7 +15,7 @@ Hyperscape supports three world types for different use cases.
 Browser-based player client with full rendering and input.
 
 ```typescript
-import { createClientWorld } from '@hyperscape/shared';
+import { createClientWorld } from '@hyperforge/shared';
 
 const world = await createClientWorld({
   assetsUrl: '/assets/',
@@ -48,7 +48,7 @@ requestAnimationFrame(gameLoop);
 Node.js authoritative game server.
 
 ```typescript
-import { createServerWorld } from '@hyperscape/shared';
+import { createServerWorld } from '@hyperforge/shared';
 
 const world = await createServerWorld({
   assetsDir: './assets',
@@ -78,7 +78,7 @@ setInterval(() => {
 Headless world for testing.
 
 ```typescript
-import { createViewerWorld } from '@hyperscape/shared';
+import { createViewerWorld } from '@hyperforge/shared';
 
 const world = await createViewerWorld({
   assetsDir: './assets'

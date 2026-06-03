@@ -10,7 +10,7 @@ import {
   type World,
   ALL_WORLD_AREAS,
   isPositionInsideCombatArena,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import type { ServerSocket } from "../../../../shared/types";
 import type { DuelSystem } from "../../../DuelSystem";
 import type { PendingDuelChallengeManager } from "../../PendingDuelChallengeManager";

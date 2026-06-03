@@ -6,7 +6,7 @@
  *
  * **How It Works:**
  * 1. Listens for PLAYER_EQUIPMENT_CHANGED events
- * 2. Loads weapon GLB from Asset Forge (with userData.hyperscape metadata)
+ * 2. Loads weapon GLB from Asset Forge (with userData.hyperia metadata)
  * 3. Attaches weapon to VRM bone specified in metadata
  * 4. Transforms are pre-baked - just attach directly!
  *

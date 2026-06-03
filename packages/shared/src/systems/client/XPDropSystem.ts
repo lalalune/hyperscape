@@ -164,7 +164,7 @@ export class XPDropSystem extends System {
     context.clearRect(0, 0, size, size);
 
     const bgColor = "rgba(0, 0, 0, 0.6)";
-    const textColor = "#f2d08a"; // Hyperscape gold
+    const textColor = "#f2d08a"; // Hyperia gold
     const borderColor = "#c9a54a"; // Rich gold border
 
     context.fillStyle = bgColor;

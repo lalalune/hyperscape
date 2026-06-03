@@ -20,7 +20,7 @@ import {
   World,
   isValidPrayerId,
   isValidPrayerTogglePayload,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import { validateRequestTimestamp } from "../services/InputValidation";
 import { getPrayerRateLimiter } from "../services/SlidingWindowRateLimiter";
 

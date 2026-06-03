@@ -2,7 +2,7 @@
  * Memory Monitoring Infrastructure
  *
  * Provides comprehensive memory monitoring, leak detection, and profiling tools
- * for the Hyperscape server. Features include:
+ * for the Hyperia server. Features include:
  *
  * - Real-time memory tracking with trend analysis
  * - Collection size monitoring (Maps, Sets, Arrays)
@@ -11,7 +11,7 @@
  * - Memory pressure alerts
  */
 
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 import { createRequire } from "node:module";
 import v8 from "v8";
 import fs from "fs";

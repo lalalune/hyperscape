@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import type { Curve } from "@hyperscape/shared";
+import type { Curve } from "@hyperforge/shared";
 
 interface CurvePreviewProps {
   curve: Curve;

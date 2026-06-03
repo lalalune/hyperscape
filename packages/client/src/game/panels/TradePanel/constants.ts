@@ -4,7 +4,7 @@
  * Configuration constants for the trade panel UI.
  */
 
-import { INVENTORY_CONSTANTS } from "@hyperscape/shared";
+import { INVENTORY_CONSTANTS } from "@hyperforge/shared";
 
 // ============================================================================
 // Grid Layout

@@ -29,7 +29,7 @@
  */
 
 import type { FastifyInstance } from "fastify";
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 import { DatabaseSystem } from "../systems/DatabaseSystem/index.js";
 import type { DatabaseContext } from "./database.js";
 import { closeDatabase } from "./database.js";
@@ -166,7 +166,7 @@ export function registerShutdownHandlers(
           details[key] = value;
         }
       }
-      await sendAlert("Hyperscape server shutting down", details);
+      await sendAlert("Hyperia server shutting down", details);
     }
 
     // Step 1: Stop stream capture (headless browser + FFmpeg)
@@ -595,7 +595,7 @@ async function stopDocker(context: ShutdownContext): Promise<void> {
  */
 function clearStartupFlag(): void {
   const globalWithFlag = globalThis as typeof globalThis & {
-    __HYPERSCAPE_SERVER_STARTING__?: boolean;
+    __HYPERIA_SERVER_STARTING__?: boolean;
   };
-  globalWithFlag.__HYPERSCAPE_SERVER_STARTING__ = false;
+  globalWithFlag.__HYPERIA_SERVER_STARTING__ = false;
 }

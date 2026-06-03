@@ -19,8 +19,8 @@
  * ```
  */
 
-import type { World } from "@hyperscape/shared";
-import { STARTER_TOWNS } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
+import { STARTER_TOWNS } from "@hyperforge/shared";
 import type { SystemDatabase, SpawnData } from "../../shared/types";
 import { errMsg } from "../../shared/errMsg.js";
 

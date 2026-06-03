@@ -308,7 +308,7 @@ export interface KeybindStoreState {
 }
 
 /** Storage key */
-const STORAGE_KEY = "hyperscape-keybinds";
+const STORAGE_KEY = "hyperia-keybinds";
 
 /**
  * Zustand store for keybind management

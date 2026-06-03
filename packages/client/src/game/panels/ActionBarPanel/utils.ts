@@ -2,7 +2,7 @@
  * ActionBarPanel - Utility functions
  */
 
-import { getSkillIcon } from "@hyperscape/shared";
+import { getSkillIcon } from "@hyperforge/shared";
 import { gameUI, parseTokenToNumber } from "../../../constants";
 import { getItemIcon } from "../../../utils/itemUtils";
 import type { ActionBarSlotContent } from "./types";

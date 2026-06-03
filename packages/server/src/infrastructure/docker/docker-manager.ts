@@ -20,16 +20,16 @@
  * 5. `stopPostgres()`: Stop container on shutdown (only if we started it)
  *
  * **Data Persistence**:
- * Creates a named Docker volume (e.g., "hyperscape-postgres-data") that persists
+ * Creates a named Docker volume (e.g., "hyperia-postgres-data") that persists
  * database data across container restarts. This means player data survives server
  * restarts in development.
  *
  * **Configuration**:
  * All settings come from environment variables:
- * - `POSTGRES_CONTAINER`: Container name (default: hyperscape-postgres)
- * - `POSTGRES_USER`: Database user (default: hyperscape)
- * - `POSTGRES_PASSWORD`: Database password (default in development: hyperscape_dev_password)
- * - `POSTGRES_DB`: Database name (default: hyperscape)
+ * - `POSTGRES_CONTAINER`: Container name (default: hyperia-postgres)
+ * - `POSTGRES_USER`: Database user (default: hyperia)
+ * - `POSTGRES_PASSWORD`: Database password (default in development: hyperia_dev_password)
+ * - `POSTGRES_DB`: Database name (default: hyperia)
  * - `POSTGRES_PORT`: Host port mapping (default: 5488)
  * - `POSTGRES_IMAGE`: Docker image (default: postgres:16-alpine)
  *
@@ -53,7 +53,7 @@ import { resolveDockerBinary } from "./resolveDockerBinary.js";
 const execFileAsync = promisify(execFile);
 const DOCKER_BIN = resolveDockerBinary();
 
-export const DEFAULT_DEV_POSTGRES_PASSWORD = "hyperscape_dev_password";
+export const DEFAULT_DEV_POSTGRES_PASSWORD = "hyperia_dev_password";
 
 export function shouldInspectContainerPassword(
   password: string,
@@ -304,10 +304,10 @@ export class DockerManager {
  * Creates a DockerManager with default configuration from environment variables
  *
  * Reads configuration from environment variables with sensible defaults:
- * - POSTGRES_CONTAINER: Container name (default: hyperscape-postgres)
- * - POSTGRES_USER: Database user (default: hyperscape)
- * - POSTGRES_PASSWORD: Database password (default in development: hyperscape_dev_password)
- * - POSTGRES_DB: Database name (default: hyperscape)
+ * - POSTGRES_CONTAINER: Container name (default: hyperia-postgres)
+ * - POSTGRES_USER: Database user (default: hyperia)
+ * - POSTGRES_PASSWORD: Database password (default in development: hyperia_dev_password)
+ * - POSTGRES_DB: Database name (default: hyperia)
  * - POSTGRES_PORT: Host port (default: 5488)
  * - POSTGRES_IMAGE: Docker image (default: postgres:16-alpine)
  *
@@ -337,10 +337,10 @@ export function createDefaultDockerManager(): DockerManager {
     );
   }
   const config: DockerManagerConfig = {
-    containerName: process.env.POSTGRES_CONTAINER || "hyperscape-postgres",
-    postgresUser: process.env.POSTGRES_USER || "hyperscape",
+    containerName: process.env.POSTGRES_CONTAINER || "hyperia-postgres",
+    postgresUser: process.env.POSTGRES_USER || "hyperia",
     postgresPassword: postgresPassword,
-    postgresDb: process.env.POSTGRES_DB || "hyperscape",
+    postgresDb: process.env.POSTGRES_DB || "hyperia",
     postgresPort: parseInt(process.env.POSTGRES_PORT || "5488", 10),
     imageName: process.env.POSTGRES_IMAGE || "postgres:16-alpine",
   };

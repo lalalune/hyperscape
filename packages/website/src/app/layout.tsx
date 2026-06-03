@@ -3,10 +3,10 @@ import { MotionProvider } from "@/lib/motion";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://hyperscape.club"),
+  metadataBase: new URL("https://hyperia.club"),
   title: {
-    default: "Hyperscape - The First AI-Native MMORPG",
-    template: "%s | Hyperscape",
+    default: "Hyperia - The First AI-Native MMORPG",
+    template: "%s | Hyperia",
   },
   description:
     "Where autonomous agents powered by ElizaOS play alongside humans in a persistent 3D world. Train skills, battle enemies, and witness AI making real decisions.",
@@ -20,21 +20,21 @@ export const metadata: Metadata = {
     "multiplayer",
     "RPG",
   ],
-  authors: [{ name: "Hyperscape Team" }],
-  creator: "Hyperscape",
-  publisher: "Hyperscape",
+  authors: [{ name: "Hyperia Team" }],
+  creator: "Hyperia",
+  publisher: "Hyperia",
   openGraph: {
-    title: "Hyperscape - The First AI-Native MMORPG",
+    title: "Hyperia - The First AI-Native MMORPG",
     description:
       "Enter a world where AI agents play alongside humans in a persistent 3D world.",
-    url: "https://hyperscape.club",
-    siteName: "Hyperscape",
+    url: "https://hyperia.club",
+    siteName: "Hyperia",
     images: [
       {
         url: "/images/og-image.jpg",
         width: 1200,
         height: 630,
-        alt: "Hyperscape - The First AI-Native MMORPG",
+        alt: "Hyperia - The First AI-Native MMORPG",
       },
     ],
     locale: "en_US",
@@ -42,10 +42,10 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Hyperscape - The First AI-Native MMORPG",
+    title: "Hyperia - The First AI-Native MMORPG",
     description: "Where autonomous agents play alongside humans",
-    site: "@hyperscapeai",
-    creator: "@hyperscapeai",
+    site: "@playhyperia",
+    creator: "@playhyperia",
     images: ["/images/og-image.jpg"],
   },
   robots: {
@@ -64,7 +64,7 @@ export const metadata: Metadata = {
     shortcut: "/favicon.ico",
   },
   alternates: {
-    canonical: "https://hyperscape.club",
+    canonical: "https://hyperia.club",
   },
 };
 
@@ -81,23 +81,23 @@ const structuredData = {
   "@graph": [
     {
       "@type": "Organization",
-      name: "Hyperscape",
-      url: "https://hyperscape.club",
-      logo: "https://hyperscape.club/images/logo.png",
+      name: "Hyperia",
+      url: "https://hyperia.club",
+      logo: "https://hyperia.club/images/logo.png",
       sameAs: [
-        "https://x.com/hyperscapeai",
+        "https://x.com/playhyperia",
         "https://discord.gg/f4ZwhAbKye",
-        "https://github.com/HyperscapeAI/hyperscape",
+        "https://github.com/PlayHyperia/hyperia",
       ],
     },
     {
       "@type": "WebSite",
-      name: "Hyperscape",
-      url: "https://hyperscape.club",
+      name: "Hyperia",
+      url: "https://hyperia.club",
     },
     {
       "@type": "SoftwareApplication",
-      name: "Hyperscape",
+      name: "Hyperia",
       applicationCategory: "GameApplication",
       operatingSystem: "Web, iOS, Android, Windows, macOS, Linux",
       description:

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Hyperscape is a RuneScape-style MMORPG built on a custom 3D multiplayer engine. The project features a real-time 3D metaverse engine (Hyperscape) in a persistent world.
+Hyperia is a RuneScape-style MMORPG built on a custom 3D multiplayer engine. The project features a real-time 3D metaverse engine (Hyperia) in a persistent world.
 
 ## CRITICAL: Secrets and Private Keys
 
@@ -18,7 +18,7 @@ Hyperscape is a RuneScape-style MMORPG built on a custom 3D multiplayer engine. 
 
 ## CRITICAL: WebGPU Required (NO WebGL)
 
-**Hyperscape requires WebGPU. WebGL WILL NOT WORK.**
+**Hyperia requires WebGPU. WebGL WILL NOT WORK.**
 
 This is a hard requirement due to our use of TSL (Three Shading Language) for all materials and post-processing effects. TSL only works with the WebGPU node material pipeline.
 
@@ -95,7 +95,7 @@ npm test
 # Run tests for specific package
 npm test --workspace=packages/server
 
-# Tests MUST use real Hyperscape instances - NO MOCKS ALLOWED
+# Tests MUST use real Hyperia instances - NO MOCKS ALLOWED
 # Visual testing with screenshots and Three.js scene introspection
 ```
 
@@ -137,7 +137,7 @@ This is a **Turbo monorepo** with packages:
 
 ```
 packages/
-├── shared/              # Core Hyperscape 3D engine
+├── shared/              # Core HyperForge 3D engine
 │   ├── Entity Component System (ECS)
 │   ├── Three.js + PhysX integration
 │   ├── Real-time multiplayer networking
@@ -167,20 +167,20 @@ The `turbo.json` configuration handles this automatically via `dependsOn: ["^bui
 
 > **TODO(AUDIT-004): CIRCULAR DEPENDENCY - shared ↔ procgen**
 >
-> There is a circular dependency between `@hyperscape/shared` and `@hyperscape/procgen`.
+> There is a circular dependency between `@hyperforge/shared` and `@hyperforge/procgen`.
 > - shared imports procgen for vegetation/terrain generation
 > - procgen imports shared for TileCoord type in viewers
 >
 > **Current workaround**: procgen build ignores TypeScript errors.
 >
-> **Recommended fix**: Extract shared types to `@hyperscape/types` package:
+> **Recommended fix**: Extract shared types to `@hyperforge/types` package:
 > - Create new package with only type definitions (no runtime code)
 > - Both shared and procgen depend on types (no circular dep)
 > - Move TileCoord, Position3D, EntityData to types package
 
 ### Entity Component System (ECS)
 
-The RPG is built using Hyperscape's ECS architecture:
+The RPG is built using HyperForge's ECS architecture:
 
 - **Entities**: Game objects (players, mobs, items, trees)
 - **Components**: Data containers (position, health, inventory)
@@ -190,7 +190,7 @@ All game logic runs through systems, not entity methods. Entities are just data 
 
 ### RPG Implementation Architecture
 
-**Important**: Despite references to "Hyperscape apps (.hyp)" in development rules, `.hyp` files **do not currently exist**. This is an aspirational architecture pattern for future development.
+**Important**: Despite references to "Hyperia apps (.hyp)" in development rules, `.hyp` files **do not currently exist**. This is an aspirational architecture pattern for future development.
 
 **Current Implementation**:
 The RPG is built directly into [packages/shared/src/](packages/shared/src/) using:
@@ -199,9 +199,9 @@ The RPG is built directly into [packages/shared/src/](packages/shared/src/) usin
 - **Components**: Data containers for stats, health, equipment, etc.
 
 **Design Principle** (from development rules):
-- Keep RPG game logic **conceptually isolated** from core Hyperscape engine
-- Use existing Hyperscape abstractions (ECS, networking, physics)
-- Don't reinvent systems that Hyperscape already provides
+- Keep RPG game logic **conceptually isolated** from core HyperForge engine
+- Use existing HyperForge abstractions (ECS, networking, physics)
+- Don't reinvent systems that Hyperia already provides
 - Separation of concerns: core engine vs. game content
 
 ## Critical Development Rules
@@ -238,10 +238,10 @@ player.health -= damage;
 
 ### Testing Philosophy
 
-**NO MOCKS** - Use real Hyperscape instances with Playwright.
+**NO MOCKS** - Use real Hyperia instances with Playwright.
 
 Every feature MUST have tests that:
-1. Start a real Hyperscape server
+1. Start a real Hyperia server
 2. Open a real browser with Playwright
 3. Execute actual gameplay actions
 4. Verify with screenshots + Three.js scene queries
@@ -264,19 +264,19 @@ Visual testing uses colored cube proxies:
 ### Separation of Concerns
 
 - **Data vs Logic**: Never hardcode data into logic files
-- **RPG vs Engine**: Keep RPG isolated from Hyperscape core
+- **RPG vs Engine**: Keep RPG isolated from HyperForge core
 - **Types**: Define in `types.ts`, import everywhere
-- **Systems**: Use existing Hyperscape systems before creating new ones
+- **Systems**: Use existing HyperForge systems before creating new ones
 
 ## Working with the Codebase
 
-### Understanding Hyperscape Systems
+### Understanding HyperForge Systems
 
-Before creating new abstractions, research existing Hyperscape systems:
+Before creating new abstractions, research existing HyperForge systems:
 
 1. Check [packages/shared/src/systems/](packages/shared/src/systems/)
 2. Look for similar patterns in existing code
-3. Use Hyperscape's built-in features (ECS, networking, physics)
+3. Use Hyperia's built-in features (ECS, networking, physics)
 4. Read entity/component definitions in `types/` folders
 
 ### Common Patterns
@@ -403,7 +403,7 @@ cd packages/physx-js-webidl
 ### Port Conflicts
 
 ```bash
-# Kill processes on common Hyperscape ports
+# Kill processes on common Hyperia ports
 lsof -ti:3333 | xargs kill -9  # Game Client
 lsof -ti:5555 | xargs kill -9  # Game Server
 ```
@@ -414,7 +414,7 @@ See [Port Allocation](#port-allocation) section for full port list.
 
 - Ensure server is not running before tests
 - Check `/logs/` folder for error details
-- Tests spawn their own Hyperscape instances
+- Tests spawn their own Hyperia instances
 - Visual tests require WebGPU support (headful browser with GPU access)
 
 ## Agent Combat System
@@ -432,9 +432,9 @@ There are **two separate combat loops** for agents. They are mutually exclusive:
 
 The `DuelOrchestrator` (`packages/server/src/systems/StreamingDuelScheduler/managers/DuelOrchestrator.ts`) manages the transition: when a duel starts it calls `service.setAutonomousBehaviorEnabled(false)` on each agent's service, suspending the 8-second loop entirely. When the duel ends `stopCombatAIs()` calls `setAutonomousBehaviorEnabled(true)` to resume normal behavior.
 
-### EmbeddedHyperscapeService — the action layer
+### EmbeddedHyperiaService — the action layer
 
-`packages/server/src/eliza/EmbeddedHyperscapeService.ts`
+`packages/server/src/eliza/EmbeddedHyperiaService.ts`
 
 This is the single interface through which ALL agent actions are issued. Every combat method below ultimately emits a world event or calls a game system — never touch game state directly, always go through this service.
 
@@ -463,7 +463,7 @@ This is the single interface through which ALL agent actions are issued. Every c
 | `setAutonomousBehaviorEnabled(false)` | Suspends the 8-second `AgentBehaviorTicker` loop |
 | `setAutonomousBehaviorEnabled(true)` | Restores normal behavior ticking |
 
-**IEmbeddedHyperscapeService** (`packages/server/src/eliza/types.ts`) is the interface contract. Add any new service methods here first, then implement in `EmbeddedHyperscapeService`.
+**IEmbeddedHyperiaService** (`packages/server/src/eliza/types.ts`) is the interface contract. Add any new service methods here first, then implement in `EmbeddedHyperiaService`.
 
 ### AgentBehaviorTicker — overworld combat (8-second loop)
 
@@ -669,11 +669,11 @@ These are the prayer IDs used in `executePrayer(id)` calls:
 1. Add it to the `EmbeddedBehaviorAction` union type in `AgentBehaviorTicker.ts`
 2. Handle it in the `switch (action.type)` in `executeBehaviorTick()`
 3. Return it from `pickBehaviorAction()` or `pickQuestAction()`
-4. Add the corresponding `execute*()` method to `EmbeddedHyperscapeService` if needed
+4. Add the corresponding `execute*()` method to `EmbeddedHyperiaService` if needed
 
 **Add a new service method:**
-1. Add the signature to `IEmbeddedHyperscapeService` in `types.ts`
-2. Implement it in `EmbeddedHyperscapeService.ts`
+1. Add the signature to `IEmbeddedHyperiaService` in `types.ts`
+2. Implement it in `EmbeddedHyperiaService.ts`
 3. The method must emit a world event or call a game system — never mutate state directly
 
 ## Additional Resources

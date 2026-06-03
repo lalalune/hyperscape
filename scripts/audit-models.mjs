@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Model Audit Script for Hyperscape
+ * Model Audit Script for Hyperia
  * 
  * Audits all models in the assets folder and reports:
  * - Triangle counts vs. limits
@@ -223,7 +223,7 @@ function formatSize(bytes) {
 
 async function main() {
   log('\n╔═══════════════════════════════════════════════════════════════════╗');
-  log('║              🔍 HYPERSCAPE MODEL AUDIT                            ║');
+  log('║              🔍 HYPERIA MODEL AUDIT                            ║');
   log('╚═══════════════════════════════════════════════════════════════════╝\n');
   
   log('Triangle Limits:');

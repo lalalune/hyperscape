@@ -1,5 +1,5 @@
 /**
- * Layout System - Hyperscape UI Grid & Window Snapping
+ * Layout System - Hyperia UI Grid & Window Snapping
  *
  * Based on UI_UX_DESIGN_SYSTEM.md:
  * - 12-column responsive grid

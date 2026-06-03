@@ -1,7 +1,7 @@
 /**
  * System - Base Class for Game Systems
  *
- * All game systems extend this base class to integrate with Hyperscape's ECS architecture.
+ * All game systems extend this base class to integrate with HyperForge's ECS architecture.
  * Systems encapsulate specific game functionality (physics, rendering, combat, inventory, etc.)
  * and communicate via events.
  *

@@ -2,15 +2,15 @@
  * Three.js Type Extensions for WebGPU
  *
  * Augments the Three.js type definitions with WebGPU-specific types
- * and Hyperscape custom extensions.
+ * and Hyperia custom extensions.
  */
 
 import * as THREE from "three";
 
 /**
- * Hyperscape extended Object3D type
+ * Hyperia extended Object3D type
  */
-export type HyperscapeObject3D = THREE.Object3D & {
+export type HyperiaObject3D = THREE.Object3D & {
   userData: Record<string, unknown>;
 };
 

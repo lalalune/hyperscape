@@ -24,7 +24,7 @@ import type {
   DuelEquipmentSlot,
   EquipmentRestrictions,
   StakedItem,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 
 // ============================================================================
 // Types

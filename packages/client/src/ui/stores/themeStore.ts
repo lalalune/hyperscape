@@ -2,7 +2,7 @@
  * Theme Store
  *
  * Zustand store for theme state management.
- * Supports base and hyperscape themes with persistence.
+ * Supports base and hyperia themes with persistence.
  *
  * @packageDocumentation
  */
@@ -12,7 +12,7 @@ import { persist } from "zustand/middleware";
 import {
   themes,
   baseTheme,
-  hyperscapeTheme,
+  hyperiaTheme,
   type Theme,
   type ThemeName,
 } from "../theme/themes";
@@ -25,12 +25,12 @@ export interface ThemeStoreState {
   theme: Theme;
   /** Set theme by name */
   setTheme: (name: ThemeName) => void;
-  /** Toggle between base and hyperscape */
+  /** Toggle between base and hyperia */
   toggleTheme: () => void;
   /** Check if using base theme */
   isBase: () => boolean;
-  /** Check if using hyperscape theme */
-  isHyperscape: () => boolean;
+  /** Check if using hyperia theme */
+  isHyperia: () => boolean;
   // Legacy compatibility
   isDark: () => boolean;
   isLight: () => boolean;
@@ -55,8 +55,8 @@ export interface ThemeStoreState {
 export const useThemeStore = create<ThemeStoreState>()(
   persist(
     (set, get) => ({
-      themeName: "hyperscape" as ThemeName,
-      theme: hyperscapeTheme,
+      themeName: "hyperia" as ThemeName,
+      theme: hyperiaTheme,
 
       setTheme: (name: ThemeName) => {
         const newTheme = themes[name];
@@ -71,27 +71,27 @@ export const useThemeStore = create<ThemeStoreState>()(
 
       toggleTheme: () => {
         const current = get().themeName;
-        const next = current === "hyperscape" ? "base" : "hyperscape";
+        const next = current === "hyperia" ? "base" : "hyperia";
         get().setTheme(next);
       },
 
       isBase: () => get().themeName === "base",
-      isHyperscape: () => get().themeName === "hyperscape",
+      isHyperia: () => get().themeName === "hyperia",
 
       // Legacy compatibility - both themes are dark
       isDark: () => true,
       isLight: () => false,
     }),
     {
-      name: "hyperscape-theme",
+      name: "hyperia-theme",
       partialize: (state) => ({ themeName: state.themeName }),
       onRehydrateStorage: () => (state) => {
         if (state) {
           // Ensure valid theme name (handle legacy "dark"/"light" values)
           const validTheme =
-            state.themeName === "base" || state.themeName === "hyperscape"
+            state.themeName === "base" || state.themeName === "hyperia"
               ? state.themeName
-              : "hyperscape";
+              : "hyperia";
           state.themeName = validTheme;
           state.theme = themes[validTheme];
           applyThemeToCSSVariables(state.theme);
@@ -237,4 +237,4 @@ export function useTheme(): Theme {
 }
 
 // Re-export themes for convenience
-export { baseTheme, hyperscapeTheme };
+export { baseTheme, hyperiaTheme };

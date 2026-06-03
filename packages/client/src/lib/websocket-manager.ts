@@ -9,12 +9,12 @@
  *
  * @remarks
  * Note: CharacterSelectScreen uses custom binary packet handling (readPacket/writePacket)
- * and requires careful integration. GameClient and EmbeddedGameClient use Hyperscape's
+ * and requires careful integration. GameClient and EmbeddedGameClient use Hyperia's
  * internal world.init() which manages its own networking layer.
  *
  * This manager is available for:
  * - Future reconnection improvements to character selection
- * - Custom WebSocket connections outside of Hyperscape core
+ * - Custom WebSocket connections outside of HyperForge core
  * - Agent/dashboard WebSocket connections
  *
  * @packageDocumentation

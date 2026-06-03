@@ -193,7 +193,7 @@ export async function loadAllManifestItems(
 export function getManifestsDir(): string {
   // This works when run from either the web3 package or the project root
   const projectRoot =
-    process.env.HYPERSCAPE_ROOT ?? join(import.meta.dirname, "../../../..");
+    process.env.HYPERIA_ROOT ?? join(import.meta.dirname, "../../../..");
   return join(projectRoot, "packages/server/world/assets/manifests");
 }
 

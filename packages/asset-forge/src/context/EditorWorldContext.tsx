@@ -6,7 +6,7 @@ import {
   type EditorSelectionSystem,
   type EditorGizmoSystem,
   type WorldOptions,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import React, {
   createContext,
   useContext,

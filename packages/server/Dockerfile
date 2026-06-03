@@ -1,4 +1,4 @@
-# Multi-stage Dockerfile for Hyperscape Game Server
+# Multi-stage Dockerfile for Hyperia Game Server
 # Builds the server with all dependencies and creates a lean runtime image
 
 # ============================================================================
@@ -16,7 +16,7 @@ COPY package.json bun.lock ./
 COPY packages/physx-js-webidl/package.json ./packages/physx-js-webidl/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/server/package.json ./packages/server/
-COPY packages/plugin-hyperscape/package.json ./packages/plugin-hyperscape/
+COPY packages/plugin-hyperia/package.json ./packages/plugin-hyperia/
 
 # Install dependencies (skip postinstall scripts)
 RUN bun install --ignore-scripts
@@ -25,7 +25,7 @@ RUN bun install --ignore-scripts
 COPY packages/physx-js-webidl ./packages/physx-js-webidl
 COPY packages/shared ./packages/shared
 COPY packages/server ./packages/server
-COPY packages/plugin-hyperscape ./packages/plugin-hyperscape
+COPY packages/plugin-hyperia ./packages/plugin-hyperia
 COPY packages/client/public/physx-js-webidl.js ./packages/client/public/
 COPY packages/client/public/physx-js-webidl.wasm ./packages/client/public/
 COPY turbo.json ./
@@ -58,14 +58,14 @@ COPY package.json bun.lock ./
 COPY packages/physx-js-webidl/package.json ./packages/physx-js-webidl/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/server/package.json ./packages/server/
-COPY packages/plugin-hyperscape/package.json ./packages/plugin-hyperscape/
+COPY packages/plugin-hyperia/package.json ./packages/plugin-hyperia/
 RUN bun install --production --ignore-scripts
 
 # Copy built artifacts from builder (excluding large assets - they're served from CDN)
 COPY --from=builder /app/packages/physx-js-webidl/dist ./packages/physx-js-webidl/dist
 COPY --from=builder /app/packages/shared/build ./packages/shared/build
 COPY --from=builder /app/packages/server/dist ./packages/server/dist
-COPY --from=builder /app/packages/plugin-hyperscape ./packages/plugin-hyperscape
+COPY --from=builder /app/packages/plugin-hyperia ./packages/plugin-hyperia
 
 # Create world directory structure and copy manifests where server expects them
 RUN mkdir -p ./packages/server/world/assets/manifests

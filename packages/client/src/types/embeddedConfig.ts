@@ -1,7 +1,7 @@
 /**
  * Embedded Viewport Configuration Types
  *
- * Types for embedded Hyperscape client configuration when running in viewport mode
+ * Types for embedded Hyperia client configuration when running in viewport mode
  */
 
 /**
@@ -37,7 +37,7 @@ export type HideableUIElement =
   | "stats";
 
 /**
- * Embedded viewport configuration injected via window.__HYPERSCAPE_CONFIG__
+ * Embedded viewport configuration injected via window.__HYPERIA_CONFIG__
  *
  * @security
  * SECURITY NOTE: authToken and sessionToken should NEVER be passed via URL parameters.
@@ -52,8 +52,8 @@ export type HideableUIElement =
  * 2. Session-based authentication with the server
  *
  * The parent window should:
- * 1. Wait for 'HYPERSCAPE_READY' message from iframe
- * 2. Send 'HYPERSCAPE_AUTH' message with { type: 'HYPERSCAPE_AUTH', authToken: '...' }
+ * 1. Wait for 'HYPERIA_READY' message from iframe
+ * 2. Send 'HYPERIA_AUTH' message with { type: 'HYPERIA_AUTH', authToken: '...' }
  */
 export interface EmbeddedViewportConfig {
   agentId: string;
@@ -79,7 +79,7 @@ export interface EmbeddedViewportConfig {
 }
 
 /**
- * Viewport performance settings injected via window.__HYPERSCAPE_VIEWPORT_SETTINGS__
+ * Viewport performance settings injected via window.__HYPERIA_VIEWPORT_SETTINGS__
  */
 export interface ViewportSettings {
   targetFPS: number;
@@ -87,12 +87,12 @@ export interface ViewportSettings {
   renderOnlyWhenVisible: boolean;
 }
 
-// Extend Window interface for Hyperscape globals
+// Extend Window interface for Hyperia globals
 declare global {
   interface Window {
-    __HYPERSCAPE_EMBEDDED__?: boolean;
-    __HYPERSCAPE_CONFIG__?: EmbeddedViewportConfig;
-    __HYPERSCAPE_VIEWPORT_SETTINGS__?: ViewportSettings;
+    __HYPERIA_EMBEDDED__?: boolean;
+    __HYPERIA_CONFIG__?: EmbeddedViewportConfig;
+    __HYPERIA_VIEWPORT_SETTINGS__?: ViewportSettings;
   }
 }
 
@@ -100,21 +100,21 @@ declare global {
  * Check if running in embedded viewport mode
  */
 export function isEmbeddedMode(): boolean {
-  return !!window.__HYPERSCAPE_EMBEDDED__;
+  return !!window.__HYPERIA_EMBEDDED__;
 }
 
 /**
  * Get embedded viewport configuration
  */
 export function getEmbeddedConfig(): EmbeddedViewportConfig | null {
-  return window.__HYPERSCAPE_CONFIG__ || null;
+  return window.__HYPERIA_CONFIG__ || null;
 }
 
 /**
  * Get viewport performance settings
  */
 export function getViewportSettings(): ViewportSettings | null {
-  return window.__HYPERSCAPE_VIEWPORT_SETTINGS__ || null;
+  return window.__HYPERIA_VIEWPORT_SETTINGS__ || null;
 }
 
 /**

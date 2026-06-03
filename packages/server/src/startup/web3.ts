@@ -19,7 +19,7 @@
  * ```
  */
 
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 
 export interface ChainWriterStats {
   totalCallsFlushed: number;
@@ -40,7 +40,7 @@ export interface Web3Context {
 /**
  * Initialize Web3 mode for the game server.
  *
- * 1. Imports @hyperscape/web3 (lazy, not loaded in web2 mode)
+ * 1. Imports @hyperforge/web3 (lazy, not loaded in web2 mode)
  * 2. Builds the item ID mapping from manifests
  * 3. Creates and initializes the ChainWriter
  * 4. Creates the ChainWriterBridge and attaches to world events
@@ -51,9 +51,9 @@ export interface Web3Context {
 export async function initializeWeb3(world: World): Promise<Web3Context> {
   console.log("[Web3] Initializing Web3 mode...");
 
-  // Dynamic import - only loads @hyperscape/web3 in web3 mode
+  // Dynamic import - only loads @hyperforge/web3 in web3 mode
   const { ChainWriter, ChainWriterBridge, buildItemIdMap, getManifestsDir } =
-    await import("@hyperscape/web3");
+    await import("@hyperforge/web3");
 
   // Build item ID mapping from manifests
   console.log("[Web3] Building item ID mapping...");

@@ -15,7 +15,7 @@ import { fileURLToPath } from "url";
 import * as esbuild from "esbuild";
 import WebSocket, { type RawData } from "ws";
 import { Unpackr } from "msgpackr";
-import { AgentLiveKit } from "../../../plugin-hyperscape/src/systems/liveKit";
+import { AgentLiveKit } from "../../../plugin-hyperia/src/systems/liveKit";
 import {
   createCharacterInDatabase,
   createTestJWT,
@@ -115,7 +115,7 @@ async function getOfflineFrameworkBundle(): Promise<Buffer> {
       "node:path",
     ],
     stdin: {
-      contents: `import { createClientWorld, THREE } from "@hyperscape/shared/client";
+      contents: `import { createClientWorld, THREE } from "@hyperforge/shared/client";
 export { createClientWorld, THREE };
 `,
       resolveDir: WORKSPACE_ROOT,
@@ -145,8 +145,8 @@ type EmbeddedViewportConfig = {
 };
 
 type EmbeddedWindow = Window & {
-  __HYPERSCAPE_EMBEDDED__?: boolean;
-  __HYPERSCAPE_CONFIG__?: EmbeddedViewportConfig;
+  __HYPERIA_EMBEDDED__?: boolean;
+  __HYPERIA_CONFIG__?: EmbeddedViewportConfig;
 };
 
 function createEmbeddedConfig(
@@ -176,8 +176,8 @@ async function applyEmbeddedConfig(
 ): Promise<void> {
   await page.addInitScript((embeddedConfig: EmbeddedViewportConfig) => {
     const embeddedWindow = window as EmbeddedWindow;
-    embeddedWindow.__HYPERSCAPE_EMBEDDED__ = true;
-    embeddedWindow.__HYPERSCAPE_CONFIG__ = embeddedConfig;
+    embeddedWindow.__HYPERIA_EMBEDDED__ = true;
+    embeddedWindow.__HYPERIA_CONFIG__ = embeddedConfig;
   }, config);
 }
 
@@ -250,8 +250,8 @@ async function captureEmbeddedDebug(
     const playerCount = world?.entities?.players?.size ?? 0;
     return {
       readyState: document.readyState,
-      embedded: window.__HYPERSCAPE_EMBEDDED__ === true,
-      hasConfig: Boolean(window.__HYPERSCAPE_CONFIG__),
+      embedded: window.__HYPERIA_EMBEDDED__ === true,
+      hasConfig: Boolean(window.__HYPERIA_CONFIG__),
       worldReady: Boolean(world),
       voiceEnabled: world?.prefs?.voiceEnabled === true,
       livekitAvailable: world?.livekit?.status?.available === true,
@@ -1355,8 +1355,8 @@ type VoiceWindow = Window & {
 };
 
 type MinimapDebugWindow = Window & {
-  __HYPERSCAPE_MINIMAP_SET_EXTENT__?: (value: number) => void;
-  __HYPERSCAPE_MINIMAP_SET_TARGET__?: (value: { x: number; z: number }) => void;
+  __HYPERIA_MINIMAP_SET_EXTENT__?: (value: number) => void;
+  __HYPERIA_MINIMAP_SET_TARGET__?: (value: { x: number; z: number }) => void;
 };
 
 type ProceduralWorldStats = {
@@ -2922,8 +2922,8 @@ test("procedural world stats snapshot", async ({ page }) => {
 
     await page.evaluate((extent) => {
       const debugWindow = window as MinimapDebugWindow;
-      debugWindow.__HYPERSCAPE_MINIMAP_SET_TARGET__?.({ x: 0, z: 0 });
-      debugWindow.__HYPERSCAPE_MINIMAP_SET_EXTENT__?.(extent);
+      debugWindow.__HYPERIA_MINIMAP_SET_TARGET__?.({ x: 0, z: 0 });
+      debugWindow.__HYPERIA_MINIMAP_SET_EXTENT__?.(extent);
     }, fullWorldExtent);
 
     await page.waitForSelector(".minimap canvas");
@@ -4629,7 +4629,7 @@ test("world config manifest loads and configures town/road systems", async ({
 
     // Access DataManager if available on window
     const dataManagerWindow = window as Window & {
-      __HYPERSCAPE_DATA_MANAGER__?: {
+      __HYPERIA_DATA_MANAGER__?: {
         getWorldConfig?: () => {
           version: number;
           terrain: {
@@ -4672,7 +4672,7 @@ test("world config manifest loads and configures town/road systems", async ({
       };
     };
 
-    const dataManager = dataManagerWindow.__HYPERSCAPE_DATA_MANAGER__;
+    const dataManager = dataManagerWindow.__HYPERIA_DATA_MANAGER__;
     const worldConfig = dataManager?.getWorldConfig?.();
     const configLoaded = Boolean(worldConfig);
 

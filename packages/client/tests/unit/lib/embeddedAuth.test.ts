@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  applyHyperscapeAuthMessage,
+  applyHyperiaAuthMessage,
   isTrustedEmbedOrigin,
   normalizeTrustedOrigin,
-  parseHyperscapeAuthMessage,
+  parseHyperiaAuthMessage,
   resolveEmbedReadyTargetOrigin,
   resolveTrustedEmbedOrigins,
 } from "../../../src/lib/embeddedAuth";
@@ -56,8 +56,8 @@ describe("embeddedAuth", () => {
     ).toBe(false);
 
     expect(
-      parseHyperscapeAuthMessage({
-        type: "HYPERSCAPE_AUTH",
+      parseHyperiaAuthMessage({
+        type: "HYPERIA_AUTH",
         authToken: "auth-token",
         sessionToken: "session-token",
         agentId: "agent-1",
@@ -73,8 +73,8 @@ describe("embeddedAuth", () => {
     });
 
     expect(
-      parseHyperscapeAuthMessage({
-        type: "HYPERSCAPE_AUTH",
+      parseHyperiaAuthMessage({
+        type: "HYPERIA_AUTH",
         authToken: "   ",
       }),
     ).toBeNull();
@@ -89,7 +89,7 @@ describe("embeddedAuth", () => {
       sessionToken: "",
     };
 
-    applyHyperscapeAuthMessage(config, {
+    applyHyperiaAuthMessage(config, {
       authToken: "auth-token",
       sessionToken: "session-token",
       agentId: "agent-1",
@@ -105,7 +105,7 @@ describe("embeddedAuth", () => {
     });
   });
 
-  it("targets HYPERSCAPE_READY to a trusted referrer or explicit allowed origin", () => {
+  it("targets HYPERIA_READY to a trusted referrer or explicit allowed origin", () => {
     const trustedOrigins = resolveTrustedEmbedOrigins({
       currentOrigin: "https://game.example.com",
       publicAppUrl: "https://app.example.com",

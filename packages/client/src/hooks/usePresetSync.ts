@@ -36,7 +36,7 @@ export interface PresetSyncResult extends PresetSyncState {
 }
 
 /**
- * Hook that integrates useCloudSync with Hyperscape authentication.
+ * Hook that integrates useCloudSync with Hyperia authentication.
  *
  * Automatically:
  * - Pulls presets from server on initial login

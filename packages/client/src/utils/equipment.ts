@@ -6,8 +6,8 @@
  * @packageDocumentation
  */
 
-import { getItem } from "@hyperscape/shared";
-import type { PlayerEquipmentItems } from "@hyperscape/shared";
+import { getItem } from "@hyperforge/shared";
+import type { PlayerEquipmentItems } from "@hyperforge/shared";
 import type { RawEquipmentData } from "../types";
 
 /**

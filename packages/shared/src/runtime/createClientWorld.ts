@@ -28,7 +28,7 @@
  * Browser Integration:
  * - Exposes `window.world` for debugging and testing
  * - Exposes `window.THREE` for console access to three.js
- * - Exposes `window.Hyperscape.CircularSpawnArea` for tests
+ * - Exposes `window.Hyperia.CircularSpawnArea` for tests
  *
  * Usage:
  * ```typescript
@@ -138,8 +138,8 @@ import { isStreamingLikeViewport } from "./clientViewportMode";
 interface WindowWithWorld extends Window {
   world?: World;
   THREE?: typeof THREE;
-  __HYPERSCAPE_EMBEDDED__?: boolean;
-  __HYPERSCAPE_CONFIG__?: {
+  __HYPERIA_EMBEDDED__?: boolean;
+  __HYPERIA_CONFIG__?: {
     mode?: string;
   };
 }
@@ -203,7 +203,7 @@ export function createClientWorld() {
   // ============================================================================
   // CLEAR MODEL CACHE
   // ============================================================================
-  // Clear model cache on world creation to prevent stale Hyperscape Nodes
+  // Clear model cache on world creation to prevent stale HyperForge Nodes
   // from being returned instead of pure THREE.Object3D
   modelCache.resetAndVerify();
 
@@ -222,11 +222,11 @@ export function createClientWorld() {
 
   if (typeof window !== "undefined") {
     const anyWin = window as unknown as {
-      Hyperscape?: Record<string, unknown>;
+      Hyperia?: Record<string, unknown>;
       world?: World;
     };
-    anyWin.Hyperscape = anyWin.Hyperscape || {};
-    anyWin.Hyperscape.CircularSpawnArea = CircularSpawnArea;
+    anyWin.Hyperia = anyWin.Hyperia || {};
+    anyWin.Hyperia.CircularSpawnArea = CircularSpawnArea;
     anyWin.world = world;
   }
 
@@ -516,10 +516,10 @@ export function createClientWorld() {
 
       // Re-expose utilities after RPG systems load (in case they were cleared)
       const anyWin = window as unknown as {
-        Hyperscape?: Record<string, unknown>;
+        Hyperia?: Record<string, unknown>;
       };
-      anyWin.Hyperscape = anyWin.Hyperscape || {};
-      anyWin.Hyperscape.CircularSpawnArea = CircularSpawnArea;
+      anyWin.Hyperia = anyWin.Hyperia || {};
+      anyWin.Hyperia.CircularSpawnArea = CircularSpawnArea;
 
       // Update window.world and window.THREE references
       if (typeof window !== "undefined") {

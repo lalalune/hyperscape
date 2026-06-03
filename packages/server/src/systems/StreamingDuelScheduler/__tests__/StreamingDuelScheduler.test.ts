@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { EventType, isPositionInsideCombatArena } from "@hyperscape/shared";
+import { EventType, isPositionInsideCombatArena } from "@hyperforge/shared";
 import { StreamingDuelScheduler } from "../index";
 /** Legacy constant kept for test assertions. */
 const DUEL_FOOD_ITEM = "shark";

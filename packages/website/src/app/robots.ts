@@ -8,6 +8,6 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: "*",
       allow: "/",
     },
-    sitemap: "https://hyperscape.club/sitemap.xml",
+    sitemap: "https://hyperia.club/sitemap.xml",
   };
 }

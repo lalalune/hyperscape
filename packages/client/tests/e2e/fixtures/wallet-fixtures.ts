@@ -1,5 +1,5 @@
 /**
- * Headless Wallet Fixtures for Hyperscape E2E Tests
+ * Headless Wallet Fixtures for Hyperia E2E Tests
  *
  * Provides headless wallet injection for both EVM (MetaMask) and Solana (Phantom).
  * Uses `headless-web3-provider` for EVM and a custom Phantom mock for Solana.
@@ -10,7 +10,7 @@
  *
  * No browser extensions. No cache. Fully headless. CI-friendly.
  *
- * Adapted from otc-agent E2E fixtures for the Hyperscape auth flow.
+ * Adapted from otc-agent E2E fixtures for the Hyperia auth flow.
  */
 
 import { createRequire } from "node:module";

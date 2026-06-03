@@ -1,7 +1,7 @@
 /**
  * Database Schema Definitions
  *
- * This module defines the complete database schema for Hyperscape using Drizzle ORM.
+ * This module defines the complete database schema for Hyperia using Drizzle ORM.
  * All tables, columns, indexes, and foreign key relationships are defined here.
  *
  * **Schema Overview**:
@@ -43,7 +43,7 @@
  */
 
 /**
- * Database Schema - PostgreSQL table definitions for Hyperscape
+ * Database Schema - PostgreSQL table definitions for Hyperia
  *
  * This file defines the entire database schema using Drizzle ORM's type-safe table builder.
  * All tables, columns, constraints, and relations are defined here.
@@ -71,7 +71,7 @@
  * **Migrations**:
  * Changes to this schema require new migrations. Run:
  * ```bash
- * pnpm --filter @hyperscape/server db:generate
+ * pnpm --filter @hyperforge/server db:generate
  * ```
  *
  * **Referenced by**: client.ts (initialization), DatabaseSystem.ts (queries), drizzle-adapter.ts (legacy compat)
@@ -283,7 +283,7 @@ export const characters = pgTable(
 /**
  * Agent Mappings Table - Tracks ElizaOS agent ownership
  *
- * Maps ElizaOS agent UUIDs to Hyperscape users and characters.
+ * Maps ElizaOS agent UUIDs to Hyperia users and characters.
  * This allows the dashboard to filter agents by user since ElizaOS doesn't expose this.
  *
  * Key columns:

@@ -1,5 +1,5 @@
 /**
- * @hyperscape/shared - CLIENT ONLY
+ * @hyperforge/shared - CLIENT ONLY
  *
  * Client-safe exports that don't include any Node.js-specific code
  */

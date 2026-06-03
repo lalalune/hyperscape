@@ -23,7 +23,7 @@ import {
   verifyPrivyToken,
 } from "../../infrastructure/auth/privy-auth";
 import { createJWT, verifyJWT } from "../../shared/utils";
-import { uuid } from "@hyperscape/shared";
+import { uuid } from "@hyperforge/shared";
 import { errMsg } from "../../shared/errMsg.js";
 
 /**
@@ -239,7 +239,7 @@ export async function authenticateUser(
           user = userWithPrivy;
         }
 
-        // Generate a Hyperscape JWT for this user
+        // Generate a Hyperia JWT for this user
         authToken = await createJWT({ userId: (user as User).id });
       } else {
         console.warn(
@@ -256,8 +256,8 @@ export async function authenticateUser(
         err instanceof Error &&
         (err.message.includes("alg") || err.name === "JOSEAlgNotAllowed")
       ) {
-        // Algorithm mismatch is expected when a Hyperscape JWT is passed to Privy
-        // This happens with agent tokens - silently fall through to Hyperscape JWT verification
+        // Algorithm mismatch is expected when a Hyperia JWT is passed to Privy
+        // This happens with agent tokens - silently fall through to Hyperia JWT verification
       } else {
         console.error("[Authentication] Privy authentication error:", err);
       }
@@ -265,7 +265,7 @@ export async function authenticateUser(
     }
   }
 
-  // Fall back to Hyperscape JWT authentication if Privy didn't work
+  // Fall back to Hyperia JWT authentication if Privy didn't work
   if (!user && authToken) {
     try {
       const jwtPayload = await verifyJWT(authToken);
@@ -385,7 +385,7 @@ export async function authenticateUser(
 
 /**
  * True when connection params carry a cryptographically valid identity (Privy access token
- * + matching privyUserId, or valid Hyperscape JWT) and the user is not banned.
+ * + matching privyUserId, or valid Hyperia JWT) and the user is not banned.
  *
  * Used only for `mode=streaming` when public stream delay is enabled (`STREAMING_PUBLIC_DELAY_MS` > 0): anonymous
  * public viewers stay on the delayed surface, while logged-in accounts can open a
@@ -408,7 +408,7 @@ export async function verifyStreamingViewerCredentials(
         resolvedUserId = privyInfo.privyUserId;
       }
     } catch {
-      // Wrong token type or network — try Hyperscape JWT below
+      // Wrong token type or network — try Hyperia JWT below
     }
   }
 

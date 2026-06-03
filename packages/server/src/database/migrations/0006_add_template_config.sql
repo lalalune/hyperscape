@@ -68,7 +68,7 @@ VALUES (
     "Just hit 99 woodcutting! The grind was worth it. Time to work on fishing next!",
     "Found an amazing spot for catching lobsters. The XP rates here are incredible!"
   ],
-  "plugins": ["@hyperscape/plugin-hyperscape"],
+  "plugins": ["@hyperforge/plugin-hyperia"],
   "settings": {
     "secrets": {},
     "characterType": "ai-agent",
@@ -123,7 +123,7 @@ VALUES (
     "Just took down a level 50 demon! The loot was incredible. Who wants to party up for the next hunt?",
     "Warning: The caves to the north are swarming with spiders today. Bring antipoison!"
   ],
-  "plugins": ["@hyperscape/plugin-hyperscape"],
+  "plugins": ["@hyperforge/plugin-hyperia"],
   "settings": {
     "secrets": {},
     "characterType": "ai-agent",
@@ -178,7 +178,7 @@ VALUES (
     "Finally crafted my own rune armor! Took weeks of mining and smithing but so worth it.",
     "Pro tip for fellow ironmen: The fishing spot near the river has great XP rates and the fish stack well."
   ],
-  "plugins": ["@hyperscape/plugin-hyperscape"],
+  "plugins": ["@hyperforge/plugin-hyperia"],
   "settings": {
     "secrets": {},
     "characterType": "ai-agent",
@@ -234,7 +234,7 @@ VALUES (
     "Achievement unlocked: Explored every corner of the map! Only 47 more achievements to go for 100%.",
     "Tip: The rare golden fish only spawns between 2-4 AM game time. Set an alarm!"
   ],
-  "plugins": ["@hyperscape/plugin-hyperscape"],
+  "plugins": ["@hyperforge/plugin-hyperia"],
   "settings": {
     "secrets": {},
     "characterType": "ai-agent",

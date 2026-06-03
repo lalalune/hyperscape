@@ -1,6 +1,6 @@
 # Combat System Documentation
 
-> **The Complete Technical Reference for Hyperscape's OSRS-Accurate Combat System**
+> **The Complete Technical Reference for Hyperia's OSRS-Accurate Combat System**
 
 ---
 
@@ -2363,4 +2363,4 @@ This combat system represents a **production-ready, OSRS-accurate** implementati
 
 ---
 
-*Document generated for Hyperscape Combat System v2.0*
+*Document generated for Hyperia Combat System v2.0*

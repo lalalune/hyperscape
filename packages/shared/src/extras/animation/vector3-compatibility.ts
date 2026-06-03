@@ -1,7 +1,7 @@
 /**
  * Vector3 Compatibility Utilities
  *
- * This module provides utilities for handling Vector3 types across the Hyperscape project.
+ * This module provides utilities for handling Vector3 types across the Hyperia project.
  *
  * Best Practices:
  * 1. Import THREE from 'three' for standard THREE.js functionality

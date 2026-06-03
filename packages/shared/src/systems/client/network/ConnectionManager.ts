@@ -224,13 +224,13 @@ export class ConnectionManager {
 
     // Read embedded configuration once at initialization
     if (typeof window !== "undefined") {
-      const isEmbedded = (window as { __HYPERSCAPE_EMBEDDED__?: boolean })
-        .__HYPERSCAPE_EMBEDDED__;
+      const isEmbedded = (window as { __HYPERIA_EMBEDDED__?: boolean })
+        .__HYPERIA_EMBEDDED__;
       const embeddedConfig = (
         window as {
-          __HYPERSCAPE_CONFIG__?: { mode?: string; characterId?: string };
+          __HYPERIA_CONFIG__?: { mode?: string; characterId?: string };
         }
-      ).__HYPERSCAPE_CONFIG__;
+      ).__HYPERIA_CONFIG__;
 
       if (isEmbedded && embeddedConfig) {
         this.isEmbeddedSpectator = embeddedConfig.mode === "spectator";

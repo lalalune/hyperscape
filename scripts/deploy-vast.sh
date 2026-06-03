@@ -1,12 +1,12 @@
 #!/bin/bash
-# Hyperscape CI/CD Deploy for Vast.ai
+# Hyperia CI/CD Deploy for Vast.ai
 # Pulls latest, builds, and starts the full duel stack under pm2
 set -euo pipefail
 
 export PATH="/root/.bun/bin:$PATH"
-cd /root/hyperscape
+cd /root/hyperia
 
-SECRETS_FILE="/tmp/hyperscape-secrets.env"
+SECRETS_FILE="/tmp/hyperia-secrets.env"
 if [ -f "$SECRETS_FILE" ]; then
     echo "[deploy] Loading runtime secrets from $SECRETS_FILE"
     set -a
@@ -32,9 +32,9 @@ fi
 DUEL_DATABASE_MODE="${DUEL_DATABASE_MODE:-local}"
 LOCAL_POSTGRES_HOST="${LOCAL_POSTGRES_HOST:-127.0.0.1}"
 LOCAL_POSTGRES_PORT="${LOCAL_POSTGRES_PORT:-5432}"
-LOCAL_POSTGRES_USER="${LOCAL_POSTGRES_USER:-hyperscape}"
-LOCAL_POSTGRES_PASSWORD="${LOCAL_POSTGRES_PASSWORD:-${POSTGRES_PASSWORD:-hyperscape_dev_password}}"
-LOCAL_POSTGRES_DB="${LOCAL_POSTGRES_DB:-${POSTGRES_DB:-hyperscape}}"
+LOCAL_POSTGRES_USER="${LOCAL_POSTGRES_USER:-hyperia}"
+LOCAL_POSTGRES_PASSWORD="${LOCAL_POSTGRES_PASSWORD:-${POSTGRES_PASSWORD:-hyperia_dev_password}}"
+LOCAL_POSTGRES_DB="${LOCAL_POSTGRES_DB:-${POSTGRES_DB:-hyperia}}"
 
 # ── Auto-detect stream destinations from available keys ──────────────────────
 if [ -z "${STREAM_ENABLED_DESTINATIONS:-}" ] && [ -z "${DUEL_STREAM_DESTINATIONS:-}" ]; then
@@ -54,7 +54,7 @@ fi
 # ── Ensure DNS resolution works (some Vast containers use internal-only DNS) ─
 echo -e "nameserver 8.8.8.8\nnameserver 8.8.4.4" > /etc/resolv.conf
 
-LOG_DIR="/root/hyperscape/logs"
+LOG_DIR="/root/hyperia/logs"
 mkdir -p "$LOG_DIR"
 
 escape_sql_literal() {
@@ -115,7 +115,7 @@ SQL
     echo "[deploy] Local PostgreSQL ready at ${LOCAL_POSTGRES_HOST}:${LOCAL_POSTGRES_PORT}/${LOCAL_POSTGRES_DB}"
 }
 
-echo "[deploy] Starting Hyperscape CI/CD update on Vast.ai..."
+echo "[deploy] Starting Hyperia CI/CD update on Vast.ai..."
 
 # ── Pull latest code ──────────────────────────────────────────
 echo "[deploy] Pulling latest code..."
@@ -175,8 +175,8 @@ bunx pm2 kill 2>/dev/null || true
 sleep 2
 
 # Kill specific server processes (avoid killing deploy script's bun processes)
-# Target the hyperscape server process specifically, not all bun processes
-pkill -f "hyperscape-duel" || true
+# Target the hyperia server process specifically, not all bun processes
+pkill -f "hyperia-duel" || true
 pkill -f "watchdog.sh" || true
 pkill -f "stream-to-rtmp" || true
 pkill -f "xvfb-run.*packages/server.*stream:rtmp" || true
@@ -192,7 +192,7 @@ pkill -f "bun.*packages/server.*dist/index.js" || true
 pkill -f "bun.*packages/server.*start" || true
 pkill -f "bun.*dev-duel.mjs" || true
 pkill -f "bun.*preview.*3333" || true
-rm -f /root/hyperscape/.runtime-locks/rtmp-status.json || true
+rm -f /root/hyperia/.runtime-locks/rtmp-status.json || true
 
 DB_DRAIN_WAIT_SECONDS=5
 if [ "$DUEL_DATABASE_MODE" = "remote" ]; then
@@ -246,11 +246,11 @@ export DISPLAY=:99
 echo "[deploy] Xvfb started on DISPLAY=$DISPLAY"
 
 # ── Start duel stack via pm2 ─────────────────────────────────
-echo "[deploy] Starting Hyperscape duel stack via pm2..."
+echo "[deploy] Starting Hyperia duel stack via pm2..."
 bunx pm2 start ecosystem.config.cjs --update-env
 
 REQUIRE_LOCAL_CDN=false
-PUBLIC_CDN_URL_EFFECTIVE="${PUBLIC_CDN_URL:-https://assets.hyperscape.club}"
+PUBLIC_CDN_URL_EFFECTIVE="${PUBLIC_CDN_URL:-https://assets.hyperia.club}"
 case "$PUBLIC_CDN_URL_EFFECTIVE" in
     http://localhost:*|https://localhost:*|http://127.0.0.1:*|https://127.0.0.1:*|http://0.0.0.0:*|https://0.0.0.0:*)
         REQUIRE_LOCAL_CDN=true
@@ -286,8 +286,8 @@ for attempt in $(seq 1 30); do
         echo "[deploy] pm2 status:"
         bunx pm2 status || true
         echo "[deploy] tailing duel logs directly from OS:"
-        tail -n 10000 /root/.pm2/logs/hyperscape-duel-error.log 2>/dev/null || true
-        tail -n 10000 /root/.pm2/logs/hyperscape-duel-out.log 2>/dev/null || true
+        tail -n 10000 /root/.pm2/logs/hyperia-duel-error.log 2>/dev/null || true
+        tail -n 10000 /root/.pm2/logs/hyperia-duel-out.log 2>/dev/null || true
         exit 1
     fi
 
@@ -301,7 +301,7 @@ bunx pm2 save
 
 echo ""
 echo "════════════════════════════════════════════════════════════"
-echo "  ✓ Hyperscape deployed successfully!"
+echo "  ✓ Hyperia deployed successfully!"
 echo "  ✓ Duel stack managed by pm2 (auto-restart on crash)"
 echo ""
 echo "  Useful commands:"

@@ -18,9 +18,9 @@ Asset Forge solves the challenge of creating consistent, game-ready 3D assets at
 - **Enabling non-artists** to create professional 3D content
 - **Managing asset libraries** with comprehensive metadata
 
-### Built for Hyperscape
+### Built for Hyperia
 
-Asset Forge was specifically created for the [Hyperscape RPG project](../../../README.md), a multiplayer 3D game engine. It generates:
+Asset Forge was specifically created for the [Hyperia RPG project](../../../README.md), a multiplayer 3D game engine. It generates:
 
 - **Characters**: Humanoid and creature models with rigging
 - **Weapons**: Swords, axes, bows, staffs with proper grip points
@@ -269,14 +269,14 @@ graph LR
 
 ---
 
-## Integration with Hyperscape
+## Integration with Hyperia
 
-Asset Forge is tightly integrated with the Hyperscape game engine:
+Asset Forge is tightly integrated with the Hyperia game engine:
 
 ### Asset Loading
 
 ```typescript
-// Hyperscape loads Asset Forge models
+// Hyperia loads Asset Forge models
 const asset = await world.loadAsset('steel-sword')
 world.spawnItem(asset, position)
 ```
@@ -295,8 +295,8 @@ const type = metadata.type // 'weapon'
 ```
 gdd-assets/
 ├── steel-sword/           # Asset Forge generates
-│   ├── steel-sword.glb    # Hyperscape loads
-│   └── metadata.json      # Hyperscape reads
+│   ├── steel-sword.glb    # Hyperia loads
+│   └── metadata.json      # Hyperia reads
 ```
 
 ---

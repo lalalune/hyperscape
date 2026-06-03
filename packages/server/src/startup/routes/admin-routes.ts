@@ -4,8 +4,8 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import type { World } from "@hyperscape/shared";
-import { bfsPool, tilePool, quaternionPool } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
+import { bfsPool, tilePool, quaternionPool } from "@hyperforge/shared";
 import type { ServerConfig } from "../config.js";
 import type { DatabaseSystem } from "../../systems/DatabaseSystem/index.js";
 import { eq, like, sql, desc, and, type SQL } from "drizzle-orm";
@@ -1638,7 +1638,7 @@ export function registerAdminRoutes(
 
       try {
         // ── Step 1: Disconnect from the game world ──────────────────
-        // For model agents we only disconnect the HyperscapeService
+        // For model agents we only disconnect the HyperiaService
         // (behavior loop + WebSocket) while leaving the ElizaOS runtime
         // and its PGLite database completely untouched.  This eliminates
         // the [PLUGIN:SQL] shutdown race entirely.
@@ -1649,7 +1649,7 @@ export function registerAdminRoutes(
           const runtime = getAgentRuntimeByCharacterId(playerId);
           if (runtime) {
             try {
-              const service = runtime.getService("hyperscapeService") as {
+              const service = runtime.getService("hyperiaService") as {
                 stopAutonomousBehavior?: () => void;
                 disconnect?: () => Promise<void>;
                 connect?: (url: string) => Promise<void>;
@@ -1727,7 +1727,7 @@ export function registerAdminRoutes(
           const runtime = getAgentRuntimeByCharacterId(playerId);
           if (runtime) {
             try {
-              const service = runtime.getService("hyperscapeService") as {
+              const service = runtime.getService("hyperiaService") as {
                 connect?: (url: string) => Promise<void>;
                 startAutonomousBehavior?: () => void;
                 serverUrl?: string;
@@ -2433,7 +2433,7 @@ export function registerAdminRoutes(
             await import("../../eliza/index.js");
           const runtime = getAgentRuntimeByCharacterId(characterId);
           if (runtime) {
-            const service = runtime.getService("hyperscapeService") as {
+            const service = runtime.getService("hyperiaService") as {
               stopAutonomousBehavior?: () => void;
             } | null;
             service?.stopAutonomousBehavior?.();
@@ -2473,7 +2473,7 @@ export function registerAdminRoutes(
             await import("../../eliza/index.js");
           const runtime = getAgentRuntimeByCharacterId(characterId);
           if (runtime) {
-            const service = runtime.getService("hyperscapeService") as {
+            const service = runtime.getService("hyperiaService") as {
               startAutonomousBehavior?: () => void;
             } | null;
             service?.startAutonomousBehavior?.();
@@ -2513,13 +2513,13 @@ export function registerAdminRoutes(
           const { getAgentRuntimeByCharacterId, stopModelAgent } =
             await import("../../eliza/index.js");
 
-          // Gracefully wind down the HyperscapeService before tearing down
+          // Gracefully wind down the HyperiaService before tearing down
           // the runtime.  Any residual [PLUGIN:SQL] teardown warnings are
           // caught by the global unhandledRejection handler in shutdown.ts.
           const runtime = getAgentRuntimeByCharacterId(characterId);
           if (runtime) {
             try {
-              const service = runtime.getService("hyperscapeService") as {
+              const service = runtime.getService("hyperiaService") as {
                 stopAutonomousBehavior?: () => void;
                 stop?: () => Promise<void>;
               } | null;

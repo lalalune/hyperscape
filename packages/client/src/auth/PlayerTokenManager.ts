@@ -45,8 +45,8 @@ interface ClientPlayerToken {
   sessionId: string;
   machineId: string;
   clientVersion: string;
-  hyperscapeUserId: string;
-  hyperscapeLinked: boolean;
+  hyperiaUserId: string;
+  hyperiaLinked: boolean;
   persistenceVersion: number;
 }
 
@@ -63,8 +63,8 @@ interface PlayerSession {
  * This is the client-side component that works with the server-side AuthenticationSystem
  */
 export class PlayerTokenManager extends EventEmitter {
-  private static readonly STORAGE_KEY = "hyperscape_player_token";
-  private static readonly SESSION_KEY = "hyperscape_session";
+  private static readonly STORAGE_KEY = "hyperia_player_token";
+  private static readonly SESSION_KEY = "hyperia_session";
   private static instance: PlayerTokenManager;
 
   private currentToken: ClientPlayerToken;
@@ -185,8 +185,8 @@ export class PlayerTokenManager extends EventEmitter {
       sessionId: this.generateSessionId(),
       machineId: this.generateMachineId(),
       clientVersion: "1.0.0",
-      hyperscapeUserId: "",
-      hyperscapeLinked: false,
+      hyperiaUserId: "",
+      hyperiaLinked: false,
       persistenceVersion: 1,
     };
 

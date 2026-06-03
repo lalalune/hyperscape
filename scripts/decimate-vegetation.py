@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Vegetation Decimation Script for Hyperscape
+Vegetation Decimation Script for Hyperia
 
 Uses Blender's Python API to generate optimized LOD versions of vegetation models.
 Preserves vertex colors and creates multiple LOD levels.

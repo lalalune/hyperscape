@@ -141,7 +141,7 @@ function createLocalStoragePersistence(key: string): SettingsPersistence {
 // Hook Implementation
 // ============================================================================
 
-const DEFAULT_STORAGE_KEY = "hyperscape-settings";
+const DEFAULT_STORAGE_KEY = "hyperia-settings";
 
 /**
  * Hook for managing game settings

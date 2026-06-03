@@ -12,7 +12,7 @@ resolve_wallet_path() {
     candidates+=("${ANCHOR_WALLET}")
   fi
   candidates+=(
-    "$HOME/.config/solana/hyperscape-keys/deployer.json"
+    "$HOME/.config/solana/hyperia-keys/deployer.json"
     "$HOME/.config/solana/id.json"
   )
 

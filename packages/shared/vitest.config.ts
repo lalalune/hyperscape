@@ -3,7 +3,7 @@ import path from "path";
 import fs from "fs";
 
 /**
- * Dynamically generate aliases from @hyperscape/procgen package.json exports
+ * Dynamically generate aliases from @hyperforge/procgen package.json exports
  * This ensures vitest can resolve workspace package subpath imports automatically
  * without manual maintenance when new exports are added.
  */
@@ -33,12 +33,12 @@ function generateProcgenAliases(): Array<{
       if (!importPath) continue;
 
       // Convert export path to package import path
-      // "." -> "@hyperscape/procgen"
-      // "./building" -> "@hyperscape/procgen/building"
+      // "." -> "@hyperforge/procgen"
+      // "./building" -> "@hyperforge/procgen/building"
       const packagePath =
         exportPath === "."
-          ? "@hyperscape/procgen"
-          : `@hyperscape/procgen${exportPath.slice(1)}`;
+          ? "@hyperforge/procgen"
+          : `@hyperforge/procgen${exportPath.slice(1)}`;
 
       // Convert relative import to absolute path
       const absolutePath = path.resolve(__dirname, "../procgen", importPath);
@@ -56,7 +56,7 @@ function generateProcgenAliases(): Array<{
     // Fallback to minimal required aliases
     return [
       {
-        find: "@hyperscape/procgen",
+        find: "@hyperforge/procgen",
         replacement: path.resolve(__dirname, "../procgen/dist/index.js"),
       },
     ];

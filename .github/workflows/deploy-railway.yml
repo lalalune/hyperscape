@@ -12,7 +12,7 @@ on:
       - 'packages/shared/**'
       - 'packages/client/**'
       - 'packages/server/**'
-      - 'packages/plugin-hyperscape/**'
+      - 'packages/plugin-hyperia/**'
       - 'package.json'
       - 'bun.lock'
       - 'nixpacks.toml'
@@ -34,8 +34,8 @@ on:
         type: string
 
 # Railway environment IDs
-# Production: hyperscape.gg
-# Development: dev.hyperscape.gg (recommended)
+# Production: hyperia.gg
+# Development: dev.hyperia.gg (recommended)
 
 jobs:
   deploy:
@@ -78,12 +78,12 @@ jobs:
             echo "environment=dev" >> $GITHUB_OUTPUT
             echo "service_id=$service_id" >> $GITHUB_OUTPUT
             echo "environment_id=$environment_id" >> $GITHUB_OUTPUT
-            echo "🎭 Deploying to DEV (dev.hyperscape.gg)"
+            echo "🎭 Deploying to DEV (dev.hyperia.gg)"
           else
             echo "environment=prod" >> $GITHUB_OUTPUT
             echo "service_id=${{ env.RAILWAY_PRODUCTION_SERVICE_ID }}" >> $GITHUB_OUTPUT
             echo "environment_id=${{ env.RAILWAY_PRODUCTION_ENVIRONMENT_ID }}" >> $GITHUB_OUTPUT
-            echo "🚀 Deploying to PROD (hyperscape.gg)"
+            echo "🚀 Deploying to PROD (hyperia.gg)"
           fi
 
       - name: Validate dev configuration
@@ -150,7 +150,7 @@ jobs:
               -H "Content-Type: application/json" \
               -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
               -d '{"query":"query { project(id: \"${{ env.RAILWAY_PROJECT_ID }}\") { services { edges { node { name serviceInstances { edges { node { latestDeployment { status } } } } } } } } }"}')
-            STATUS=$(echo "$RESPONSE" | jq -r '.data.project.services.edges[] | select(.node.name=="hyperscape") | .node.serviceInstances.edges[0].node.latestDeployment.status')
+            STATUS=$(echo "$RESPONSE" | jq -r '.data.project.services.edges[] | select(.node.name=="hyperia") | .node.serviceInstances.edges[0].node.latestDeployment.status')
             echo "Deployment status: $STATUS"
             if [ "$STATUS" = "SUCCESS" ]; then
               echo "✅ Deployment succeeded"
