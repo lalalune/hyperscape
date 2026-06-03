@@ -45,7 +45,7 @@
     "eslint": "^10.0.2",
     "three": "^0.183.2",
     "typescript": "^6.0.2",
-    "vitest": "^4.0.6"
+    "vitest": "^4.1.4"
   },
   "peerDependencies": {
     "@hyperscape/shared": "workspace:*"
