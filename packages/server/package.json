@@ -61,7 +61,7 @@
     "@elizaos/core": "alpha",
     "@elizaos/plugin-anthropic": "alpha",
     "@elizaos/plugin-elizacloud": "alpha",
-    "@elizaos/plugin-goals": "2.0.0-alpha.9",
+    "@elizaos/plugin-goals": "2.0.0-alpha.10",
     "@elizaos/plugin-groq": "alpha",
     "@elizaos/plugin-openai": "alpha",
     "@elizaos/plugin-sql": "alpha",
