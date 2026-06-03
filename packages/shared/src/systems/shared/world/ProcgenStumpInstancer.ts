@@ -31,7 +31,7 @@ import {
   generateStumpFromParams,
   createParamsFromPreset,
   STUMP_HEIGHT,
-} from "@hyperscape/procgen/plant";
+} from "@hyperforge/procgen/plant";
 import { applySkyFog } from "./FogConfig";
 
 // ============================================================================

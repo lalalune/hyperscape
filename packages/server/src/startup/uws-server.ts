@@ -11,7 +11,7 @@
  */
 
 import * as uWS from "uWebSockets.js";
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 import {
   UwsWebSocketAdapter,
   type UwsUserData,

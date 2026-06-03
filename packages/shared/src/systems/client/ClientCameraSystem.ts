@@ -312,11 +312,11 @@ export class ClientCameraSystem extends SystemBase {
     // have connected yet when the camera system initializes:
     //   1. Frozen follow value from a prior ClientNetwork instance (HMR)
     //   2. URL params (always available at init time)
-    //   3. __HYPERSCAPE_CONFIG__ (set by the iframe host before load)
+    //   3. __HYPERIA_CONFIG__ (set by the iframe host before load)
     if (this.cinematicEnabled && typeof window !== "undefined") {
       const frozenFollow =
-        (window as { __HYPERSCAPE_ORIGINAL_FOLLOW__?: string })
-          .__HYPERSCAPE_ORIGINAL_FOLLOW__ || null;
+        (window as { __HYPERIA_ORIGINAL_FOLLOW__?: string })
+          .__HYPERIA_ORIGINAL_FOLLOW__ || null;
       let urlFollow: string | null = null;
       try {
         const params = new URLSearchParams(window.location.search);
@@ -328,14 +328,14 @@ export class ClientCameraSystem extends SystemBase {
       const configFollow =
         (
           window as {
-            __HYPERSCAPE_CONFIG__?: {
+            __HYPERIA_CONFIG__?: {
               followEntity?: string;
               characterId?: string;
             };
           }
-        ).__HYPERSCAPE_CONFIG__?.followEntity ||
-        (window as { __HYPERSCAPE_CONFIG__?: { characterId?: string } })
-          .__HYPERSCAPE_CONFIG__?.characterId ||
+        ).__HYPERIA_CONFIG__?.followEntity ||
+        (window as { __HYPERIA_CONFIG__?: { characterId?: string } })
+          .__HYPERIA_CONFIG__?.characterId ||
         null;
       if (frozenFollow || urlFollow || configFollow) {
         this.dashboardFollowMode = true;

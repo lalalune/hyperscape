@@ -131,7 +131,7 @@ import {
   type TSLImpostorMaterial,
   type ImpostorBakeResult,
   type DissolveConfig,
-} from "@hyperscape/impostor";
+} from "@hyperforge/impostor";
 import {
   getLODConfig,
   type LODDistancesWithSq,
@@ -1375,7 +1375,7 @@ export class Entity implements IEntity {
     }
 
     // Use ModelCache to load with caching
-    // ModelCache uses its own GLTFLoader to ensure pure THREE.Object3D (not Hyperscape Nodes)
+    // ModelCache uses its own GLTFLoader to ensure pure THREE.Object3D (not HyperForge Nodes)
     const { scene } = await modelCache.loadModel(this.config.model, this.world);
 
     // Clear existing mesh first

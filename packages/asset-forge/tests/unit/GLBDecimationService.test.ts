@@ -8,7 +8,7 @@
  * - Inverse bind matrices and animation data preservation
  */
 
-import type { Vec3 } from "@hyperscape/decimation";
+import type { Vec3 } from "@hyperforge/decimation";
 import { describe, it, expect } from "vitest";
 
 import { GLBDecimationService } from "../../server/services/GLBDecimationService";

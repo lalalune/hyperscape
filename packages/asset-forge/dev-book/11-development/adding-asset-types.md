@@ -35,7 +35,7 @@ Asset types are defined in multiple locations for different purposes.
 
 **1. Primary Type Definition**
 
-Edit `/Users/home/hyperscape-1/packages/asset-forge/src/types/index.ts`:
+Edit `/Users/home/hyperia-1/packages/asset-forge/src/types/index.ts`:
 
 ```typescript
 // Add to AssetType union
@@ -54,7 +54,7 @@ export type AssetType =
 
 **2. Metadata Type Definition**
 
-Edit `/Users/home/hyperscape-1/packages/asset-forge/src/types/AssetMetadata.ts`:
+Edit `/Users/home/hyperia-1/packages/asset-forge/src/types/AssetMetadata.ts`:
 
 ```typescript
 // Update AssetType if different from core definition
@@ -162,7 +162,7 @@ Asset type prompts guide AI generation for each type.
 
 ### Prompt Configuration File
 
-**Location:** `/Users/home/hyperscape-1/packages/asset-forge/public/prompts/asset-type-prompts.json`
+**Location:** `/Users/home/hyperia-1/packages/asset-forge/public/prompts/asset-type-prompts.json`
 
 **Structure:**
 
@@ -296,7 +296,7 @@ Update UI components to include the new asset type.
 
 ### Generation Form Dropdown
 
-**File:** `/Users/home/hyperscape-1/packages/asset-forge/src/components/Generation/GenerationTypeSelector.tsx` or similar form component.
+**File:** `/Users/home/hyperia-1/packages/asset-forge/src/components/Generation/GenerationTypeSelector.tsx` or similar form component.
 
 **1. Add to Type Options**
 
@@ -434,7 +434,7 @@ Define how 3D models should be normalized for your asset type.
 
 ### Normalization Conventions File
 
-**File:** `/Users/home/hyperscape-1/packages/asset-forge/src/types/NormalizationConventions.ts`
+**File:** `/Users/home/hyperia-1/packages/asset-forge/src/types/NormalizationConventions.ts`
 
 **1. Add Convention Definition**
 
@@ -532,7 +532,7 @@ export function getConvention(assetType: string, subtype?: string): AssetConvent
 
 ### Implementing Normalization Logic
 
-**Service:** `/Users/home/hyperscape-1/packages/asset-forge/src/services/processing/AssetNormalizationService.ts`
+**Service:** `/Users/home/hyperia-1/packages/asset-forge/src/services/processing/AssetNormalizationService.ts`
 
 Add type-specific normalization if needed:
 
@@ -591,7 +591,7 @@ Configure the generation pipeline for your new asset type.
 
 ### Generation Service Configuration
 
-**File:** `/Users/home/hyperscape-1/packages/asset-forge/server/services/GenerationService.mjs`
+**File:** `/Users/home/hyperia-1/packages/asset-forge/server/services/GenerationService.mjs`
 
 **1. Add Type-Specific Pipeline Logic**
 
@@ -667,7 +667,7 @@ Define which materials can be applied to your asset type.
 
 ### Material Presets Configuration
 
-**File:** `/Users/home/hyperscape-1/packages/asset-forge/public/prompts/material-presets.json`
+**File:** `/Users/home/hyperia-1/packages/asset-forge/public/prompts/material-presets.json`
 
 **1. Add Compatible Types**
 
@@ -864,7 +864,7 @@ Document your new asset type for users and developers.
 
 ### User Documentation
 
-**File:** `/Users/home/hyperscape-1/packages/asset-forge/README.md`
+**File:** `/Users/home/hyperia-1/packages/asset-forge/README.md`
 
 ```markdown
 ## Supported Asset Types
@@ -900,7 +900,7 @@ and leather upholstery options.
 
 ### Developer Documentation
 
-**File:** `/Users/home/hyperscape-1/packages/asset-forge/dev-book/03-asset-types/vehicle.md` (create if needed)
+**File:** `/Users/home/hyperia-1/packages/asset-forge/dev-book/03-asset-types/vehicle.md` (create if needed)
 
 ```markdown
 # Vehicle Asset Type

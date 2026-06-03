@@ -1,7 +1,7 @@
 import "./polyfills/buffer-shim";
 import "./index.css";
 
-import { installThreeJSExtensions } from "@hyperscape/shared";
+import { installThreeJSExtensions } from "@hyperforge/shared";
 import { Buffer } from "buffer";
 import React from "react";
 import ReactDOM from "react-dom/client";
@@ -151,7 +151,7 @@ async function resetLocalStreamingCaches(): Promise<void> {
       const cacheKeys = await window.caches.keys();
       const streamingCacheKeys = cacheKeys.filter(
         (cacheKey) =>
-          cacheKey.startsWith("workbox") || cacheKey.startsWith("hyperscape"),
+          cacheKey.startsWith("workbox") || cacheKey.startsWith("hyperia"),
       );
       if (streamingCacheKeys.length > 0) {
         await Promise.all(

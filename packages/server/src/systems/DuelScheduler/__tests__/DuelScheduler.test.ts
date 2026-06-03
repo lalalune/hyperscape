@@ -3,7 +3,7 @@
  *
  * Tests for the automated agent duel scheduling system.
  *
- * NOTE: DuelScheduler imports from @hyperscape/shared which includes
+ * NOTE: DuelScheduler imports from @hyperforge/shared which includes
  * Three.js WebGPU code. These tests must be run with:
  * - A browser environment (Playwright)
  * - Or with proper WebGPU polyfills

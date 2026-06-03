@@ -3,7 +3,7 @@ pragma solidity >=0.8.24;
 
 /**
  * @title Constants
- * @notice Game constants matching the Hyperscape TypeScript codebase.
+ * @notice Game constants matching the Hyperia TypeScript codebase.
  * All values must be kept in sync with the server-side definitions.
  */
 library Constants {

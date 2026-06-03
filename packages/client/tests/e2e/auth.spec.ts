@@ -7,7 +7,7 @@
  * - Character selection
  * - Logout
  *
- * Per project rules: Uses real Hyperscape instances with Playwright
+ * Per project rules: Uses real Hyperia instances with Playwright
  *
  * @packageDocumentation
  */
@@ -233,7 +233,7 @@ test.describe("Authentication Flow", () => {
           key.includes("privy") ||
           key.includes("token") ||
           key.includes("auth") ||
-          key.includes("hyperscape"),
+          key.includes("hyperia"),
       );
     });
 
@@ -263,7 +263,7 @@ test.describe("Session Management", () => {
 
     // Check that player token is generated
     const hasPlayerToken = await page.evaluate(() => {
-      const tokenData = localStorage.getItem("hyperscape_player_token");
+      const tokenData = localStorage.getItem("hyperia_player_token");
       if (!tokenData) return false;
 
       try {
@@ -286,7 +286,7 @@ test.describe("Session Management", () => {
 
     // Check session data
     const hasSession = await page.evaluate(() => {
-      const sessionData = localStorage.getItem("hyperscape_session");
+      const sessionData = localStorage.getItem("hyperia_session");
       if (!sessionData) return false;
 
       try {
@@ -310,9 +310,9 @@ test.describe("Security - URL Parameters", () => {
     // Check that the authToken was NOT accepted from URL
     const config = await page.evaluate(() => {
       const win = window as unknown as {
-        __HYPERSCAPE_CONFIG__?: { authToken?: string };
+        __HYPERIA_CONFIG__?: { authToken?: string };
       };
-      return win.__HYPERSCAPE_CONFIG__;
+      return win.__HYPERIA_CONFIG__;
     });
 
     // If embedded mode is active, authToken should be empty (waiting for postMessage)
@@ -329,9 +329,9 @@ test.describe("Security - URL Parameters", () => {
     // Check that config was sanitized
     const config = await page.evaluate(() => {
       const win = window as unknown as {
-        __HYPERSCAPE_CONFIG__?: { mode?: string; quality?: string };
+        __HYPERIA_CONFIG__?: { mode?: string; quality?: string };
       };
-      return win.__HYPERSCAPE_CONFIG__;
+      return win.__HYPERIA_CONFIG__;
     });
 
     if (config) {
@@ -353,9 +353,9 @@ test.describe("Security - URL Parameters", () => {
     // Check that the agentId was sanitized
     const config = await page.evaluate(() => {
       const win = window as unknown as {
-        __HYPERSCAPE_CONFIG__?: { agentId?: string };
+        __HYPERIA_CONFIG__?: { agentId?: string };
       };
-      return win.__HYPERSCAPE_CONFIG__;
+      return win.__HYPERIA_CONFIG__;
     });
 
     if (config && config.agentId) {
@@ -374,16 +374,16 @@ test.describe("Security - URL Parameters", () => {
     );
     test.skip(!navigated, "Embedded-mode page closed during navigation");
 
-    // Wait for HYPERSCAPE_READY message
+    // Wait for HYPERIA_READY message
     const readyReceived = await page.evaluate(() => {
       return new Promise<boolean>((resolve) => {
-        // The embedded client should post HYPERSCAPE_READY to parent
+        // The embedded client should post HYPERIA_READY to parent
         // Since we're in the same context, we just check the config is pending
         const win = window as unknown as {
-          __HYPERSCAPE_CONFIG__?: { authToken?: string };
+          __HYPERIA_CONFIG__?: { authToken?: string };
         };
         // Auth token should be empty, waiting for postMessage
-        resolve((win.__HYPERSCAPE_CONFIG__?.authToken ?? "") === "");
+        resolve((win.__HYPERIA_CONFIG__?.authToken ?? "") === "");
       });
     });
 

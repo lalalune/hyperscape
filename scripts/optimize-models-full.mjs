@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Full Model Optimization Script for Hyperscape
+ * Full Model Optimization Script for Hyperia
  * 
  * Optimizes all models to meet triangle limits:
  * - Characters, Mobs, World Objects: 20,000 triangles max
@@ -402,7 +402,7 @@ async function optimizeModel(filepath) {
 
 async function main() {
   console.log('\n╔═══════════════════════════════════════════════════════════════════╗');
-  console.log('║           🚀 HYPERSCAPE MODEL OPTIMIZATION                        ║');
+  console.log('║           🚀 HYPERIA MODEL OPTIMIZATION                        ║');
   console.log('╚═══════════════════════════════════════════════════════════════════╝\n');
   
   log(`Triangle Limits:`);

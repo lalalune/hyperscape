@@ -5,7 +5,7 @@
  */
 
 import type { Theme } from "@/ui";
-import type { TradeOfferItem, TradeWindowState } from "@hyperscape/shared";
+import type { TradeOfferItem, TradeWindowState } from "@hyperforge/shared";
 
 // ============================================================================
 // Component Props

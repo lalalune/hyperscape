@@ -18,7 +18,7 @@ import {
 import { useThemeStore, type Theme } from "@/ui";
 import { breakpoints } from "../../constants";
 import type { ClientWorld } from "../../types";
-import type { Friend, FriendRequest, FriendStatus } from "@hyperscape/shared";
+import type { Friend, FriendRequest, FriendStatus } from "@hyperforge/shared";
 
 interface FriendsPanelProps {
   world: ClientWorld;

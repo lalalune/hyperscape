@@ -2,7 +2,7 @@
  * ChainWriterBridge Tests
  *
  * Tests the event-to-chain-write bridge that connects
- * Hyperscape game events to on-chain MUD World updates.
+ * Hyperia game events to on-chain MUD World updates.
  *
  * Key functionality tested:
  * - Inventory update events → queueInventoryUpdate

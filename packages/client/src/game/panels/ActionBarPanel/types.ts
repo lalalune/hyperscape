@@ -9,10 +9,10 @@ export type {
   ActionBarSlotContent,
   ActionBarSlotUpdatePayload,
   ActionBarSlotSwapPayload,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 
 // Import for local use
-import type { ActionBarSlotContent } from "@hyperscape/shared";
+import type { ActionBarSlotContent } from "@hyperforge/shared";
 
 // ============================================================================
 // Event Payload Types (for proper type safety instead of unknown)

@@ -130,7 +130,7 @@ async function main() {
       const batchEnd = Math.min(i + SHOP_BATCH_SIZE, shopIds.length);
       const callData = encodeFunctionData({
         abi: SHOP_SYSTEM_ABI,
-        functionName: "hyperscape__seedShopItemBatch",
+        functionName: "hyperia__seedShopItemBatch",
         args: [
           shopIds.slice(i, batchEnd),
           slotIndices.slice(i, batchEnd),
@@ -165,7 +165,7 @@ async function main() {
 
 const SHOP_SYSTEM_ABI = [
   {
-    name: "hyperscape__seedShopItemBatch",
+    name: "hyperia__seedShopItemBatch",
     type: "function",
     inputs: [
       { name: "shopIds", type: "bytes32[]" },

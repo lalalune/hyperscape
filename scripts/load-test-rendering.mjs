@@ -3,7 +3,7 @@ import { parseArgs } from "node:util";
 import { chromium } from "playwright";
 
 async function loadShared() {
-  return import("@hyperscape/shared").catch(() => {
+  return import("@hyperforge/shared").catch(() => {
     console.error("Run: bun run build:shared");
     process.exit(1);
   });

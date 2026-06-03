@@ -12,7 +12,7 @@
  * - AgentCommandDispatcher (routing string-based commands to service methods)
  *
  * Unlike external ElizaOS processes, these agents run directly in the
- * Hyperscape server process with direct world access.
+ * Hyperia server process with direct world access.
  */
 
 import {
@@ -28,8 +28,8 @@ import {
 } from "@elizaos/core";
 import { createJWT } from "../shared/utils.js";
 import { errMsg } from "../shared/errMsg.js";
-import { EventType } from "@hyperscape/shared";
-import { EmbeddedHyperscapeService } from "./EmbeddedHyperscapeService.js";
+import { EventType } from "@hyperforge/shared";
+import { EmbeddedHyperiaService } from "./EmbeddedHyperiaService.js";
 import {
   recordAgentThought,
   tryResolveDashboardLlmAction,
@@ -42,21 +42,21 @@ import {
 } from "./agentRecovery.js";
 
 /**
- * Dynamically import the Hyperscape plugin to avoid hard dependency in dev.
+ * Dynamically import the Hyperia plugin to avoid hard dependency in dev.
  * Returns null if AI plugins are disabled or the module fails to load.
  */
-async function getHyperscapePlugin(): Promise<Plugin | null> {
+async function getHyperiaPlugin(): Promise<Plugin | null> {
   if (process.env.DISABLE_AI === "true" || process.env.ENABLE_AI === "false") {
     console.warn("[AgentManager] AI plugins disabled via env");
     return null;
   }
 
   try {
-    const mod = await import("@hyperscape/plugin-hyperscape");
-    return mod.hyperscapePlugin;
+    const mod = await import("@hyperforge/plugin-hyperia");
+    return mod.hyperiaPlugin;
   } catch (err) {
     console.warn(
-      "[AgentManager] Failed to load @hyperscape/plugin-hyperscape:",
+      "[AgentManager] Failed to load @hyperforge/plugin-hyperia:",
       errMsg(err),
     );
     return null;
@@ -505,7 +505,7 @@ async function normalizeDashboardUseModelResponse(
   }
   return "";
 }
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 
 type Equipment = {
   helmet?: unknown;
@@ -522,10 +522,10 @@ type Equipment = {
 };
 
 /**
- * Interface for the HyperscapeService methods used by AgentManager.
- * This mirrors the plugin-hyperscape HyperscapeService but avoids direct dependency.
+ * Interface for the HyperiaService methods used by AgentManager.
+ * This mirrors the plugin-hyperia HyperiaService but avoids direct dependency.
  */
-export interface HyperscapeService {
+export interface HyperiaService {
   /** Enable or disable autonomous behavior */
   setAutonomousBehaviorEnabled?(enabled: boolean): void;
 
@@ -850,7 +850,7 @@ export class AgentManager {
     };
 
     // Create the embedded service
-    const service = new EmbeddedHyperscapeService(
+    const service = new EmbeddedHyperiaService(
       this.world,
       characterId,
       accountId,
@@ -1136,7 +1136,7 @@ export class AgentManager {
    * @param characterId - The agent's character ID
    * @returns The embedded service or null
    */
-  getAgentService(characterId: string): EmbeddedHyperscapeService | null {
+  getAgentService(characterId: string): EmbeddedHyperiaService | null {
     return this.agents.get(characterId)?.service || null;
   }
 
@@ -1182,7 +1182,7 @@ export class AgentManager {
   ): Character {
     const baseSystem =
       instance.config.characterConfig?.system ||
-      `You are ${instance.config.name}, an embedded Hyperscape agent. Respond as yourself, stay grounded in the current game world, and keep replies concise and useful.`;
+      `You are ${instance.config.name}, an embedded Hyperia agent. Respond as yourself, stay grounded in the current game world, and keep replies concise and useful.`;
 
     return {
       id: stringToUuid(`embedded-chat-${instance.config.characterId}`),
@@ -1192,11 +1192,11 @@ export class AgentManager {
         `embedded-chat-${instance.config.characterId}`,
       system: `${baseSystem}\n\nYou are talking to your operator through the dashboard. Their instructions override your personal preferences and any long-term build flavor text. Answer in 1-3 concise sentences, avoid markdown, always finish your final sentence, and do not claim to have done actions you have not actually done.`,
       bio: instance.config.characterConfig?.bio || [
-        `${instance.config.name} is an embedded Hyperscape agent.`,
+        `${instance.config.name} is an embedded Hyperia agent.`,
       ],
       lore: instance.config.characterConfig?.lore || [],
       topics: instance.config.characterConfig?.topics || [
-        "Hyperscape",
+        "Hyperia",
         "MMORPG",
         "agent control",
       ],
@@ -1306,7 +1306,7 @@ export class AgentManager {
 
   private splitDashboardLlmResponse(
     raw: string,
-    service: EmbeddedHyperscapeService,
+    service: EmbeddedHyperiaService,
   ): {
     tailText: string;
     llmIntent: ResolvedDashboardIntent | null;

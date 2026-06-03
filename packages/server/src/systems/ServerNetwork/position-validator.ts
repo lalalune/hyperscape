@@ -18,8 +18,8 @@
  * ```
  */
 
-import type { World } from "@hyperscape/shared";
-import { TerrainSystem } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
+import { TerrainSystem } from "@hyperforge/shared";
 import type { ServerSocket } from "../../shared/types";
 import type { BroadcastManager } from "./broadcast";
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Vertex Color Optimization Script for Hyperscape
+ * Vertex Color Optimization Script for Hyperia
  * 
  * Optimizes GLB models for vertex-color-only rendering:
  * 1. STRIP: Remove textures from models that already have vertex colors

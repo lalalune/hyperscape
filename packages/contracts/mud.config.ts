@@ -2,9 +2,9 @@ import { defineWorld } from "@latticexyz/world";
 import { defineERC20Module } from "@latticexyz/world-module-erc20/internal";
 
 /**
- * Hyperscape On-Chain World Configuration
+ * Hyperia On-Chain World Configuration
  *
- * This defines all MUD tables for the on-chain representation of Hyperscape.
+ * This defines all MUD tables for the on-chain representation of Hyperia.
  * The game server writes to these tables optimistically after processing game logic locally.
  * Player-to-player transactions (trades, duels) execute through on-chain escrow.
  *
@@ -16,7 +16,7 @@ import { defineERC20Module } from "@latticexyz/world-module-erc20/internal";
  * - Item ownership tracked in slot tables; ERC-1155 wraps total balances
  */
 export default defineWorld({
-  namespace: "hyperscape",
+  namespace: "hyperia",
 
   enums: {
     /**

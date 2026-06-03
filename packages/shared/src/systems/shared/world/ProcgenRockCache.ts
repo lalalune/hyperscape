@@ -133,17 +133,17 @@ const presetCache = new Map<string, PresetCache>();
  * RockGenerator and material imports (lazy loaded to avoid circular deps).
  */
 let RockGenerator:
-  | typeof import("@hyperscape/procgen/rock").RockGenerator
+  | typeof import("@hyperforge/procgen/rock").RockGenerator
   | null = null;
 // These are loaded but reserved for future use:
-let _getPreset: typeof import("@hyperscape/procgen/rock").getPreset | null =
+let _getPreset: typeof import("@hyperforge/procgen/rock").getPreset | null =
   null;
-let _mergeParams: typeof import("@hyperscape/procgen/rock").mergeParams | null =
+let _mergeParams: typeof import("@hyperforge/procgen/rock").mergeParams | null =
   null;
 let _DEFAULT_PARAMS:
-  | typeof import("@hyperscape/procgen/rock").DEFAULT_PARAMS
+  | typeof import("@hyperforge/procgen/rock").DEFAULT_PARAMS
   | null = null;
-let _ColorMode: typeof import("@hyperscape/procgen/rock").ColorMode | null =
+let _ColorMode: typeof import("@hyperforge/procgen/rock").ColorMode | null =
   null;
 let procgenLoaded = false;
 let procgenLoadPromise: Promise<void> | null = null;
@@ -162,9 +162,9 @@ async function loadProcgen(): Promise<boolean> {
     return procgenLoaded;
   }
 
-  console.log("[ProcgenRockCache] Loading @hyperscape/procgen/rock...");
+  console.log("[ProcgenRockCache] Loading @hyperforge/procgen/rock...");
 
-  procgenLoadPromise = import("@hyperscape/procgen/rock")
+  procgenLoadPromise = import("@hyperforge/procgen/rock")
     .then((procgen) => {
       RockGenerator = procgen.RockGenerator;
       _getPreset = procgen.getPreset;
@@ -173,13 +173,13 @@ async function loadProcgen(): Promise<boolean> {
       _ColorMode = procgen.ColorMode;
       procgenLoaded = true;
       console.log(
-        "[ProcgenRockCache] Successfully loaded @hyperscape/procgen/rock",
+        "[ProcgenRockCache] Successfully loaded @hyperforge/procgen/rock",
       );
     })
     .catch((err) => {
       procgenLoadFailed = true;
       console.error(
-        "[ProcgenRockCache] Failed to load @hyperscape/procgen/rock:",
+        "[ProcgenRockCache] Failed to load @hyperforge/procgen/rock:",
         err,
       );
     });
@@ -205,7 +205,7 @@ function countGeometry(geo: THREE.BufferGeometry): {
  */
 function generateLOD1Rock(
   generator: InstanceType<
-    typeof import("@hyperscape/procgen/rock").RockGenerator
+    typeof import("@hyperforge/procgen/rock").RockGenerator
   >,
   presetName: string,
   seed: number,

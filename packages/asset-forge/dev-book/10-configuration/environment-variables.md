@@ -34,7 +34,7 @@ Asset Forge uses environment variables to configure both frontend and backend sy
 All environment variables are defined in a `.env` file in the package root:
 
 ```
-/Users/home/hyperscape-1/packages/asset-forge/.env
+/Users/home/hyperia-1/packages/asset-forge/.env
 ```
 
 A template is provided at `env.example` with all available options and default values.
@@ -136,7 +136,7 @@ The generation API handles:
 - Material preset retrieval
 - Equipment configuration endpoints
 
-**Port Note**: Default is 3004 to avoid conflicts with Hyperscape's API server which uses port 3001.
+**Port Note**: Default is 3004 to avoid conflicts with Hyperia's API server which uses port 3001.
 
 **Endpoint Structure**:
 ```
@@ -348,7 +348,7 @@ The API server handles:
 - Equipment configuration
 
 **Port Selection**:
-- Default `3004` avoids conflict with Hyperscape (3001)
+- Default `3004` avoids conflict with Hyperia (3001)
 - Must be different from IMAGE_SERVER_PORT
 - Should be > 1024 for non-privileged access
 
@@ -374,7 +374,7 @@ The image server provides:
 - Health check endpoint
 
 **Port Selection**:
-- Default `8081` avoids conflict with Hyperscape (8080)
+- Default `8081` avoids conflict with Hyperia (8080)
 - Must be different from API_PORT
 - Requires CORS configuration for frontend access
 

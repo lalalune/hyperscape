@@ -5,7 +5,7 @@
  * IMPORTANT: This module must NOT import from any handler module to prevent circular imports.
  */
 
-import { getItem, INPUT_LIMITS } from "@hyperscape/shared";
+import { getItem, INPUT_LIMITS } from "@hyperforge/shared";
 import type { ServerSocket } from "../../../../shared/types";
 import { BankRepository } from "../../../../database/repositories/BankRepository";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";

@@ -9,7 +9,7 @@ import type {
   TerrainNoiseConfig,
   BiomeConfig,
   IslandConfig,
-} from "@hyperscape/procgen/terrain";
+} from "@hyperforge/procgen/terrain";
 import React, {
   createContext,
   useContext,

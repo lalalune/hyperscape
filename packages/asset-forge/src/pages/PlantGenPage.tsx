@@ -13,14 +13,14 @@ import {
   OctahedralImpostor,
   OctahedronType,
   type ImpostorInstance,
-} from "@hyperscape/impostor";
+} from "@hyperforge/impostor";
 import {
   generateFromPreset,
   getPresetNames,
   RenderQualityEnum,
   type PlantPresetName,
   type PlantGenerationResult,
-} from "@hyperscape/procgen/plant";
+} from "@hyperforge/procgen/plant";
 import {
   Flower2,
   RefreshCw,

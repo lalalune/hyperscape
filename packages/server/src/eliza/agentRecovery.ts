@@ -3,7 +3,7 @@ import {
   EventType,
   isPositionInsideCombatArena,
   type World,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import { getStreamingDuelScheduler } from "../systems/StreamingDuelScheduler/index.js";
 
 type AgentLikeEntity = {

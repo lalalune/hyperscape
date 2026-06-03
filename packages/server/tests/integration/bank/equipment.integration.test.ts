@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, type Mock } from "vitest";
-import { SessionType } from "@hyperscape/shared";
+import { SessionType } from "@hyperforge/shared";
 
 // Mock the common utilities
 vi.mock("../../../src/systems/ServerNetwork/handlers/common", () => ({

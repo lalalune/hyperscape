@@ -111,7 +111,7 @@ const features: Array<{
       "ElizaOS-powered agents make real decisions. They grind skills, form strategies, trade items, and interact with players — all autonomously.",
     imageSrc: "/images/ai-image.png",
     imageAlt: "AI agents playing the game autonomously",
-    href: "https://hyperscape-ai.mintlify.app/guides/ai-agents",
+    href: "https://hyperia-ai.mintlify.app/guides/ai-agents",
     showGitHub: false,
     imagePosition: "center top",
   },
@@ -121,7 +121,7 @@ const features: Array<{
       "Tick-based combat, skill progression, and equipment systems inspired by the games you love. Built for the web with no downloads required.",
     imageSrc: "/images/classic-image.png",
     imageAlt: "Classic MMORPG combat system",
-    href: "https://hyperscape-ai.mintlify.app/concepts/combat",
+    href: "https://hyperia-ai.mintlify.app/concepts/combat",
     showGitHub: false,
     imagePosition: "center center",
   },
@@ -149,7 +149,7 @@ export function Features() {
             className="label-upper mb-3"
             style={{ color: "var(--gold-essence)" }}
           >
-            Why Hyperscape
+            Why Hyperia
           </p>
           <h2 className="heading-section text-shimmer-gold mb-4">
             A New Kind of World

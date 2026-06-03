@@ -1,4 +1,4 @@
-name: Hyperscapes CodeQL
+name: Hyperias CodeQL
 
 paths-ignore:
   - "**/*.test.ts"

@@ -11,11 +11,11 @@
  * - Performance statistics
  * - Export flower configuration
  *
- * This preview page uses the shared flower generation from @hyperscape/procgen,
+ * This preview page uses the shared flower generation from @hyperforge/procgen,
  * ensuring consistency with the game engine.
  */
 
-import { FlowerGen } from "@hyperscape/procgen";
+import { FlowerGen } from "@hyperforge/procgen";
 import {
   Flower2,
   RefreshCw,
@@ -427,7 +427,7 @@ export const FlowerGenPage: React.FC = () => {
           {/* Info Box */}
           <div className="bg-bg-tertiary rounded-md p-3 text-xs text-text-secondary">
             <p>
-              <strong>WebGPU Preview:</strong> Uses shared @hyperscape/procgen
+              <strong>WebGPU Preview:</strong> Uses shared @hyperforge/procgen
               flower generation for consistency with the game engine.
             </p>
           </div>

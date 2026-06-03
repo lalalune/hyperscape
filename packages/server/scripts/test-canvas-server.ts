@@ -70,7 +70,7 @@ const HTML = `<!DOCTYPE html>
       ctx.font = 'bold 48px Arial';
       ctx.fillStyle = '#fff';
       ctx.textAlign = 'center';
-      ctx.fillText('HYPERSCAPE RTMP TEST', canvas.width / 2, 80);
+      ctx.fillText('HYPERIA RTMP TEST', canvas.width / 2, 80);
 
       // Frame counter
       ctx.font = '24px monospace';

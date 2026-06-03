@@ -2,7 +2,7 @@
  * Rendering utilities
  * Mesh management, model cache, post-processing, renderers, animation LOD, distance fade
  *
- * IMPORTANT: Hyperscape requires WebGPU. WebGL is NOT supported.
+ * IMPORTANT: Hyperia requires WebGPU. WebGL is NOT supported.
  * All materials use TSL (Three Shading Language) which only works with WebGPU.
  */
 

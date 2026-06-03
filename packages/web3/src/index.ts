@@ -1,7 +1,7 @@
 /**
- * @module @hyperscape/web3
+ * @module @hyperforge/web3
  *
- * The Web3 integration package for Hyperscape.
+ * The Web3 integration package for Hyperia.
  * Provides the ChainWriter service and supporting infrastructure
  * for optimistic on-chain state mirroring.
  */

@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { INPUT_LIMITS, EventType } from "@hyperscape/shared";
+import { INPUT_LIMITS, EventType } from "@hyperforge/shared";
 
 // Mock types matching the handler expectations
 interface MockInventoryItem {

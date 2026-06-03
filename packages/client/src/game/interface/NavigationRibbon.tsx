@@ -24,7 +24,7 @@ interface RibbonItem {
   panelId: string;
 }
 
-/** Ribbon categories for Hyperscape */
+/** Ribbon categories for Hyperia */
 const CATEGORIES: RibbonCategory[] = [
   {
     id: "character",

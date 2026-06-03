@@ -131,17 +131,17 @@ let autoRestartTimer = null;
 
 const runtimeDeps = [
   {
-    name: "@hyperscape/decimation",
+    name: "@hyperforge/decimation",
     entry: path.join(rootDir, "../decimation/dist/index.js"),
     cwd: path.join(rootDir, "../decimation"),
   },
   {
-    name: "@hyperscape/impostor",
+    name: "@hyperforge/impostor",
     entry: path.join(rootDir, "../impostors/dist/index.js"),
     cwd: path.join(rootDir, "../impostors"),
   },
   {
-    name: "@hyperscape/procgen",
+    name: "@hyperforge/procgen",
     entry: path.join(rootDir, "../procgen/dist/index.js"),
     cwd: path.join(rootDir, "../procgen"),
   },

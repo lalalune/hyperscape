@@ -4,7 +4,7 @@ services:
     build:
       context: ./docker/cdn
       dockerfile: Dockerfile
-    container_name: hyperscape-cdn
+    container_name: hyperia-cdn
     ports:
       - "8080:8080"
     volumes:
@@ -12,7 +12,7 @@ services:
       - ./docker/cdn/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./docker/cdn/default.conf:/etc/nginx/conf.d/default.conf:ro
       # Mount server world assets directory - changes are live-updated
-      - ${HYPERSCAPE_ASSETS_DIR:-./world/assets}:/usr/share/nginx/html/assets:ro
+      - ${HYPERIA_ASSETS_DIR:-./world/assets}:/usr/share/nginx/html/assets:ro
     environment:
       - NGINX_ENVSUBST_OUTPUT_DIR=/etc/nginx/conf.d
     restart: unless-stopped
@@ -26,18 +26,18 @@ services:
   # PostgreSQL - Local development database
   postgres:
     image: pgvector/pgvector:pg16
-    container_name: hyperscape-postgres
+    container_name: hyperia-postgres
     ports:
       - "${POSTGRES_PORT:-5488}:5432"
     environment:
-      POSTGRES_USER: hyperscape
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hyperscape_dev_password}
-      POSTGRES_DB: hyperscape
+      POSTGRES_USER: hyperia
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hyperia_dev_password}
+      POSTGRES_DB: hyperia
     command: postgres -c max_connections=200 -c shared_buffers=256MB
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U hyperscape"]
+      test: ["CMD-SHELL", "pg_isready -U hyperia"]
       interval: 10s
       timeout: 3s
       retries: 3

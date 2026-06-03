@@ -14,7 +14,7 @@
  * to ensure consistent retry and error handling.
  */
 
-import { EventType } from "@hyperscape/shared";
+import { EventType } from "@hyperforge/shared";
 
 /**
  * InventorySystem interface for transaction locking operations.

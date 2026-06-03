@@ -205,7 +205,7 @@ interface AgentKillEntry {
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
-const ADMIN_CODE_KEY = "hyperscape_admin_code";
+const ADMIN_CODE_KEY = "hyperia_admin_code";
 const POLL_INTERVAL_MS = 3000;
 
 type DetailTab =

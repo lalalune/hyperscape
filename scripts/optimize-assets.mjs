@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Asset Optimization Script for Hyperscape
+ * Asset Optimization Script for Hyperia
  * 
  * Optimizes all assets in the assets folder:
  * - Converts PNG textures to KTX2 format (GPU-compressed)
@@ -665,7 +665,7 @@ function cleanupTemp() {
 // Main execution
 async function main() {
   console.log('\n\x1b[36m╔═══════════════════════════════════════════════════════════════════╗\x1b[0m');
-  console.log('\x1b[36m║           🚀 HYPERSCAPE ASSET OPTIMIZATION SCRIPT 🚀              ║\x1b[0m');
+  console.log('\x1b[36m║           🚀 HYPERIA ASSET OPTIMIZATION SCRIPT 🚀              ║\x1b[0m');
   console.log('\x1b[36m╚═══════════════════════════════════════════════════════════════════╝\x1b[0m\n');
   
   log(`Input:  ${options.inputDir}`);

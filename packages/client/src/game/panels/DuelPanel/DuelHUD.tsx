@@ -19,7 +19,7 @@ import {
 } from "react";
 import { useThemeStore } from "@/ui";
 import { UI } from "@/ui/core";
-import type { DuelRules } from "@hyperscape/shared";
+import type { DuelRules } from "@hyperforge/shared";
 
 // ============================================================================
 // Types

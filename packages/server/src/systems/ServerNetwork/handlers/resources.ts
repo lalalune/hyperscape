@@ -9,7 +9,7 @@
  */
 
 import type { ServerSocket } from "../../../shared/types";
-import { EventType, World } from "@hyperscape/shared";
+import { EventType, World } from "@hyperforge/shared";
 
 /**
  * Handle direct resource gather request.

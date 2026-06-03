@@ -14,8 +14,8 @@
     "declarationMap": true,
     "sourceMap": true,
     "paths": {
-      "@hyperscape/shared/*": ["../shared/src/*"],
-      "@hyperscape/contracts/*": ["../contracts/*"]
+      "@hyperforge/shared/*": ["../shared/src/*"],
+      "@hyperforge/contracts/*": ["../contracts/*"]
     }
   },
   "include": ["src/**/*.ts"],

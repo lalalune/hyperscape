@@ -156,7 +156,7 @@ describe("secureStorage", () => {
       // Set up some data
       localStorage.setItem("privy_auth_token", "token1");
       localStorage.setItem("privy_user_id", "user1");
-      localStorage.setItem("hyperscape_player_token", "token2");
+      localStorage.setItem("hyperia_player_token", "token2");
       sessionStorage.setItem("session_data", "data1");
 
       clearAllAuthData();
@@ -164,7 +164,7 @@ describe("secureStorage", () => {
       // All should be cleared
       expect(localStorage.getItem("privy_auth_token")).toBeNull();
       expect(localStorage.getItem("privy_user_id")).toBeNull();
-      expect(localStorage.getItem("hyperscape_player_token")).toBeNull();
+      expect(localStorage.getItem("hyperia_player_token")).toBeNull();
       expect(sessionStorage.getItem("session_data")).toBeNull();
     });
   });

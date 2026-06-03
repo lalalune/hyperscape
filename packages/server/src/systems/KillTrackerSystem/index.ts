@@ -14,9 +14,9 @@
  * no manual interaction. Kill statistics are persisted automatically.
  */
 
-import { SystemBase } from "@hyperscape/shared";
-import type { World } from "@hyperscape/shared";
-import { EventType } from "@hyperscape/shared";
+import { SystemBase } from "@hyperforge/shared";
+import type { World } from "@hyperforge/shared";
+import { EventType } from "@hyperforge/shared";
 import type { DatabaseSystem } from "../DatabaseSystem/index.js";
 
 export class KillTrackerSystem extends SystemBase {

@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { SessionType } from "@hyperscape/shared";
+import { SessionType } from "@hyperforge/shared";
 import { RateLimitService } from "../../../src/systems/ServerNetwork/services";
 import { validateTransactionRequest } from "../../../src/systems/ServerNetwork/handlers/common";
 import {

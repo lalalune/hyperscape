@@ -8,7 +8,7 @@ import {
   removeEquipmentVisual,
   type EquipmentVisualStore,
   THREE,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import type { GLTF } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
@@ -310,7 +310,7 @@ function PortraitFallback({
           }),
           padding: 0,
           background:
-            theme.name === "hyperscape"
+            theme.name === "hyperia"
               ? "radial-gradient(circle at 50% 12%, rgba(190, 165, 123, 0.12), transparent 54%), linear-gradient(180deg, rgba(30, 35, 42, 0.95) 0%, rgba(18, 21, 26, 0.98) 100%)"
               : undefined,
         }}

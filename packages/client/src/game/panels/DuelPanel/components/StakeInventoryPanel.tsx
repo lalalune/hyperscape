@@ -7,7 +7,7 @@
 
 import type { CSSProperties } from "react";
 import type { Theme } from "@/ui";
-import { getItem } from "@hyperscape/shared";
+import { getItem } from "@hyperforge/shared";
 import { SlotItem } from "./SlotItem";
 
 // ============================================================================

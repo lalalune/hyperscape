@@ -300,7 +300,7 @@ export class BatchWriter {
    * Send a batch of calls to the World contract.
    *
    * Each call's callData is already encoded with the World's namespace-prefixed
-   * function selectors (e.g. hyperscape__registerPlayer). These are sent as
+   * function selectors (e.g. hyperia__registerPlayer). These are sent as
    * individual transactions to the World address in parallel.
    *
    * CRITICAL: To prevent nonce race conditions when sending parallel transactions,

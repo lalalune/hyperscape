@@ -18,7 +18,7 @@ import {
   TRADE_CONSTANTS,
   type TradeSession,
   type TradeCancelReason,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 
 // Mock world interface - minimal mock to test real TradingSystem logic
 interface MockWorld {
@@ -96,7 +96,7 @@ describe("TradingSystem Integration Tests", () => {
     };
 
     tradingSystem = new TradingSystem(
-      mockWorld as unknown as import("@hyperscape/shared").World,
+      mockWorld as unknown as import("@hyperforge/shared").World,
     );
     tradingSystem.init();
   });
@@ -1430,7 +1430,7 @@ describe("TradingSystem Integration Tests", () => {
 
       // Reinitialize
       tradingSystem = new TradingSystem(
-        mockWorld as unknown as import("@hyperscape/shared").World,
+        mockWorld as unknown as import("@hyperforge/shared").World,
       );
       tradingSystem.init();
 

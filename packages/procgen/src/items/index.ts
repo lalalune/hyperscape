@@ -6,7 +6,7 @@
  *
  * @example
  * ```typescript
- * import { DockGen } from "@hyperscape/procgen/items";
+ * import { DockGen } from "@hyperforge/procgen/items";
  *
  * const dock = DockGen.dockGenerator.generateFromPreset("fishing", shorelinePoint);
  * ```

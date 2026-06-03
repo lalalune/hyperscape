@@ -16,7 +16,7 @@
  * 5. State broadcast to clients
  */
 
-import { TICK_DURATION_MS, updateCachedTimestamp } from "@hyperscape/shared";
+import { TICK_DURATION_MS, updateCachedTimestamp } from "@hyperforge/shared";
 
 /**
  * Tick callback priority levels

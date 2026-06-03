@@ -148,7 +148,7 @@ export const VRMTestViewer: React.FC<VRMTestViewerProps> = ({ vrmUrl }) => {
     }
   };
 
-  // Animation URLs (using Hyperscape CDN)
+  // Animation URLs (using Hyperia CDN)
   const cdnUrl =
     import.meta.env.VITE_CDN_URL ||
     import.meta.env.PUBLIC_CDN_URL ||
@@ -573,7 +573,7 @@ export const VRMTestViewer: React.FC<VRMTestViewerProps> = ({ vrmUrl }) => {
         vrm.update(deltaTime);
       }
 
-      // Update skeleton bones manually (like Hyperscape does)
+      // Update skeleton bones manually (like Hyperia does)
       // This ensures bone world matrices are current and propagate to vertex skinning
       if (skinnedMesh) {
         skinnedMesh.skeleton.bones.forEach((bone) => bone.updateMatrixWorld());

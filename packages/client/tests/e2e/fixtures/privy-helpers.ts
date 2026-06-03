@@ -1,7 +1,7 @@
 /**
- * Privy Login Helpers for Hyperscape E2E Tests
+ * Privy Login Helpers for Hyperia E2E Tests
  *
- * Hyperscape auth flow:
+ * Hyperia auth flow:
  *   1. LoginScreen renders with "Enter" button
  *   2. Click "Enter" → Privy modal opens (wallet / email / google / farcaster)
  *   3. In Privy modal, "Continue with a wallet" → wallet list appears
@@ -167,7 +167,7 @@ async function waitForFlowStage(
 
 /**
  * Check if a wallet is connected (user is past the LoginScreen).
- * In Hyperscape, the login screen has an "Enter" button.
+ * In Hyperia, the login screen has an "Enter" button.
  * If it's gone, the user is authenticated.
  */
 export async function isWalletConnected(page: Page): Promise<boolean> {
@@ -252,7 +252,7 @@ export async function isPrivyReady(page: Page): Promise<boolean> {
 // =============================================================================
 
 /**
- * Connect EVM wallet via Privy in Hyperscape.
+ * Connect EVM wallet via Privy in Hyperia.
  *
  * Flow: Click "Enter" → Privy modal → "Continue with a wallet" → MetaMask
  *
@@ -301,7 +301,7 @@ export async function connectEvmWalletViaPrivy(
 
   let modalAlreadyVisible = await isPrivyWalletSurfaceVisible();
 
-  // Step 1: Click "Enter" on the Hyperscape LoginScreen
+  // Step 1: Click "Enter" on the Hyperia LoginScreen
   const enterButton = page.locator(LOGIN_ENTRY_SELECTORS).first();
   const enterVisible = await enterButton
     .isVisible({ timeout: 8000 })
@@ -485,7 +485,7 @@ export async function connectEvmWalletViaPrivy(
   if (!clickedWallet) {
     // Debug: log all visible buttons
     await page
-      .screenshot({ path: "/tmp/hyperscape-privy-wallet-debug.png" })
+      .screenshot({ path: "/tmp/hyperia-privy-wallet-debug.png" })
       .catch(() => {});
     const buttons = await page.locator("button, [role='button']").all();
     for (const btn of buttons.slice(0, 20)) {
@@ -530,7 +530,7 @@ export async function connectEvmWalletViaPrivy(
 // =============================================================================
 
 /**
- * Connect Solana wallet (Phantom) via Privy in Hyperscape.
+ * Connect Solana wallet (Phantom) via Privy in Hyperia.
  *
  * Flow: Click "Enter" → Privy modal → "Continue with a wallet" → Phantom
  *
@@ -545,7 +545,7 @@ export async function connectSolanaWalletViaPrivy(page: Page): Promise<void> {
     return;
   }
 
-  // Step 1: Click "Enter" on the Hyperscape LoginScreen
+  // Step 1: Click "Enter" on the Hyperia LoginScreen
   const enterButton = page.locator(LOGIN_ENTRY_SELECTORS).first();
   if (!(await enterButton.isVisible({ timeout: 8000 }).catch(() => false))) {
     console.log(
@@ -604,7 +604,7 @@ export async function connectSolanaWalletViaPrivy(page: Page): Promise<void> {
 
 /**
  * Wait for Privy auth to complete and the LoginScreen to transition away.
- * After wallet connect, Hyperscape goes through:
+ * After wallet connect, Hyperia goes through:
  *   LoginScreen → UsernameSelection (if new user) → CharacterSelect → Game
  *
  * This helper waits until the "Enter" button is gone, indicating successful auth.
@@ -1073,14 +1073,14 @@ export async function waitForGameClient(
       const gameplayReady = await page
         .evaluate(() => {
           const win = window as unknown as {
-            __HYPERSCAPE_LOADING__?: { ready?: boolean };
+            __HYPERIA_LOADING__?: { ready?: boolean };
             world?: {
               entities?: {
                 player?: { id?: string } | null;
               };
             };
           };
-          const loading = win.__HYPERSCAPE_LOADING__;
+          const loading = win.__HYPERIA_LOADING__;
           if (loading && loading.ready === false) {
             return false;
           }
@@ -1133,14 +1133,14 @@ export async function isInGame(page: Page): Promise<boolean> {
   return page
     .evaluate(() => {
       const win = window as unknown as {
-        __HYPERSCAPE_LOADING__?: { ready?: boolean };
+        __HYPERIA_LOADING__?: { ready?: boolean };
         world?: {
           entities?: {
             player?: { id?: string } | null;
           };
         };
       };
-      const loading = win.__HYPERSCAPE_LOADING__;
+      const loading = win.__HYPERIA_LOADING__;
       if (loading && loading.ready === false) {
         return false;
       }
@@ -1462,7 +1462,7 @@ export async function completeFullLoginFlow(
 // =============================================================================
 
 /**
- * Disconnect wallet / log out of Hyperscape.
+ * Disconnect wallet / log out of Hyperia.
  * Looks for logout/disconnect buttons in various UI locations.
  */
 export async function disconnectWallet(page: Page): Promise<void> {
@@ -1472,7 +1472,7 @@ export async function disconnectWallet(page: Page): Promise<void> {
     '[data-testid="user-menu"]',
     'button:has-text("Settings")',
     'button:has-text("Account")',
-    // Hyperscape may have a gear icon or similar
+    // Hyperia may have a gear icon or similar
     '[data-panel-id="settings"]',
   ];
 
@@ -1523,7 +1523,7 @@ export async function disconnectWallet(page: Page): Promise<void> {
 // =============================================================================
 
 /**
- * Navigate to the Hyperscape app and wait for initial load.
+ * Navigate to the Hyperia app and wait for initial load.
  */
 export async function waitForAppReady(page: Page, url: string): Promise<void> {
   let lastError: unknown;

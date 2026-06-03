@@ -10,7 +10,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { InteractionSessionManager } from "../../../../src/systems/ServerNetwork/InteractionSessionManager";
-import { EventType } from "@hyperscape/shared";
+import { EventType } from "@hyperforge/shared";
 
 // Mock World with EventEmitter behavior
 function createMockWorld() {

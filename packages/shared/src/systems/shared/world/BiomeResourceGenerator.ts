@@ -257,7 +257,7 @@ export const TREE_LEVEL_REQUIREMENTS: Record<string, number> = new Proxy(
 );
 
 /**
- * Mapping from game tree subtypes to @hyperscape/procgen presets.
+ * Mapping from game tree subtypes to @hyperforge/procgen presets.
  * Used for runtime procedural tree generation (visual variety).
  *
  * These presets define the visual characteristics of each tree type:

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Hyperscape dApp Store Publishing Script
+# Hyperia dApp Store Publishing Script
 # This script guides you through publishing to the Solana dApp Store
 
 set -e
@@ -8,7 +8,7 @@ PUBLISHING_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$PUBLISHING_DIR"
 
 echo "============================================"
-echo "  Hyperscape dApp Store Publishing Script"
+echo "  Hyperia dApp Store Publishing Script"
 echo "============================================"
 echo ""
 
@@ -17,7 +17,7 @@ command -v dapp-store 2>/dev/null || { echo "❌ dApp Store CLI not installed. R
 command -v solana 2>/dev/null || { echo "❌ Solana CLI not installed"; exit 1; }
 
 # Check for required files
-if [ ! -f "hyperscape-release.apk" ]; then
+if [ ! -f "hyperia-release.apk" ]; then
     echo "❌ Release APK not found. Build it first with: cd ../packages/app && bun run tauri android build"
     exit 1
 fi
@@ -64,9 +64,9 @@ read -p "Do you want to create a Publisher NFT? (y/n) " CREATE_PUBLISHER
 
 if [ "$CREATE_PUBLISHER" = "y" ]; then
     dapp-store create publisher \
-        --name "Hyperscape" \
-        --website "https://hyperscape.club" \
-        --email "contact@hyperscape.club"
+        --name "Hyperia" \
+        --website "https://hyperia.club" \
+        --email "contact@hyperia.club"
     echo ""
     echo "✅ Publisher NFT created!"
     echo "   Save your Publisher NFT address for the next steps."
@@ -77,14 +77,14 @@ echo "============================================"
 echo "  Step 2: Create App NFT"
 echo "============================================"
 echo ""
-echo "This creates an App NFT for Hyperscape in the dApp Store."
+echo "This creates an App NFT for Hyperia in the dApp Store."
 echo ""
 read -p "Enter your Publisher NFT address: " PUBLISHER_ADDRESS
 
 if [ -n "$PUBLISHER_ADDRESS" ]; then
     dapp-store create app \
         --publisher-mint-address "$PUBLISHER_ADDRESS" \
-        --name "Hyperscape" \
+        --name "Hyperia" \
         --icon "assets/icon_512.png"
     echo ""
     echo "✅ App NFT created!"
@@ -104,12 +104,12 @@ if [ -n "$APP_ADDRESS" ]; then
     dapp-store create release \
         --app-mint-address "$APP_ADDRESS" \
         --version "0.13.0" \
-        --apk "hyperscape-release.apk" \
+        --apk "hyperia-release.apk" \
         --icon "assets/icon_512.png" \
         --banner "assets/banner.png" \
         --screenshots "assets/screenshot_1.png,assets/screenshot_2.png,assets/screenshot_3.png,assets/screenshot_4.png" \
         --short-description "An AI-native MMORPG built on Solana" \
-        --long-description "Hyperscape is an AI-native MMORPG combining classic RuneScape-style gameplay with AI technology and Solana blockchain integration." \
+        --long-description "Hyperia is an AI-native MMORPG combining classic RuneScape-style gameplay with AI technology and Solana blockchain integration." \
         --category "games"
     echo ""
     echo "✅ Release NFT created!"

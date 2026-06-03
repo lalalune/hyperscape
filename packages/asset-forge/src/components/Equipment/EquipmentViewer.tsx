@@ -811,8 +811,8 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>(
           avatar.position.set(0, 0, 0);
 
           // === CRITICAL: Normalize avatar height to 1.6m ===
-          // This matches Hyperscape's createVRMFactory.ts which also normalizes to 1.6m
-          // Without this, equipment fitted here would appear at wrong scale in Hyperscape
+          // This matches Hyperia's createVRMFactory.ts which also normalizes to 1.6m
+          // Without this, equipment fitted here would appear at wrong scale in Hyperia
           const currentHeight = calculateAvatarHeight(avatar);
           const TARGET_HEIGHT = 1.6;
           if (currentHeight > 0.1) {
@@ -2060,7 +2060,7 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>(
         const equipmentClone = equipmentRef.current.clone(true);
         equipmentClone.position.set(0, 0, 0);
         equipmentClone.quaternion.identity();
-        // Keep the compensated scale (e.g., 3.3x) - this counteracts bone world scale in Hyperscape
+        // Keep the compensated scale (e.g., 3.3x) - this counteracts bone world scale in Hyperia
         equipmentClone.scale.copy(equipmentRef.current.scale);
         exportRoot.add(equipmentClone);
 
@@ -2070,8 +2070,8 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>(
           currentAvatarHeight = calculateAvatarHeight(avatarRef.current);
         }
 
-        // Embed V2 attachment metadata for Hyperscape
-        exportRoot.userData.hyperscape = {
+        // Embed V2 attachment metadata for Hyperia
+        exportRoot.userData.hyperia = {
           // Version 2 format - uses relative matrix approach
           version: 2,
 
@@ -2079,7 +2079,7 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>(
           vrmBoneName: vrmBoneName,
 
           // The relative matrix as a 16-element array
-          // Hyperscape can apply this directly to get exact same positioning
+          // Hyperia can apply this directly to get exact same positioning
           relativeMatrix: relativeMatrix.toArray(),
 
           // Original slot from Asset Forge (for reference)
@@ -2094,7 +2094,7 @@ const EquipmentViewer = forwardRef<EquipmentViewerRef, EquipmentViewerProps>(
           exportedFrom: "asset-forge-equipment-fitting-v2",
           exportedAt: new Date().toISOString(),
 
-          // Instructions for Hyperscape
+          // Instructions for Hyperia
           usage:
             "V2 format: Apply relativeMatrix directly to weapon, then attach to raw bone. No scale hacks needed.",
         };

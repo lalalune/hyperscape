@@ -18,7 +18,7 @@ import {
   getShellControlButtonStyle,
 } from "@/ui/theme/themes";
 import type { ClientWorld, PlayerStats } from "../../types";
-import { EventType } from "@hyperscape/shared";
+import { EventType } from "@hyperforge/shared";
 import { UI } from "@/ui/core";
 
 interface XpLampPanelProps {
@@ -249,13 +249,13 @@ export function XpLampPanel({
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.background =
-                theme.name === "hyperscape"
+                theme.name === "hyperia"
                   ? "linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(0, 0, 0, 0.2) 100%)"
                   : theme.colors.background.hover;
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.background =
-                theme.name === "hyperscape"
+                theme.name === "hyperia"
                   ? "linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(0, 0, 0, 0.16) 100%)"
                   : theme.colors.background.tertiary;
             }}

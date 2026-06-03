@@ -59,7 +59,7 @@ Define the visual style and art direction for generated assets.
 
 ### Configuration File
 
-**Location**: `/Users/home/hyperscape-1/packages/asset-forge/public/prompts/game-style-prompts.json`
+**Location**: `/Users/home/hyperia-1/packages/asset-forge/public/prompts/game-style-prompts.json`
 
 ### Default Styles
 
@@ -214,7 +214,7 @@ Provide asset-type-specific requirements and constraints.
 
 ### Configuration File
 
-**Location**: `/Users/home/hyperscape-1/packages/asset-forge/public/prompts/asset-type-prompts.json`
+**Location**: `/Users/home/hyperia-1/packages/asset-forge/public/prompts/asset-type-prompts.json`
 
 ### Structure
 
@@ -422,7 +422,7 @@ Generate material-specific variations during retexturing.
 
 ### Configuration File
 
-**Location**: `/Users/home/hyperscape-1/packages/asset-forge/public/prompts/material-prompts.json`
+**Location**: `/Users/home/hyperia-1/packages/asset-forge/public/prompts/material-prompts.json`
 
 ### Template Structure
 
@@ -487,7 +487,7 @@ Use GPT-4 to intelligently enhance user descriptions with visual details.
 
 ### Configuration File
 
-**Location**: `/Users/home/hyperscape-1/packages/asset-forge/public/prompts/gpt4-enhancement-prompts.json`
+**Location**: `/Users/home/hyperia-1/packages/asset-forge/public/prompts/gpt4-enhancement-prompts.json`
 
 ### System Prompt
 
@@ -637,7 +637,7 @@ Use GPT-4o-mini (vision) to detect weapon handle/grip locations for rigging.
 
 ### Configuration File
 
-**Location**: `/Users/home/hyperscape-1/packages/asset-forge/public/prompts/weapon-detection-prompts.json`
+**Location**: `/Users/home/hyperia-1/packages/asset-forge/public/prompts/weapon-detection-prompts.json`
 
 ### Base Prompt
 
@@ -699,7 +699,7 @@ Final prompts sent to image generation after all enhancements.
 
 ### Configuration File
 
-**Location**: `/Users/home/hyperscape-1/packages/asset-forge/public/prompts/generation-prompts.json`
+**Location**: `/Users/home/hyperia-1/packages/asset-forge/public/prompts/generation-prompts.json`
 
 ### Prompt Construction
 

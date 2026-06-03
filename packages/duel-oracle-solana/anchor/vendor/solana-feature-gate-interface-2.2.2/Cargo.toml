@@ -52,8 +52,8 @@ name = "solana_feature_gate_interface"
 path = "src/lib.rs"
 
 [dependencies.bincode]
-package = "hyperscape-bincode"
-path = "../hyperscape-bincode"
+package = "hyperforge-bincode"
+path = "../hyperforge-bincode"
 optional = true
 [dependencies.serde]
 version = "1.0.217"

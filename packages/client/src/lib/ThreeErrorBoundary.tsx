@@ -118,7 +118,7 @@ export class ThreeErrorBoundary extends React.Component<
 
     switch (errorType) {
       case "webgpu":
-        return "Hyperscape requires WebGPU. Use Chrome 113+, Edge 113+, or Safari 17+. Try refreshing the page or updating your graphics drivers.";
+        return "Hyperia requires WebGPU. Use Chrome 113+, Edge 113+, or Safari 17+. Try refreshing the page or updating your graphics drivers.";
       case "render":
         return "Try refreshing the page. If the problem persists, please report this issue.";
       default:

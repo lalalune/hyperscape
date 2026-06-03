@@ -8,8 +8,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { RightPanel } from "../../../../src/game/panels/BankPanel/components/RightPanel";
 import type { InventorySlotViewItem } from "../../../../src/game/panels/BankPanel/types";
-import type { PlayerEquipmentItems, Item } from "@hyperscape/shared";
-import { ITEMS } from "@hyperscape/shared";
+import type { PlayerEquipmentItems, Item } from "@hyperforge/shared";
+import { ITEMS } from "@hyperforge/shared";
 
 // Helper to create a mock Item for testing
 function createMockItem(

@@ -17,7 +17,7 @@ const DEFAULT_SERVER_URL =
 // IMPORTANT: This MUST match the dev fallback in src/shared/utils.ts
 // The server uses this secret when JWT_SECRET env var is not set in non-production.
 // Playwright tests run in NODE_ENV=test, so server uses this fallback.
-const SERVER_DEV_JWT_SECRET = "hyperscape-dev-secret-key-12345";
+const SERVER_DEV_JWT_SECRET = "hyperia-dev-secret-key-12345";
 
 const getJwtSecret = (): string => {
   // If JWT_SECRET is explicitly set (e.g., from .env), use it

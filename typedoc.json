@@ -1,6 +1,6 @@
 {
   "$schema": "https://typedoc.org/schema.json",
-  "name": "Hyperscape API Documentation",
+  "name": "Hyperia API Documentation",
   "entryPointStrategy": "packages",
   "entryPoints": [
     "packages/shared",
@@ -61,8 +61,8 @@
   "githubPages": false,
   "hideGenerator": false,
   "navigationLinks": {
-    "GitHub": "https://github.com/HyperscapeAI/hyperscape",
-    "Documentation": "https://docs.hyperscape.xyz"
+    "GitHub": "https://github.com/PlayHyperia/hyperia",
+    "Documentation": "https://docs.hyperia.xyz"
   }
 }
 

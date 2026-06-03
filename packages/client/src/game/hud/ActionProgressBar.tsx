@@ -5,7 +5,7 @@
 
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import { useThemeStore } from "@/ui";
-import { EventType } from "@hyperscape/shared";
+import { EventType } from "@hyperforge/shared";
 import type { ClientWorld } from "../../types";
 import { HUD_FRAME, HUD_LAYERS } from "./layout";
 

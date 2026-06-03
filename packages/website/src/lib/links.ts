@@ -4,15 +4,14 @@
  */
 
 export const links = {
-  docs:
-    process.env.NEXT_PUBLIC_DOCS_URL || "https://hyperscape-ai.mintlify.app/",
-  game: process.env.NEXT_PUBLIC_GAME_URL || "https://hyperscape.gg",
+  docs: process.env.NEXT_PUBLIC_DOCS_URL || "https://hyperia-ai.mintlify.app/",
+  game: process.env.NEXT_PUBLIC_GAME_URL || "https://hyperia.gg",
   discord:
     process.env.NEXT_PUBLIC_DISCORD_URL || "https://discord.gg/f4ZwhAbKye",
-  twitter: process.env.NEXT_PUBLIC_TWITTER_URL || "https://x.com/hyperscapeai",
+  twitter: process.env.NEXT_PUBLIC_TWITTER_URL || "https://x.com/playhyperia",
   github:
     process.env.NEXT_PUBLIC_GITHUB_URL ||
-    "https://github.com/HyperscapeAI/hyperscape",
+    "https://github.com/PlayHyperia/hyperia",
 };
 
 export const navigation = {

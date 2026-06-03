@@ -21,7 +21,7 @@ export const DEFAULT_ANNOUNCEMENTS = {
 
 let liveRegion: HTMLElement | null = null;
 
-export function getLiveRegion(id = "hyperscape-live-region"): HTMLElement {
+export function getLiveRegion(id = "hyperia-live-region"): HTMLElement {
   if (liveRegion && document.body.contains(liveRegion)) return liveRegion;
   let el = document.getElementById(id);
   if (!el) {
@@ -63,7 +63,7 @@ export function getDraggableAriaAttributes(
     "aria-roledescription": "draggable",
     "aria-grabbed": isDragging,
     "aria-disabled": disabled,
-    "aria-describedby": `hyperscape-instructions-${id}`,
+    "aria-describedby": `hyperia-instructions-${id}`,
     tabIndex: disabled ? -1 : 0,
   };
 }

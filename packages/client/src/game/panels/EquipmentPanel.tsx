@@ -17,7 +17,7 @@ import {
   getItem,
   uuid,
   CONTEXT_MENU_COLORS,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import type { PlayerEquipmentItems, ClientWorld } from "../../types";
 import {
   HelmetIcon,

@@ -11,7 +11,7 @@ import {
   type PlayerID,
   isValidPlayerID,
   uuid,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import type { ServerSocket } from "../../../../shared/types";
 import { hasActiveInterfaceSession } from "../common";
 import { Logger } from "../../services";

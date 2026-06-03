@@ -10,7 +10,7 @@ import {
   INTERACTION_DISTANCE,
   SessionType,
   INPUT_LIMITS,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 
 // Import validation functions
 import {

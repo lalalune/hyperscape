@@ -7,7 +7,7 @@
  */
 
 import type { FastifyInstance } from "fastify";
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 import type { DatabaseSystem } from "../../systems/DatabaseSystem/index.js";
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
@@ -120,7 +120,7 @@ export function registerCharacterRoutes(
   /**
    * POST /api/characters/db
    *
-   * Create a character in the Hyperscape database.
+   * Create a character in the Hyperia database.
    * This endpoint is separate from the file-saving endpoint above.
    *
    * Request body:

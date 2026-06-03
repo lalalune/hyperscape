@@ -17,7 +17,7 @@ import type {
   BankItem,
   BankTab,
 } from "../../../src/game/panels/BankPanel/types";
-import type { PlayerEquipmentItems, Item } from "@hyperscape/shared";
+import type { PlayerEquipmentItems, Item } from "@hyperforge/shared";
 import type { ClientWorld } from "../../../src/types";
 import { createMockWorld } from "../../mocks/MockWorld";
 

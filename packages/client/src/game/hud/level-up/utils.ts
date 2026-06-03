@@ -4,7 +4,7 @@
  * Helper functions for skill name normalization, formatting, and type guards.
  */
 
-import type { ClientAudio, Chat } from "@hyperscape/shared";
+import type { ClientAudio, Chat } from "@hyperforge/shared";
 
 // ============================================================================
 // SKILL NAME UTILITIES

@@ -41,9 +41,9 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_USER: hyperscape
-          POSTGRES_PASSWORD: hyperscape_test
-          POSTGRES_DB: hyperscape_test
+          POSTGRES_USER: hyperia
+          POSTGRES_PASSWORD: hyperia_test
+          POSTGRES_DB: hyperia_test
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -100,21 +100,21 @@ jobs:
           cd ../decimation && bun run build
           cd ../impostors && bun run build
           cd ../procgen && bun run build
-          cd ../plugin-hyperscape && bun run build
+          cd ../plugin-hyperia && bun run build
           cd ../server && bun run build
 
       - name: Setup database schema
         working-directory: packages/server
         run: bunx drizzle-kit push
         env:
-          DATABASE_URL: postgresql://hyperscape:hyperscape_test@localhost:5432/hyperscape_test
+          DATABASE_URL: postgresql://hyperia:hyperia_test@localhost:5432/hyperia_test
 
       - name: Run tests
-        run: bunx turbo run test --filter='!@hyperscape/app' --filter='!@hyperscape/contracts' --filter='!@hyperscapeai/duel-oracle-evm' --filter='!@hyperscape/impostor'
+        run: bunx turbo run test --filter='!@hyperforge/app' --filter='!@hyperforge/contracts' --filter='!@playhyperia/duel-oracle-evm' --filter='!@hyperforge/impostor'
         env:
-          DATABASE_URL: postgresql://hyperscape:hyperscape_test@localhost:5432/hyperscape_test
+          DATABASE_URL: postgresql://hyperia:hyperia_test@localhost:5432/hyperia_test
           NODE_ENV: test
-          PUBLIC_CDN_URL: https://assets.hyperscape.club
+          PUBLIC_CDN_URL: https://assets.hyperia.club
 
   build:
     name: Build
@@ -162,7 +162,7 @@ jobs:
           done
 
       - name: Build all packages with Turbo
-        run: bunx turbo run build --filter=!@hyperscape/app
+        run: bunx turbo run build --filter=!@hyperforge/app
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v7
@@ -206,7 +206,7 @@ jobs:
           file: ./Dockerfile.server
           push: false
           tags: |
-            hyperscape-server:${{ github.sha }}
-            hyperscape-server:${{ steps.env.outputs.env_tag }}-${{ github.sha }}
+            hyperia-server:${{ github.sha }}
+            hyperia-server:${{ steps.env.outputs.env_tag }}-${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

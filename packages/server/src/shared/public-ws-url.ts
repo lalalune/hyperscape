@@ -1,10 +1,8 @@
-const PRODUCTION_HYPERSCAPE_APP_URL = "https://hyperscape.club";
-const PRODUCTION_HYPERSCAPE_API_URL =
-  "https://hyperscape-production.up.railway.app";
-const PRODUCTION_HYPERSCAPE_WS_URL =
-  "wss://hyperscape-production.up.railway.app/ws";
-const LOCAL_DEV_HYPERSCAPE_APP_URL = "http://localhost:3333";
-const LOCAL_DEV_HYPERSCAPE_API_URL = "http://localhost:4001";
+const PRODUCTION_HYPERIA_APP_URL = "https://hyperia.club";
+const PRODUCTION_HYPERIA_API_URL = "https://hyperia-production.up.railway.app";
+const PRODUCTION_HYPERIA_WS_URL = "wss://hyperia-production.up.railway.app/ws";
+const LOCAL_DEV_HYPERIA_APP_URL = "http://localhost:3333";
+const LOCAL_DEV_HYPERIA_API_URL = "http://localhost:4001";
 
 export function isProductionRuntime(nodeEnv = process.env.NODE_ENV): boolean {
   return nodeEnv === "production";
@@ -12,7 +10,7 @@ export function isProductionRuntime(nodeEnv = process.env.NODE_ENV): boolean {
 
 export function getDefaultPublicWsUrl(): string {
   if (isProductionRuntime()) {
-    return PRODUCTION_HYPERSCAPE_WS_URL;
+    return PRODUCTION_HYPERIA_WS_URL;
   }
 
   const host = process.env.SERVER_HOST || "localhost";
@@ -26,12 +24,12 @@ export function getDefaultPublicWsUrl(): string {
 
 export function getDefaultElizaOsApiUrl(): string {
   return isProductionRuntime()
-    ? PRODUCTION_HYPERSCAPE_API_URL
-    : LOCAL_DEV_HYPERSCAPE_API_URL;
+    ? PRODUCTION_HYPERIA_API_URL
+    : LOCAL_DEV_HYPERIA_API_URL;
 }
 
 export function getDefaultPublicAppUrl(): string {
   return isProductionRuntime()
-    ? PRODUCTION_HYPERSCAPE_APP_URL
-    : LOCAL_DEV_HYPERSCAPE_APP_URL;
+    ? PRODUCTION_HYPERIA_APP_URL
+    : LOCAL_DEV_HYPERIA_APP_URL;
 }

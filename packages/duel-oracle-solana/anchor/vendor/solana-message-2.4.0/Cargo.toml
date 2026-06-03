@@ -68,8 +68,8 @@ name = "solana_message"
 path = "src/lib.rs"
 
 [dependencies.bincode]
-package = "hyperscape-bincode"
-path = "../hyperscape-bincode"
+package = "hyperforge-bincode"
+path = "../hyperforge-bincode"
 optional = true
 [dependencies.blake3]
 version = "1.5.5"

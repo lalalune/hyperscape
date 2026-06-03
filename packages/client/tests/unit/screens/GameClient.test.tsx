@@ -16,7 +16,7 @@ const { mockWorld } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("@hyperscape/shared", () => ({
+vi.mock("@hyperforge/shared", () => ({
   THREE: {
     Vector3: class MockVector3 {
       normalize() {

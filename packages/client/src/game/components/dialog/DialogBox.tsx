@@ -250,7 +250,7 @@ export const DialogBox = memo(function DialogBox({
     padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
     borderBottom: `1px solid ${theme.colors.border.default}`,
     backgroundColor:
-      theme.name === "hyperscape"
+      theme.name === "hyperia"
         ? "rgba(139, 90, 43, 0.2)"
         : "rgba(255, 255, 255, 0.05)",
   };
@@ -491,7 +491,7 @@ const DialogChoicesInternal = memo(function DialogChoicesInternal({
               : theme.colors.border.default
           }`,
           backgroundColor: isHighlighted
-            ? theme.name === "hyperscape"
+            ? theme.name === "hyperia"
               ? "rgba(201, 165, 74, 0.2)"
               : "rgba(74, 158, 255, 0.2)"
             : "transparent",

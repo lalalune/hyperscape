@@ -11,7 +11,7 @@ import type {
   IslandConfig,
   TerrainNoiseConfig,
   ShorelineConfig,
-} from "@hyperscape/procgen/terrain";
+} from "@hyperforge/procgen/terrain";
 
 // ============== WORLD BUILDER MODES ==============
 

@@ -28,7 +28,7 @@ import {
   validateRequestTimestamp,
   isValidSlotIndex,
 } from "../../../src/systems/ServerNetwork/services/InputValidation";
-import { INPUT_LIMITS } from "@hyperscape/shared";
+import { INPUT_LIMITS } from "@hyperforge/shared";
 
 describe("InputValidation", () => {
   describe("isValidItemId", () => {

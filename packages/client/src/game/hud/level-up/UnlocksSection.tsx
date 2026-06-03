@@ -11,8 +11,8 @@
  */
 
 import { useThemeStore } from "@/ui";
-import { getUnlocksAtLevel } from "@hyperscape/shared";
-import type { SkillUnlock, UnlockType } from "@hyperscape/shared";
+import { getUnlocksAtLevel } from "@hyperforge/shared";
+import type { SkillUnlock, UnlockType } from "@hyperforge/shared";
 import type { CSSProperties } from "react";
 
 // === ICONS FOR UNLOCK TYPES ===

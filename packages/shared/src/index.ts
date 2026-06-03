@@ -1,11 +1,11 @@
 /**
- * index.ts - @hyperscape/shared Package Entry Point
+ * index.ts - @hyperforge/shared Package Entry Point
  *
- * This is the main export file for the Hyperscape 3D multiplayer game engine.
+ * This is the main export file for the Hyperia 3D multiplayer game engine.
  * It provides a comprehensive public API for building 3D multiplayer games and applications.
  *
  * Package Purpose:
- * Hyperscape is a full-featured 3D multiplayer game engine built on three.js and PhysX.
+ * Hyperia is a full-featured 3D multiplayer game engine built on three.js and PhysX.
  * It provides client-server architecture with authoritative physics, real-time voice chat,
  * VRM avatar support, and a complete RPG game framework.
  *
@@ -53,7 +53,7 @@
  * (like Vite) don't pull server-only dependencies into browser bundles.
  * Server-specific imports are isolated to createServerWorld() and server systems.
  *
- * Used by: Client package, Server package, Plugin-Hyperscape package
+ * Used by: Client package, Server package, Plugin-Hyperia package
  */
 
 // Export world factories from runtime/

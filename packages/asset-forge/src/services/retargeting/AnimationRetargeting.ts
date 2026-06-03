@@ -1,7 +1,7 @@
 /**
  * AnimationRetargeting.ts - Browser-compatible Animation Retargeting
  *
- * Adapted from Hyperscape's createEmoteFactory for use in Asset Forge.
+ * Adapted from Hyperia's createEmoteFactory for use in Asset Forge.
  * Retargets Mixamo animations to VRM skeletons.
  */
 

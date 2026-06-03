@@ -2,7 +2,7 @@
  * MockWorld - Test utility for creating mock World instances
  *
  * Used for unit testing components that depend on the World object
- * without requiring a full Hyperscape instance.
+ * without requiring a full Hyperia instance.
  */
 
 import { vi } from "vitest";

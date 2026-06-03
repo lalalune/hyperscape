@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const dynamic = "force-static";
-export const alt = "Hyperscape - The First AI-Native MMORPG";
+export const alt = "Hyperia - The First AI-Native MMORPG";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -36,7 +36,7 @@ export default function Image() {
             fontSize: 72,
           }}
         >
-          Hyperscape
+          Hyperia
         </span>
         <span
           style={{

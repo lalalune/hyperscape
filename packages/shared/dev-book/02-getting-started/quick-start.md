@@ -4,9 +4,9 @@
 
 ---
 
-## Create Your First Hyperscape World
+## Create Your First Hyperia World
 
-This guide will walk you through creating a simple multiplayer 3D world with Hyperscape Shared in under 10 minutes.
+This guide will walk you through creating a simple multiplayer 3D world with Hyperia Shared in under 10 minutes.
 
 ---
 
@@ -23,15 +23,15 @@ This guide will walk you through creating a simple multiplayer 3D world with Hyp
 ### Create Project Directory
 
 ```bash
-mkdir my-hyperscape-game
-cd my-hyperscape-game
+mkdir my-hyperia-game
+cd my-hyperia-game
 npm init -y
 ```
 
 ### Install Dependencies
 
 ```bash
-npm install @hyperscape/shared three
+npm install @hyperforge/shared three
 npm install -D typescript vite @types/three
 ```
 
@@ -67,7 +67,7 @@ export default defineConfig({
     port: 3000
   },
   optimizeDeps: {
-    exclude: ['@hyperscape/shared']
+    exclude: ['@hyperforge/shared']
   }
 });
 ```
@@ -84,7 +84,7 @@ Create `index.html`:
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>My Hyperscape Game</title>
+  <title>My Hyperia Game</title>
   <style>
     body {
       margin: 0;
@@ -125,7 +125,7 @@ Create `index.html`:
 Create `src/main.ts`:
 
 ```typescript
-import { createClientWorld } from '@hyperscape/shared';
+import { createClientWorld } from '@hyperforge/shared';
 
 // Get canvas element
 const canvas = document.querySelector('#canvas') as HTMLCanvasElement;
@@ -197,7 +197,7 @@ You should see a blank 3D scene with FPS counter!
 Update `src/main.ts`:
 
 ```typescript
-import { createClientWorld } from '@hyperscape/shared';
+import { createClientWorld } from '@hyperforge/shared';
 import * as THREE from 'three';
 
 const canvas = document.querySelector('#canvas') as HTMLCanvasElement;
@@ -253,7 +253,7 @@ Now you should see a green ground plane!
 Add player spawning:
 
 ```typescript
-import { createClientWorld, PlayerLocal } from '@hyperscape/shared';
+import { createClientWorld, PlayerLocal } from '@hyperforge/shared';
 import * as THREE from 'three';
 
 const canvas = document.querySelector('#canvas') as HTMLCanvasElement;
@@ -418,7 +418,7 @@ console.log('Obstacles added!');
 Here's the complete `src/main.ts`:
 
 ```typescript
-import { createClientWorld, PlayerLocal } from '@hyperscape/shared';
+import { createClientWorld, PlayerLocal } from '@hyperforge/shared';
 import * as THREE from 'three';
 
 // Initialize
@@ -536,7 +536,7 @@ console.log('Game running! Use WASD to move.');
 
 Congratulations! You've created:
 
-- ✅ 3D world with Hyperscape
+- ✅ 3D world with Hyperia
 - ✅ Ground plane and lighting
 - ✅ Player character
 - ✅ WASD movement
@@ -644,7 +644,7 @@ await avatar.load();
 - [Installation Guide](installation.md) - Detailed setup
 - [User Guides](../03-user-guides/creating-worlds.md) - Deep dives
 - [API Reference](../12-api-reference/world-api.md) - Complete API docs
-- [Examples](https://github.com/hyperscape/examples) - More examples
+- [Examples](https://github.com/hyperia/examples) - More examples
 
 ---
 

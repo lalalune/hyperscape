@@ -22,7 +22,7 @@ import {
   TerrainSystem,
   World,
   writePacket,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import { getDatabase } from "./common";
 import crypto from "crypto";
 

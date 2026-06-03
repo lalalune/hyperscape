@@ -7,7 +7,7 @@
  * Extracted from ServerNetwork.initializeManagers() to keep the orchestrator lean.
  */
 
-import { EventType, type EventMap, World } from "@hyperscape/shared";
+import { EventType, type EventMap, World } from "@hyperforge/shared";
 import type { BroadcastManager } from "./broadcast";
 import type { ServerSocket } from "../../shared/types";
 

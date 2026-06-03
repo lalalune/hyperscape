@@ -17,7 +17,7 @@ import WebSocket from "ws";
 import { Packr, Unpackr } from "msgpackr";
 import * as fs from "fs";
 import * as path from "path";
-import { getPacketId, getPacketName } from "@hyperscape/shared";
+import { getPacketId, getPacketName } from "@hyperforge/shared";
 
 const SERVER_URL =
   process.env.PUBLIC_API_URL ||

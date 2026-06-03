@@ -1,15 +1,15 @@
-# Hyperscape Branding Assets
+# Hyperia Branding Assets
 
-Official logo files for Hyperscape. All assets are exported from Adobe Illustrator.
+Official logo files for Hyperia. All assets are exported from Adobe Illustrator.
 
 ## Logo Variants
 
 | Variant | Description | Use Case |
 |---------|-------------|----------|
-| `hyperscape_logo_color` | Full wordmark, gold gradient | Primary logo on dark backgrounds |
-| `hyperscape_logo_black` | Full wordmark, solid black | Print and light backgrounds |
-| `hyperscape_logo_white` | Full wordmark, solid white | Dark backgrounds, overlays |
-| `hyperscape_logo_icon_color` | "HS" icon, gold gradient | Favicons, app icons, small spaces |
+| `hyperia_logo_color` | Full wordmark, gold gradient | Primary logo on dark backgrounds |
+| `hyperia_logo_black` | Full wordmark, solid black | Print and light backgrounds |
+| `hyperia_logo_white` | Full wordmark, solid white | Dark backgrounds, overlays |
+| `hyperia_logo_icon_color` | "HS" icon, gold gradient | Favicons, app icons, small spaces |
 
 ## Formats
 
@@ -36,7 +36,7 @@ Official logo files for Hyperscape. All assets are exported from Adobe Illustrat
 ## Naming Convention
 
 ```
-hyperscape_logo_{variant}_{color}.{ext}
+hyperia_logo_{variant}_{color}.{ext}
 ```
 
 - `variant`: `(none)` for full wordmark, `icon` for the HS mark, `template_icon` for the Illustrator source

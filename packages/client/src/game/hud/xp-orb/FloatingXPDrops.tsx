@@ -11,7 +11,7 @@
 
 import React, { useMemo } from "react";
 import { useThemeStore } from "@/ui";
-import { SKILL_ICONS } from "@hyperscape/shared";
+import { SKILL_ICONS } from "@hyperforge/shared";
 import type { GroupedXPDrop } from "./useXPOrbState";
 import { HUD_FRAME, HUD_LAYERS } from "../layout";
 

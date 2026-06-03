@@ -14,12 +14,12 @@
  * @see https://runescape.wiki/w/Follow
  */
 
-import type { World, TileCoord } from "@hyperscape/shared";
+import type { World, TileCoord } from "@hyperforge/shared";
 import {
   tilesEqual,
   tileToWorldInto,
   worldToTileInto,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import type { TileMovementManager } from "./tile-movement";
 
 interface FollowState {

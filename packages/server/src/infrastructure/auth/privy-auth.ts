@@ -1,7 +1,7 @@
 /**
  * Privy Authentication - Third-party auth provider integration
  *
- * This module integrates Privy's authentication service into Hyperscape.
+ * This module integrates Privy's authentication service into Hyperia.
  * Privy provides wallet-based authentication with support for multiple providers:
  * - Ethereum wallets (MetaMask, WalletConnect, etc.)
  * - Email/password authentication
@@ -12,7 +12,7 @@
  * - Client-side: Users authenticate with Privy SDK (in PrivyAuthProvider.tsx)
  * - Client sends Privy access token to server via WebSocket handshake
  * - Server verifies token and extracts user info (this module)
- * - Server creates/links Hyperscape account with Privy user ID
+ * - Server creates/links Hyperia account with Privy user ID
  *
  * **Configuration**:
  * Requires environment variables:
@@ -26,9 +26,9 @@
  * When a user authenticates with Privy:
  * 1. Verify their access token with Privy servers
  * 2. Extract privyUserId and optionally farcasterFid
- * 3. Look up existing Hyperscape user by privyUserId
+ * 3. Look up existing Hyperia user by privyUserId
  * 4. If not found, create new user with privyUserId as stable ID
- * 5. Generate Hyperscape JWT for WebSocket authentication
+ * 5. Generate Hyperia JWT for WebSocket authentication
  *
  * **Security**:
  * - Never expose PRIVY_APP_SECRET to client

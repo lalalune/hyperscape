@@ -20,7 +20,7 @@ import { CollisionMatrix } from "../../movement/CollisionMatrix";
 import { CollisionFlag } from "../../movement/CollisionFlags";
 import type { BuildingLayoutInput } from "../../../../types/world/building-collision-types";
 import type { World } from "../../../../core/World";
-import { FOUNDATION_HEIGHT, FLOOR_HEIGHT } from "@hyperscape/procgen/building";
+import { FOUNDATION_HEIGHT, FLOOR_HEIGHT } from "@hyperforge/procgen/building";
 
 /** Combined wall flags for testing */
 const ALL_WALL_FLAGS =

@@ -420,9 +420,9 @@ export class ShellRiggingService {
       exportGeometry.computeVertexNormals();
     }
 
-    // Embed both armorMetadata (internal) and hyperscape (game-compatible) data.
+    // Embed both armorMetadata (internal) and hyperia (game-compatible) data.
     // The game's EquipmentVisualHelpers.extractEquipmentAttachmentData() reads
-    // userData.hyperscape to determine bone attachment and skinning.
+    // userData.hyperia to determine bone attachment and skinning.
     const slotToBone: Record<string, string> = {
       helmet: "head",
       body: "spine",
@@ -440,7 +440,7 @@ export class ShellRiggingService {
         boneNames: newBones.map((b) => b.name),
         exportDate: new Date().toISOString(),
       },
-      hyperscape: {
+      hyperia: {
         version: 2,
         vrmBoneName: slotToBone[result.slotName] ?? "spine",
         originalSlot: result.slotName,

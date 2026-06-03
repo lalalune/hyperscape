@@ -20,7 +20,7 @@ async function run(headless) {
       hasGpu,
       hasAdapter: adapter,
       hasWorld: Boolean(window.world),
-      cfg: window.__HYPERSCAPE_CONFIG__ || null,
+      cfg: window.__HYPERIA_CONFIG__ || null,
     };
   });
   console.log('headless='+headless, JSON.stringify(state));

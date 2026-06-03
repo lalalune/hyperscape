@@ -3,7 +3,7 @@ import {
   DeathState,
   getDuelArenaConfig,
   isPositionInsideCombatArena,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import { AgentManager } from "../AgentManager";
 
 type Skill = { level: number; xp: number };

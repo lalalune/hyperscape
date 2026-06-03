@@ -19,7 +19,7 @@ import {
   THREE,
   TERRAIN_CONSTANTS,
   INPUT,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import type { ClientWorld } from "../../types";
 import { type EntityPip, useMinimapEntityPips } from "./useMinimapEntityPips";
 import { useQuestStatusSync } from "./useQuestStatusSync";
@@ -364,11 +364,11 @@ function createRenderState(): MinimapRenderState {
   };
 }
 
-/** Augmented window type covering all Hyperscape globals written to window */
-type HyperscapeWindow = Window &
+/** Augmented window type covering all Hyperia globals written to window */
+type HyperiaWindow = Window &
   typeof globalThis & {
     __lastRaycastTarget?: { x: number; y: number; z: number; method: string };
-    __HYPERSCAPE_CONFIG__?: { mode?: string; followEntity?: string };
+    __HYPERIA_CONFIG__?: { mode?: string; followEntity?: string };
   };
 
 /** Camera info shape returned by the client-camera-system */
@@ -379,11 +379,11 @@ interface SpectatorTarget {
 
 /**
  * Returns the spectated entity's position when in spectator mode, or null.
- * Centralises the duplicated window.__HYPERSCAPE_CONFIG__ + camera-system reads
+ * Centralises the duplicated window.__HYPERIA_CONFIG__ + camera-system reads
  * that previously appeared independently in the entity interval and the RAF loop.
  */
 function getSpectatorTarget(world: ClientWorld): SpectatorTarget | null {
-  if ((window as HyperscapeWindow).__HYPERSCAPE_CONFIG__?.mode !== "spectator")
+  if ((window as HyperiaWindow).__HYPERIA_CONFIG__?.mode !== "spectator")
     return null;
   const cameraSystem = world.getSystem("client-camera-system") as {
     getCameraInfo?: () => {
@@ -1127,7 +1127,7 @@ function MinimapInner({
         }
 
         // Also clear global raycast target when player reaches it
-        const hw = window as HyperscapeWindow;
+        const hw = window as HyperiaWindow;
         if (hw.__lastRaycastTarget) {
           const dx = hw.__lastRaycastTarget.x - _tempTargetPos.x;
           const dz = hw.__lastRaycastTarget.z - _tempTargetPos.z;
@@ -1423,7 +1423,7 @@ function MinimapInner({
         }
 
         // Draw destination like world clicks: project world target to minimap
-        const lastTarget = (window as HyperscapeWindow).__lastRaycastTarget;
+        const lastTarget = (window as HyperiaWindow).__lastRaycastTarget;
         const destWorldRef = lastDestinationWorldRef.current;
         const hasLastTarget =
           lastTarget &&
@@ -1525,7 +1525,7 @@ function MinimapInner({
       // Persist destination until arrival (no auto-fade)
       lastDestinationWorldRef.current = { x: targetX, z: targetZ };
       // Expose same diagnostic target used by world clicks so minimap renders dot identically
-      (window as HyperscapeWindow).__lastRaycastTarget = {
+      (window as HyperiaWindow).__lastRaycastTarget = {
         x: targetX,
         y: targetY,
         z: targetZ,

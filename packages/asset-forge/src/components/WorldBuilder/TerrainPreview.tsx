@@ -1,10 +1,10 @@
 /**
- * TerrainPreview - Real-time terrain visualization using @hyperscape/procgen
+ * TerrainPreview - Real-time terrain visualization using @hyperforge/procgen
  *
  * Uses WebGPU renderer for TSL/node materials compatibility.
  */
 
-import { TerrainGen, BuildingGen } from "@hyperscape/procgen";
+import { TerrainGen, BuildingGen } from "@hyperforge/procgen";
 import React, {
   useEffect,
   useRef,

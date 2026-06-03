@@ -5,12 +5,12 @@ name: Deploy Assets to Cloudflare R2
 # Only runs on pushes to main branch (NOT on PRs or staging branch)
 #
 # Frontend URLs:
-#   - Production: hyperscape.club (main branch)
-#   - Staging: staging.hyperscape.club (staging branch)
+#   - Production: hyperia.club (main branch)
+#   - Staging: staging.hyperia.club (staging branch)
 #
 # API URLs (Railway):
-#   - Production: api.hyperscape.club
-#   - Staging: staging-api.hyperscape.club
+#   - Production: api.hyperia.club
+#   - Staging: staging-api.hyperia.club
 
 on:
   push:
@@ -39,10 +39,10 @@ concurrency:
 
 env:
   CLOUDFLARE_ACCOUNT_ID: 50ad2052bbc6ca528d6993a689b419a4
-  # Production uses hyperscape-assets bucket
-  # Staging uses hyperscape-assets-staging bucket (create this in Cloudflare R2)
-  R2_BUCKET_PRODUCTION: hyperscape-assets
-  R2_BUCKET_STAGING: hyperscape-assets-staging
+  # Production uses hyperia-assets bucket
+  # Staging uses hyperia-assets-staging bucket (create this in Cloudflare R2)
+  R2_BUCKET_PRODUCTION: hyperia-assets
+  R2_BUCKET_STAGING: hyperia-assets-staging
 
 jobs:
   deploy-assets:
@@ -62,11 +62,11 @@ jobs:
           if [ "${{ github.ref_name }}" = "staging" ] || [ "${{ inputs.environment }}" = "staging" ]; then
             echo "environment=staging" >> $GITHUB_OUTPUT
             echo "bucket=${{ env.R2_BUCKET_STAGING }}" >> $GITHUB_OUTPUT
-            echo "🎭 Deploying to STAGING (staging-assets.hyperscape.club)"
+            echo "🎭 Deploying to STAGING (staging-assets.hyperia.club)"
           else
             echo "environment=production" >> $GITHUB_OUTPUT
             echo "bucket=${{ env.R2_BUCKET_PRODUCTION }}" >> $GITHUB_OUTPUT
-            echo "🚀 Deploying to PRODUCTION (assets.hyperscape.club)"
+            echo "🚀 Deploying to PRODUCTION (assets.hyperia.club)"
           fi
 
       - name: Setup Node.js

@@ -3,7 +3,7 @@
  * Combined page for procedural grass AND flower generation
  *
  * Features:
- * - Uses the EXACT same grass shaders as the game engine (from @hyperscape/procgen)
+ * - Uses the EXACT same grass shaders as the game engine (from @hyperforge/procgen)
  * - GPU-instanced grass with 100k+ blades
  * - Procedural flowers with wind animation
  * - Real-time wind and day/night controls
@@ -13,7 +13,7 @@
  * This page shares code with the game engine to ensure visual consistency.
  */
 
-import { GrassGen, FlowerGen } from "@hyperscape/procgen";
+import { GrassGen, FlowerGen } from "@hyperforge/procgen";
 import {
   Leaf,
   Flower2,

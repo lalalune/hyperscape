@@ -1,5 +1,5 @@
 /**
- * @hyperscape/procgen/plant - Type Definitions
+ * @hyperforge/procgen/plant - Type Definitions
  *
  * Comprehensive type definitions for procedural plant generation.
  * Based on the Unity Procedural-Plant-and-Foliage-Generator.

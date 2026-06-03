@@ -12,7 +12,7 @@
 import {
   TICK_DURATION_MS,
   DUEL_CHALLENGE_TIMEOUT_MS,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 
 // ============================================================================
 // TIMING CONFIGURATION (in game ticks, 600ms each)

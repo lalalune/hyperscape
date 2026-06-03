@@ -12,7 +12,7 @@
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { PendingGatherManager } from "../PendingGatherManager";
-import { EventType, GATHERING_CONSTANTS } from "@hyperscape/shared";
+import { EventType, GATHERING_CONSTANTS } from "@hyperforge/shared";
 
 // ===== MOCK FACTORIES =====
 

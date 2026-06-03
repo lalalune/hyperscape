@@ -12,7 +12,7 @@
  * @packageDocumentation
  */
 
-import { INVENTORY_CONSTANTS } from "@hyperscape/shared";
+import { INVENTORY_CONSTANTS } from "@hyperforge/shared";
 
 /** Minimum touch target size (48px per Material Design guidelines) */
 export const MOBILE_TOUCH_TARGET = 48;

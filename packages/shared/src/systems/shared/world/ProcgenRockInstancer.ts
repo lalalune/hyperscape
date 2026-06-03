@@ -31,7 +31,7 @@ import {
   lerpOctahedronGeometry,
   OctahedronType,
   type TSLImpostorMaterial,
-} from "@hyperscape/impostor";
+} from "@hyperforge/impostor";
 import { getRockVariant, ensureRockVariantsLoaded } from "./ProcgenRockCache";
 
 // ============================================================================

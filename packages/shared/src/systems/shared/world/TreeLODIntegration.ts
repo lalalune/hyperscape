@@ -58,7 +58,7 @@ import type {
   BranchCluster,
   BranchClusterGenerator,
   BranchClusterResult,
-} from "@hyperscape/procgen";
+} from "@hyperforge/procgen";
 
 // ============================================================================
 // CONFIGURATION

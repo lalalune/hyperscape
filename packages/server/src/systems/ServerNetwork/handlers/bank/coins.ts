@@ -5,7 +5,7 @@
  * Coins are stored as bank_storage rows with itemId='coins'.
  */
 
-import { type World, SessionType } from "@hyperscape/shared";
+import { type World, SessionType } from "@hyperforge/shared";
 import type { ServerSocket } from "../../../../shared/types";
 import * as schema from "../../../../database/schema";
 import { eq, sql } from "drizzle-orm";

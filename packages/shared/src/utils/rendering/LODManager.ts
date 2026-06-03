@@ -19,7 +19,7 @@ import {
   OctahedronType,
   type ImpostorBakeResult,
   type CompatibleRenderer,
-} from "@hyperscape/impostor";
+} from "@hyperforge/impostor";
 import type { World } from "../../types";
 
 export type LODCategory =
@@ -74,7 +74,7 @@ const DEFAULT_OPTIONS: Required<LODGenerationOptions> = {
   forceRegenerate: false,
 };
 
-const DB_NAME = "hyperscape-lods";
+const DB_NAME = "hyperia-lods";
 const STORE_NAME = "lod-bundles";
 const CACHE_VERSION = 1;
 

@@ -37,13 +37,13 @@ import {
   tileKey,
   // Collision system
   CollisionMask,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import type {
   TileCoord,
   TileMovementState,
   Position3D,
   EntityID,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 
 /**
  * Extended movement state for mobs

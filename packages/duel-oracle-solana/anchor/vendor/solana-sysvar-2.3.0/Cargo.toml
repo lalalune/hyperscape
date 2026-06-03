@@ -71,8 +71,8 @@ name = "solana_sysvar"
 path = "src/lib.rs"
 
 [dependencies.bincode]
-package = "hyperscape-bincode"
-path = "../hyperscape-bincode"
+package = "hyperforge-bincode"
+path = "../hyperforge-bincode"
 optional = true
 [dependencies.bytemuck]
 version = "1.21.0"

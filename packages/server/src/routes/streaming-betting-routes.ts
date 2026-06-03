@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { RateLimitOptions } from "@fastify/rate-limit";
 import type { DatabaseSystem } from "../systems/DatabaseSystem/index.js";
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 import { getStreamingDuelScheduler } from "../systems/StreamingDuelScheduler/index.js";
 import type { StreamingDuelCycle } from "../systems/StreamingDuelScheduler/types.js";
 import { storage } from "../database/schema.js";

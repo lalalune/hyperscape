@@ -1,7 +1,7 @@
 import { type Chain, foundry, baseSepolia, base } from "viem/chains";
 
 /**
- * Chain configuration for Hyperscape Web3 mode.
+ * Chain configuration for Hyperia Web3 mode.
  *
  * Three environments:
  * - Local: Anvil (chain 31337) for development

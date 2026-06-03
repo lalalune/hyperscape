@@ -4,7 +4,7 @@
  * Extracted from StreamingDuelScheduler to isolate matchmaking concerns.
  */
 
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { Logger } from "../../ServerNetwork/services/index.js";
 import type { LeaderboardEntry, RecentDuelEntry } from "../types.js";

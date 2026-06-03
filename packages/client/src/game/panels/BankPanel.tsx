@@ -20,7 +20,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { getItem } from "@hyperscape/shared";
+import { getItem } from "@hyperforge/shared";
 import { CursorTooltip, useThemeStore, useMobileLayout } from "@/ui";
 import {
   getTooltipBodyStyle,
@@ -536,7 +536,7 @@ export function BankPanel({
                 ? `${responsiveScrollHeight}px`
                 : `${BANK_SCROLL_HEIGHT}px`,
               background:
-                theme.name === "hyperscape"
+                theme.name === "hyperia"
                   ? "linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, rgba(0, 0, 0, 0.12) 100%)"
                   : theme.colors.background.overlay,
               border: `1px solid ${theme.colors.border.default}40`,

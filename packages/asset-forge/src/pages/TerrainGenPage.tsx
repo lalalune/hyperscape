@@ -9,7 +9,7 @@
  * - Statistics display
  */
 
-import { TerrainGen } from "@hyperscape/procgen";
+import { TerrainGen } from "@hyperforge/procgen";
 import {
   Mountain,
   RefreshCw,

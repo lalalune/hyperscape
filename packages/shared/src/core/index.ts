@@ -1,5 +1,5 @@
 /**
- * Core Hyperscape classes
+ * Core HyperForge classes
  * World, Entity, System, and Component base classes
  */
 

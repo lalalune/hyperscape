@@ -6,9 +6,9 @@
  * - getQuestDetail: Fetch detailed info for a specific quest
  */
 
-import type { World } from "@hyperscape/shared";
-import type { QuestSystem } from "@hyperscape/shared";
-import { SystemLogger, isValidQuestId } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
+import type { QuestSystem } from "@hyperforge/shared";
+import { SystemLogger, isValidQuestId } from "@hyperforge/shared";
 import type { ServerSocket } from "../../../shared/types";
 import { sendToSocket, getPlayerId } from "./common";
 import {

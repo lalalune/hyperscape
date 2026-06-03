@@ -21,7 +21,7 @@ import { Packr, Unpackr } from "msgpackr";
 import {
   getPacketId as sharedGetPacketId,
   getPacketName as sharedGetPacketName,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import * as fs from "fs";
 import * as path from "path";
 

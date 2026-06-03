@@ -2,7 +2,7 @@
  * DuelCombatAI - Tick-based PvP combat controller for embedded agents
  *
  * Takes over an agent's behavior during arena duels. Uses
- * EmbeddedHyperscapeService directly for game actions (executeAttack,
+ * EmbeddedHyperiaService directly for game actions (executeAttack,
  * executeUse). Reads game state each tick and makes priority-based
  * combat decisions: heal, attack, or switch style.
  *
@@ -12,8 +12,8 @@
  *   DuelOrchestrator calls DuelCombatAI.stop() when the duel ends.
  */
 
-import { TICK_DURATION_MS } from "@hyperscape/shared";
-import type { EmbeddedHyperscapeService } from "../eliza/EmbeddedHyperscapeService";
+import { TICK_DURATION_MS } from "@hyperforge/shared";
+import type { EmbeddedHyperiaService } from "../eliza/EmbeddedHyperiaService";
 import type { EmbeddedGameState } from "../eliza/types";
 import { type AgentRuntime, ModelType } from "@elizaos/core";
 import { errMsg } from "../shared/errMsg";
@@ -186,7 +186,7 @@ const POTION_PATTERNS = [
 ];
 
 export class DuelCombatAI {
-  private service: EmbeddedHyperscapeService;
+  private service: EmbeddedHyperiaService;
   private runtime: AgentRuntime | null;
   private opponentId: string;
   private config: DuelCombatConfig;
@@ -274,7 +274,7 @@ export class DuelCombatAI {
   private lastPhase: CombatPhase = "opening";
 
   constructor(
-    service: EmbeddedHyperscapeService,
+    service: EmbeddedHyperiaService,
     opponentId: string,
     config?: Partial<DuelCombatConfig>,
     runtime?: AgentRuntime,

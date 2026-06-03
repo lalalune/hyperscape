@@ -7,8 +7,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useThemeStore } from "@/ui";
 
-import { World } from "@hyperscape/shared";
-import { EventType } from "@hyperscape/shared";
+import { World } from "@hyperforge/shared";
+import { EventType } from "@hyperforge/shared";
 
 export function LoadingScreen({
   world,
@@ -356,7 +356,7 @@ export function LoadingScreen({
 
       {/* Logo and Loading Bar */}
       <div className="loading-logo-container">
-        <img src="/images/logo.png" alt="Hyperscape" className="loading-logo" />
+        <img src="/images/logo.png" alt="Hyperia" className="loading-logo" />
 
         {/* Loading Progress */}
         <div className="loading-center-progress">

@@ -52,8 +52,8 @@ export class NodeStorage {
     this.path = path;
 
     // Use environment variable or current working directory
-    const dataDir = process.env.HYPERSCAPE_DATA_DIR || process.cwd();
-    this.file = this.path!.join(dataDir, ".hyperscape-storage.json");
+    const dataDir = process.env.HYPERIA_DATA_DIR || process.cwd();
+    this.file = this.path!.join(dataDir, ".hyperia-storage.json");
 
     // Load existing data
     const exists = await this.fs!.access(this.file)

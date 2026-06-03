@@ -21,7 +21,7 @@ describe("EmbeddedAgentControlScreen", () => {
 
   beforeEach(() => {
     Element.prototype.scrollIntoView = vi.fn();
-    window.__HYPERSCAPE_CONFIG__ = {
+    window.__HYPERIA_CONFIG__ = {
       agentId: "agent-1",
       authToken: "session-token",
       characterId: "char-1",

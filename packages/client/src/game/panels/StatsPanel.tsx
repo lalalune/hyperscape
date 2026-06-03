@@ -198,7 +198,7 @@ export function StatsPanel({
 
   const panelStyle = {
     background:
-      theme.name === "hyperscape"
+      theme.name === "hyperia"
         ? "linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(0, 0, 0, 0.14) 100%)"
         : theme.colors.background.panelSecondary,
     borderRadius: `${theme.borderRadius.md}px`,

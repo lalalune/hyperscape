@@ -7,7 +7,7 @@
  * - handleDuelAcceptRules: Accept current rules configuration
  */
 
-import type { World, DuelRules, DuelEquipmentSlot } from "@hyperscape/shared";
+import type { World, DuelRules, DuelEquipmentSlot } from "@hyperforge/shared";
 import type { ServerSocket } from "../../../../shared/types";
 import {
   sendDuelError,

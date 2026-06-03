@@ -1,7 +1,7 @@
 /**
  * Renderer Factory
  *
- * Creates WebGPU renderers for Hyperscape.
+ * Creates WebGPU renderers for Hyperia.
  *
  * IMPORTANT: WebGPU is REQUIRED. WebGL WILL NOT WORK.
  *
@@ -85,7 +85,7 @@ const WEBGPU_ADAPTER_TIMEOUT_MS = 30000;
 
 /**
  * Check if WebGPU is available in the current browser.
- * WebGPU is REQUIRED for Hyperscape - there is no fallback.
+ * WebGPU is REQUIRED for Hyperia - there is no fallback.
  *
  * Note: This includes a timeout to prevent indefinite hangs when
  * WebGPU initialization gets stuck (common on misconfigured GPU servers).
@@ -143,7 +143,7 @@ export async function detectRenderingCapabilities(): Promise<RenderingCapabiliti
       : "";
     throw new Error(
       "WebGPU is REQUIRED but not available in this browser.\n\n" +
-        "Hyperscape requires WebGPU for rendering. Please use a supported browser:\n" +
+        "Hyperia requires WebGPU for rendering. Please use a supported browser:\n" +
         "  - Chrome 113+ (recommended)\n" +
         "  - Edge 113+\n" +
         "  - Safari 17+\n\n" +
@@ -190,7 +190,7 @@ export async function createRenderer(
     const errorMessage = [
       "WebGPU is REQUIRED but not available in this browser.",
       "",
-      "Hyperscape requires WebGPU for rendering. Please use a supported browser:",
+      "Hyperia requires WebGPU for rendering. Please use a supported browser:",
       "  - Chrome 113+ (recommended)",
       "  - Edge 113+",
       "  - Safari 17+",
@@ -224,7 +224,7 @@ export async function createRenderer(
   const disableRendererFallback = (
     candidate: InstanceType<typeof THREE.WebGPURenderer>,
   ): void => {
-    // Hyperscape is WebGPU-only. Allowing Three's implicit WebGL fallback lets
+    // Hyperia is WebGPU-only. Allowing Three's implicit WebGL fallback lets
     // the app continue in a broken state where TSL shaders and compute systems
     // quietly fail later.
     (candidate as RendererWithBackendState)._getFallback = null;

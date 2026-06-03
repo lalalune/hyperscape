@@ -1,6 +1,6 @@
 /**
  * ToggleSwitch - Reusable toggle switch component for boolean settings
- * Hyperscape UI theme styling with gold/brown colors
+ * Hyperia UI theme styling with gold/brown colors
  */
 
 import React from "react";

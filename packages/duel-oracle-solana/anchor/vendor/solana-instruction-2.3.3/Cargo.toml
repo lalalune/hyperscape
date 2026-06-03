@@ -62,8 +62,8 @@ name = "solana_instruction"
 path = "src/lib.rs"
 
 [dependencies.bincode]
-package = "hyperscape-bincode"
-path = "../hyperscape-bincode"
+package = "hyperforge-bincode"
+path = "../hyperforge-bincode"
 optional = true
 [dependencies.borsh]
 version = "1.5.5"

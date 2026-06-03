@@ -1,7 +1,7 @@
 /**
  * GLB Decimation Service
  *
- * TypeScript-based mesh decimation service that uses @hyperscape/decimation
+ * TypeScript-based mesh decimation service that uses @hyperforge/decimation
  * for seam-aware mesh simplification directly on GLB files.
  *
  * Features:
@@ -20,7 +20,7 @@ import {
   type OptimizedDecimationResult,
   type Vec2,
   type Vec3,
-} from "@hyperscape/decimation";
+} from "@hyperforge/decimation";
 
 // GLB constants
 const GLB_MAGIC = 0x46546c67; // 'glTF'
@@ -440,8 +440,8 @@ export class GLBDecimationService {
 
     // Update asset info
     gltf.asset.generator = options.stripSkeleton
-      ? "Hyperscape GLB Decimation Service (Static LOD)"
-      : "Hyperscape GLB Decimation Service";
+      ? "Hyperia GLB Decimation Service (Static LOD)"
+      : "Hyperia GLB Decimation Service";
 
     const outputBuffer = this.buildGLB(gltf, newBinary);
 

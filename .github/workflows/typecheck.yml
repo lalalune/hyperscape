@@ -38,7 +38,7 @@ jobs:
           cd ../shared && bun run build
           cd ../impostors && bun run build
           cd ../procgen && bun run build
-          cd ../plugin-hyperscape && bun run build
+          cd ../plugin-hyperia && bun run build
 
       - name: Type check shared package
         working-directory: packages/shared
@@ -52,6 +52,6 @@ jobs:
         working-directory: packages/client
         run: bunx tsc --noEmit
 
-      - name: Type check plugin-hyperscape package
-        working-directory: packages/plugin-hyperscape
+      - name: Type check plugin-hyperia package
+        working-directory: packages/plugin-hyperia
         run: bunx tsc --noEmit

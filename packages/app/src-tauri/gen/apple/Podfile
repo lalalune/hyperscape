@@ -1,13 +1,13 @@
 # Uncomment the next line to define a global platform for your project
 
-target 'hyperscape_iOS' do
+target 'hyperia_iOS' do
 platform :ios, '18.2'
-  # Pods for hyperscape_iOS
+  # Pods for hyperia_iOS
 end
 
-target 'hyperscape_macOS' do
+target 'hyperia_macOS' do
 platform :osx, '11.0'
-  # Pods for hyperscape_macOS
+  # Pods for hyperia_macOS
 end
 
 # Delete the deployment target for iOS and macOS, causing it to be inherited from the Podfile

@@ -2,7 +2,7 @@
  * physics.ts - PhysX Type Definitions and Re-exports
  *
  * Centralized type definitions for the PhysX physics engine integration.
- * This file provides TypeScript types for all PhysX APIs used in Hyperscape.
+ * This file provides TypeScript types for all PhysX APIs used in Hyperia.
  *
  * **Type Organization:**
  * - Core types: PxVec3, PxQuat, PxTransform (math/transforms)
@@ -13,7 +13,7 @@
  * - Event types: PxContactPair, PxTriggerPair (collision callbacks)
  *
  * **PhysX Integration:**
- * - Types are re-exported from @hyperscape/physx-js-webidl
+ * - Types are re-exported from @hyperforge/physx-js-webidl
  * - PhysX runs in both browser (WASM) and Node.js (native bindings)
  * - Used by Physics system, character controllers, and collision detection
  *
@@ -25,7 +25,7 @@
  * **Referenced by:** Physics system, character controllers, collision components
  */
 
-import type { default as PhysX } from "@hyperscape/physx-js-webidl";
+import type { default as PhysX } from "@hyperforge/physx-js-webidl";
 import * as THREE from "../../extras/three/three";
 import type { System } from "../../systems/shared";
 import type { User } from "../network/networking";
@@ -57,7 +57,7 @@ export interface Entity {
 }
 
 // Re-export the PhysX namespace for direct access
-export type { default as PhysX } from "@hyperscape/physx-js-webidl";
+export type { default as PhysX } from "@hyperforge/physx-js-webidl";
 
 /** Helper type for the loaded PhysX module instance */
 export type PhysXModule = Awaited<ReturnType<typeof PhysX>>;

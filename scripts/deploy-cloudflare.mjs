@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Cloudflare Deployment Script for Hyperscape
+ * Cloudflare Deployment Script for Hyperia
  *
  * This script handles deployment to Cloudflare services:
  * 1. Deploy frontend to Cloudflare Pages
@@ -9,8 +9,8 @@
  * Prerequisites:
  *   - Install Wrangler: npm install -g wrangler
  *   - Login: wrangler login
- *   - Create R2 bucket: wrangler r2 bucket create hyperscape-assets
- *   - Create Pages project: wrangler pages project create hyperscape-client
+ *   - Create R2 bucket: wrangler r2 bucket create hyperia-assets
+ *   - Create Pages project: wrangler pages project create hyperia-client
  *
  * Usage:
  *   node scripts/deploy-cloudflare.mjs [--frontend] [--assets] [--all]
@@ -24,8 +24,8 @@
  * Environment Variables:
  *   CLOUDFLARE_ACCOUNT_ID  - Cloudflare account ID
  *   CLOUDFLARE_API_TOKEN   - API token with R2 and Pages permissions
- *   R2_BUCKET_NAME         - R2 bucket name (default: hyperscape-assets)
- *   PAGES_PROJECT_NAME     - Pages project name (default: hyperscape-client)
+ *   R2_BUCKET_NAME         - R2 bucket name (default: hyperia-assets)
+ *   PAGES_PROJECT_NAME     - Pages project name (default: hyperia-client)
  */
 
 import { execSync, spawnSync } from "child_process";
@@ -47,8 +47,8 @@ const flags = {
 // Configuration
 // Account ID: 50ad2052bbc6ca528d6993a689b419a4
 const config = {
-  r2BucketName: process.env.R2_BUCKET_NAME || "hyperscape-assets",
-  pagesProjectName: process.env.PAGES_PROJECT_NAME || "hyperscape",
+  r2BucketName: process.env.R2_BUCKET_NAME || "hyperia-assets",
+  pagesProjectName: process.env.PAGES_PROJECT_NAME || "hyperia",
   accountId: process.env.CLOUDFLARE_ACCOUNT_ID || "50ad2052bbc6ca528d6993a689b419a4",
 };
 
@@ -294,7 +294,7 @@ async function deployAssets() {
 async function main() {
   console.log(`
 ╔══════════════════════════════════════════════════════════════════╗
-║               HYPERSCAPE CLOUDFLARE DEPLOYMENT                    ║
+║               HYPERIA CLOUDFLARE DEPLOYMENT                    ║
 ╠══════════════════════════════════════════════════════════════════╣
 ║  R2 Bucket: ${config.r2BucketName.padEnd(50)}║
 ║  Pages Project: ${config.pagesProjectName.padEnd(46)}║

@@ -35,8 +35,8 @@ name = "solana_bincode"
 path = "src/lib.rs"
 
 [dependencies.bincode]
-package = "hyperscape-bincode"
-path = "../hyperscape-bincode"
+package = "hyperforge-bincode"
+path = "../hyperforge-bincode"
 
 [dependencies.serde]
 version = "1.0.217"

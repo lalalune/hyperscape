@@ -52,7 +52,7 @@ import {
   CONTEXT_MENU_COLORS,
   INVENTORY_CONSTANTS,
   type PrimaryActionType,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import { ItemIcon } from "@/ui/components/ItemIcon";
 import { dispatchInventoryAction } from "../systems/InventoryActionDispatcher";
 import type { ClientWorld, InventorySlotItem } from "../../types";

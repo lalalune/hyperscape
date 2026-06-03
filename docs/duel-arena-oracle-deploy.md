@@ -1,6 +1,6 @@
 # Duel Arena Oracle Deployment
 
-This is the standalone duel arena oracle path inside Hyperscape. It is separate from betting and prediction market flows.
+This is the standalone duel arena oracle path inside Hyperia. It is separate from betting and prediction market flows.
 
 ## Components
 
@@ -66,7 +66,7 @@ Core toggles:
 DUEL_ARENA_ORACLE_ENABLED=true
 DUEL_ARENA_ORACLE_PROFILE=testnet
 DUEL_ARENA_ORACLE_METADATA_BASE_URL=https://your-domain.example/api/duel-arena/oracle
-DUEL_ARENA_ORACLE_STORE_PATH=/var/lib/hyperscape/duel-arena-oracle/records.json
+DUEL_ARENA_ORACLE_STORE_PATH=/var/lib/hyperia/duel-arena-oracle/records.json
 ```
 
 Profiles:
@@ -166,13 +166,13 @@ The server publisher auto-initializes the on-chain oracle config when the author
 EVM ABI:
 
 - package export: `packages/duel-oracle-evm/src/generated/duelOutcomeOracleAbi.ts`
-- published public config manifest: `@hyperscapeai/duel-oracle-evm/config.json`
+- published public config manifest: `@playhyperia/duel-oracle-evm/config.json`
 
 Solana IDL:
 
 - canonical IDL JSON: `packages/duel-oracle-solana/anchor/target/idl/fight_oracle.json`
 - generated TS package export: `packages/duel-oracle-solana/src/generated/fightOracleIdl.ts`
-- published public config manifest: `@hyperscapeai/duel-oracle-solana/config.json`
+- published public config manifest: `@playhyperia/duel-oracle-solana/config.json`
 
 EVM `viem` example:
 
@@ -198,8 +198,8 @@ const duel = await client.readContract({
 Published config manifest example:
 
 ```ts
-import duelOracleConfig from "@hyperscapeai/duel-oracle-evm/config.json";
-import duelOracleSolanaConfig from "@hyperscapeai/duel-oracle-solana/config.json";
+import duelOracleConfig from "@playhyperia/duel-oracle-evm/config.json";
+import duelOracleSolanaConfig from "@playhyperia/duel-oracle-solana/config.json";
 
 const baseMainnetOracle = duelOracleConfig.deployments.base.address;
 const solanaMainnetProgram = duelOracleSolanaConfig.programIds.mainnet;

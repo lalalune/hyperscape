@@ -8,7 +8,7 @@ const PRESETS = {
 
 async function loadShared() {
   try {
-    const shared = await import("@hyperscape/shared");
+    const shared = await import("@hyperforge/shared");
     if (typeof shared.BotPoolManager === "function") {
       return shared;
     }

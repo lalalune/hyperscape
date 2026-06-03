@@ -77,7 +77,7 @@ import {
   isTSLImpostorMaterial,
   type ImpostorBakeResult,
   type TSLImpostorMaterial,
-} from "@hyperscape/impostor";
+} from "@hyperforge/impostor";
 import { isGPUComputeAvailable, getGlobalCullingManager } from "../compute";
 
 // ============================================================================
@@ -734,14 +734,14 @@ type ImposterMaterialType = THREE.ShaderMaterial | TSLImpostorMaterial;
 /**
  * Imposter render data for a model.
  * Created once per model type and shared across all groups.
- * Uses OctahedralImpostor from @hyperscape/impostor for quality multi-view rendering.
+ * Uses OctahedralImpostor from @hyperforge/impostor for quality multi-view rendering.
  */
 type MobImposterModel = {
   /** Pre-rendered imposter texture (from bake result) */
   texture: THREE.Texture;
   /** Billboard geometry (plane) */
   geometry: THREE.PlaneGeometry;
-  /** Billboard material (GLSL or TSL impostor material from @hyperscape/impostor) */
+  /** Billboard material (GLSL or TSL impostor material from @hyperforge/impostor) */
   material: ImposterMaterialType;
   /** Instanced mesh for all imposters of this model */
   mesh: THREE.InstancedMesh;
@@ -1030,7 +1030,7 @@ export class MobInstancedRenderer {
   }
 
   // NOTE: Old imposter rendering system removed.
-  // All impostor baking is now handled by ImpostorManager using @hyperscape/impostor.
+  // All impostor baking is now handled by ImpostorManager using @hyperforge/impostor.
 
   async registerMob(
     registration: MobInstanceRegistration,
@@ -1421,7 +1421,7 @@ export class MobInstancedRenderer {
 
   /**
    * Update imposter billboard orientations to face camera.
-   * Updates octahedral view cell based on camera direction using @hyperscape/impostor material.
+   * Updates octahedral view cell based on camera direction using @hyperforge/impostor material.
    */
   private updateImposterBillboards(
     imposter: MobImposterModel,
@@ -2653,7 +2653,7 @@ export class MobInstancedRenderer {
   }
 
   // NOTE: Simple billboard and CDN-based octahedral impostor methods removed.
-  // All impostor baking is now handled by ImpostorManager using @hyperscape/impostor.
+  // All impostor baking is now handled by ImpostorManager using @hyperforge/impostor.
 
   /**
    * Convert VRM standard bone name to normalized bone node name.
@@ -2931,7 +2931,7 @@ export class MobInstancedRenderer {
   }
 
   // NOTE: CDN-based octahedral imposter loading has been removed.
-  // All impostor baking is now handled by ImpostorManager using @hyperscape/impostor.
+  // All impostor baking is now handled by ImpostorManager using @hyperforge/impostor.
 
   private getOrCreateGroup(
     model: MobInstancedModel,

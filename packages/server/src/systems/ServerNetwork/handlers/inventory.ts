@@ -25,7 +25,7 @@ import {
   COMBAT_CONSTANTS,
   INPUT_LIMITS,
   DeathState,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import { getTradingSystem } from "./trade/helpers";
 import {
   isValidItemId,

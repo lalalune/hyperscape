@@ -11,7 +11,7 @@ import {
   getPanelInsetStyle,
   getPanelSurfaceStyle,
 } from "@/ui/theme/themes";
-import { EventType } from "@hyperscape/shared";
+import { EventType } from "@hyperforge/shared";
 import type { ClientWorld } from "../../types";
 import { privyAuthManager } from "../../auth/PrivyAuthManager";
 import { useSolanaWallet } from "../../hooks/useSolanaWallet";
@@ -248,7 +248,7 @@ export function AccountPanel({ world }: AccountPanelProps) {
           className="rounded-lg p-3"
           style={{
             background:
-              theme.name === "hyperscape"
+              theme.name === "hyperia"
                 ? "linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(0, 0, 0, 0.14) 100%)"
                 : theme.colors.background.panelSecondary,
             border: `1px solid ${theme.colors.border.default}40`,
@@ -391,7 +391,7 @@ export function AccountPanel({ world }: AccountPanelProps) {
           className="rounded-lg p-2.5 flex items-center justify-between cursor-pointer transition-all hover:opacity-90"
           style={{
             background:
-              theme.name === "hyperscape"
+              theme.name === "hyperia"
                 ? "linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(0, 0, 0, 0.14) 100%)"
                 : theme.colors.background.panelSecondary,
             border: `1px solid ${theme.colors.border.default}40`,

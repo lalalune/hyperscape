@@ -13,12 +13,12 @@ import {
   OctahedralImpostor,
   OctahedronType,
   type ImpostorInstance,
-} from "@hyperscape/impostor";
+} from "@hyperforge/impostor";
 import {
   RockGenerator,
   SHAPE_PRESETS,
   ROCK_TYPE_PRESETS,
-} from "@hyperscape/procgen/rock";
+} from "@hyperforge/procgen/rock";
 import {
   Mountain,
   RefreshCw,

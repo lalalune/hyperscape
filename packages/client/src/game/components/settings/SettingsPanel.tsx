@@ -131,7 +131,7 @@ export function SettingsPanel({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "hyperscape-settings.json";
+    a.download = "hyperia-settings.json";
     a.click();
     URL.revokeObjectURL(url);
   }, [settings]);

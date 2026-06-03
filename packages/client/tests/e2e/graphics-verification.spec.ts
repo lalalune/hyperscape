@@ -47,7 +47,7 @@ test.describe("Graphics Verification (Authenticated)", () => {
     await page
       .waitForFunction(
         () => {
-          const state = (window as any).__HYPERSCAPE_LOADING__;
+          const state = (window as any).__HYPERIA_LOADING__;
           if (!state) return true;
           return Boolean(state.ready || state.loadingComplete);
         },
@@ -55,7 +55,7 @@ test.describe("Graphics Verification (Authenticated)", () => {
       )
       .catch(async () => {
         const state = await page.evaluate(
-          () => (window as any).__HYPERSCAPE_LOADING__,
+          () => (window as any).__HYPERIA_LOADING__,
         );
         console.log("Final loading state before timeout (continuing):", state);
       });

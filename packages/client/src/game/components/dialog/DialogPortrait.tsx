@@ -145,7 +145,7 @@ export const DialogPortrait = memo(function DialogPortrait({
     overflow: "hidden",
     backgroundColor: theme.colors.background.tertiary,
     boxShadow:
-      theme.name === "hyperscape"
+      theme.name === "hyperia"
         ? `0 0 10px ${getMoodBorderColor()}40`
         : theme.shadows.sm,
     transition: theme.transitions.normal,

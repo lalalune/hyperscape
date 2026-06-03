@@ -7,7 +7,7 @@
  * Extracted from ServerNetwork to keep the main orchestrator lean.
  */
 
-import { getItem, World } from "@hyperscape/shared";
+import { getItem, World } from "@hyperforge/shared";
 import { InventoryRepository } from "../../database/repositories/InventoryRepository";
 import type { ServerSocket } from "../../shared/types";
 

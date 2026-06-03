@@ -30,7 +30,7 @@ import {
   Warehouse,
   RefreshCw,
 } from "lucide-react";
-import { INVENTORY_CONSTANTS } from "@hyperscape/shared";
+import { INVENTORY_CONSTANTS } from "@hyperforge/shared";
 import { AdminLiveControls } from "./AdminLiveControls";
 import "./AdminScreen.css";
 
@@ -119,7 +119,7 @@ interface Pagination {
 }
 
 // Admin code storage key
-const ADMIN_CODE_KEY = "hyperscape_admin_code";
+const ADMIN_CODE_KEY = "hyperia_admin_code";
 
 export const AdminScreen: React.FC = () => {
   const [adminCode, setAdminCode] = useState(

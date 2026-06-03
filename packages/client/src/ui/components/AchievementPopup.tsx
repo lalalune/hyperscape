@@ -82,7 +82,7 @@ function getVariantColors(variant: AchievementVariant): {
   switch (variant) {
     case "levelUp":
       return {
-        primary: "#f2d08a", // Gold (Hyperscape primary)
+        primary: "#f2d08a", // Gold (Hyperia primary)
         glow: "rgba(201, 165, 74, 0.4)",
         badgeBg: "linear-gradient(180deg, #4a90d9 0%, #2c5aa0 100%)",
         badgeBorder: "#6ab0ff",

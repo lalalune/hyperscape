@@ -21,7 +21,7 @@ import {
   DUEL_RULE_DEFINITIONS,
   EQUIPMENT_SLOT_LABELS,
   EQUIPMENT_SLOTS_ORDERED,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 
 // ============================================================================
 // Types
@@ -40,7 +40,7 @@ interface RulesScreenProps {
 }
 
 // ============================================================================
-// Rule Definitions - Now imported from @hyperscape/shared/data/duel-manifest
+// Rule Definitions - Now imported from @hyperforge/shared/data/duel-manifest
 // ============================================================================
 
 // ============================================================================
@@ -83,7 +83,7 @@ function useRulesScreenStyles(theme: Theme, myAccepted: boolean) {
       alignItems: "center",
       padding: theme.spacing.sm,
       background:
-        theme.name === "hyperscape"
+        theme.name === "hyperia"
           ? "linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(0, 0, 0, 0.14) 100%)"
           : theme.colors.background.secondary,
       borderRadius: theme.borderRadius.sm,

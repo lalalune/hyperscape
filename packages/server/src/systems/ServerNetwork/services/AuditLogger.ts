@@ -14,7 +14,7 @@
  * SRP: Only handles audit logging, no business logic
  */
 
-import type { StakedItem } from "@hyperscape/shared";
+import type { StakedItem } from "@hyperforge/shared";
 
 // ============================================================================
 // Types

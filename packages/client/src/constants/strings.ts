@@ -1,5 +1,5 @@
 /**
- * UI Strings Manifest for Hyperscape Client
+ * UI Strings Manifest for Hyperia Client
  *
  * All user-facing strings are centralized here for:
  * - Consistency across the application

@@ -1,6 +1,6 @@
-# Hyperscape Server
+# Hyperia Server
 
-Production-ready game server for Hyperscape 3D multiplayer worlds with PostgreSQL backend.
+Production-ready game server for Hyperia 3D multiplayer worlds with PostgreSQL backend.
 
 ## ✅ Status: FULLY OPERATIONAL
 
@@ -122,17 +122,17 @@ The server uses PostgreSQL with automatic migrations. On first run:
 
 **Connect to local PostgreSQL:**
 ```bash
-docker exec -it hyperscape-postgres psql -U hyperscape -d hyperscape
+docker exec -it hyperia-postgres psql -U hyperia -d hyperia
 ```
 
 **Backup database:**
 ```bash
-docker exec hyperscape-postgres pg_dump -U hyperscape hyperscape > backup.sql
+docker exec hyperia-postgres pg_dump -U hyperia hyperia > backup.sql
 ```
 
 **Restore database:**
 ```bash
-cat backup.sql | docker exec -i hyperscape-postgres psql -U hyperscape hyperscape
+cat backup.sql | docker exec -i hyperia-postgres psql -U hyperia hyperia
 ```
 
 ### Migrations
@@ -226,10 +226,10 @@ WORLD=world                   # World directory path
 ```env
 # Option 1: Docker PostgreSQL
 USE_LOCAL_POSTGRES=true
-POSTGRES_CONTAINER=hyperscape-postgres
-POSTGRES_USER=hyperscape
-POSTGRES_PASSWORD=hyperscape_dev_password
-POSTGRES_DB=hyperscape
+POSTGRES_CONTAINER=hyperia-postgres
+POSTGRES_USER=hyperia
+POSTGRES_PASSWORD=hyperia_dev_password
+POSTGRES_DB=hyperia
 POSTGRES_PORT=5488
 
 # Option 2: External PostgreSQL
@@ -286,10 +286,10 @@ to poll `/health` and trigger alerts on non-200 responses or elevated latency.
 Build and run with Docker:
 
 ```bash
-docker build -t hyperscape-server .
+docker build -t hyperia-server .
 docker run -p 5555:5555 \
   -e DATABASE_URL=postgresql://... \
-  hyperscape-server
+  hyperia-server
 ```
 
 ### Traditional Hosting
@@ -304,7 +304,7 @@ Requirements:
 bun run build
 
 # Run with process manager
-pm2 start dist/index.js --name hyperscape-server
+pm2 start dist/index.js --name hyperia-server
 ```
 
 ### Environment-Specific
@@ -351,7 +351,7 @@ Rollback uses the same deployment workflows with an explicit ref:
 **Solution:** 
 ```sql
 -- Connect to database
-docker exec -it hyperscape-postgres psql -U hyperscape hyperscape
+docker exec -it hyperia-postgres psql -U hyperia hyperia
 
 -- Drop all tables and re-run migrations
 DROP SCHEMA public CASCADE;
@@ -474,7 +474,7 @@ Not implemented yet. Consider adding:
 
 - **Documentation:** See `MIGRATION-FIXES.md` for recent changes
 - **Cloudflare Deployment:** See `CLOUDFLARE.md` (currently disabled)
-- **Issues:** Report bugs in the main Hyperscape repository
+- **Issues:** Report bugs in the main Hyperia repository
 
 ## License
 

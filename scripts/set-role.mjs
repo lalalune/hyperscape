@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Hyperscape Admin Tool
+ * Hyperia Admin Tool
  * 
- * Command-line tool for managing user roles and bans in Hyperscape.
+ * Command-line tool for managing user roles and bans in Hyperia.
  * 
  * ROLE COMMANDS:
  *   bun scripts/set-role.mjs list              - List all users with their roles
@@ -55,7 +55,7 @@ const VALID_ROLES = ['user', 'mod', 'admin']
 
 function printUsage() {
   console.log(`
-${colors.bright}${colors.cyan}Hyperscape Admin Tool${colors.reset}
+${colors.bright}${colors.cyan}Hyperia Admin Tool${colors.reset}
 
 ${colors.bright}Usage:${colors.reset}
   bun scripts/set-role.mjs <command> [args]

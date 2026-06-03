@@ -10,7 +10,7 @@ import type {
   DuelRules,
   DuelEquipmentSlot,
   AttackType,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import type { ServerSocket } from "../../shared/types";
 
 // ============================================================================

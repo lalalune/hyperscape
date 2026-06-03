@@ -21,11 +21,11 @@ describe("public URL defaults", () => {
 
     expect(isProductionRuntime()).toBe(true);
     expect(getDefaultElizaOsApiUrl()).toBe(
-      "https://hyperscape-production.up.railway.app",
+      "https://hyperia-production.up.railway.app",
     );
-    expect(getDefaultPublicAppUrl()).toBe("https://hyperscape.club");
+    expect(getDefaultPublicAppUrl()).toBe("https://hyperia.club");
     expect(getDefaultPublicWsUrl()).toBe(
-      "wss://hyperscape-production.up.railway.app/ws",
+      "wss://hyperia-production.up.railway.app/ws",
     );
   });
 

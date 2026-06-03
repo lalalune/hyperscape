@@ -9,14 +9,14 @@ import { Background } from "@/components/Background";
 export const metadata: Metadata = {
   title: "$GOLD Token",
   description:
-    "The official token of Hyperscape. 1 $GOLD = 1 gold in-game. Be the richest player at launch and get exclusive items.",
+    "The official token of Hyperia. 1 $GOLD = 1 gold in-game. Be the richest player at launch and get exclusive items.",
   openGraph: {
     title: "$GOLD Token",
     description:
-      "The official token of Hyperscape. 1 $GOLD = 1 gold in-game. Be the richest player at launch and get exclusive items.",
+      "The official token of Hyperia. 1 $GOLD = 1 gold in-game. Be the richest player at launch and get exclusive items.",
   },
   alternates: {
-    canonical: "https://hyperscape.club/gold/",
+    canonical: "https://hyperia.club/gold/",
   },
 };
 

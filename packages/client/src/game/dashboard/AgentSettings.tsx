@@ -60,7 +60,7 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
   const notificationIdRef = React.useRef(0);
   const [streamingDuelEnabled, setStreamingDuelEnabled] = useState(true);
   const [streamingDuelPrefLoaded, setStreamingDuelPrefLoaded] = useState(false);
-  const [hasHyperscapeMapping, setHasHyperscapeMapping] = useState(false);
+  const [hasHyperiaMapping, setHasHyperiaMapping] = useState(false);
   const [savingStreamingDuel, setSavingStreamingDuel] = useState(false);
 
   // Show a status notification
@@ -164,13 +164,13 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
         });
         if (cancelled) return;
         if (result.ok && result.data?.success) {
-          setHasHyperscapeMapping(true);
+          setHasHyperiaMapping(true);
           setStreamingDuelEnabled(result.data.streamingDuelEnabled !== false);
         } else {
-          setHasHyperscapeMapping(false);
+          setHasHyperiaMapping(false);
         }
       } catch {
-        if (!cancelled) setHasHyperscapeMapping(false);
+        if (!cancelled) setHasHyperiaMapping(false);
       } finally {
         if (!cancelled) setStreamingDuelPrefLoaded(true);
       }
@@ -483,7 +483,7 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
                       <p className="text-xs text-[#f2d08a]/45 mt-1 max-w-xl">
                         When off, this agent is not matched or summoned into the
                         streaming duel arena so you can debug normal world
-                        gameplay. Requires a Hyperscape agent mapping for this
+                        gameplay. Requires a Hyperia agent mapping for this
                         account.
                       </p>
                     </div>
@@ -493,7 +493,7 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
                       aria-checked={streamingDuelEnabled}
                       disabled={
                         !streamingDuelPrefLoaded ||
-                        !hasHyperscapeMapping ||
+                        !hasHyperiaMapping ||
                         savingStreamingDuel
                       }
                       onClick={() =>
@@ -505,7 +505,7 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
                           : "bg-[#2a2015] border-[#8b4513]/40"
                       } ${
                         !streamingDuelPrefLoaded ||
-                        !hasHyperscapeMapping ||
+                        !hasHyperiaMapping ||
                         savingStreamingDuel
                           ? "opacity-40 cursor-not-allowed"
                           : ""
@@ -520,9 +520,9 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
                       />
                     </button>
                   </div>
-                  {streamingDuelPrefLoaded && !hasHyperscapeMapping && (
+                  {streamingDuelPrefLoaded && !hasHyperiaMapping && (
                     <p className="text-xs text-amber-400/90">
-                      No Hyperscape mapping found for this agent. Link the agent
+                      No Hyperia mapping found for this agent. Link the agent
                       from the dashboard (or create credentials) to enable this
                       toggle.
                     </p>

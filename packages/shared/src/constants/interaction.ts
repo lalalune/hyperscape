@@ -2,7 +2,7 @@
  * Interaction System Constants
  *
  * SINGLE SOURCE OF TRUTH for all interaction-related configuration.
- * Import from @hyperscape/shared in both client and server.
+ * Import from @hyperforge/shared in both client and server.
  */
 
 import { BANKING_CONSTANTS } from "./BankingConstants";

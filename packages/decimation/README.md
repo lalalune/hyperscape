@@ -1,4 +1,4 @@
-# @hyperscape/decimation
+# @hyperforge/decimation
 
 A TypeScript implementation of seam-aware mesh decimation based on the SIGGRAPH Asia 2017 paper [Seamless: Seam erasure and seam-aware decoupling of shape from mesh resolution](https://cragl.cs.gmu.edu/seamless/).
 
@@ -15,15 +15,15 @@ This library simplifies 3D meshes while preserving UV seam boundaries, allowing 
 ## Installation
 
 ```bash
-bun add @hyperscape/decimation
+bun add @hyperforge/decimation
 # or
-npm install @hyperscape/decimation
+npm install @hyperforge/decimation
 ```
 
 ## Usage
 
 ```typescript
-import { decimate, MeshData } from '@hyperscape/decimation';
+import { decimate, MeshData } from '@hyperforge/decimation';
 
 // Create mesh data
 const mesh = new MeshData(

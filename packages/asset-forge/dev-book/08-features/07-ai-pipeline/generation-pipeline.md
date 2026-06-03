@@ -1093,7 +1093,7 @@ app.get('/api/generation/pipeline/:id', async (req, res) => {
 
 ### Pipeline Configuration
 
-**Location**: `/Users/home/hyperscape-1/packages/asset-forge/config/pipeline.json`
+**Location**: `/Users/home/hyperia-1/packages/asset-forge/config/pipeline.json`
 
 ```json
 {

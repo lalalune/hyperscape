@@ -9,8 +9,8 @@
  */
 
 import { useEffect, useRef, useMemo } from "react";
-import { uuid } from "@hyperscape/shared";
-import type { ChatMessage, ClientAudio, Chat } from "@hyperscape/shared";
+import { uuid } from "@hyperforge/shared";
+import type { ChatMessage, ClientAudio, Chat } from "@hyperforge/shared";
 import type { ClientWorld } from "../../../types";
 import { useLevelUpState } from "./useLevelUpState";
 import { LevelUpPopup } from "./LevelUpPopup";

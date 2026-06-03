@@ -150,7 +150,7 @@ const FALLBACK_PLAYER_PALETTE = [
 
 const fallbackHeadGeometry = new THREE.SphereGeometry(0.28, 16, 16);
 const fallbackBeaconGeometry = new THREE.CylinderGeometry(0.05, 0.05, 1.1, 8);
-const OWNED_FALLBACK_GEOMETRY_KEY = "__hyperscapeOwnedFallbackGeometry";
+const OWNED_FALLBACK_GEOMETRY_KEY = "__hyperiaOwnedFallbackGeometry";
 
 function cloneFallbackGeometry<T extends THREE.BufferGeometry>(geometry: T): T {
   const clone = geometry.clone();
@@ -503,7 +503,7 @@ export class PlayerRemote extends Entity implements HotReloadable {
       nodeObj.hooks = vrmHooks;
 
       // Set the parent so the node knows where it belongs in the hierarchy
-      // Note: PlayerRemote uses Hyperscape Group node (not raw THREE.Group like PlayerLocal)
+      // Note: PlayerRemote uses Hyperia Group node (not raw THREE.Group like PlayerLocal)
       // The node system handles matrix updates automatically
       interface NodeWithParent {
         parent?: { matrixWorld: THREE.Matrix4 };

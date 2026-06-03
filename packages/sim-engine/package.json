@@ -1,5 +1,5 @@
 {
-    "name": "@hyperscape/sim-engine",
+    "name": "@hyperforge/sim-engine",
     "version": "0.1.0",
     "type": "module",
     "scripts": {

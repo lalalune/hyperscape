@@ -1,11 +1,11 @@
 {
-  "name": "@hyperscapeai/duel-oracle-solana",
+  "name": "@playhyperia/duel-oracle-solana",
   "version": "0.1.0",
   "type": "module",
-  "description": "Canonical Hyperscape Solana duel oracle program, IDL, and PDA helpers",
+  "description": "Canonical Hyperia Solana duel oracle program, IDL, and PDA helpers",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/hyperscapeai/hyperscape.git",
+    "url": "git+https://github.com/playhyperia/hyperia.git",
     "directory": "packages/duel-oracle-solana"
   },
   "files": [

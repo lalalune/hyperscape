@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { EventType } from "@hyperscape/shared";
+import { EventType } from "@hyperforge/shared";
 import { StreamingMode } from "../../../src/screens/StreamingMode";
 
 type Listener = (payload?: unknown) => void;
@@ -202,15 +202,15 @@ describe("StreamingMode component", () => {
     );
     (
       window as Window & {
-        __HYPERSCAPE_STREAM_READY__?: boolean;
-        __HYPERSCAPE_STREAM_RENDERER_HEALTH__?: unknown;
+        __HYPERIA_STREAM_READY__?: boolean;
+        __HYPERIA_STREAM_RENDERER_HEALTH__?: unknown;
       }
-    ).__HYPERSCAPE_STREAM_READY__ = false;
+    ).__HYPERIA_STREAM_READY__ = false;
     (
       window as Window & {
-        __HYPERSCAPE_STREAM_RENDERER_HEALTH__?: unknown;
+        __HYPERIA_STREAM_RENDERER_HEALTH__?: unknown;
       }
-    ).__HYPERSCAPE_STREAM_RENDERER_HEALTH__ = null;
+    ).__HYPERIA_STREAM_RENDERER_HEALTH__ = null;
   });
 
   afterEach(() => {
@@ -234,8 +234,8 @@ describe("StreamingMode component", () => {
     await waitFor(() => {
       expect(queryByTestId("loading-screen")).toBeNull();
       expect(
-        (window as Window & { __HYPERSCAPE_STREAM_READY__?: boolean })
-          .__HYPERSCAPE_STREAM_READY__,
+        (window as Window & { __HYPERIA_STREAM_READY__?: boolean })
+          .__HYPERIA_STREAM_READY__,
       ).toBe(true);
       expect(getByTestId("streaming-overlay").textContent).toBe("FIGHTING");
     });
@@ -250,21 +250,21 @@ describe("StreamingMode component", () => {
       expect(
         (
           window as Window & {
-            __HYPERSCAPE_STREAM_READY__?: boolean;
-            __HYPERSCAPE_STREAM_RENDERER_HEALTH__?: {
+            __HYPERIA_STREAM_READY__?: boolean;
+            __HYPERIA_STREAM_RENDERER_HEALTH__?: {
               degradedReason?: string | null;
             } | null;
           }
-        ).__HYPERSCAPE_STREAM_READY__,
+        ).__HYPERIA_STREAM_READY__,
       ).toBe(false);
       expect(
         (
           window as Window & {
-            __HYPERSCAPE_STREAM_RENDERER_HEALTH__?: {
+            __HYPERIA_STREAM_RENDERER_HEALTH__?: {
               degradedReason?: string | null;
             } | null;
           }
-        ).__HYPERSCAPE_STREAM_RENDERER_HEALTH__?.degradedReason,
+        ).__HYPERIA_STREAM_RENDERER_HEALTH__?.degradedReason,
       ).toBe("initialization_failed");
     });
   });

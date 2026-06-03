@@ -11,7 +11,7 @@ YELLOW='\033[0;33m'
 NC='\033[0m'
 
 echo "════════════════════════════════════════════════════════════"
-echo "  Hyperscape Streaming Status Check"
+echo "  Hyperia Streaming Status Check"
 echo "════════════════════════════════════════════════════════════"
 echo ""
 
@@ -85,7 +85,7 @@ bunx pm2 list 2>/dev/null || echo "   PM2 not available"
 echo ""
 echo "7. Recent Logs (last 20 lines):"
 echo "────────────────────────────────────────────────────────────"
-bunx pm2 logs --lines 20 --nostream 2>/dev/null | tail -40 || tail -20 /root/hyperscape/logs/duel-out.log 2>/dev/null || echo "   No logs available"
+bunx pm2 logs --lines 20 --nostream 2>/dev/null | tail -40 || tail -20 /root/hyperia/logs/duel-out.log 2>/dev/null || echo "   No logs available"
 
 echo ""
 echo "════════════════════════════════════════════════════════════"

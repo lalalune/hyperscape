@@ -3,7 +3,7 @@ src-tauri/target/
 
 # Tauri generated files (regenerated on build)
 src-tauri/gen/android/
-src-tauri/gen/apple/hyperscape.xcodeproj/xcuserdata/
+src-tauri/gen/apple/hyperia.xcodeproj/xcuserdata/
 src-tauri/gen/apple/Pods/
 
 # Node.js

@@ -20,7 +20,7 @@ import {
   type StakedItem,
   DUEL_RULE_LABELS,
   EQUIPMENT_SLOT_LABELS,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import { formatQuantity, formatGoldValue, calculateTotalValue } from "./utils";
 
 // ============================================================================
@@ -95,7 +95,7 @@ function useConfirmScreenStyles(theme: Theme, myAccepted: boolean) {
       alignItems: "center",
       padding: theme.spacing.sm,
       background:
-        theme.name === "hyperscape"
+        theme.name === "hyperia"
           ? "linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(0, 0, 0, 0.14) 100%)"
           : theme.colors.background.secondary,
       borderRadius: theme.borderRadius.sm,

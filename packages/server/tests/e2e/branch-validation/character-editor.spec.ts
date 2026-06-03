@@ -173,20 +173,20 @@ test.describe("Character Editor Screen (plugin-work branch)", () => {
         id: charData.character.id,
         name: charData.character.name,
         username: charData.character.name.toLowerCase().replace(/\s+/g, "_"),
-        system: `You are ${charData.character.name}, an AI agent in Hyperscape.`,
+        system: `You are ${charData.character.name}, an AI agent in Hyperia.`,
         bio: [
-          `I am ${charData.character.name}, an AI agent in Hyperscape.`,
+          `I am ${charData.character.name}, an AI agent in Hyperia.`,
           "I autonomously navigate 3D environments.",
         ],
-        topics: ["hyperscape", "gaming", "rpg"],
+        topics: ["hyperia", "gaming", "rpg"],
         adjectives: ["adventurous", "strategic"],
-        plugins: ["@hyperscape/plugin-hyperscape"],
+        plugins: ["@hyperforge/plugin-hyperia"],
         settings: {
           secrets: {
-            HYPERSCAPE_CHARACTER_ID: charData.character.id,
-            HYPERSCAPE_AUTH_TOKEN: credentials.authToken,
-            HYPERSCAPE_ACCOUNT_ID: testUser.userId,
-            HYPERSCAPE_SERVER_URL: WS_URL,
+            HYPERIA_CHARACTER_ID: charData.character.id,
+            HYPERIA_AUTH_TOKEN: credentials.authToken,
+            HYPERIA_ACCOUNT_ID: testUser.userId,
+            HYPERIA_SERVER_URL: WS_URL,
             wallet: "0x1234567890",
           },
           avatar: "test-avatar.vrm",
@@ -324,12 +324,12 @@ test.describe("Character Editor Screen (plugin-work branch)", () => {
         bio: ["Test bio"],
         topics: ["test"],
         adjectives: ["test"],
-        plugins: ["@hyperscape/plugin-hyperscape"],
+        plugins: ["@hyperforge/plugin-hyperia"],
         settings: {
           secrets: {
-            HYPERSCAPE_CHARACTER_ID: charData.character.id,
-            HYPERSCAPE_AUTH_TOKEN: credentials.authToken,
-            HYPERSCAPE_ACCOUNT_ID: testUser.userId,
+            HYPERIA_CHARACTER_ID: charData.character.id,
+            HYPERIA_AUTH_TOKEN: credentials.authToken,
+            HYPERIA_ACCOUNT_ID: testUser.userId,
           },
           accountId: testUser.userId,
         },
@@ -563,23 +563,23 @@ test.describe("Character Editor Screen (plugin-work branch)", () => {
         id: charData.character.id,
         name: charData.character.name,
         username: charData.character.name.toLowerCase().replace(/\s+/g, "_"),
-        system: `You are ${charData.character.name}, an AI agent in Hyperscape.`,
+        system: `You are ${charData.character.name}, an AI agent in Hyperia.`,
         bio: [
-          `I am ${charData.character.name}, an AI agent in Hyperscape.`,
+          `I am ${charData.character.name}, an AI agent in Hyperia.`,
           "I autonomously navigate 3D environments.",
         ],
-        topics: ["hyperscape", "gaming", "rpg"],
+        topics: ["hyperia", "gaming", "rpg"],
         adjectives: ["adventurous", "strategic"],
-        plugins: ["@hyperscape/plugin-hyperscape"],
+        plugins: ["@hyperforge/plugin-hyperia"],
         knowledge: [],
         messageExamples: [],
         postExamples: [],
         settings: {
           secrets: {
-            HYPERSCAPE_CHARACTER_ID: charData.character.id,
-            HYPERSCAPE_AUTH_TOKEN: credentials.authToken,
-            HYPERSCAPE_ACCOUNT_ID: testUser.userId,
-            HYPERSCAPE_SERVER_URL: WS_URL,
+            HYPERIA_CHARACTER_ID: charData.character.id,
+            HYPERIA_AUTH_TOKEN: credentials.authToken,
+            HYPERIA_ACCOUNT_ID: testUser.userId,
+            HYPERIA_SERVER_URL: WS_URL,
             wallet: "0xABCDEF",
           },
           avatar: "template-avatar.vrm",
@@ -602,8 +602,8 @@ test.describe("Character Editor Screen (plugin-work branch)", () => {
       expect(template.topics).toBeInstanceOf(Array);
       expect(template.adjectives).toBeInstanceOf(Array);
       expect(template.plugins).toBeInstanceOf(Array);
-      expect(template.settings.secrets.HYPERSCAPE_AUTH_TOKEN).toBeDefined();
-      expect(template.settings.secrets.HYPERSCAPE_CHARACTER_ID).toBeDefined();
+      expect(template.settings.secrets.HYPERIA_AUTH_TOKEN).toBeDefined();
+      expect(template.settings.secrets.HYPERIA_CHARACTER_ID).toBeDefined();
       expect(template.settings.accountId).toBeDefined();
 
       logs.push(`[${testName}] ✅ All required template fields present`);
@@ -613,7 +613,7 @@ test.describe("Character Editor Screen (plugin-work branch)", () => {
         `[${testName}] ✅ Settings.accountId: ${template.settings.accountId}`,
       );
       logs.push(
-        `[${testName}] ✅ Settings.secrets.HYPERSCAPE_AUTH_TOKEN: ${template.settings.secrets.HYPERSCAPE_AUTH_TOKEN.substring(0, 20)}...`,
+        `[${testName}] ✅ Settings.secrets.HYPERIA_AUTH_TOKEN: ${template.settings.secrets.HYPERIA_AUTH_TOKEN.substring(0, 20)}...`,
       );
 
       console.log(`[${testName}] ✅ Test PASSED`);
@@ -695,12 +695,12 @@ test.describe("Character Editor Screen (plugin-work branch)", () => {
         bio: ["Original bio"],
         topics: ["original"],
         adjectives: ["original"],
-        plugins: ["@hyperscape/plugin-hyperscape"],
+        plugins: ["@hyperforge/plugin-hyperia"],
         settings: {
           secrets: {
-            HYPERSCAPE_CHARACTER_ID: charData.character.id,
-            HYPERSCAPE_AUTH_TOKEN: credentials.authToken,
-            HYPERSCAPE_ACCOUNT_ID: testUser.userId,
+            HYPERIA_CHARACTER_ID: charData.character.id,
+            HYPERIA_AUTH_TOKEN: credentials.authToken,
+            HYPERIA_ACCOUNT_ID: testUser.userId,
           },
           accountId: testUser.userId,
         },

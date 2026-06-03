@@ -11,7 +11,7 @@
  */
 
 import React, { useState, useCallback, useMemo, useEffect } from "react";
-import { EventType } from "@hyperscape/shared";
+import { EventType } from "@hyperforge/shared";
 import {
   useWindowStore,
   useQuestSelectionStore,
@@ -68,10 +68,10 @@ interface QuestsPanelProps {
 }
 
 /** LocalStorage key for pinned quests */
-const PINNED_QUESTS_KEY = "hyperscape_pinned_quests";
+const PINNED_QUESTS_KEY = "hyperia_pinned_quests";
 
 /** LocalStorage key for last viewed quest (mobile state persistence) */
-const LAST_VIEWED_QUEST_KEY = "hyperscape_last_viewed_quest";
+const LAST_VIEWED_QUEST_KEY = "hyperia_last_viewed_quest";
 
 /** Load pinned quest IDs from localStorage with type validation */
 function loadPinnedQuests(): Set<string> {

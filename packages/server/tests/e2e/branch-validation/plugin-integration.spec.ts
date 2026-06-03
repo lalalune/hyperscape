@@ -1,9 +1,9 @@
 /**
  * Plugin Integration Tests - plugin-work Branch
  *
- * Tests for HyperscapeService.ts and plugin integration including:
+ * Tests for HyperiaService.ts and plugin integration including:
  * - Service initialization with auth tokens
- * - Connection to Hyperscape server with retry logic
+ * - Connection to Hyperia server with retry logic
  * - Character spawning via plugin
  * - Message handling and packet decoding
  * - Auto-reconnection on disconnect
@@ -139,7 +139,7 @@ test.describe("Plugin Integration (plugin-work branch)", () => {
 
   /**
    * TEST 1: Service Initialization with Auth Tokens
-   * Verifies: HyperscapeService properly handles auth tokens from settings
+   * Verifies: HyperiaService properly handles auth tokens from settings
    */
   test("Service initialization with auth tokens", async () => {
     const testName = "service-initialization";
@@ -150,38 +150,38 @@ test.describe("Plugin Integration (plugin-work branch)", () => {
       const testAgent = createTestAgent();
       await createUserInDatabase(testAgent.userId);
 
-      // Simulate service initialization (matching HyperscapeService.ts:80-110)
-      logs.push(`[${testName}] Simulating HyperscapeService.start()...`);
+      // Simulate service initialization (matching HyperiaService.ts:80-110)
+      logs.push(`[${testName}] Simulating HyperiaService.start()...`);
 
       // Service would read from environment or settings
       const mockSettings = {
-        HYPERSCAPE_AUTH_TOKEN: testAgent.token,
-        HYPERSCAPE_CHARACTER_ID: testAgent.characterId,
-        HYPERSCAPE_PRIVY_USER_ID: testAgent.userId,
-        HYPERSCAPE_SERVER_URL: WS_URL,
-        HYPERSCAPE_AUTO_RECONNECT: "true",
+        HYPERIA_AUTH_TOKEN: testAgent.token,
+        HYPERIA_CHARACTER_ID: testAgent.characterId,
+        HYPERIA_PRIVY_USER_ID: testAgent.userId,
+        HYPERIA_SERVER_URL: WS_URL,
+        HYPERIA_AUTO_RECONNECT: "true",
       };
 
       logs.push(`[${testName}] ✅ Mock settings configured`);
       logs.push(
-        `[${testName}]   - AUTH_TOKEN: ${mockSettings.HYPERSCAPE_AUTH_TOKEN.substring(0, 20)}...`,
+        `[${testName}]   - AUTH_TOKEN: ${mockSettings.HYPERIA_AUTH_TOKEN.substring(0, 20)}...`,
       );
       logs.push(
-        `[${testName}]   - CHARACTER_ID: ${mockSettings.HYPERSCAPE_CHARACTER_ID}`,
+        `[${testName}]   - CHARACTER_ID: ${mockSettings.HYPERIA_CHARACTER_ID}`,
       );
       logs.push(
-        `[${testName}]   - PRIVY_USER_ID: ${mockSettings.HYPERSCAPE_PRIVY_USER_ID}`,
+        `[${testName}]   - PRIVY_USER_ID: ${mockSettings.HYPERIA_PRIVY_USER_ID}`,
       );
       logs.push(
-        `[${testName}]   - SERVER_URL: ${mockSettings.HYPERSCAPE_SERVER_URL}`,
+        `[${testName}]   - SERVER_URL: ${mockSettings.HYPERIA_SERVER_URL}`,
       );
 
       // Verify we can build WebSocket URL with auth params
-      const wsUrl = `${mockSettings.HYPERSCAPE_SERVER_URL}?authToken=${encodeURIComponent(mockSettings.HYPERSCAPE_AUTH_TOKEN)}&privyUserId=${encodeURIComponent(mockSettings.HYPERSCAPE_PRIVY_USER_ID)}`;
+      const wsUrl = `${mockSettings.HYPERIA_SERVER_URL}?authToken=${encodeURIComponent(mockSettings.HYPERIA_AUTH_TOKEN)}&privyUserId=${encodeURIComponent(mockSettings.HYPERIA_PRIVY_USER_ID)}`;
 
       logs.push(`[${testName}] ✅ WebSocket URL built successfully`);
       logs.push(
-        `[${testName}] ✅ HyperscapeService.ts:80-110 initialization pattern verified`,
+        `[${testName}] ✅ HyperiaService.ts:80-110 initialization pattern verified`,
       );
 
       console.log(`[${testName}] ✅ Test PASSED`);
@@ -209,7 +209,7 @@ test.describe("Plugin Integration (plugin-work branch)", () => {
       const testAgent = createTestAgent();
       await createUserInDatabase(testAgent.userId);
 
-      // Test retry pattern (HyperscapeService.ts:115-145)
+      // Test retry pattern (HyperiaService.ts:115-145)
       const maxRetries = 5;
       const retryDelay = 5000;
       const attemptTimestamps: number[] = [];
@@ -268,7 +268,7 @@ test.describe("Plugin Integration (plugin-work branch)", () => {
       }
 
       logs.push(
-        `[${testName}] ✅ Retry pattern verified (HyperscapeService.ts:115-145)`,
+        `[${testName}] ✅ Retry pattern verified (HyperiaService.ts:115-145)`,
       );
       logs.push(`[${testName}] ✅ Max retries: ${maxRetries}`);
       logs.push(`[${testName}] ✅ Retry delay: ${retryDelay}ms`);
@@ -317,7 +317,7 @@ test.describe("Plugin Integration (plugin-work branch)", () => {
       logs.push(`[${testName}] ✅ Character created: ${charData.character.id}`);
 
       // Connect via WebSocket with auth token (like plugin does)
-      logs.push(`[${testName}] Connecting to Hyperscape server...`);
+      logs.push(`[${testName}] Connecting to Hyperia server...`);
       const ws = new WebSocket(
         `${WS_URL}?authToken=${testAgent.token}&privyUserId=${testAgent.userId}`,
       );
@@ -333,7 +333,7 @@ test.describe("Plugin Integration (plugin-work branch)", () => {
       const snapshot = await waitForPacket(ws, "snapshot", 10000);
       logs.push(`[${testName}] ✅ Received initial snapshot`);
 
-      // Send enterWorld packet (plugin does this in HyperscapeService.ts:340-380)
+      // Send enterWorld packet (plugin does this in HyperiaService.ts:340-380)
       ws.send(
         encodePacket("enterWorld", {
           characterId: charData.character.id,
@@ -351,7 +351,7 @@ test.describe("Plugin Integration (plugin-work branch)", () => {
       ws.close();
 
       logs.push(
-        `[${testName}] ✅ Character spawning verified (HyperscapeService.ts:340-380)`,
+        `[${testName}] ✅ Character spawning verified (HyperiaService.ts:340-380)`,
       );
       console.log(`[${testName}] ✅ Test PASSED`);
     } catch (error) {
@@ -408,7 +408,7 @@ test.describe("Plugin Integration (plugin-work branch)", () => {
 
       const receivedPackets: Array<{ name: string; data: unknown }> = [];
 
-      // Listen for messages (matching HyperscapeService.ts:270-320)
+      // Listen for messages (matching HyperiaService.ts:270-320)
       ws.on("message", (data: Buffer) => {
         try {
           const [packetName, packetData] = decodePacket(data);
@@ -438,7 +438,7 @@ test.describe("Plugin Integration (plugin-work branch)", () => {
       ws.close();
 
       logs.push(
-        `[${testName}] ✅ Packet decoding verified (HyperscapeService.ts:270-320)`,
+        `[${testName}] ✅ Packet decoding verified (HyperiaService.ts:270-320)`,
       );
       console.log(`[${testName}] ✅ Test PASSED`);
     } catch (error) {
@@ -500,7 +500,7 @@ test.describe("Plugin Integration (plugin-work branch)", () => {
       ws.close();
 
       logs.push(
-        `[${testName}] ✅ Auto-reconnection pattern verified (HyperscapeService.ts:295-310)`,
+        `[${testName}] ✅ Auto-reconnection pattern verified (HyperiaService.ts:295-310)`,
       );
       logs.push(`[${testName}] ✅ Exponential backoff implemented`);
       logs.push(`[${testName}] ✅ Max backoff: 30 seconds`);
@@ -569,7 +569,7 @@ test.describe("Plugin Integration (plugin-work branch)", () => {
             snapshotReceived = true;
             logs.push(`[${testName}] ✅ Snapshot received`);
 
-            // Plugin would auto-select character here (HyperscapeService.ts:340-380)
+            // Plugin would auto-select character here (HyperiaService.ts:340-380)
             logs.push(
               `[${testName}] Plugin would auto-select character: ${charData.character.id}`,
             );
@@ -595,7 +595,7 @@ test.describe("Plugin Integration (plugin-work branch)", () => {
       ws.close();
 
       logs.push(
-        `[${testName}] ✅ Auto-join pattern verified (HyperscapeService.ts:340-380)`,
+        `[${testName}] ✅ Auto-join pattern verified (HyperiaService.ts:340-380)`,
       );
       console.log(`[${testName}] ✅ Test PASSED`);
     } catch (error) {

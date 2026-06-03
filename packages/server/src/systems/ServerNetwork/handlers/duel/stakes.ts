@@ -19,7 +19,7 @@ import {
   type ItemID,
   getItem,
   isValidSlotNumber,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import type { ServerSocket } from "../../../../shared/types";
 import type { DatabaseConnection } from "../trade/types";
 import { AuditLogger, Logger } from "../../services";

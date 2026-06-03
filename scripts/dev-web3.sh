@@ -7,7 +7,7 @@
 # - Deploys contracts only when world is missing/not present on-chain (or FORCE_REDEPLOY=true)
 # - Seeds items/shops on fresh deploy (or when SKIP_SEED!=true)
 # - Runs on-chain smoke tests (unless SKIP_ONCHAIN_TESTS=true)
-# - Starts Hyperscape server/client in Web3 mode
+# - Starts Hyperia server/client in Web3 mode
 
 set -euo pipefail
 

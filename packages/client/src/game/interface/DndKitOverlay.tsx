@@ -9,7 +9,7 @@
 
 import React from "react";
 import { DragOverlay as DndKitDragOverlay } from "@dnd-kit/core";
-import { getItem } from "@hyperscape/shared";
+import { getItem } from "@hyperforge/shared";
 import { ItemIcon } from "@/ui/components/ItemIcon";
 import type { DndKitActiveItem } from "./DragDropCoordinator";
 import type { InventorySlotViewItem } from "../../types";

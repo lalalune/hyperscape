@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Model Optimization Script for Hyperscape
+ * Model Optimization Script for Hyperia
  * 
  * Optimizes all GLB models using individual gltf-transform commands:
  * - weld → simplify → meshopt (preserves embedded textures)
@@ -258,7 +258,7 @@ async function optimizeModel(filepath) {
 
 async function main() {
   console.log('\n╔═══════════════════════════════════════════════════════════════════╗');
-  console.log('║           🚀 HYPERSCAPE MODEL OPTIMIZATION                        ║');
+  console.log('║           🚀 HYPERIA MODEL OPTIMIZATION                        ║');
   console.log('╚═══════════════════════════════════════════════════════════════════╝\n');
   
   log(`Triangle Limits:`);

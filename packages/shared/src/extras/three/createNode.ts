@@ -2,7 +2,7 @@
  * createNode.ts - Node Factory Function
  *
  * Factory function for dynamically creating Node instances by name.
- * Nodes are Hyperscape's custom scene graph objects (not to be confused with DOM nodes).
+ * Nodes are Hyperia's custom scene graph objects (not to be confused with DOM nodes).
  *
  * Node Types Available:
  * - 'group': Container node (like THREE.Group)

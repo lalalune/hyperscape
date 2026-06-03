@@ -16,7 +16,7 @@
  */
 
 import type { ServerSocket } from "../../shared/types";
-import { writePacket } from "@hyperscape/shared";
+import { writePacket } from "@hyperforge/shared";
 import type { SpatialIndex } from "./SpatialIndex";
 import { BandwidthBudget, PacketPriority } from "./BandwidthBudget";
 import type { UwsWebSocketAdapter } from "../../startup/UwsWebSocketAdapter";

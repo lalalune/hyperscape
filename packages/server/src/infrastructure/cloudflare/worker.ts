@@ -153,7 +153,7 @@ interface Env {
 /**
  * GameServer container class
  *
- * Defines how Cloudflare should run the Hyperscape server Docker container.
+ * Defines how Cloudflare should run the Hyperia server Docker container.
  * Containers are auto-scaled based on load (1-5 instances).
  *
  * @public

@@ -13,7 +13,7 @@ import {
   Cpu,
   type LucideIcon,
 } from "lucide-react";
-import { isTouch } from "@hyperscape/shared";
+import { isTouch } from "@hyperforge/shared";
 import type { ClientWorld } from "../../types";
 import { useFullscreen } from "../../hooks/useFullscreen";
 import { ToggleSwitch, Slider } from "@/ui";

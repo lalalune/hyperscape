@@ -1,7 +1,7 @@
 /**
  * Streaming Module
  *
- * Multi-platform RTMP streaming from Hyperscape.
+ * Multi-platform RTMP streaming from Hyperia.
  *
  * This module provides:
  * - RTMPBridge: WebSocket server that receives video chunks and pipes to FFmpeg

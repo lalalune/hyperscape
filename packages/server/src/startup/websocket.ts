@@ -17,7 +17,7 @@
  */
 
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 import type { NodeWebSocket } from "../types.js";
 
 // JSON value type for proper typing

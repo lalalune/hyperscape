@@ -1,5 +1,5 @@
 import { useEffect, type MutableRefObject } from "react";
-import { Entity, THREE } from "@hyperscape/shared";
+import { Entity, THREE } from "@hyperforge/shared";
 import type { ClientWorld } from "../../types";
 
 export interface EntityPip {
@@ -22,9 +22,9 @@ interface MinimapEntityConfig {
   harvestSkill?: string;
 }
 
-type HyperscapeWindow = Window &
+type HyperiaWindow = Window &
   typeof globalThis & {
-    __HYPERSCAPE_CONFIG__?: { mode?: string; followEntity?: string };
+    __HYPERIA_CONFIG__?: { mode?: string; followEntity?: string };
   };
 
 interface SpectatorTarget {
@@ -33,9 +33,7 @@ interface SpectatorTarget {
 }
 
 function getSpectatorTarget(world: ClientWorld): SpectatorTarget | null {
-  if (
-    (window as HyperscapeWindow).__HYPERSCAPE_CONFIG__?.mode !== "spectator"
-  ) {
+  if ((window as HyperiaWindow).__HYPERIA_CONFIG__?.mode !== "spectator") {
     return null;
   }
 

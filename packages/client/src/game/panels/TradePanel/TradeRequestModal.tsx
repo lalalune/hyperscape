@@ -11,7 +11,7 @@
 import { useCallback, useState, type CSSProperties } from "react";
 import { ModalWindow, useThemeStore } from "@/ui";
 import { getInteractiveTileStyle, getPanelInsetStyle } from "@/ui/theme/themes";
-import type { TradeRequestModalState } from "@hyperscape/shared";
+import type { TradeRequestModalState } from "@hyperforge/shared";
 
 interface TradeRequestModalProps {
   state: TradeRequestModalState;

@@ -15,7 +15,7 @@ export type {
   PlayerStats,
   InventorySlotItem,
   InventoryItem,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 
 // Entity types
 export type {

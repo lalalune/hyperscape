@@ -136,9 +136,9 @@ export {
 } from "./panelLayout";
 
 // ===========================================
-// GAME CONSTANTS (Re-exports from @hyperscape/shared)
+// GAME CONSTANTS (Re-exports from @hyperforge/shared)
 // ===========================================
 // Use constants from the shared package instead of duplicating here:
-// - SKILL_DEFINITIONS from @hyperscape/shared/data/skill-icons
-// - INVENTORY_CONSTANTS, EQUIPMENT_SLOTS from @hyperscape/shared/constants/GameConstants
-// - calculateCombatLevel from @hyperscape/shared/utils/game/CombatLevelCalculator
+// - SKILL_DEFINITIONS from @hyperforge/shared/data/skill-icons
+// - INVENTORY_CONSTANTS, EQUIPMENT_SLOTS from @hyperforge/shared/constants/GameConstants
+// - calculateCombatLevel from @hyperforge/shared/utils/game/CombatLevelCalculator

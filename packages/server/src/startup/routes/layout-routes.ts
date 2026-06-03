@@ -6,7 +6,7 @@
  */
 
 import type { FastifyInstance } from "fastify";
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 import type { DatabaseSystem } from "../../systems/DatabaseSystem/index.js";
 import * as schema from "../../database/schema.js";
 import { eq, and, desc, isNotNull } from "drizzle-orm";

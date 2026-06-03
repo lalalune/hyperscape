@@ -1,6 +1,6 @@
-# Hyperscape Native App
+# Hyperia Native App
 
-Cross-platform native application for Hyperscape built with Tauri v2.
+Cross-platform native application for Hyperia built with Tauri v2.
 
 ## Supported Platforms
 
@@ -138,8 +138,8 @@ The app uses the same environment variables as the client:
 
 The app handles OAuth callbacks via deep links:
 
-- **Desktop:** `hyperscape://` URL scheme
-- **Mobile:** Universal links to `hyperscape.club/auth/*`
+- **Desktop:** `hyperia://` URL scheme
+- **Mobile:** Universal links to `hyperia.club/auth/*`
 
 Configure redirect URLs in your Privy dashboard.
 
@@ -153,7 +153,7 @@ Desktop builds include auto-update functionality. Configure in `tauri.conf.json`
     "updater": {
       "active": true,
       "pubkey": "YOUR_PUBLIC_KEY",
-      "endpoints": ["https://releases.hyperscape.club/..."]
+      "endpoints": ["https://releases.hyperia.club/..."]
     }
   }
 }
@@ -161,7 +161,7 @@ Desktop builds include auto-update functionality. Configure in `tauri.conf.json`
 
 Generate signing keys:
 ```bash
-bun tauri signer generate -w ~/.tauri/hyperscape.key
+bun tauri signer generate -w ~/.tauri/hyperia.key
 ```
 
 ## Troubleshooting

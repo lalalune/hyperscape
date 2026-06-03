@@ -86,7 +86,7 @@ Manages the entire AI asset generation workflow.
 
 ### File Location
 
-`/Users/home/hyperscape-1/packages/asset-forge/src/store/useGenerationStore.ts`
+`/Users/home/hyperia-1/packages/asset-forge/src/store/useGenerationStore.ts`
 
 ### State Shape (51 Properties)
 
@@ -408,7 +408,7 @@ Manages the asset browser UI state.
 
 ### File Location
 
-`/Users/home/hyperscape-1/packages/asset-forge/src/store/useAssetsStore.ts`
+`/Users/home/hyperia-1/packages/asset-forge/src/store/useAssetsStore.ts`
 
 ### State Shape (14 Properties)
 
@@ -565,7 +565,7 @@ Manages the hand rigging workflow state.
 
 ### File Location
 
-`/Users/home/hyperscape-1/packages/asset-forge/src/store/useHandRiggingStore.ts`
+`/Users/home/hyperia-1/packages/asset-forge/src/store/useHandRiggingStore.ts`
 
 ### State Shape (16 Properties)
 
@@ -744,7 +744,7 @@ Manages armor and helmet fitting state, the most complex store.
 
 ### File Location
 
-`/Users/home/hyperscape-1/packages/asset-forge/src/store/useArmorFittingStore.ts`
+`/Users/home/hyperia-1/packages/asset-forge/src/store/useArmorFittingStore.ts`
 
 ### State Shape (23 Properties)
 
@@ -1118,7 +1118,7 @@ Manages the mesh fitting debugger state.
 
 ### File Location
 
-`/Users/home/hyperscape-1/packages/asset-forge/src/store/useDebuggerStore.ts`
+`/Users/home/hyperia-1/packages/asset-forge/src/store/useDebuggerStore.ts`
 
 ### State Shape (27 Properties)
 

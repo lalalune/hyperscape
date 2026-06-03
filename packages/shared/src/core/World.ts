@@ -23,7 +23,7 @@
 import EventEmitter from "eventemitter3";
 import THREE from "../extras/three/three";
 import type { Position3D } from "../types/core/base-types";
-import type { HyperscapeObject3D } from "../types/rendering/three-extensions";
+import type { HyperiaObject3D } from "../types/rendering/three-extensions";
 import type { ClientLiveKit } from "../systems/client/ClientLiveKit";
 import type { ClientActions } from "../systems/client/ClientActions";
 import { EventType } from "../types/events";
@@ -286,7 +286,7 @@ export class World extends EventEmitter {
   // ============================================================================
 
   /** Root object for camera and rendering (parent of camera) */
-  rig: HyperscapeObject3D;
+  rig: HyperiaObject3D;
 
   /** Main perspective camera for rendering the 3D scene */
   camera: THREE.PerspectiveCamera;
@@ -986,7 +986,7 @@ export class World extends EventEmitter {
     this.id = `world_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     // Create Three.js rig (camera parent) for rendering
-    this.rig = new THREE.Object3D() as HyperscapeObject3D;
+    this.rig = new THREE.Object3D() as HyperiaObject3D;
 
     // Create perspective camera with carefully tuned near/far planes:
     // - near (0.2): Slightly smaller than spherecast to prevent clipping
@@ -2130,11 +2130,11 @@ export class World extends EventEmitter {
         // fallback to the local origin's /game-assets/ directory (which Vite proxies to Fastify).
         if (
           typeof window !== "undefined" &&
-          finalAssetsUrl.includes("assets.hyperscape.club") &&
+          finalAssetsUrl.includes("assets.hyperia.club") &&
           window.location &&
           window.location.origin &&
           // Don't override if we are actually ON the production domain
-          !window.location.hostname.includes("hyperscape.club")
+          !window.location.hostname.includes("hyperia.club")
         ) {
           if (this._resolvedCdnFallback === undefined) {
             this._resolvedCdnFallback =

@@ -1,7 +1,7 @@
 /**
  * BuildingRenderingSystem - Optimized 3D Building Rendering with LOD, Batching, and Impostors
  *
- * Renders 3D building meshes for towns using @hyperscape/procgen's BuildingGenerator.
+ * Renders 3D building meshes for towns using @hyperforge/procgen's BuildingGenerator.
  * Works in conjunction with TownSystem which provides building placement data.
  *
  * **Grid Alignment:**
@@ -41,7 +41,7 @@
  * **Integration:**
  * - Depends on TownSystem for building placement data
  * - Depends on TerrainSystem for height queries
- * - Uses BuildingGenerator from @hyperscape/procgen for mesh generation
+ * - Uses BuildingGenerator from @hyperforge/procgen for mesh generation
  * - Uses unified LOD configuration from LODConfig
  * - Uses ImpostorManager for octahedral impostor baking
  *
@@ -321,7 +321,7 @@ import {
   ENTRANCE_STEP_HEIGHT,
   snapToBuildingGrid,
   computeTangentsForNonIndexed,
-} from "@hyperscape/procgen/building";
+} from "@hyperforge/procgen/building";
 import { getLODDistances, type LODDistancesWithSq } from "./LODConfig";
 import {
   ImpostorManager,
@@ -335,7 +335,7 @@ import {
   isTSLImpostorMaterial,
   type ImpostorBakeResult,
   type TSLImpostorMaterial,
-} from "@hyperscape/impostor";
+} from "@hyperforge/impostor";
 import { getPhysX } from "../../../physics/PhysXManager";
 import { Layers } from "../../../physics/Layers";
 import type { PhysicsHandle } from "../../../types/systems/physics";
@@ -2803,7 +2803,7 @@ export class BuildingRenderingSystem extends SystemBase {
   private _localPlayerId: string | null = null;
 
   /** Storage key for roof auto-hide setting */
-  private static readonly ROOF_SETTING_KEY = "hyperscape:autoHideRoofs";
+  private static readonly ROOF_SETTING_KEY = "hyperia:autoHideRoofs";
 
   /** Dynamic impostor atlas (slot-based, max 16 buildings) */
   private dynamicAtlas: DynamicBuildingImpostorAtlas | null = null;
@@ -3468,7 +3468,7 @@ export class BuildingRenderingSystem extends SystemBase {
             getBuildingLayout?: (
               id: string,
             ) =>
-              | import("@hyperscape/procgen/building").BuildingLayout
+              | import("@hyperforge/procgen/building").BuildingLayout
               | undefined;
           } | null;
           const cachedLayout = townSystem?.getBuildingLayout?.(building.id);

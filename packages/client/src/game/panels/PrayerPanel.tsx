@@ -57,7 +57,7 @@ import {
   type PrayerToggledEvent,
   type PrayerDefinition,
   prayerDataProvider,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 
 // Type guards for prayer events
 function isPrayerStateSyncPayload(
@@ -1033,7 +1033,7 @@ export function PrayerPanel({ stats, world }: PrayerPanelProps) {
                 <div
                   style={{
                     background:
-                      theme.name === "hyperscape"
+                      theme.name === "hyperia"
                         ? "linear-gradient(180deg, rgba(44, 36, 24, 0.98) 0%, rgba(18, 15, 11, 0.98) 100%)"
                         : theme.colors.background.secondary,
                     border: `1px solid ${theme.colors.border.default}`,

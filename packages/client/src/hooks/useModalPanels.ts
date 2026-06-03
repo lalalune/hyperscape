@@ -8,9 +8,9 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { EventType } from "@hyperscape/shared";
+import { EventType } from "@hyperforge/shared";
 import { useNotificationStore } from "@/ui/stores/notificationStore";
-import type { InventoryItem, TradeOfferItem } from "@hyperscape/shared";
+import type { InventoryItem, TradeOfferItem } from "@hyperforge/shared";
 import type { ClientWorld } from "../types";
 
 /** Network event names for UI interactions */

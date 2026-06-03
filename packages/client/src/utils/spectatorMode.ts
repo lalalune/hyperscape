@@ -5,8 +5,8 @@
  * Handles camera locking, input disabling, and entity following.
  */
 
-import type { World } from "@hyperscape/shared";
-import { EventType } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
+import { EventType } from "@hyperforge/shared";
 
 /**
  * Options for spectator camera setup

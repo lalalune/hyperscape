@@ -87,7 +87,7 @@ export class PlayerEntity extends CombatantEntity {
   // Player-specific properties
   public readonly playerId: string;
   public readonly playerName: string;
-  public readonly hyperscapePlayerId: string;
+  public readonly hyperiaPlayerId: string;
 
   // Player-specific properties for internal use
   private combatStyle: string;
@@ -336,8 +336,8 @@ export class PlayerEntity extends CombatantEntity {
     // Initialize player-specific properties
     this.playerId = playerData.playerId || data.id;
     this.playerName = playerData.playerName || data.name || "Unknown";
-    this.hyperscapePlayerId = String(
-      playerData.hyperscapePlayerId || playerData.playerId || data.id || "",
+    this.hyperiaPlayerId = String(
+      playerData.hyperiaPlayerId || playerData.playerId || data.id || "",
     );
 
     // Initialize Player interface data
@@ -548,7 +548,7 @@ export class PlayerEntity extends CombatantEntity {
     return {
       // Core identity
       id: this.playerId,
-      hyperscapePlayerId: this.hyperscapePlayerId,
+      hyperiaPlayerId: this.hyperiaPlayerId,
       name: this.playerName,
 
       // Health and status (delegate to Entity properties)

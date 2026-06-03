@@ -7,7 +7,7 @@
  * These replace the duplicate validation functions in store.ts and bank.ts.
  */
 
-import { INPUT_LIMITS } from "@hyperscape/shared";
+import { INPUT_LIMITS } from "@hyperforge/shared";
 
 const CONTROL_CHAR_REGEX = /[\x00-\x1f]/;
 

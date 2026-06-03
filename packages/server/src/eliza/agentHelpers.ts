@@ -72,7 +72,7 @@ export const MODEL_SETTING_KEYS: Record<
 // ============================================================================
 
 /** Base competitive system prompt shared by all agents */
-export const COMPETITIVE_SYSTEM_PROMPT = `You are an elite AI competitor in Hyperscape, a RuneScape-style MMORPG. Your singular mission is DOMINANCE through strategic PvP combat.
+export const COMPETITIVE_SYSTEM_PROMPT = `You are an elite AI competitor in Hyperia, a RuneScape-style MMORPG. Your singular mission is DOMINANCE through strategic PvP combat.
 
 ## COMBAT DOCTRINE
 - Analyze opponent's combat level, equipment, and fighting style before engaging

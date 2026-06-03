@@ -14,7 +14,7 @@
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { PendingAttackManager } from "../../../src/systems/ServerNetwork/PendingAttackManager";
-import { EventType, AttackType } from "@hyperscape/shared";
+import { EventType, AttackType } from "@hyperforge/shared";
 
 // Mock the World class
 function createMockWorld() {

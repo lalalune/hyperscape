@@ -297,13 +297,13 @@ async function clearPortListeners(port, label) {
   for (const pid of pids) {
     if (pid === process.pid) continue;
     const command = readCommandForPid(pid);
-    const isKnownHyperscapeProcess =
-      command.includes("hyperscape") ||
+    const isKnownHyperiaProcess =
+      command.includes("hyperia") ||
       command.includes("./dist/index.js") ||
       command.includes("vite preview --host --port 3333");
-    if (!isKnownHyperscapeProcess) {
+    if (!isKnownHyperiaProcess) {
       fail(
-        `Port ${port} (${label}) is already in use by a non-Hyperscape process: pid=${pid} command=${command}`,
+        `Port ${port} (${label}) is already in use by a non-Hyperia process: pid=${pid} command=${command}`,
       );
     }
   }

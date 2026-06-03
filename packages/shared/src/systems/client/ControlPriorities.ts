@@ -28,7 +28,7 @@
  *
  * Usage:
  * ```ts
- * import { ControlPriorities } from '@hyperscape/shared';
+ * import { ControlPriorities } from '@hyperforge/shared';
  *
  * world.controls.bind({
  *   priority: ControlPriorities.BUILDER,

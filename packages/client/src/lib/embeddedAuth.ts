@@ -1,6 +1,6 @@
 import type { EmbeddedViewportConfig } from "../types/embeddedConfig";
 
-type ParsedHyperscapeAuthMessage = {
+type ParsedHyperiaAuthMessage = {
   authToken: string;
   sessionToken?: string;
   agentId?: string;
@@ -124,15 +124,15 @@ export function resolveEmbedReadyTargetOrigin(params: {
   return params.allowWildcardFallback ? "*" : null;
 }
 
-export function parseHyperscapeAuthMessage(
+export function parseHyperiaAuthMessage(
   data: unknown,
-): ParsedHyperscapeAuthMessage | null {
+): ParsedHyperiaAuthMessage | null {
   if (!data || typeof data !== "object") {
     return null;
   }
 
   const record = data as Record<string, unknown>;
-  if (record.type !== "HYPERSCAPE_AUTH") {
+  if (record.type !== "HYPERIA_AUTH") {
     return null;
   }
 
@@ -150,9 +150,9 @@ export function parseHyperscapeAuthMessage(
   };
 }
 
-export function applyHyperscapeAuthMessage(
+export function applyHyperiaAuthMessage(
   config: EmbeddedViewportConfig,
-  message: ParsedHyperscapeAuthMessage,
+  message: ParsedHyperiaAuthMessage,
 ): void {
   config.authToken = message.authToken;
   if (message.sessionToken) {

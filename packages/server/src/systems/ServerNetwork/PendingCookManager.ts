@@ -20,14 +20,14 @@
  * @see PendingAttackManager - combat equivalent
  */
 
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 import {
   EventType,
   worldToTileInto,
   tilesWithinMeleeRange,
   type TileCoord,
   GATHERING_CONSTANTS,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import type { TileMovementManager } from "./tile-movement";
 
 /**

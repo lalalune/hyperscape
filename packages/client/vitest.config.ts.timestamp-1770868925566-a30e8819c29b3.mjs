@@ -1,9 +1,9 @@
 // vitest.config.ts
-import { defineConfig } from "file:///Users/shawwalters/eliza-workspace/hyperscape/node_modules/.bun/vitest@2.1.9+2068e9765e9324f4/node_modules/vitest/dist/config.js";
-import react from "file:///Users/shawwalters/eliza-workspace/hyperscape/node_modules/.bun/@vitejs+plugin-react@5.1.4+aefedb91d1a84aeb/node_modules/@vitejs/plugin-react/dist/index.js";
+import { defineConfig } from "file:///Users/shawwalters/eliza-workspace/hyperia/node_modules/.bun/vitest@2.1.9+2068e9765e9324f4/node_modules/vitest/dist/config.js";
+import react from "file:///Users/shawwalters/eliza-workspace/hyperia/node_modules/.bun/@vitejs+plugin-react@5.1.4+aefedb91d1a84aeb/node_modules/@vitejs/plugin-react/dist/index.js";
 import path from "path";
 import { fileURLToPath } from "url";
-var __vite_injected_original_import_meta_url = "file:///Users/shawwalters/eliza-workspace/hyperscape/packages/client/vitest.config.ts";
+var __vite_injected_original_import_meta_url = "file:///Users/shawwalters/eliza-workspace/hyperia/packages/client/vitest.config.ts";
 var __dirname = path.dirname(fileURLToPath(__vite_injected_original_import_meta_url));
 var vitest_config_default = defineConfig({
   plugins: [react()],
@@ -59,8 +59,8 @@ var vitest_config_default = defineConfig({
       // Path alias to match vite.config.ts
       "@": path.resolve(__dirname, "src"),
       // Use actual shared package - per project rules, no mocks allowed
-      // Tests should use real Hyperscape instances with Playwright
-      "@hyperscape/shared": path.resolve(
+      // Tests should use real Hyperia instances with Playwright
+      "@hyperforge/shared": path.resolve(
         __dirname,
         "../shared/build/framework.client.js"
       )

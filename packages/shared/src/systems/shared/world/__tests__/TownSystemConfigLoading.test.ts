@@ -5,7 +5,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { DataManager } from "../../../../data/DataManager";
 import type { WorldConfigManifest } from "../../../../types/world/world-types";
 import { loadTownConfig } from "../TownSystem";
-import { DEFAULT_LANDMARK_CONFIG } from "@hyperscape/procgen/building/town";
+import { DEFAULT_LANDMARK_CONFIG } from "@hyperforge/procgen/building/town";
 
 const DEFAULTS = {
   townCount: 25,

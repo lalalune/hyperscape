@@ -5,7 +5,7 @@
  * Uses mock classes following the existing codebase pattern.
  *
  * Note: We don't directly test isValidGameItem since it depends on getItem() from
- * @hyperscape/shared which would require complex mocking. Instead, we test:
+ * @hyperforge/shared which would require complex mocking. Instead, we test:
  * - The slot compaction algorithm (the most complex logic)
  * - The algorithm's behavior under various scenarios
  */

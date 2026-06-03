@@ -1,10 +1,10 @@
-# Hyperscape
+# Hyperia
 
 **The first AI-native MMORPG where autonomous agents play alongside humans.**
 
-Hyperscape is a RuneScape-inspired MMORPG built on a heavily modified and custom version of [Hyperfy](https://hyperfy.io), an open-source 3D multiplayer engine. The game integrates [ElizaOS](https://elizaos.ai) to enable AI agents to play autonomously in a persistent world. Unlike traditional games where NPCs follow scripts, Hyperscape's agents use LLMs to make decisions, set goals, and interact with the world just like human players.
+Hyperia is a RuneScape-inspired MMORPG built on a heavily modified and custom version of [Hyperfy](https://hyperfy.io), an open-source 3D multiplayer engine. The game integrates [ElizaOS](https://elizaos.ai) to enable AI agents to play autonomously in a persistent world. Unlike traditional games where NPCs follow scripts, Hyperia's agents use LLMs to make decisions, set goals, and interact with the world just like human players.
 
-## What Makes Hyperscape Unique
+## What Makes Hyperia Unique
 
 - **AI Agents as Players**: Autonomous agents powered by ElizaOS that fight, skill, trade, and make decisions using LLMs
 - **True OSRS Mechanics**: Authentic tick-based combat (600ms ticks), safespotting, tile-based movement, and classic progression systems
@@ -32,14 +32,14 @@ Hyperscape is a RuneScape-inspired MMORPG built on a heavily modified and custom
 - [Privy](https://privy.io) account (required for authentication)
 
 ```bash
-git clone https://github.com/HyperscapeAI/hyperscape.git
-cd hyperscape
+git clone https://github.com/PlayHyperia/hyperia.git
+cd hyperia
 bun install
 ```
 
 ### Setup Environment Files
 
-> **⚠️ WebGPU Linux / Streaming Note**: When running Hyperscape on Linux (e.g. Vast.ai), you must use headful Chrome with Xorg/Xvfb. You MUST use the ANGLE backend for WebGPU, **NOT** Vulkan (`--use-vulkan`). Using the native Vulkan backend with WebGPU currently will crash.
+> **⚠️ WebGPU Linux / Streaming Note**: When running Hyperia on Linux (e.g. Vast.ai), you must use headful Chrome with Xorg/Xvfb. You MUST use the ANGLE backend for WebGPU, **NOT** Vulkan (`--use-vulkan`). Using the native Vulkan backend with WebGPU currently will crash.
 
 ```bash
 # Required: Copy both client and server env files
@@ -66,7 +66,7 @@ cp packages/server/.env.example packages/server/.env
 **Optional configs:**
 ```bash
 # AI agents (only if using bun run dev:ai)
-cp packages/plugin-hyperscape/.env.example packages/plugin-hyperscape/.env
+cp packages/plugin-hyperia/.env.example packages/plugin-hyperia/.env
 
 # Asset generation tools (only if using bun run dev:forge)
 cp packages/asset-forge/.env.example packages/asset-forge/.env
@@ -105,7 +105,7 @@ packages/
 ├── shared/              # Core 3D engine (ECS, Three.js, PhysX, networking)
 ├── server/              # Game server (Fastify, WebSockets, database)
 ├── client/              # Web client (Vite, React)
-├── plugin-hyperscape/   # ElizaOS AI agent plugin
+├── plugin-hyperia/   # ElizaOS AI agent plugin
 ├── physx-js-webidl/     # PhysX WASM bindings
 ├── asset-forge/         # AI asset generation tools
 └── docs-site/           # Documentation (Docusaurus)
@@ -162,7 +162,7 @@ bunx drizzle-kit migrate   # Run pending migrations
 
 ### Assets
 
-Game assets (3D models, textures, audio) source: [HyperscapeAI/assets](https://github.com/HyperscapeAI/assets)
+Game assets (3D models, textures, audio) source: [PlayHyperia/assets](https://github.com/PlayHyperia/assets)
 
 **Local Development**: Assets are auto-downloaded during `bun install` (~200MB via Git LFS).
 
@@ -184,7 +184,7 @@ Both must use the same Privy App ID from [Privy Dashboard](https://dashboard.pri
 - `packages/server/.env.example` - Database, ports, LiveKit voice chat
 - `packages/client/.env.example` - API URLs, Farcaster integration
 - `packages/asset-forge/.env.example` - AI API keys (OpenAI, Meshy)
-- `packages/plugin-hyperscape/.env.example` - ElizaOS agent config
+- `packages/plugin-hyperia/.env.example` - ElizaOS agent config
 
 ### Default Ports
 
@@ -205,15 +205,15 @@ Railway deployment is set up for separate development and production targets:
 - `main` branch deploys to `prod`
 - `develop` or `dev` branch deploys to `dev`
 
-For setup details (GitHub vars/secrets, Railway environment IDs, and DNS steps for `hyperscape.gg`), see:
+For setup details (GitHub vars/secrets, Railway environment IDs, and DNS steps for `hyperia.gg`), see:
 
 - `docs/railway-dev-prod.md`
 
 ## Native App Distribution
 
 - Desktop and mobile build artifacts are published from tagged releases (`v*`) via `.github/workflows/build-app.yml`.
-- Public download portal: [https://hyperscapeai.github.io/hyperscape/](https://hyperscapeai.github.io/hyperscape/)
-- Release assets and notes: [https://github.com/HyperscapeAI/hyperscape/releases](https://github.com/HyperscapeAI/hyperscape/releases)
+- Public download portal: [https://playhyperia.github.io/hyperia/](https://playhyperia.github.io/hyperia/)
+- Release assets and notes: [https://github.com/PlayHyperia/hyperia/releases](https://github.com/PlayHyperia/hyperia/releases)
 - Release setup details and required secrets: `docs/native-release.md`
 
 ### Creating a tagged app release
@@ -241,16 +241,16 @@ Migrations only run once, so pulling new code won't fix an outdated database sch
 > ⚠️ **Warning:** This will delete all local data (characters, inventory, progress).
 ```bash
 # Stop and remove postgres container
-docker stop hyperscape-postgres 2>/dev/null; docker rm hyperscape-postgres 2>/dev/null
+docker stop hyperia-postgres 2>/dev/null; docker rm hyperia-postgres 2>/dev/null
 
 # Remove postgres volumes
-docker volume rm hyperscape-postgres-data 2>/dev/null; docker volume rm server_postgres-data 2>/dev/null
+docker volume rm hyperia-postgres-data 2>/dev/null; docker volume rm server_postgres-data 2>/dev/null
 
-# Remove any remaining hyperscape volumes
-docker volume ls | grep -i hyperscape | awk '{print $2}' | xargs -r docker volume rm
+# Remove any remaining hyperia volumes
+docker volume ls | grep -i hyperia | awk '{print $2}' | xargs -r docker volume rm
 
 # Verify volumes are gone
-docker volume ls | grep -i hyperscape
+docker volume ls | grep -i hyperia
 
 # Restart with fresh database
 bun run dev

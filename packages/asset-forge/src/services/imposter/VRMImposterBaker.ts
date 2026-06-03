@@ -12,7 +12,7 @@ import {
   ImpostorBaker,
   OctahedronType,
   type CompatibleRenderer,
-} from "@hyperscape/impostor";
+} from "@hyperforge/impostor";
 import { VRMLoaderPlugin, VRM, VRMUtils } from "@pixiv/three-vrm";
 import * as THREE from "three";
 import {

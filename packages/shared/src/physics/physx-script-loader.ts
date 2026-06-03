@@ -9,7 +9,7 @@
  * - Robust error recovery
  */
 
-import type PhysX from "@hyperscape/physx-js-webidl";
+import type PhysX from "@hyperforge/physx-js-webidl";
 import type { PhysXModule } from "../types/systems/physics";
 
 type PhysXInitOptions = Parameters<typeof PhysX>[0];

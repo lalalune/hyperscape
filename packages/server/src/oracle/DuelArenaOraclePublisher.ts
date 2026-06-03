@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { readFileSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 import {
   Connection,
   Keypair,
@@ -86,7 +86,7 @@ function prefixedHex(value: string): Hex {
 function hashParticipant(participantId: string): string {
   return crypto
     .createHash("sha256")
-    .update(`hyperscape:duel-arena:participant:${participantId}`)
+    .update(`hyperia:duel-arena:participant:${participantId}`)
     .digest("hex");
 }
 

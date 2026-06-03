@@ -158,12 +158,12 @@ test.describe("Dashboard Agents (plugin-work branch)", () => {
         bio: ["Test bio"],
         topics: ["test"],
         adjectives: ["test"],
-        plugins: ["@hyperscape/plugin-hyperscape"],
+        plugins: ["@hyperforge/plugin-hyperia"],
         settings: {
           secrets: {
-            HYPERSCAPE_CHARACTER_ID: charData.character.id,
-            HYPERSCAPE_AUTH_TOKEN: credentials.authToken,
-            HYPERSCAPE_ACCOUNT_ID: testUser.userId,
+            HYPERIA_CHARACTER_ID: charData.character.id,
+            HYPERIA_AUTH_TOKEN: credentials.authToken,
+            HYPERIA_ACCOUNT_ID: testUser.userId,
           },
           accountId: testUser.userId, // CRITICAL: Used for dashboard filtering
           characterType: "ai-agent",
@@ -311,12 +311,12 @@ test.describe("Dashboard Agents (plugin-work branch)", () => {
         bio: ["Test"],
         topics: ["test"],
         adjectives: ["test"],
-        plugins: ["@hyperscape/plugin-hyperscape"],
+        plugins: ["@hyperforge/plugin-hyperia"],
         settings: {
           secrets: {
-            HYPERSCAPE_CHARACTER_ID: charData.character.id,
-            HYPERSCAPE_AUTH_TOKEN: credentials.authToken,
-            HYPERSCAPE_ACCOUNT_ID: testUser.userId,
+            HYPERIA_CHARACTER_ID: charData.character.id,
+            HYPERIA_AUTH_TOKEN: credentials.authToken,
+            HYPERIA_ACCOUNT_ID: testUser.userId,
           },
           accountId: testUser.userId,
         },
@@ -363,8 +363,8 @@ test.describe("Dashboard Agents (plugin-work branch)", () => {
 
       logs.push(`[${testName}] 💾 Cached mapping data for rollback`);
 
-      // Step 1: Delete from Hyperscape mapping
-      logs.push(`[${testName}] Deleting from Hyperscape mapping...`);
+      // Step 1: Delete from Hyperia mapping
+      logs.push(`[${testName}] Deleting from Hyperia mapping...`);
       const deleteMappingResponse = await httpRequest(
         `${SERVER_URL}/api/agents/mappings/${agentId}`,
         {
@@ -373,7 +373,7 @@ test.describe("Dashboard Agents (plugin-work branch)", () => {
       );
 
       logs.push(
-        `[${testName}] Hyperscape mapping delete status: ${deleteMappingResponse.status}`,
+        `[${testName}] Hyperia mapping delete status: ${deleteMappingResponse.status}`,
       );
 
       // Step 2: Delete from ElizaOS
@@ -390,7 +390,7 @@ test.describe("Dashboard Agents (plugin-work branch)", () => {
       );
 
       if (!deleteElizaResponse.ok) {
-        // Rollback: Restore mapping in Hyperscape
+        // Rollback: Restore mapping in Hyperia
         logs.push(
           `[${testName}] ⚠️  ElizaOS deletion failed - rolling back mapping...`,
         );
@@ -493,12 +493,12 @@ test.describe("Dashboard Agents (plugin-work branch)", () => {
         bio: ["Test"],
         topics: ["test"],
         adjectives: ["test"],
-        plugins: ["@hyperscape/plugin-hyperscape"],
+        plugins: ["@hyperforge/plugin-hyperia"],
         settings: {
           secrets: {
-            HYPERSCAPE_CHARACTER_ID: charData.character.id,
-            HYPERSCAPE_AUTH_TOKEN: credentials.authToken,
-            HYPERSCAPE_ACCOUNT_ID: testUser.userId,
+            HYPERIA_CHARACTER_ID: charData.character.id,
+            HYPERIA_AUTH_TOKEN: credentials.authToken,
+            HYPERIA_ACCOUNT_ID: testUser.userId,
           },
           accountId: testUser.userId,
         },
@@ -623,12 +623,12 @@ test.describe("Dashboard Agents (plugin-work branch)", () => {
         bio: ["Test"],
         topics: ["test"],
         adjectives: ["test"],
-        plugins: ["@hyperscape/plugin-hyperscape"],
+        plugins: ["@hyperforge/plugin-hyperia"],
         settings: {
           secrets: {
-            HYPERSCAPE_CHARACTER_ID: charData.character.id,
-            HYPERSCAPE_AUTH_TOKEN: credentials.authToken,
-            HYPERSCAPE_ACCOUNT_ID: testUser.userId,
+            HYPERIA_CHARACTER_ID: charData.character.id,
+            HYPERIA_AUTH_TOKEN: credentials.authToken,
+            HYPERIA_ACCOUNT_ID: testUser.userId,
           },
           accountId: testUser.userId,
         },
@@ -691,7 +691,7 @@ test.describe("Dashboard Agents (plugin-work branch)", () => {
 
   /**
    * TEST 5: System Status Monitoring
-   * Verifies: Dashboard can check ElizaOS and Hyperscape server status
+   * Verifies: Dashboard can check ElizaOS and Hyperia server status
    */
   test("System status monitoring", async () => {
     const testName = "system-status-monitoring";
@@ -716,23 +716,20 @@ test.describe("Dashboard Agents (plugin-work branch)", () => {
         );
       }
 
-      // Check Hyperscape status
-      logs.push(`[${testName}] Checking Hyperscape server status...`);
-      const hyperscapeStatusResponse = await httpRequest(
+      // Check Hyperia status
+      logs.push(`[${testName}] Checking Hyperia server status...`);
+      const hyperiaStatusResponse = await httpRequest(
         `${SERVER_URL}/api/characters/db`,
       );
 
       // This endpoint requires POST, so 405 means server is up
-      if (
-        hyperscapeStatusResponse.ok ||
-        hyperscapeStatusResponse.status === 405
-      ) {
+      if (hyperiaStatusResponse.ok || hyperiaStatusResponse.status === 405) {
         logs.push(
-          `[${testName}] ✅ Hyperscape is online (status: ${hyperscapeStatusResponse.status})`,
+          `[${testName}] ✅ Hyperia is online (status: ${hyperiaStatusResponse.status})`,
         );
       } else {
         logs.push(
-          `[${testName}] ⚠️  Hyperscape returned status: ${hyperscapeStatusResponse.status}`,
+          `[${testName}] ⚠️  Hyperia returned status: ${hyperiaStatusResponse.status}`,
         );
       }
 

@@ -22,7 +22,7 @@ interface WebGPUAttributeUtilsLike {
 }
 
 const WEBGPU_ATTRIBUTE_UPLOAD_PATCH = Symbol(
-  "hyperscape.webgpuAttributeUploadPatch",
+  "hyperia.webgpuAttributeUploadPatch",
 );
 let loggedFallbackCount = 0;
 

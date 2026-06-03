@@ -1,9 +1,9 @@
 # Nixpacks configuration for Railway deployment
-# This file configures how Railway builds the Hyperscape game server (API only)
+# This file configures how Railway builds the Hyperia game server (API only)
 #
 # ARCHITECTURE:
-# - Frontend: Cloudflare Pages (hyperscape.club)
-# - Server/API: Railway (hyperscape-production.up.railway.app)
+# - Frontend: Cloudflare Pages (hyperia.club)
+# - Server/API: Railway (hyperia-production.up.railway.app)
 # - Assets/CDN: Cloudflare R2
 
 [phases.setup]

@@ -21,15 +21,15 @@ export default defineConfig({
   resolve: {
     alias: [
       {
-        find: /^@hyperscape\/shared\/client$/,
+        find: /^@hyperia\/shared\/client$/,
         replacement: path.resolve(__dirname, "../shared/src/index.client.ts"),
       },
       {
-        find: /^@hyperscape\/shared$/,
+        find: /^@hyperia\/shared$/,
         replacement: path.resolve(__dirname, "../shared/src/index.ts"),
       },
       {
-        find: /^@hyperscape\/shared\/(.*)$/,
+        find: /^@hyperia\/shared\/(.*)$/,
         replacement: path.resolve(__dirname, "../shared/src/$1"),
       },
     ],

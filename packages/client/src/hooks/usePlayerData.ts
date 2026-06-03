@@ -8,8 +8,8 @@
  */
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { EventType } from "@hyperscape/shared";
-import type { PlayerStats } from "@hyperscape/shared";
+import { EventType } from "@hyperforge/shared";
+import type { PlayerStats } from "@hyperforge/shared";
 import type { ClientWorld, PlayerEquipmentItems } from "../types";
 import type { RawEquipmentData, InventorySlotViewItem } from "../game/types";
 import { processRawEquipment } from "../utils/equipment";

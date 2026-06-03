@@ -1,14 +1,14 @@
 {
-  "name": "@hyperscape/client",
+  "name": "@hyperforge/client",
   "version": "0.13.0",
   "type": "module",
   "private": true,
-  "homepage": "https://github.com/HyperscapeAI/hyperscape#readme",
+  "homepage": "https://github.com/PlayHyperia/hyperia#readme",
   "bugs": {
-    "url": "https://github.com/HyperscapeAI/hyperscape/issues"
+    "url": "https://github.com/PlayHyperia/hyperia/issues"
   },
   "keywords": [
-    "hyperscape",
+    "hyperia",
     "3d",
     "components",
     "virtual-worlds",
@@ -19,7 +19,7 @@
   ],
   "scripts": {
     "dev": "vite --host --port 3333 --strictPort",
-    "build": "cd ../.. && turbo run build --filter=@hyperscape/shared && cd packages/client && NODE_OPTIONS='--max-old-space-size=4096' vite build",
+    "build": "cd ../.. && turbo run build --filter=@hyperforge/shared && cd packages/client && NODE_OPTIONS='--max-old-space-size=4096' vite build",
     "build:cf": "NODE_OPTIONS='--max-old-space-size=4096' vite build",
     "preview": "vite preview",
     "lint": "eslint src --max-warnings 0",
@@ -50,9 +50,9 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@farcaster/miniapp-sdk": "^0.2.1",
-    "@hyperscape/impostor": "workspace:*",
-    "@hyperscape/physx-js-webidl": "workspace:*",
-    "@hyperscape/shared": "workspace:*",
+    "@hyperforge/impostor": "workspace:*",
+    "@hyperforge/physx-js-webidl": "workspace:*",
+    "@hyperforge/shared": "workspace:*",
     "@pixiv/three-vrm": "^3.5.1",
     "@privy-io/react-auth": "^3.13.1",
     "@rollup/rollup-darwin-x64": "^4.52.4",

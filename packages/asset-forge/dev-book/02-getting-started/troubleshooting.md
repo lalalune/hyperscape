@@ -1224,7 +1224,7 @@ cat logs/server.log
 
 **Search existing issues:**
 ```bash
-# Visit: https://github.com/HyperscapeAI/hyperscape-1/issues
+# Visit: https://github.com/PlayHyperia/hyperia-1/issues
 # Search for your error message
 # Check if already reported/solved
 ```
@@ -1262,7 +1262,7 @@ cat logs/server.log
 ### Community Support
 
 **Discord/Slack:**
-- Join Hyperscape community
+- Join Hyperia community
 - Ask in #asset-forge channel
 - Share screenshots/logs
 

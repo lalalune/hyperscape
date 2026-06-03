@@ -30,7 +30,7 @@ describe("embedded entry configuration", () => {
         quality: "medium",
         characterId: "char-2",
       },
-      { wsUrl: "wss://hyperscape.gg/ws" },
+      { wsUrl: "wss://hyperia.gg/ws" },
     );
 
     expect(getEmbeddedSurface(config)).toBe("agent-control");

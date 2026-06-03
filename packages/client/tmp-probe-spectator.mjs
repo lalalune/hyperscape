@@ -22,7 +22,7 @@ for (let i = 0; i < 40; i++) {
   const sample = await page.evaluate(() => {
     const w = window;
     const world = w.world;
-    const cfg = w.__HYPERSCAPE_CONFIG__ || null;
+    const cfg = w.__HYPERIA_CONFIG__ || null;
     const targetId = cfg?.followEntity || cfg?.characterId || 'agent-openai-gpt-5';
 
     const getPos = (e) => {
@@ -86,7 +86,7 @@ for (let i = 0; i < 40; i++) {
   samples.push(sample);
 }
 
-await page.screenshot({ path: '/Users/shawwalters/eliza-workspace/hyperscape/tmp-spectator-probe.png', fullPage: true });
+await page.screenshot({ path: '/Users/shawwalters/eliza-workspace/hyperia/tmp-spectator-probe.png', fullPage: true });
 await browser.close();
 
 console.log('=== SAMPLES ===');

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Deploy Hyperscape Server to Cloudflare Containers
+ * Deploy Hyperia Server to Cloudflare Containers
  * Builds Docker image and deploys to Cloudflare's edge
  */
 
@@ -13,7 +13,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const rootDir = path.join(__dirname, '..')
 
 async function main() {
-  console.log('🚀 Deploying Hyperscape Server to Cloudflare Containers')
+  console.log('🚀 Deploying Hyperia Server to Cloudflare Containers')
   
   // 1. Build the server
   console.log('\n📦 Building server...')
@@ -35,8 +35,8 @@ async function main() {
     
     console.log('\n✅ Server deployment successful!')
     console.log('\n📡 Your server is now running on Cloudflare!')
-    console.log('   WebSocket: wss://hyperscape-server.your-subdomain.workers.dev/ws')
-    console.log('   API: https://hyperscape-server.your-subdomain.workers.dev/api/*')
+    console.log('   WebSocket: wss://hyperia-server.your-subdomain.workers.dev/ws')
+    console.log('   API: https://hyperia-server.your-subdomain.workers.dev/api/*')
     
     console.log('\n📝 Next steps:')
     console.log('   1. Set secrets: wrangler secret put LIVEKIT_API_KEY')

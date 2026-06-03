@@ -29,7 +29,7 @@ export interface RightPanelProps {
   world?: ClientWorld;
 
   // Equipment data
-  equipment?: import("@hyperscape/shared").PlayerEquipmentItems | null;
+  equipment?: import("@hyperforge/shared").PlayerEquipmentItems | null;
 
   // Inventory actions
   onDeposit: (itemId: string, quantity: number) => void;

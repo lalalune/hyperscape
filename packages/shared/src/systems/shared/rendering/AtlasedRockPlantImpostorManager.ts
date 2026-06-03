@@ -43,7 +43,7 @@ import {
   BakePriority,
   ImpostorBakeMode,
 } from "./ImpostorManager";
-import type { ImpostorBakeResult } from "@hyperscape/impostor";
+import type { ImpostorBakeResult } from "@hyperforge/impostor";
 
 // ============================================================================
 // CONFIGURATION

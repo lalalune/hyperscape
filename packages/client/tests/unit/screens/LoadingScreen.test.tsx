@@ -4,8 +4,8 @@ import React from "react";
 import { describe, it, expect, vi } from "vitest";
 import { act, render, screen } from "@testing-library/react";
 import { LoadingScreen } from "../../../src/screens/LoadingScreen";
-import { EventType } from "@hyperscape/shared";
-import type { World } from "@hyperscape/shared";
+import { EventType } from "@hyperforge/shared";
+import type { World } from "@hyperforge/shared";
 
 const theme = {
   colors: {

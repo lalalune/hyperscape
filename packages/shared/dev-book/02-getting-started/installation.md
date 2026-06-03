@@ -6,7 +6,7 @@
 
 ## Prerequisites
 
-Before installing Hyperscape Shared, ensure you have:
+Before installing Hyperia Shared, ensure you have:
 
 - **Node.js** 18.0+ or **Bun** 1.0+
 - **npm** or **yarn** or **pnpm**
@@ -21,27 +21,27 @@ Before installing Hyperscape Shared, ensure you have:
 
 ```bash
 # NPM
-npm install @hyperscape/shared three
+npm install @hyperforge/shared three
 
 # Yarn
-yarn add @hyperscape/shared three
+yarn add @hyperforge/shared three
 
 # PNPM
-pnpm add @hyperscape/shared three
+pnpm add @hyperforge/shared three
 ```
 
 ### Method 2: Bun
 
 ```bash
-bun add @hyperscape/shared three
+bun add @hyperforge/shared three
 ```
 
 ### Method 3: From Source (Development)
 
 ```bash
 # Clone the repository
-git clone https://github.com/HyperscapeAI/hyperscape.git
-cd hyperscape
+git clone https://github.com/PlayHyperia/hyperia.git
+cd hyperia
 
 # Install dependencies
 npm install
@@ -58,9 +58,9 @@ npm run build
 Create a test file to verify installation:
 
 ```typescript
-import { createClientWorld } from '@hyperscape/shared';
+import { createClientWorld } from '@hyperforge/shared';
 
-console.log('Hyperscape Shared installed successfully!');
+console.log('Hyperia Shared installed successfully!');
 ```
 
 Run with:

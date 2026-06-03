@@ -22,7 +22,7 @@
  * @see packages/shared/src/types/game/duel-types.ts for type definitions
  */
 
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 import {
   EventType,
   PlayerEntity,
@@ -38,7 +38,7 @@ import {
   validateRuleCombination,
   DuelErrorCode,
   getItem,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import { PendingDuelManager } from "./PendingDuelManager";
 import { ArenaPoolManager } from "./ArenaPoolManager";
 import {

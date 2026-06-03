@@ -16,7 +16,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 
 // ============================================================================
-// Constants (mirror actual constants from @hyperscape/shared)
+// Constants (mirror actual constants from @hyperforge/shared)
 // ============================================================================
 
 const MAX_COINS = 2147483647; // Max 32-bit signed integer (OSRS cap)

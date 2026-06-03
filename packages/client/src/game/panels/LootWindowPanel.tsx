@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 import type {
   InventoryItem,
   PendingLootTransaction,
   LootResult,
-} from "@hyperscape/shared";
-import { EventType, generateTransactionId, getItem } from "@hyperscape/shared";
+} from "@hyperforge/shared";
+import { EventType, generateTransactionId, getItem } from "@hyperforge/shared";
 import { ErrorBoundary } from "../../lib/ErrorBoundary";
 import { CursorTooltip, useThemeStore } from "@/ui";
 import {
@@ -663,7 +663,7 @@ function LootWindowPanelContent({
                 className="text-white px-4 py-2 rounded text-sm"
                 style={{
                   background:
-                    theme.name === "hyperscape"
+                    theme.name === "hyperia"
                       ? "linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(0, 0, 0, 0.16) 100%)"
                       : theme.colors.background.tertiary,
                   border: `1px solid ${theme.colors.border.default}40`,
@@ -714,7 +714,7 @@ export function LootWindowPanel(props: LootWindowPanelProps) {
           className="text-white px-4 py-2 rounded text-sm"
           style={{
             background:
-              theme.name === "hyperscape"
+              theme.name === "hyperia"
                 ? "linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(0, 0, 0, 0.16) 100%)"
                 : theme.colors.background.tertiary,
             border: `1px solid ${theme.colors.border.default}40`,

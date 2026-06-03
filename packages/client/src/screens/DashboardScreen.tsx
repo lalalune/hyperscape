@@ -29,7 +29,7 @@ import "./DashboardScreen.css";
 export type { Agent, AgentPanel } from "../game/dashboard/types";
 
 // Preference key for localStorage
-const VIEWPORT_AUTO_START_KEY = "hyperscape_viewport_auto_start";
+const VIEWPORT_AUTO_START_KEY = "hyperia_viewport_auto_start";
 
 export const DashboardScreen: React.FC = () => {
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -105,7 +105,7 @@ export const DashboardScreen: React.FC = () => {
       }
 
       try {
-        // First, fetch user's agent IDs from Hyperscape database
+        // First, fetch user's agent IDs from Hyperia database
         let userAgentIds: string[] = [];
 
         let mappingFetchFailed = false;
@@ -119,7 +119,7 @@ export const DashboardScreen: React.FC = () => {
               userAgentIds = mappingResult.data.agentIds || [];
             } else {
               console.warn(
-                "[Dashboard] Failed to fetch agent mappings from Hyperscape:",
+                "[Dashboard] Failed to fetch agent mappings from Hyperia:",
                 mappingResult.error,
               );
               mappingFetchFailed = true;
@@ -138,7 +138,7 @@ export const DashboardScreen: React.FC = () => {
         if (data.success && data.data && data.data.agents) {
           let filteredAgents = data.data.agents;
 
-          // Filter agents using Hyperscape database mappings
+          // Filter agents using Hyperia database mappings
           if (userAccountId && userAgentIds.length > 0) {
             filteredAgents = data.data.agents.filter((agent: Agent) => {
               return userAgentIds.includes(agent.id);
@@ -318,7 +318,7 @@ export const DashboardScreen: React.FC = () => {
 
       if (!mappingDeleteResult.ok) {
         throw new Error(
-          `Failed to delete agent mapping from Hyperscape: ${mappingDeleteResult.error || mappingDeleteResult.status}`,
+          `Failed to delete agent mapping from Hyperia: ${mappingDeleteResult.error || mappingDeleteResult.status}`,
         );
       }
 

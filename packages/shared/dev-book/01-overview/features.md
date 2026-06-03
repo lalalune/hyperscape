@@ -6,7 +6,7 @@
 
 ## Complete Feature List
 
-Hyperscape Shared provides a comprehensive set of features for building multiplayer 3D games. This document catalogs all major features with brief descriptions and usage examples.
+Hyperia Shared provides a comprehensive set of features for building multiplayer 3D games. This document catalogs all major features with brief descriptions and usage examples.
 
 ---
 
@@ -787,7 +787,7 @@ console.log('Entities:', stats.entityCount);
 
 ## Summary
 
-Hyperscape Shared provides:
+Hyperia Shared provides:
 
 - **Core Engine:** ECS, World, Nodes, Physics
 - **Networking:** Client-Server, State Sync

@@ -70,7 +70,7 @@ export interface PlayerDeathData {
 export interface Player {
   // Core identity
   id: string;
-  hyperscapePlayerId: string;
+  hyperiaPlayerId: string;
   name: string;
 
   // Health and status
@@ -106,11 +106,11 @@ export interface Player {
   lastSaveTime: number;
   sessionId: string | null;
 
-  // Hyperscape integration properties
+  // Hyperia integration properties
   node?: {
     position: THREE.Vector3;
     quaternion?: THREE.Quaternion;
-  }; // Hyperscape node reference
+  }; // Hyperia node reference
   data?: {
     id: string;
     name: string;
@@ -118,15 +118,15 @@ export interface Player {
     roles?: string[];
     owner?: string;
     effect?: unknown;
-  }; // Hyperscape entity data
+  }; // Hyperia entity data
   avatar?: {
     getHeight?: () => number;
     getHeadToHeight?: () => number;
     setEmote?: (emote: string) => void;
     getBoneTransform?: (boneName: string) => THREE.Matrix4 | null;
-  }; // Hyperscape avatar reference
+  }; // Hyperia avatar reference
 
-  // Player methods for Hyperscape compatibility
+  // Player methods for Hyperia compatibility
   setPosition?: (x: number, y: number, z: number) => void;
   setRotation?: (x: number, y: number, z: number, w: number) => void;
 
@@ -155,7 +155,7 @@ export class PlayerMigration {
   /**
    * Convert from old PlayerRow to new Player
    */
-  static fromPlayerRow(old: PlayerRow, hyperscapePlayerId: string): Player {
+  static fromPlayerRow(old: PlayerRow, hyperiaPlayerId: string): Player {
     // Validate health values to prevent NaN
     const maxHealth =
       Number.isFinite(old.maxHealth) && old.maxHealth > 0 ? old.maxHealth : 100;
@@ -165,7 +165,7 @@ export class PlayerMigration {
 
     return {
       id: old.playerId,
-      hyperscapePlayerId,
+      hyperiaPlayerId,
       name: old.name,
       health: { current: currentHealth, max: maxHealth },
       alive: currentHealth > 0,
@@ -333,7 +333,7 @@ export class PlayerMigration {
    */
   static createNewPlayer(
     id: string,
-    hyperscapePlayerId: string,
+    hyperiaPlayerId: string,
     name: string,
   ): Player {
     const skills = this.getDefaultSkills();
@@ -341,7 +341,7 @@ export class PlayerMigration {
     const constitutionLevel = skills.constitution.level;
     return {
       id,
-      hyperscapePlayerId,
+      hyperiaPlayerId,
       name,
       health: { current: constitutionLevel, max: constitutionLevel },
       alive: true,
@@ -391,8 +391,8 @@ export function isPlayer(obj: unknown): obj is Player {
   return !!(
     "id" in candidate &&
     typeof candidate.id === "string" &&
-    "hyperscapePlayerId" in candidate &&
-    typeof candidate.hyperscapePlayerId === "string" &&
+    "hyperiaPlayerId" in candidate &&
+    typeof candidate.hyperiaPlayerId === "string" &&
     "name" in candidate &&
     typeof candidate.name === "string" &&
     "health" in candidate &&
@@ -428,15 +428,15 @@ export interface PlayerAttackStyleState {
 
 // Authentication interfaces
 export interface PlayerIdentity {
-  hyperscapeUserId: string;
-  hyperscapeUserName: string;
-  hyperscapeUserRoles: string[];
+  hyperiaUserId: string;
+  hyperiaUserName: string;
+  hyperiaUserRoles: string[];
 
   rpgPlayerId: string;
   rpgPlayerName: string;
   clientMachineId: string;
 
-  hyperscapeJwtToken?: string;
+  hyperiaJwtToken?: string;
   clientPersistentToken: string;
 
   sessionId: string;

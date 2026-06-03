@@ -151,7 +151,7 @@ dependencies = [
  "base64 0.21.7",
  "borsh 0.10.4",
  "bytemuck",
- "hyperscape-bincode",
+ "hyperforge-bincode",
  "solana-loader-v3-interface",
  "solana-program",
  "solana-sdk-ids",
@@ -638,7 +638,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "hyperscape-bincode"
+name = "hyperforge-bincode"
 version = "1.3.3"
 dependencies = [
  "serde",
@@ -1145,7 +1145,7 @@ dependencies = [
 name = "solana-account-info"
 version = "2.3.0"
 dependencies = [
- "hyperscape-bincode",
+ "hyperforge-bincode",
  "serde",
  "solana-program-error",
  "solana-program-memory",
@@ -1157,7 +1157,7 @@ name = "solana-address-lookup-table-interface"
 version = "2.2.2"
 dependencies = [
  "bytemuck",
- "hyperscape-bincode",
+ "hyperforge-bincode",
  "serde",
  "serde_derive",
  "solana-clock",
@@ -1191,7 +1191,7 @@ dependencies = [
 name = "solana-bincode"
 version = "2.2.1"
 dependencies = [
- "hyperscape-bincode",
+ "hyperforge-bincode",
  "serde",
  "solana-instruction",
 ]
@@ -1312,7 +1312,7 @@ dependencies = [
 name = "solana-feature-gate-interface"
 version = "2.2.2"
 dependencies = [
- "hyperscape-bincode",
+ "hyperforge-bincode",
  "serde",
  "serde_derive",
  "solana-account",
@@ -1360,7 +1360,7 @@ version = "2.3.3"
 dependencies = [
  "borsh 1.6.0",
  "getrandom 0.2.17",
- "hyperscape-bincode",
+ "hyperforge-bincode",
  "js-sys",
  "num-traits",
  "serde",
@@ -1462,7 +1462,7 @@ name = "solana-message"
 version = "2.4.0"
 dependencies = [
  "blake3",
- "hyperscape-bincode",
+ "hyperforge-bincode",
  "lazy_static",
  "serde",
  "serde_derive",
@@ -1519,7 +1519,7 @@ dependencies = [
  "console_error_panic_hook",
  "console_log",
  "getrandom 0.2.17",
- "hyperscape-bincode",
+ "hyperforge-bincode",
  "lazy_static",
  "log",
  "memoffset",
@@ -1834,7 +1834,7 @@ dependencies = [
  "base64 0.22.1",
  "bytemuck",
  "bytemuck_derive",
- "hyperscape-bincode",
+ "hyperforge-bincode",
  "lazy_static",
  "serde",
  "serde_derive",
@@ -1886,7 +1886,7 @@ dependencies = [
 name = "solana-vote-interface"
 version = "2.2.6"
 dependencies = [
- "hyperscape-bincode",
+ "hyperforge-bincode",
  "num-derive",
  "num-traits",
  "serde",

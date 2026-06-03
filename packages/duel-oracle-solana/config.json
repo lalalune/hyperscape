@@ -1,5 +1,5 @@
 {
-  "package": "@hyperscapeai/duel-oracle-solana",
+  "package": "@playhyperia/duel-oracle-solana",
   "idlAddress": "6Tx7s2UG4maFWakRFVi4GeecXJYyBXQF8f2vJdQShSpV",
   "programIds": {
     "localnet": "6Tx7s2UG4maFWakRFVi4GeecXJYyBXQF8f2vJdQShSpV",

@@ -9,7 +9,7 @@
 
 import { useCallback, useMemo, useRef, useEffect, useState } from "react";
 import { create } from "zustand";
-import { generateTransactionId } from "@hyperscape/shared";
+import { generateTransactionId } from "@hyperforge/shared";
 import {
   type CurrencyType,
   type CurrencyDefinition,
@@ -106,7 +106,7 @@ function createInitialBalance(type: CurrencyType): CurrencyBalance {
   };
 }
 
-// Transaction ID generation is now imported from @hyperscape/shared
+// Transaction ID generation is now imported from @hyperforge/shared
 
 /**
  * Zustand store for currency management

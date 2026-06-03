@@ -102,7 +102,7 @@ import {
   GrassGenerator,
   createGrassClumpGeometry,
   type GrassFieldResult,
-} from "@hyperscape/procgen/grass";
+} from "@hyperforge/procgen/grass";
 import {
   GrassExclusionGrid,
   getGrassExclusionGrid,

@@ -1,0 +1,89 @@
+{
+  "name": "@hyperforge/plugin-hyperia",
+  "description": "ElizaOS plugin for AI agents to play Hyperia 3D multiplayer RPG",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "author": "Hyperia Team",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./app": {
+      "types": "./dist/app.d.ts",
+      "import": "./dist/app.js",
+      "default": "./dist/app.js"
+    }
+  },
+  "scripts": {
+    "build": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })\" && (tsc || echo '⚠️ tsc had errors (likely circular dep), continuing...')",
+    "dev": "tsc --watch",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest",
+    "lint": "eslint src --max-warnings 0",
+    "typecheck": "tsc --noEmit",
+    "clean": "node -e \"const fs=require('node:fs'); fs.rmSync('dist', { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); fs.rmSync('tsconfig.tsbuildinfo', { force: true });\""
+  },
+  "dependencies": {
+    "@noble/curves": "^2.0.1",
+    "@elizaos/core": "alpha",
+    "@livekit/rtc-node": "^0.13.24",
+    "ethers": "^6.16.0",
+    "msgpackr": "^2.0.2",
+    "ws": "^8.19.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/three": "0.184.1",
+    "@types/ws": "^8.5.14",
+    "eslint": "^10.0.2",
+    "three": "^0.184.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.4"
+  },
+  "peerDependencies": {
+    "@hyperforge/shared": "workspace:*"
+  },
+  "elizaos": {
+    "app": {
+      "displayName": "Hyperia",
+      "category": "game",
+      "launchType": "connect",
+      "launchUrl": "{HYPERIA_CLIENT_URL}",
+      "runtimePlugin": "@hyperforge/plugin-hyperia",
+      "bridgeExport": "./app",
+      "capabilities": [
+        "combat",
+        "skills",
+        "inventory",
+        "banking",
+        "social-chat",
+        "exploration",
+        "crafting"
+      ],
+      "viewer": {
+        "url": "{HYPERIA_CLIENT_URL}",
+        "embedParams": {
+          "embedded": "true",
+          "mode": "spectator",
+          "surface": "agent-control",
+          "followEntity": "{HYPERIA_CHARACTER_ID}",
+          "hiddenUI": "chat,inventory,minimap,hotbar,stats",
+          "quality": "medium"
+        },
+        "postMessageAuth": true,
+        "sandbox": "allow-scripts allow-same-origin allow-popups allow-forms"
+      },
+      "session": {
+        "mode": "spectate-and-steer",
+        "features": ["commands", "telemetry", "pause", "resume", "suggestions"]
+      }
+    }
+  }
+}

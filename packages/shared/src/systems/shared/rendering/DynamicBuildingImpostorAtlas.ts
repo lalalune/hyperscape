@@ -51,7 +51,7 @@ import THREE, {
 } from "../../../extras/three/three";
 import { MeshStandardNodeMaterial } from "three/webgpu";
 import { varying } from "three/tsl";
-import type { ImpostorBakeResult } from "@hyperscape/impostor";
+import type { ImpostorBakeResult } from "@hyperforge/impostor";
 import type { World } from "../../../types";
 
 // ============================================================================

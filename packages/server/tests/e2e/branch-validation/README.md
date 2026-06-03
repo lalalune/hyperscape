@@ -8,7 +8,7 @@ This test suite provides thorough validation of:
 - Character selection system enhancements
 - Character editor screen functionality
 - Dashboard agent management
-- Plugin integration (HyperscapeService)
+- Plugin integration (HyperiaService)
 - Complete end-to-end workflows
 
 ## Test Files
@@ -74,14 +74,14 @@ Tests for dashboard components:
 - Atomic deletion with rollback (DashboardScreen.tsx:190-320)
 - Logs polling (AgentLogs.tsx polls every 2s)
 - Secure credential loading (AgentViewport.tsx:14-52)
-- ElizaOS/Hyperscape health checks
+- ElizaOS/Hyperia health checks
 
 **Test Count:** 5 tests
 
 ---
 
 ### 4. `plugin-integration.spec.ts`
-Tests for `packages/plugin-hyperscape/src/services/HyperscapeService.ts`
+Tests for `packages/plugin-hyperia/src/services/HyperiaService.ts`
 
 **Coverage:**
 - ✅ Service initialization with auth tokens
@@ -166,8 +166,8 @@ End-to-end integration tests covering complete user journeys
 - Agent list management
 - Atomic deletion with rollback
 
-#### Plugin (`packages/plugin-hyperscape/`)
-✅ `src/services/HyperscapeService.ts` (873 lines added)
+#### Plugin (`packages/plugin-hyperia/`)
+✅ `src/services/HyperiaService.ts` (873 lines added)
 - Service initialization
 - Connection management
 - Packet handling
@@ -186,7 +186,7 @@ No major gaps identified. All critical paths are covered:
 ## Running the Tests
 
 ### Prerequisites
-1. Hyperscape server running on `http://localhost:5555`
+1. Hyperia server running on `http://localhost:5555`
 2. ElizaOS API running on `http://localhost:4001`
 3. PostgreSQL/SQLite database accessible
 
@@ -347,7 +347,7 @@ All tests must pass before merging `plugin-work` branch:
 
 ## Notes
 
-- Tests use real Hyperscape and ElizaOS instances (no mocks)
+- Tests use real Hyperia and ElizaOS instances (no mocks)
 - Each test is isolated with unique test data
 - Logs are preserved for debugging
 - Tests verify both success and failure scenarios

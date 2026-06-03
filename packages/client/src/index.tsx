@@ -1,8 +1,8 @@
 /**
- * index.tsx - Hyperscape Client Entry Point
+ * index.tsx - Hyperia Client Entry Point
  * @build 2026-02-25 - Packet sync rebuild
  *
- * Main entry point for the Hyperscape browser client. Initializes the React application,
+ * Main entry point for the Hyperia browser client. Initializes the React application,
  * authentication, and 3D game world. Handles the complete client lifecycle from login
  * to world connection.
  */
@@ -14,7 +14,7 @@ import {
   installThreeJSExtensions,
   THREE,
   World,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { ErrorBoundary } from "./lib/ErrorBoundary";
@@ -33,9 +33,9 @@ import {
 } from "./lib/publicEnv";
 import { primeStreamingAccessTokenFromWindow } from "./lib/streamingAccessToken";
 import {
-  applyHyperscapeAuthMessage,
+  applyHyperiaAuthMessage,
   isTrustedEmbedOrigin,
-  parseHyperscapeAuthMessage,
+  parseHyperiaAuthMessage,
   resolveEmbedReadyTargetOrigin,
   resolveTrustedEmbedOrigins,
 } from "./lib/embeddedAuth";
@@ -90,8 +90,8 @@ const EmbeddedAgentControlScreen = React.lazy(() =>
   })),
 );
 import { isEmbeddedMode } from "./types/embeddedConfig";
-import { GAME_API_URL, GAME_WS_URL, refreshApiConfig } from "./lib/api-config";
 import { validateURLParams } from "./utils/InputValidator";
+import { GAME_API_URL, GAME_WS_URL, refreshApiConfig } from "./lib/api-config";
 import {
   buildEmbeddedConfig,
   embeddedParamSchema,
@@ -199,21 +199,21 @@ const urlParams = new URLSearchParams(window.location.search);
 const isEmbedded = urlParams.get("embedded") === "true";
 
 if (isEmbedded) {
-  window.__HYPERSCAPE_EMBEDDED__ = true;
+  window.__HYPERIA_EMBEDDED__ = true;
 
   // Validate URL parameters
   const validation = validateURLParams(urlParams, embeddedParamSchema);
 
   if (!validation.isValid) {
     console.warn(
-      "[Hyperscape] Invalid embedded URL parameters:",
+      "[Hyperia] Invalid embedded URL parameters:",
       validation.errors,
     );
   }
 
   const config = buildEmbeddedConfig(validation.params, { wsUrl: GAME_WS_URL });
 
-  window.__HYPERSCAPE_CONFIG__ = config;
+  window.__HYPERIA_CONFIG__ = config;
 
   const runtimeWindow = window as StreamingWindow;
   const trustedOrigins = resolveTrustedEmbedOrigins({
@@ -238,24 +238,24 @@ if (isEmbedded) {
 
     if (!isTrustedEmbedOrigin(event.origin, trustedOrigins)) {
       console.warn(
-        "[Hyperscape] Ignoring HYPERSCAPE_AUTH from untrusted origin:",
+        "[Hyperia] Ignoring HYPERIA_AUTH from untrusted origin:",
         event.origin,
       );
       return;
     }
 
-    const message = parseHyperscapeAuthMessage(event.data);
+    const message = parseHyperiaAuthMessage(event.data);
     if (!message) {
       return;
     }
 
-    const currentConfig = window.__HYPERSCAPE_CONFIG__;
+    const currentConfig = window.__HYPERIA_CONFIG__;
     if (!currentConfig) {
       return;
     }
 
-    applyHyperscapeAuthMessage(currentConfig, message);
-    window.dispatchEvent(new CustomEvent("hyperscape:auth-ready"));
+    applyHyperiaAuthMessage(currentConfig, message);
+    window.dispatchEvent(new CustomEvent("hyperia:auth-ready"));
     window.removeEventListener("message", handleAuthMessage);
   };
   window.addEventListener("message", handleAuthMessage);
@@ -269,18 +269,15 @@ if (isEmbedded) {
       allowWildcardFallback: allowWildcardEmbedFallback,
     });
     if (readyTargetOrigin) {
-      window.parent.postMessage(
-        { type: "HYPERSCAPE_READY" },
-        readyTargetOrigin,
-      );
+      window.parent.postMessage({ type: "HYPERIA_READY" }, readyTargetOrigin);
     } else {
       console.warn(
-        "[Hyperscape] Could not determine a trusted origin for HYPERSCAPE_READY; skipping parent bootstrap message",
+        "[Hyperia] Could not determine a trusted origin for HYPERIA_READY; skipping parent bootstrap message",
       );
     }
   }
 
-  logger.config("[Hyperscape] Configured from validated URL params:", {
+  logger.config("[Hyperia] Configured from validated URL params:", {
     ...config,
     authToken: config.authToken ? "[REDACTED]" : "[PENDING]",
   });
@@ -300,7 +297,7 @@ declare global {
     THREE?: typeof THREE;
     world?: InstanceType<typeof World>;
     testChat?: () => void;
-    Hyperscape?: {
+    Hyperia?: {
       CircularSpawnArea: typeof CircularSpawnArea;
     };
     __PLAYWRIGHT_TEST__?: boolean;
@@ -590,7 +587,7 @@ function App() {
       if (import.meta.env.DEV) {
         window.world = world;
         window.THREE = THREE;
-        window.Hyperscape = {
+        window.Hyperia = {
           CircularSpawnArea,
         };
 
@@ -747,7 +744,7 @@ async function setupTauriDeepLinks(): Promise<void> {
     const { code, state, error } = parseOAuthCallback(url);
 
     if (error) {
-      console.error("[Hyperscape] OAuth error:", error);
+      console.error("[Hyperia] OAuth error:", error);
       return;
     }
 
@@ -757,7 +754,7 @@ async function setupTauriDeepLinks(): Promise<void> {
 
       // Dispatch custom event for auth handling
       window.dispatchEvent(
-        new CustomEvent("hyperscape:oauth-callback", {
+        new CustomEvent("hyperia:oauth-callback", {
           detail: { code, state },
         }),
       );
@@ -797,7 +794,7 @@ async function mountApp() {
 
   // Check if running in embedded viewport mode
   if (isEmbeddedMode()) {
-    const embeddedSurface = getEmbeddedSurface(window.__HYPERSCAPE_CONFIG__);
+    const embeddedSurface = getEmbeddedSurface(window.__HYPERIA_CONFIG__);
     const EmbeddedEntryComponent =
       embeddedSurface === "agent-control"
         ? EmbeddedAgentControlScreen

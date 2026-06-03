@@ -1,5 +1,5 @@
 /**
- * Color utility functions for the Hyperscape UI
+ * Color utility functions for the Hyperia UI
  */
 
 /**

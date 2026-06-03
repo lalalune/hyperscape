@@ -1,5 +1,5 @@
 {
-  "name": "@hyperscape/physx-js-webidl",
+  "name": "@hyperforge/physx-js-webidl",
   "version": "2.6.1",
   "description": "Node.js-compatible Javascript/WASM bindings for Nvidia PhysX 5.6.0",
   "author": "fabmax",

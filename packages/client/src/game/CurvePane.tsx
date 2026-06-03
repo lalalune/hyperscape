@@ -1,6 +1,6 @@
 import React from "react";
 import { useEffect, useRef } from "react";
-import { Curve } from "@hyperscape/shared";
+import { Curve } from "@hyperforge/shared";
 import { usePane } from "../hooks/usePane";
 
 interface CurvePaneProps {

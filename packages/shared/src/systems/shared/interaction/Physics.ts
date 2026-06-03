@@ -133,7 +133,7 @@ const _raycastDirNormalized = new THREE.Vector3();
 const _sphereGeometryCache = new Map<number, PxSphereGeometry>();
 
 // Import PhysX types
-import type PhysX from "@hyperscape/physx-js-webidl";
+import type PhysX from "@hyperforge/physx-js-webidl";
 // Use physx-js-webidl types directly to avoid conflicts
 import type {
   PxActor,

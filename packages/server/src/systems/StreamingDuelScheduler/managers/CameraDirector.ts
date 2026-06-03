@@ -5,7 +5,7 @@
  * activity tracking, fight cutaway, and idle preview logic.
  */
 
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 import type { StreamingPhase, StreamingDuelCycle } from "../types.js";
 
 // ============================================================================

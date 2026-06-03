@@ -70,7 +70,7 @@ function buildFallbackAgent(
 
   return {
     id: config.agentId,
-    name: "Hyperscape Agent",
+    name: "Hyperia Agent",
     characterName: config.characterId || "Connecting…",
     status: config.authToken ? "active" : "connecting",
     settings: config.characterId
@@ -92,12 +92,12 @@ function normalizeAgent(
 
   return {
     id: source.id,
-    name: source.name || fallback?.name || "Hyperscape Agent",
+    name: source.name || fallback?.name || "Hyperia Agent",
     characterName:
       source.character?.name ||
       fallback?.characterName ||
       source.name ||
-      "Hyperscape Agent",
+      "Hyperia Agent",
     status: source.status || fallback?.status || "unknown",
     settings: {
       ...(fallback?.settings ?? {}),
@@ -191,9 +191,9 @@ export function EmbeddedAgentControlScreen() {
       setConfig(cloneEmbeddedConfig(getEmbeddedConfig()));
     };
 
-    window.addEventListener("hyperscape:auth-ready", handleAuthReady);
+    window.addEventListener("hyperia:auth-ready", handleAuthReady);
     return () => {
-      window.removeEventListener("hyperscape:auth-ready", handleAuthReady);
+      window.removeEventListener("hyperia:auth-ready", handleAuthReady);
     };
   }, []);
 
@@ -207,7 +207,7 @@ export function EmbeddedAgentControlScreen() {
   useEffect(() => {
     if (!config?.agentId) {
       setAgent(null);
-      setAgentError("No agent was provided for this Hyperscape session.");
+      setAgentError("No agent was provided for this Hyperia session.");
       return;
     }
 
@@ -362,7 +362,7 @@ export function EmbeddedAgentControlScreen() {
                 <h1 className="text-lg font-semibold text-[#f2d08a]">
                   {resolvedAgent?.characterName ||
                     resolvedAgent?.name ||
-                    "Hyperscape Agent"}
+                    "Hyperia Agent"}
                 </h1>
                 <p className="text-sm text-[#e8ebf4]/55">
                   Watch the run live and steer the agent from this session.
@@ -488,7 +488,7 @@ export function EmbeddedAgentControlScreen() {
                       <MessageSquare size={40} className="mb-4" />
                       <p className="max-w-xs text-sm leading-6">
                         Tell the agent what to do here. Commands go straight to
-                        the running Hyperscape session.
+                        the running Hyperia session.
                       </p>
                     </div>
                   ) : (
@@ -593,7 +593,7 @@ export function EmbeddedAgentControlScreen() {
             )
           ) : (
             <div className="flex h-full items-center justify-center px-6 text-center text-[#f2d08a]/45">
-              No agent session is attached to this embedded Hyperscape view.
+              No agent session is attached to this embedded Hyperia view.
             </div>
           )}
         </div>

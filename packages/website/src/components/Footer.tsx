@@ -57,7 +57,7 @@ export function Footer() {
           <div className="md:col-span-1">
             <Image
               src="/images/wordmark.png"
-              alt="Hyperscape"
+              alt="Hyperia"
               width={140}
               height={28}
               className="h-6 w-auto mb-4"
@@ -194,7 +194,7 @@ export function Footer() {
           className="text-sm font-body text-center"
           style={{ color: "var(--text-muted)" }}
         >
-          &copy; {new Date().getFullYear()} Hyperscape. All rights reserved.
+          &copy; {new Date().getFullYear()} Hyperia. All rights reserved.
         </p>
       </div>
     </footer>

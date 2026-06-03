@@ -33,7 +33,7 @@ import {
   usesWield,
   usesWear,
   CONTEXT_MENU_COLORS,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import { ItemIcon } from "@/ui/components/ItemIcon";
 /**
  * Minimal item type for ActionPanel - only requires the properties actually used

@@ -11,7 +11,7 @@ import {
   SessionType,
   TRANSACTION_RATE_LIMIT_MS,
   INPUT_LIMITS,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import { IntervalRateLimiter } from "../../src/systems/ServerNetwork/services/IntervalRateLimiter";
 import {
   isValidItemId,

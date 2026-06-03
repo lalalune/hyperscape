@@ -31,7 +31,7 @@ import {
   type LeafShapeType,
   type GeometryOptions,
   type BranchClusterResult,
-} from "@hyperscape/procgen";
+} from "@hyperforge/procgen";
 import {
   TreePine,
   RefreshCw,

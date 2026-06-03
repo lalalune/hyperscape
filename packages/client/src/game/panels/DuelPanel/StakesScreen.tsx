@@ -14,7 +14,7 @@
 import { useState, useCallback, useMemo, type CSSProperties } from "react";
 import { useThemeStore, type Theme } from "@/ui";
 import { getPanelSurfaceStyle } from "@/ui/theme/themes";
-import type { StakedItem, SlotNumber } from "@hyperscape/shared";
+import type { StakedItem, SlotNumber } from "@hyperforge/shared";
 import { formatGoldValue, calculateTotalValue } from "./utils";
 import { StakeGrid, StakeInventoryPanel, StakeContextMenu } from "./components";
 
@@ -117,7 +117,7 @@ function useStakesScreenStyles(theme: Theme, myAccepted: boolean) {
       alignItems: "center",
       padding: theme.spacing.sm,
       background:
-        theme.name === "hyperscape"
+        theme.name === "hyperia"
           ? "linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(0, 0, 0, 0.14) 100%)"
           : theme.colors.background.secondary,
       borderRadius: theme.borderRadius.sm,
@@ -189,7 +189,7 @@ function useStakesScreenStyles(theme: Theme, myAccepted: boolean) {
 
     const contextMenuStyle: CSSProperties = {
       background:
-        theme.name === "hyperscape"
+        theme.name === "hyperia"
           ? "linear-gradient(180deg, rgba(44, 36, 24, 0.98) 0%, rgba(18, 15, 11, 0.98) 100%)"
           : theme.colors.background.secondary,
       border: `1px solid ${theme.colors.border.default}`,

@@ -20,7 +20,7 @@ import {
   World,
   AttackType,
   isPositionInsideCombatArena,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import {
   isValidNpcId,
   validateRequestTimestamp,

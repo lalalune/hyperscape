@@ -18,7 +18,7 @@ import {
   isNotedItemId,
   getBaseItemId,
   getItem,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import type { ServerSocket } from "../../../../shared/types";
 import { BankRepository } from "../../../../database/repositories/BankRepository";
 import * as schema from "../../../../database/schema";

@@ -1,12 +1,12 @@
 /**
- * @hyperscape/procgen/rock
+ * @hyperforge/procgen/rock
  *
  * Procedural rock generation with noise displacement, vertex colors,
  * and configurable presets for various rock types and styles.
  *
  * @example
  * ```typescript
- * import { RockGenerator, defaultGenerator, exportToGLB } from "@hyperscape/procgen/rock";
+ * import { RockGenerator, defaultGenerator, exportToGLB } from "@hyperforge/procgen/rock";
  *
  * // Generate from a preset
  * const boulder = defaultGenerator.generateFromPreset("boulder", { seed: "my-rock" });

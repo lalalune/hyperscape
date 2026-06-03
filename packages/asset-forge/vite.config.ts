@@ -41,62 +41,62 @@ export default defineConfig(({ mode }) => {
         // Ensure single Three.js instance across all packages
         three: threeRoot,
         // Use client-only build of shared to exclude server-side modules (fs-extra, etc.)
-        "@hyperscape/shared": path.resolve(
+        "@hyperforge/shared": path.resolve(
           __dirname,
           "../shared/build/framework.client.js",
         ),
         // Workspace package aliases
-        "@hyperscape/decimation": path.resolve(
+        "@hyperforge/decimation": path.resolve(
           __dirname,
           "../decimation/dist/index.js",
         ),
-        "@hyperscape/impostor": path.resolve(
+        "@hyperforge/impostor": path.resolve(
           __dirname,
           "../impostors/dist/index.js",
         ),
         // Procgen package aliases for terrain, vegetation, etc.
         // NOTE: More specific paths must come BEFORE less specific paths
-        "@hyperscape/procgen/terrain": path.resolve(
+        "@hyperforge/procgen/terrain": path.resolve(
           __dirname,
           "../procgen/dist/terrain/index.js",
         ),
-        "@hyperscape/procgen/vegetation": path.resolve(
+        "@hyperforge/procgen/vegetation": path.resolve(
           __dirname,
           "../procgen/dist/vegetation/index.js",
         ),
-        "@hyperscape/procgen/grass": path.resolve(
+        "@hyperforge/procgen/grass": path.resolve(
           __dirname,
           "../procgen/dist/grass/index.js",
         ),
-        "@hyperscape/procgen/building/viewer": path.resolve(
+        "@hyperforge/procgen/building/viewer": path.resolve(
           __dirname,
           "../procgen/src/building/viewer/index.ts",
         ),
-        "@hyperscape/procgen/building/town": path.resolve(
+        "@hyperforge/procgen/building/town": path.resolve(
           __dirname,
           "../procgen/dist/building/town/index.js",
         ),
-        "@hyperscape/procgen/building": path.resolve(
+        "@hyperforge/procgen/building": path.resolve(
           __dirname,
           "../procgen/dist/building/index.js",
         ),
-        "@hyperscape/procgen/rock": path.resolve(
+        "@hyperforge/procgen/rock": path.resolve(
           __dirname,
           "../procgen/dist/rock/index.js",
         ),
-        "@hyperscape/procgen/plant": path.resolve(
+        "@hyperforge/procgen/plant": path.resolve(
           __dirname,
           "../procgen/dist/plant/index.js",
         ),
-        "@hyperscape/procgen/items/dock": path.resolve(
+        "@hyperforge/procgen/items/dock": path.resolve(
           __dirname,
           "../procgen/dist/items/dock/index.js",
         ),
-        "@hyperscape/procgen/items": path.resolve(
+        "@hyperforge/procgen/items": path.resolve(
           __dirname,
           "../procgen/dist/items/index.js",
         ),
-        "@hyperscape/procgen": path.resolve(
+        "@hyperforge/procgen": path.resolve(
           __dirname,
           "../procgen/dist/index.js",
         ),

@@ -254,7 +254,7 @@ export const AgentViewportChat: React.FC<AgentViewportChatProps> = ({
 
       if (stillThisAgent()) {
         setEntityError(
-          "Agent is still connecting to the game world. Make sure the agent is running with valid Hyperscape credentials.",
+          "Agent is still connecting to the game world. Make sure the agent is running with valid Hyperia credentials.",
         );
         setWaitingForEntity(false);
         setLoading(false);
@@ -349,7 +349,7 @@ export const AgentViewportChat: React.FC<AgentViewportChatProps> = ({
     [authToken, agent.id],
   );
 
-  // ── Send HYPERSCAPE_AUTH to iframe once it signals HYPERSCAPE_READY ──────
+  // ── Send HYPERIA_AUTH to iframe once it signals HYPERIA_READY ──────
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       // Only react to the ready signal from our own iframe
@@ -361,7 +361,7 @@ export const AgentViewportChat: React.FC<AgentViewportChatProps> = ({
       if (
         !event.data ||
         typeof event.data !== "object" ||
-        event.data.type !== "HYPERSCAPE_READY"
+        event.data.type !== "HYPERIA_READY"
       )
         return;
 
@@ -371,7 +371,7 @@ export const AgentViewportChat: React.FC<AgentViewportChatProps> = ({
 
       iframeRef.current.contentWindow?.postMessage(
         {
-          type: "HYPERSCAPE_AUTH",
+          type: "HYPERIA_AUTH",
           authToken: token,
           agentId: agent.id,
           characterId: charId || undefined,
@@ -496,8 +496,8 @@ export const AgentViewportChat: React.FC<AgentViewportChatProps> = ({
   const privyUserId = user?.id || "";
   // SECURITY: authToken is NOT included in the iframe URL — it would appear in
   // server logs, browser history, and referrer headers.  Instead it is delivered
-  // to the embedded client via a HYPERSCAPE_AUTH postMessage after the iframe
-  // fires HYPERSCAPE_READY (see the useEffect above).
+  // to the embedded client via a HYPERIA_AUTH postMessage after the iframe
+  // fires HYPERIA_READY (see the useEffect above).
   const iframeParams = new URLSearchParams({
     embedded: "true",
     mode: "spectator",

@@ -31,7 +31,7 @@ const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3401";
 
 // Lazy load the TownViewer to avoid SSR issues with Three.js
 const TownViewer = React.lazy(() =>
-  import("@hyperscape/procgen/building/viewer").then((m) => ({
+  import("@hyperforge/procgen/building/viewer").then((m) => ({
     default: m.TownViewer,
   })),
 );

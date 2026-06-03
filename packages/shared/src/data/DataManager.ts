@@ -260,7 +260,7 @@ export interface ExternalResourceData {
   depletedModelPath: string | null;
   /**
    * Procgen preset name for procedural tree generation.
-   * Maps to @hyperscape/procgen presets (e.g., "blackOak", "weepingWillow").
+   * Maps to @hyperforge/procgen presets (e.g., "blackOak", "weepingWillow").
    * If specified, runtime procedural generation will be used instead of GLB model.
    */
   procgenPreset?: string;

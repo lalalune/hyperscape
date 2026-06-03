@@ -7,7 +7,7 @@
  */
 
 import { useState } from "react";
-import { getItem } from "@hyperscape/shared";
+import { getItem } from "@hyperforge/shared";
 import { CursorTooltip } from "@/ui";
 import {
   getTooltipMetaStyle,

@@ -26,7 +26,7 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 import type { ServerConfig } from "../config.js";
 import { DatabaseSystem } from "../../systems/DatabaseSystem/index.js";
 import { isMaintenanceModeActive } from "../maintenance-mode.js";

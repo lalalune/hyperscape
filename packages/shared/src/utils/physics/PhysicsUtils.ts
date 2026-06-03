@@ -5,7 +5,7 @@
  * and Three.js prototype extensions for physics integration.
  */
 
-import type PhysX from "@hyperscape/physx-js-webidl";
+import type PhysX from "@hyperforge/physx-js-webidl";
 import type {
   PxQuat,
   PxTransform,

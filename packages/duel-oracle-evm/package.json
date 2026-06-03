@@ -1,11 +1,11 @@
 {
-  "name": "@hyperscapeai/duel-oracle-evm",
+  "name": "@playhyperia/duel-oracle-evm",
   "version": "0.1.0",
   "type": "commonjs",
-  "description": "Canonical Hyperscape EVM duel oracle ABI and contract source",
+  "description": "Canonical Hyperia EVM duel oracle ABI and contract source",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/hyperscapeai/hyperscape.git",
+    "url": "git+https://github.com/playhyperia/hyperia.git",
     "directory": "packages/duel-oracle-evm"
   },
   "files": [

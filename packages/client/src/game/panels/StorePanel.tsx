@@ -38,7 +38,7 @@ import {
   getPanelInsetStyle,
   getPanelSurfaceStyle,
 } from "@/ui/theme/themes";
-import { getItem } from "@hyperscape/shared";
+import { getItem } from "@hyperforge/shared";
 import { formatItemName, formatPrice } from "@/utils";
 import { ItemIcon } from "@/ui/components/ItemIcon";
 import { UI } from "@/ui/core";

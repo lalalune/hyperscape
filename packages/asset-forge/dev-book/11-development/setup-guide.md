@@ -104,17 +104,17 @@ You'll need API keys for the following services:
 
 ### Clone the Repository
 
-First, clone the Hyperscape monorepo which contains the Asset Forge package:
+First, clone the Hyperia monorepo which contains the Asset Forge package:
 
 ```bash
 # Clone via HTTPS
-git clone https://github.com/your-org/hyperscape-1.git
+git clone https://github.com/your-org/hyperia-1.git
 
 # Or via SSH (recommended for contributors)
-git clone git@github.com:your-org/hyperscape-1.git
+git clone git@github.com:your-org/hyperia-1.git
 
 # Navigate to the project
-cd hyperscape-1/packages/asset-forge
+cd hyperia-1/packages/asset-forge
 ```
 
 ### Verify Project Structure

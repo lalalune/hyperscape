@@ -232,7 +232,7 @@ To use in your game:
 - Unreal Engine (with plugin)
 - Three.js (native)
 - Blender (native)
-- Hyperscape (native)
+- Hyperia (native)
 
 ---
 

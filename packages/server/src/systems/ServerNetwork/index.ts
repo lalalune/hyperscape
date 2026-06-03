@@ -47,7 +47,7 @@ import {
   TERRAIN_CONSTANTS,
   TICK_DURATION_MS,
   MobEntity,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 
 // Payload types (extracted to types.ts)
 import type {
@@ -3139,7 +3139,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
           playerId: reconnectedPlayerId,
           userId: reconnectedPlayerId,
           player:
-            socket.player as unknown as import("@hyperscape/shared").PlayerLocal,
+            socket.player as unknown as import("@hyperforge/shared").PlayerLocal,
           isReconnect: true,
         });
 

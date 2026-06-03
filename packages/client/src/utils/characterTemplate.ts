@@ -22,10 +22,10 @@ export interface CharacterTemplate {
     accountId?: string; // User's Privy account ID for dashboard filtering
     characterType?: string; // "ai-agent" or "human-player"
     secrets: {
-      HYPERSCAPE_AUTH_TOKEN?: string;
-      HYPERSCAPE_CHARACTER_ID?: string;
-      HYPERSCAPE_ACCOUNT_ID?: string;
-      HYPERSCAPE_SERVER_URL?: string;
+      HYPERIA_AUTH_TOKEN?: string;
+      HYPERIA_CHARACTER_ID?: string;
+      HYPERIA_ACCOUNT_ID?: string;
+      HYPERIA_SERVER_URL?: string;
       wallet?: string;
       // LLM Provider API Keys (optional, depends on selected plugins)
       OPENAI_API_KEY?: string;
@@ -42,7 +42,7 @@ export interface CharacterTemplate {
 }
 
 /**
- * Generate a default character template for Hyperscape AI agents
+ * Generate a default character template for Hyperia AI agents
  *
  * @param name - The character's name
  * @param wallet - Optional wallet address
@@ -59,13 +59,13 @@ export function generateCharacterTemplate(
   const username = name.toLowerCase().replace(/\s+/g, "_");
 
   return {
-    // Note: Don't set 'id' - let ElizaOS generate UUID, link via HYPERSCAPE_CHARACTER_ID
+    // Note: Don't set 'id' - let ElizaOS generate UUID, link via HYPERIA_CHARACTER_ID
     name,
     username,
-    system: `You are ${name}, an AI agent playing Hyperscape, a 3D multiplayer RPG. You can move around the world, fight enemies, gather resources, manage your inventory, and interact with other players. You are adventurous, strategic, and always ready for new challenges. Respond to situations naturally and make decisions based on your goals and the current game state.`,
+    system: `You are ${name}, an AI agent playing Hyperia, a 3D multiplayer RPG. You can move around the world, fight enemies, gather resources, manage your inventory, and interact with other players. You are adventurous, strategic, and always ready for new challenges. Respond to situations naturally and make decisions based on your goals and the current game state.`,
 
     bio: [
-      `I am ${name}, an AI agent exploring the world of Hyperscape.`,
+      `I am ${name}, an AI agent exploring the world of Hyperia.`,
       "I can navigate 3D environments, engage in combat, and interact with other players.",
       "I'm always learning and adapting to new situations in the game.",
       "My goal is to become a skilled adventurer and help others along the way.",
@@ -109,7 +109,7 @@ export function generateCharacterTemplate(
     ],
 
     topics: [
-      "hyperscape",
+      "hyperia",
       "gaming",
       "rpg",
       "combat strategies",
@@ -132,7 +132,7 @@ export function generateCharacterTemplate(
     ],
 
     knowledge: [
-      "Hyperscape game mechanics and rules",
+      "Hyperia game mechanics and rules",
       "Combat strategies and tactics",
       "Resource locations and gathering techniques",
       "Inventory and equipment management",
@@ -140,7 +140,7 @@ export function generateCharacterTemplate(
     ],
 
     plugins: [
-      "@hyperscape/plugin-hyperscape", // Required - Hyperscape game integration
+      "@hyperforge/plugin-hyperia", // Required - Hyperia game integration
       "@elizaos/plugin-sql", // Database operations
       "@elizaos/plugin-openrouter", // OpenRouter LLM provider
       "@elizaos/plugin-openai", // OpenAI models (GPT-5, etc)
@@ -150,9 +150,9 @@ export function generateCharacterTemplate(
     settings: {
       secrets: {
         // These will be filled in by the CharacterEditorScreen after generating permanent credentials
-        HYPERSCAPE_AUTH_TOKEN: undefined,
-        HYPERSCAPE_CHARACTER_ID: undefined,
-        HYPERSCAPE_SERVER_URL: GAME_WS_URL,
+        HYPERIA_AUTH_TOKEN: undefined,
+        HYPERIA_CHARACTER_ID: undefined,
+        HYPERIA_SERVER_URL: GAME_WS_URL,
         wallet,
         // LLM Provider API Keys (users can add these in the Secrets tab)
         OPENAI_API_KEY: "",

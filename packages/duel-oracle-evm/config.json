@@ -1,5 +1,5 @@
 {
-  "package": "@hyperscapeai/duel-oracle-evm",
+  "package": "@playhyperia/duel-oracle-evm",
   "contract": "DuelOutcomeOracle",
   "deployments": {
     "anvil": {

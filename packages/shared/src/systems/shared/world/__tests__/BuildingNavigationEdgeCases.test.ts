@@ -23,19 +23,19 @@ import {
   beforeEach,
   afterEach,
 } from "vitest";
-import { World, BFSPathfinder } from "@hyperscape/shared";
-import { BuildingCollisionService } from "@hyperscape/shared";
-import type { TileCoord } from "@hyperscape/shared";
+import { World, BFSPathfinder } from "@hyperforge/shared";
+import { BuildingCollisionService } from "@hyperforge/shared";
+import type { TileCoord } from "@hyperforge/shared";
 import {
   BuildingGenerator,
   createRng,
   getRecipe,
   type BuildingLayout,
-} from "@hyperscape/procgen/building";
+} from "@hyperforge/procgen/building";
 import {
   ENTRANCE_STEP_COUNT,
   TERRAIN_STEP_COUNT,
-} from "@hyperscape/procgen/building";
+} from "@hyperforge/procgen/building";
 
 const TEST_TIMEOUT = 60000;
 

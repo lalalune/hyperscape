@@ -35,7 +35,7 @@ interface QuestDetailPanelProps {
 }
 
 /** LocalStorage key for pinned quests */
-const PINNED_QUESTS_KEY = "hyperscape_pinned_quests";
+const PINNED_QUESTS_KEY = "hyperia_pinned_quests";
 
 /** Type guard for string array */
 function isStringArray(data: unknown): data is string[] {

@@ -398,7 +398,7 @@ export {};
  * Used by:
  * - ServerBot (headless bots that connect as clients)
  * - NodeClient (testing infrastructure)
- * - ElizaOS agents connecting to Hyperscape worlds
+ * - ElizaOS agents connecting to Hyperia worlds
  */
 try {
   const g = globalThis as unknown as { WebSocket?: unknown } & Record<

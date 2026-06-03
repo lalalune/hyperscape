@@ -83,7 +83,7 @@ async function tryLocalPostgresFallback(
     process.env.LOCAL_POSTGRES_USER || process.env.USER || "postgres";
   const password = process.env.LOCAL_POSTGRES_PASSWORD || "";
   const adminDatabase = process.env.LOCAL_POSTGRES_ADMIN_DB || "postgres";
-  const targetDatabase = process.env.POSTGRES_DB || "hyperscape";
+  const targetDatabase = process.env.POSTGRES_DB || "hyperia";
 
   const adminConnectionString = buildPostgresConnectionString({
     user,

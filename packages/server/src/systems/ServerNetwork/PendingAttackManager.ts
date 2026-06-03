@@ -15,7 +15,7 @@
  * @see https://oldschool.runescape.wiki/w/Pathfinding
  */
 
-import type { World, TileCoord } from "@hyperscape/shared";
+import type { World, TileCoord } from "@hyperforge/shared";
 import {
   worldToTile,
   worldToTileInto,
@@ -25,7 +25,7 @@ import {
   CollisionMask,
   EventType,
   AttackType,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import type { TileMovementManager } from "./tile-movement";
 
 interface PendingAttack {

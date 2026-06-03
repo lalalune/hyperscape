@@ -8,7 +8,7 @@
 
 import { useState, useEffect, useRef, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { getItem } from "@hyperscape/shared";
+import { getItem } from "@hyperforge/shared";
 import { useThemeStore } from "@/ui";
 import {
   getContextMenuItemStyle,

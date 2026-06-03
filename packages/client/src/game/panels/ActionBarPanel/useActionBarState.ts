@@ -5,7 +5,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useWindowStore, useEditStore } from "@/ui";
 import { useActionBarKeybindsForBar } from "../../../ui/components/ActionBar";
-import { EventType } from "@hyperscape/shared";
+import { EventType } from "@hyperforge/shared";
 import type { ClientWorld } from "../../../types";
 import type {
   ActionBarSlotContent,

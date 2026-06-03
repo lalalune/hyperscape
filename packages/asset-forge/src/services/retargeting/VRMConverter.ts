@@ -2,7 +2,7 @@
  * VRMConverter - Convert Meshy GLB to VRM 1.0 Format
  *
  * Converts non-standard Meshy GLB exports to standardized VRM format for use with
- * Hyperfy/Hyperscape animation system.
+ * Hyperfy/Hyperia animation system.
  *
  * **What VRM Provides:**
  * - Standardized Y-up coordinate system
@@ -546,7 +546,7 @@ export class VRMConverter {
     );
 
     // CRITICAL FIX: Ensure Hips bone has local translation
-    // Hyperscape needs Hips.translation to be set for animation scaling
+    // Hyperia needs Hips.translation to be set for animation scaling
     this.ensureHipsTranslation();
   }
 
@@ -554,9 +554,9 @@ export class VRMConverter {
    * Validate T-pose and normalize if needed
    *
    * NOTE: We MUST normalize to T-pose because:
-   * 1. Hyperscape's animation system requires T-pose bind pose
+   * 1. Hyperia's animation system requires T-pose bind pose
    * 2. The matrix vs TRS conflict causes issues if not T-pose
-   * 3. This ensures compatibility with both Hyperscape AND online VRM viewers
+   * 3. This ensures compatibility with both Hyperia AND online VRM viewers
    */
   private validateTPose(): void {
     console.log("🤸 Validating T-pose...");
@@ -766,7 +766,7 @@ export class VRMConverter {
    * Ensure Hips bone has local translation set
    *
    * Many GLB exporters put the skeleton height on the Armature parent,
-   * leaving Hips with zero local position. For VRM/Hyperscape compatibility,
+   * leaving Hips with zero local position. For VRM/Hyperia compatibility,
    * we need Hips to have its world Y position as local translation.
    */
   private ensureHipsTranslation(): void {
@@ -908,7 +908,7 @@ export class VRMConverter {
 
     // If model had non-T-pose bind pose, it was normalized in validateTPose()
     console.log(
-      "✅ Exporting VRM with T-pose bind pose for Hyperscape compatibility",
+      "✅ Exporting VRM with T-pose bind pose for Hyperia compatibility",
     );
 
     const exporter = new GLTFExporter();
@@ -1049,7 +1049,7 @@ export class VRMConverter {
         name: options.avatarName || "Converted Avatar",
         version: options.version || "1.0",
         metaVersion: "1.0",
-        authors: [options.author || "Hyperscape"],
+        authors: [options.author || "Hyperia"],
         copyrightInformation: "Converted from Meshy GLB",
         contactInformation: "",
         references: [],

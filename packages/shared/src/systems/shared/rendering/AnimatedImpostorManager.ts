@@ -31,7 +31,7 @@ import {
   type InstancedAnimatedImpostorConfig,
   type MobInstanceData,
   type WebGPUCompatibleRenderer,
-} from "@hyperscape/impostor";
+} from "@hyperforge/impostor";
 import type { World } from "../../../types";
 
 // ============================================================================

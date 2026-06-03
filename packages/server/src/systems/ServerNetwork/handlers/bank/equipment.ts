@@ -11,7 +11,7 @@ import {
   SessionType,
   isValidPlayerEquipmentStructure,
   VALID_EQUIPMENT_SLOT_KEYS,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import type { ServerSocket } from "../../../../shared/types";
 import * as schema from "../../../../database/schema";
 import { sql } from "drizzle-orm";
@@ -38,7 +38,7 @@ import {
 } from "./utils";
 
 // ============================================================================
-// VALID_EQUIPMENT_SLOT_KEYS imported from @hyperscape/shared to maintain DRY
+// VALID_EQUIPMENT_SLOT_KEYS imported from @hyperforge/shared to maintain DRY
 // ============================================================================
 
 /**

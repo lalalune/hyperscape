@@ -3,8 +3,8 @@
 
 <head>
   <meta charset="utf-8" />
-  <title>Hyperscape</title>
-  <meta name="description" content="Hyperscape - A 3D MMORPG Virtual World" />
+  <title>Hyperia</title>
+  <meta name="description" content="Hyperia - A 3D MMORPG Virtual World" />
 
   <!-- Theme and PWA -->
   <meta name="theme-color" content="#0b0a15" />
@@ -15,13 +15,13 @@
 
   <!-- Open Graph / Social -->
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="Hyperscape" />
-  <meta property="og:description" content="Hyperscape - A 3D MMORPG Virtual World" />
+  <meta property="og:title" content="Hyperia" />
+  <meta property="og:description" content="Hyperia - A 3D MMORPG Virtual World" />
   <meta property="og:image" content="/images/preview.jpg" />
 
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Hyperscape" />
-  <meta name="twitter:description" content="Hyperscape - A 3D MMORPG Virtual World" />
+  <meta name="twitter:title" content="Hyperia" />
+  <meta name="twitter:description" content="Hyperia - A 3D MMORPG Virtual World" />
   <meta name="twitter:image" content="/images/preview.jpg" />
 
   <!-- Viewport and Mobile -->
@@ -30,7 +30,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="Hyperscape" />
+  <meta name="apple-mobile-web-app-title" content="Hyperia" />
 
   <!-- Preconnect to external resources for faster loading -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -42,7 +42,7 @@
   <link rel="prefetch" href="/images/logo.png" as="image" />
 
   <!-- DNS prefetch for API endpoints -->
-  <link rel="dns-prefetch" href="https://hyperscape.gg" />
+  <link rel="dns-prefetch" href="https://hyperia.gg" />
 
   <!-- Critical inline styles to prevent FOUC -->
   <style>
@@ -78,22 +78,22 @@
     // HTML for chunk requests, causing MIME-type errors on dynamic imports.
     (() => {
       const productionHosts = [
-        'hyperscape.club',
-        'www.hyperscape.club',
-        'hyperscape.gg',
-        'www.hyperscape.gg',
-        'hyperscape-production.up.railway.app',
+        'hyperia.club',
+        'www.hyperia.club',
+        'hyperia.gg',
+        'www.hyperia.gg',
+        'hyperia-production.up.railway.app',
       ];
       const isLoopbackHost = ['localhost', '127.0.0.1', '0.0.0.0', '::1'].includes(
         window.location.hostname,
       );
       const shouldResetProductionCaches =
         productionHosts.includes(window.location.hostname) &&
-        !localStorage.getItem('__hyperscape_prod_sw_reset_20260407__');
+        !localStorage.getItem('__hyperia_prod_sw_reset_20260407__');
       if (!isLoopbackHost && !shouldResetProductionCaches) return;
 
-      const storageKey = '__hyperscape_prod_sw_reset_20260407__';
-      const reloadMarker = '__hyperscape_sw_reset__';
+      const storageKey = '__hyperia_prod_sw_reset_20260407__';
+      const reloadMarker = '__hyperia_sw_reset__';
 
       void (async () => {
         let shouldReload = false;
@@ -118,7 +118,7 @@
           try {
             const cacheKeys = await caches.keys();
             const staleKeys = cacheKeys.filter(
-              k => k.startsWith('workbox') || k.startsWith('hyperscape'),
+              k => k.startsWith('workbox') || k.startsWith('hyperia'),
             );
             if (staleKeys.length > 0) {
               await Promise.all(staleKeys.map(k => caches.delete(k)));

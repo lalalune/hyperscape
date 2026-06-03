@@ -34,7 +34,7 @@
  */
 
 import type { FastifyInstance } from "fastify";
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 import type { ServerConfig } from "./config.js";
 
 // Import route modules

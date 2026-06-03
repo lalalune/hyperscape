@@ -8,10 +8,10 @@ publisher:
   address: "" # TODO: Fill with your Solana wallet address
   
   # Publisher name as it will appear in the dApp Store
-  name: "Hyperscape"
+  name: "Hyperia"
   
   # Publisher website
-  website: "https://hyperscape.club"
+  website: "https://hyperia.club"
   
   # Contact email for the publisher
   email: "" # TODO: Fill with contact email
@@ -19,17 +19,17 @@ publisher:
 # App Information
 app:
   # Package name must match AndroidManifest.xml
-  android_package: "com.hyperscape.game"
+  android_package: "com.hyperia.game"
   
   # App name as it will appear in the dApp Store
-  name: "Hyperscape"
+  name: "Hyperia"
   
   # Short description (max 80 characters)
   short_description: "An AI-native MMORPG built on Solana"
   
   # Long description (max 4000 characters)
   long_description: |
-    Hyperscape is an AI-native MMORPG that combines classic RuneScape-style gameplay
+    Hyperia is an AI-native MMORPG that combines classic RuneScape-style gameplay
     with cutting-edge AI technology and blockchain integration.
     
     Features:
@@ -39,7 +39,7 @@ app:
     • Voice chat with spatial audio
     • Cross-platform play (Web, Android, iOS)
     
-    Built on Solana, Hyperscape leverages the speed and low costs of the blockchain
+    Built on Solana, Hyperia leverages the speed and low costs of the blockchain
     to enable true digital ownership of in-game items and characters.
     
     Connect your Solana wallet to get started!
@@ -100,7 +100,7 @@ assets:
     - "assets/screenshot_4.png"
   
   # APK or AAB file path (relative to publishing/ directory)
-  apk: "hyperscape-release.apk"
+  apk: "hyperia-release.apk"
 
 # Solana Configuration
 solana:
@@ -113,10 +113,10 @@ solana:
 # Build Configuration
 build:
   # Path to the keystore file for signing releases
-  keystore_path: "hyperscape-release.keystore"
+  keystore_path: "hyperia-release.keystore"
   
   # Keystore alias
-  keystore_alias: "hyperscape"
+  keystore_alias: "hyperia"
   
   # Whether to use the GitHub Actions workflow for building
   use_ci: true

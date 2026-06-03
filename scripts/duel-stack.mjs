@@ -1424,9 +1424,9 @@ async function main() {
         serverEnv.SOLANA_ARENA_KEEPER_SECRET,
         process.env.SOLANA_MM_PRIVATE_KEY,
         process.env.SOLANA_MARKET_MAKER_PRIVATE_KEY,
-        "~/.config/solana/hyperscape/deployer-mainnet-20260211.json",
+        "~/.config/solana/hyperia/deployer-mainnet-20260211.json",
         "~/.config/solana/mainnet-deployer.json",
-        "~/.config/solana/hyperscape-keys/deployer.json",
+        "~/.config/solana/hyperia-keys/deployer.json",
         "~/.config/solana/id.json",
       ],
     });
@@ -1520,9 +1520,9 @@ async function main() {
     // ElizaOS requires SECRET_SALT in production mode; generate a random one
     // for local duel runs so agents don't crash on startup.
     SECRET_SALT: process.env.SECRET_SALT || randomBytes(32).toString("hex"),
-    // HyperscapePlugin reads HYPERSCAPE_SERVER_URL at import time for its
+    // HyperiaPlugin reads HYPERIA_SERVER_URL at import time for its
     // static config.  Point it at the uWS game WebSocket port, not Fastify.
-    HYPERSCAPE_SERVER_URL: process.env.HYPERSCAPE_SERVER_URL || serverWsUrl,
+    HYPERIA_SERVER_URL: process.env.HYPERIA_SERVER_URL || serverWsUrl,
     LOG_LEVEL: duelRuntimeLogLevel,
     DEFAULT_LOG_LEVEL:
       process.env.DUEL_DEFAULT_LOG_LEVEL ||
@@ -1975,7 +1975,7 @@ async function main() {
     );
   } else if (!skipBettingApp && !hyperbetEnabled) {
     log(
-      "skipping Hyperbet app; set DUEL_WITH_HYPERBET=true to boot the sibling Hyperbet repo alongside Hyperscape",
+      "skipping Hyperbet app; set DUEL_WITH_HYPERBET=true to boot the sibling Hyperbet repo alongside Hyperia",
     );
   }
 
@@ -1989,7 +1989,7 @@ async function main() {
       ],
       "duel/rtmp-bridge",
     );
-    // Hyperscape is WebGPU-only. Default to headed capture so Chromium keeps a
+    // Hyperia is WebGPU-only. Default to headed capture so Chromium keeps a
     // real GPU/WebGPU context instead of falling back to headless behavior that
     // can connect the bridge without ever producing frames.
     const defaultCaptureHeadless = "false";

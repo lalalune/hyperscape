@@ -1,5 +1,5 @@
 /**
- * Vitest setup file to mock browser globals for tests that import @hyperscape/shared
+ * Vitest setup file to mock browser globals for tests that import @hyperforge/shared
  * which includes Three.js WebGPU code expecting browser APIs.
  */
 

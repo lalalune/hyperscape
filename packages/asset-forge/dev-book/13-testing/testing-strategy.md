@@ -1,6 +1,6 @@
 # Testing Strategy
 
-Asset Forge follows a "real testing" philosophy: no mocks, no spies, no test framework abstractions. Tests use actual Hyperscape instances, real 3D rendering, and genuine asset generation to ensure features work in production conditions.
+Asset Forge follows a "real testing" philosophy: no mocks, no spies, no test framework abstractions. Tests use actual Hyperia instances, real 3D rendering, and genuine asset generation to ensure features work in production conditions.
 
 ## Table of Contents
 
@@ -17,7 +17,7 @@ Asset Forge follows a "real testing" philosophy: no mocks, no spies, no test fra
 
 ### Core Principles
 
-1. **Real, Not Mocked**: Use actual Hyperscape instances, real Three.js scenes, and genuine API calls
+1. **Real, Not Mocked**: Use actual Hyperia instances, real Three.js scenes, and genuine API calls
 2. **Multimodal Verification**: Test both data structures AND visual output
 3. **Build Mini-Worlds**: Each test creates its own isolated game environment
 4. **Production Conditions**: Tests run in real browsers with actual rendering pipelines

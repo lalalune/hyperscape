@@ -16,7 +16,7 @@ await page.goto('http://localhost:3333/?embedded=true&mode=spectator&followEntit
 for (let i = 0; i < 30; i++) {
   await page.waitForTimeout(1000);
   const state = await page.evaluate(() => {
-    const cfg = window.__HYPERSCAPE_CONFIG__ || null;
+    const cfg = window.__HYPERIA_CONFIG__ || null;
     const world = window.world || null;
     const text = document.body?.innerText || '';
     return {
@@ -31,7 +31,7 @@ for (let i = 0; i < 30; i++) {
   console.log('STATE', JSON.stringify(state));
 }
 
-await page.screenshot({ path: '/Users/shawwalters/eliza-workspace/hyperscape/tmp-webgpu-probe.png', fullPage: true });
+await page.screenshot({ path: '/Users/shawwalters/eliza-workspace/hyperia/tmp-webgpu-probe.png', fullPage: true });
 console.log('===LOGS===');
 for (const l of logs) {
   if (/error|warn|spectator|camera|world|physx|gpu|network|snapshot|follow|lock|loading/i.test(l)) {

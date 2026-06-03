@@ -22,11 +22,11 @@ import {
   // @ts-ignore — InMemoryDatabaseAdapter is exported at runtime but not in .d.ts
   InMemoryDatabaseAdapter,
 } from "@elizaos/core";
-import { EventType, getDuelArenaConfig, type World } from "@hyperscape/shared";
+import { EventType, getDuelArenaConfig, type World } from "@hyperforge/shared";
 import { createJWT } from "../shared/utils.js";
 import { errMsg } from "../shared/errMsg.js";
-import { hyperscapePlugin } from "@hyperscape/plugin-hyperscape";
-import type { EmbeddedHyperscapeService } from "./EmbeddedHyperscapeService.js";
+import { hyperiaPlugin } from "@hyperforge/plugin-hyperia";
+import type { EmbeddedHyperiaService } from "./EmbeddedHyperiaService.js";
 import {
   ejectAgentFromCombatArena,
   recoverAgentFromDeathLoop,
@@ -188,7 +188,7 @@ export const MODEL_AGENTS: ModelProviderConfig[] = [
 // System prompt, character creation, plugin loaders — all in agentHelpers.ts
 
 /**
- * Model agents now use the hyperscapePlugin which connects via WebSocket.
+ * Model agents now use the hyperiaPlugin which connects via WebSocket.
  * Each agent gets a JWT for authentication and joins the game world as a
  * normal player, enabling the full ElizaOS LLM decision loop.
  */
@@ -213,7 +213,7 @@ function getModelAgentKey(config: { provider: string; model: string }): string {
 }
 
 function resolveModelAgentServerUrls(): { wsUrl: string; apiUrl: string } {
-  const explicitServerUrl = process.env.HYPERSCAPE_SERVER_URL?.trim();
+  const explicitServerUrl = process.env.HYPERIA_SERVER_URL?.trim();
 
   // uWS game WebSocket runs on UWS_PORT (default 5556), not the HTTP port.
   // Fall back to PORT (Fastify) only when uWS is disabled.
@@ -227,8 +227,7 @@ function resolveModelAgentServerUrls(): { wsUrl: string; apiUrl: string } {
       ? explicitServerUrl
       : process.env.PUBLIC_WS_URL || `ws://127.0.0.1:${wsPort}/ws`;
 
-  const apiUrl =
-    process.env.HYPERSCAPE_API_URL || `http://127.0.0.1:${httpPort}`;
+  const apiUrl = process.env.HYPERIA_API_URL || `http://127.0.0.1:${httpPort}`;
 
   return { wsUrl, apiUrl };
 }
@@ -236,7 +235,7 @@ function resolveModelAgentServerUrls(): { wsUrl: string; apiUrl: string } {
 /**
  * Spawn ElizaOS agents with different AI models
  *
- * @param world - The Hyperscape world instance
+ * @param world - The Hyperia world instance
  * @param options - Configuration options
  * @returns Number of agents spawned
  */
@@ -303,7 +302,7 @@ export async function spawnModelAgents(
 
   let spawnedCount = 0;
   let totalFailures = 0;
-  const { wsUrl: hyperscapeServerUrl, apiUrl: hyperscapeApiUrl } =
+  const { wsUrl: hyperiaServerUrl, apiUrl: hyperiaApiUrl } =
     resolveModelAgentServerUrls();
 
   // ---- Pre-filter: skip agents with no API key or already running ----
@@ -350,11 +349,11 @@ export async function spawnModelAgents(
     try {
       const authToken = await createJWT({ userId: accountId });
       const perAgentSecrets: Record<string, string> = {
-        HYPERSCAPE_SERVER_URL: hyperscapeServerUrl,
-        HYPERSCAPE_API_URL: hyperscapeApiUrl,
-        HYPERSCAPE_AUTH_TOKEN: authToken,
-        HYPERSCAPE_PRIVY_USER_ID: accountId,
-        HYPERSCAPE_CHARACTER_ID: "",
+        HYPERIA_SERVER_URL: hyperiaServerUrl,
+        HYPERIA_API_URL: hyperiaApiUrl,
+        HYPERIA_AUTH_TOKEN: authToken,
+        HYPERIA_PRIVY_USER_ID: accountId,
+        HYPERIA_CHARACTER_ID: "",
       };
 
       const { character, characterId } = createAgentCharacter(agentConfig, {
@@ -363,7 +362,7 @@ export async function spawnModelAgents(
       if (character.settings?.secrets) {
         (
           character.settings.secrets as Record<string, string>
-        ).HYPERSCAPE_CHARACTER_ID = characterId;
+        ).HYPERIA_CHARACTER_ID = characterId;
       }
 
       // Ensure character exists in database
@@ -386,7 +385,7 @@ export async function spawnModelAgents(
         return false;
       }
 
-      const runtimePlugins: Plugin[] = [modelPlugin, hyperscapePlugin];
+      const runtimePlugins: Plugin[] = [modelPlugin, hyperiaPlugin];
 
       const createRuntimeInstance = (): AgentRuntime => {
         // Create a memory-safe InMemoryDatabaseAdapter that caps internal
@@ -553,13 +552,13 @@ export async function spawnModelAgents(
         ).adapter = adapterBeforeInit;
       }
 
-      // ElizaOS v2 lazy-starts services — explicitly kick off HyperscapeService
+      // ElizaOS v2 lazy-starts services — explicitly kick off HyperiaService
       // so the WebSocket connection + player spawn begins immediately.
       const runtimeWithService = runtimeInstance as unknown as {
         _ensureServiceStarted?: (serviceName: string) => Promise<unknown>;
       };
       if (typeof runtimeWithService._ensureServiceStarted === "function") {
-        await runtimeWithService._ensureServiceStarted("hyperscapeService");
+        await runtimeWithService._ensureServiceStarted("hyperiaService");
       }
 
       runningAgents.set(agentKey, {
@@ -752,7 +751,7 @@ export async function stopModelAgent(
 
   let stopError: unknown = null;
   try {
-    // Stop the runtime (this also stops HyperscapeService).
+    // Stop the runtime (this also stops HyperiaService).
     // 10s timeout prevents indefinite hang if stop() blocks.
     await Promise.race([
       agent.runtime.stop(),
@@ -886,7 +885,7 @@ function constrainTargetToLobby(
 }
 
 function snapAgentToPosition(
-  service: EmbeddedHyperscapeService,
+  service: EmbeddedHyperiaService,
   position: [number, number, number],
 ): boolean {
   const playerId = service.getPlayerId();
@@ -924,13 +923,13 @@ function snapAgentToPosition(
 /**
  * Start the autonomous behavior loop for an embedded agent
  *
- * This is a simplified behavior loop that uses EmbeddedHyperscapeService
+ * This is a simplified behavior loop that uses EmbeddedHyperiaService
  * directly for game actions, without going through the full ElizaOS
  * action/provider pipeline.
  */
 function startAgentBehaviorLoop(
   runtime: AgentRuntime,
-  service: EmbeddedHyperscapeService,
+  service: EmbeddedHyperiaService,
   config: ModelProviderConfig,
 ): void {
   const agentKey = getModelAgentKey(config);
@@ -1017,10 +1016,10 @@ const PLAN_STALE_MS = 30000;
 
 async function getOrCreatePlan(
   runtime: AgentRuntime,
-  service: EmbeddedHyperscapeService,
+  service: EmbeddedHyperiaService,
   config: ModelProviderConfig,
-  gameState: ReturnType<EmbeddedHyperscapeService["getGameState"]> & object,
-  world: ReturnType<EmbeddedHyperscapeService["getWorld"]>,
+  gameState: ReturnType<EmbeddedHyperiaService["getGameState"]> & object,
+  world: ReturnType<EmbeddedHyperiaService["getWorld"]>,
 ): Promise<AgentPlan | null> {
   const planKey = getModelAgentKey(config);
   const existing = agentPlans.get(planKey);
@@ -1045,9 +1044,9 @@ async function getOrCreatePlan(
 
 async function createBehaviorPlan(
   runtime: AgentRuntime,
-  service: EmbeddedHyperscapeService,
+  service: EmbeddedHyperiaService,
   config: ModelProviderConfig,
-  gameState: ReturnType<EmbeddedHyperscapeService["getGameState"]> & object,
+  gameState: ReturnType<EmbeddedHyperiaService["getGameState"]> & object,
 ): Promise<AgentPlan | null> {
   const { health, maxHealth, nearbyEntities, inCombat, inventory } = gameState;
   const healthPct = ((health / maxHealth) * 100).toFixed(0);
@@ -1129,10 +1128,10 @@ async function createBehaviorPlan(
 }
 
 async function executeQueuedAction(
-  service: EmbeddedHyperscapeService,
+  service: EmbeddedHyperiaService,
   action: PlannedAction,
-  gameState: ReturnType<EmbeddedHyperscapeService["getGameState"]> & object,
-  world: ReturnType<EmbeddedHyperscapeService["getWorld"]>,
+  gameState: ReturnType<EmbeddedHyperiaService["getGameState"]> & object,
+  world: ReturnType<EmbeddedHyperiaService["getWorld"]>,
 ): Promise<void> {
   const { nearbyEntities } = gameState;
 
@@ -1347,7 +1346,7 @@ async function executeQueuedAction(
 
 async function executeBehaviorTick(
   runtime: AgentRuntime,
-  service: EmbeddedHyperscapeService,
+  service: EmbeddedHyperiaService,
   config: ModelProviderConfig,
 ): Promise<void> {
   const playerId = service.getPlayerId();

@@ -188,7 +188,7 @@ export class ChainWriter {
 
     const callData = encodeFunctionData({
       abi: PLAYER_REGISTRY_ABI,
-      functionName: "hyperscape__registerPlayer",
+      functionName: "hyperia__registerPlayer",
       args: [walletAddress, characterId, playerName],
     });
 
@@ -243,7 +243,7 @@ export class ChainWriter {
 
     const callData = encodeFunctionData({
       abi: SKILL_SYSTEM_ABI,
-      functionName: "hyperscape__updateCombatSkills",
+      functionName: "hyperia__updateCombatSkills",
       args: [characterId, levels, xps],
     });
 
@@ -309,7 +309,7 @@ export class ChainWriter {
 
     const callData = encodeFunctionData({
       abi: SKILL_SYSTEM_ABI,
-      functionName: "hyperscape__updateGatheringSkills",
+      functionName: "hyperia__updateGatheringSkills",
       args: [characterId, levels, xps],
     });
 
@@ -343,7 +343,7 @@ export class ChainWriter {
 
     const callData = encodeFunctionData({
       abi: INVENTORY_SYSTEM_ABI,
-      functionName: "hyperscape__setInventorySlotBatch",
+      functionName: "hyperia__setInventorySlotBatch",
       args: [characterId, slotIndices, itemIds, quantities],
     });
 
@@ -361,7 +361,7 @@ export class ChainWriter {
 
     const callData = encodeFunctionData({
       abi: INVENTORY_SYSTEM_ABI,
-      functionName: "hyperscape__setGold",
+      functionName: "hyperia__setGold",
       args: [characterId, BigInt(amount)],
     });
 
@@ -391,7 +391,7 @@ export class ChainWriter {
 
     const callData = encodeFunctionData({
       abi: EQUIPMENT_SYSTEM_ABI,
-      functionName: "hyperscape__setEquipmentSlotBatch",
+      functionName: "hyperia__setEquipmentSlotBatch",
       args: [characterId, slotTypes, itemIds, quantities],
     });
 
@@ -418,7 +418,7 @@ export class ChainWriter {
 
     const callData = encodeFunctionData({
       abi: STATS_SYSTEM_ABI,
-      functionName: "hyperscape__recordMobKill",
+      functionName: "hyperia__recordMobKill",
       args: [characterId, npcId, isBoss],
     });
 
@@ -433,7 +433,7 @@ export class ChainWriter {
 
     const callData = encodeFunctionData({
       abi: STATS_SYSTEM_ABI,
-      functionName: "hyperscape__recordDeath",
+      functionName: "hyperia__recordDeath",
       args: [characterId],
     });
 
@@ -465,7 +465,7 @@ export class ChainWriter {
 
     const callData = encodeFunctionData({
       abi: DUEL_SYSTEM_ABI,
-      functionName: "hyperscape__recordDuel",
+      functionName: "hyperia__recordDuel",
       args: [
         duelIdBytes,
         challengerAddress,
@@ -516,7 +516,7 @@ export class ChainWriter {
 
 const PLAYER_REGISTRY_ABI = [
   {
-    name: "hyperscape__registerPlayer",
+    name: "hyperia__registerPlayer",
     type: "function",
     inputs: [
       { name: "playerAddress", type: "address" },
@@ -529,7 +529,7 @@ const PLAYER_REGISTRY_ABI = [
 
 const SKILL_SYSTEM_ABI = [
   {
-    name: "hyperscape__updateCombatSkills",
+    name: "hyperia__updateCombatSkills",
     type: "function",
     inputs: [
       { name: "characterId", type: "bytes32" },
@@ -539,7 +539,7 @@ const SKILL_SYSTEM_ABI = [
     outputs: [],
   },
   {
-    name: "hyperscape__updateGatheringSkills",
+    name: "hyperia__updateGatheringSkills",
     type: "function",
     inputs: [
       { name: "characterId", type: "bytes32" },
@@ -552,7 +552,7 @@ const SKILL_SYSTEM_ABI = [
 
 const INVENTORY_SYSTEM_ABI = [
   {
-    name: "hyperscape__setInventorySlotBatch",
+    name: "hyperia__setInventorySlotBatch",
     type: "function",
     inputs: [
       { name: "characterId", type: "bytes32" },
@@ -563,7 +563,7 @@ const INVENTORY_SYSTEM_ABI = [
     outputs: [],
   },
   {
-    name: "hyperscape__setGold",
+    name: "hyperia__setGold",
     type: "function",
     inputs: [
       { name: "characterId", type: "bytes32" },
@@ -575,7 +575,7 @@ const INVENTORY_SYSTEM_ABI = [
 
 const EQUIPMENT_SYSTEM_ABI = [
   {
-    name: "hyperscape__setEquipmentSlotBatch",
+    name: "hyperia__setEquipmentSlotBatch",
     type: "function",
     inputs: [
       { name: "characterId", type: "bytes32" },
@@ -589,7 +589,7 @@ const EQUIPMENT_SYSTEM_ABI = [
 
 const STATS_SYSTEM_ABI = [
   {
-    name: "hyperscape__recordMobKill",
+    name: "hyperia__recordMobKill",
     type: "function",
     inputs: [
       { name: "characterId", type: "bytes32" },
@@ -599,7 +599,7 @@ const STATS_SYSTEM_ABI = [
     outputs: [],
   },
   {
-    name: "hyperscape__recordDeath",
+    name: "hyperia__recordDeath",
     type: "function",
     inputs: [{ name: "characterId", type: "bytes32" }],
     outputs: [],
@@ -608,7 +608,7 @@ const STATS_SYSTEM_ABI = [
 
 const DUEL_SYSTEM_ABI = [
   {
-    name: "hyperscape__recordDuel",
+    name: "hyperia__recordDuel",
     type: "function",
     inputs: [
       { name: "duelId", type: "bytes32" },

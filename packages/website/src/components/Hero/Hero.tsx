@@ -42,13 +42,13 @@ export function Hero() {
 
       {/* Content — relative flow, padding clears header + creates cinematic space */}
       <div className="relative z-10 pt-32 sm:pt-36 md:pt-40 lg:pt-44 pb-32 sm:pb-40 md:pb-48 lg:pb-56">
-        <h1 className="sr-only">Hyperscape - The First AI-Native MMORPG</h1>
+        <h1 className="sr-only">Hyperia - The First AI-Native MMORPG</h1>
         <div className="max-w-6xl mx-auto container-padding w-full">
           <FadeIn onScroll={false} delay={0.1}>
             <div className="flex flex-col items-center md:items-start gap-6 md:gap-8 text-center md:text-left max-w-2xl hero-content-pedestal">
               <Image
                 src="/images/wordmark.png"
-                alt="Hyperscape"
+                alt="Hyperia"
                 width={1000}
                 height={200}
                 className="w-64 sm:w-80 md:w-96 lg:w-[32rem] h-auto drop-shadow-[0_0_40px_var(--gold-glow-alt)]"

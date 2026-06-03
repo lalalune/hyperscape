@@ -5,7 +5,7 @@
  * - handleDuelForfeit: Player forfeits the duel (loses, opponent wins)
  */
 
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 import type { ServerSocket } from "../../../../shared/types";
 import { sendDuelError, withDuelAuth, assertDuelState } from "./helpers";
 

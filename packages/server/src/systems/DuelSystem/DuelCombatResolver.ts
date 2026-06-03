@@ -14,8 +14,8 @@
  * - Arena management (ArenaPoolManager)
  */
 
-import type { World, StakedItem } from "@hyperscape/shared";
-import { EventType, PlayerEntity } from "@hyperscape/shared";
+import type { World, StakedItem } from "@hyperforge/shared";
+import { EventType, PlayerEntity } from "@hyperforge/shared";
 import type { ServerDuelSession } from "./DuelSessionManager";
 import { AuditLogger, Logger } from "../ServerNetwork/services";
 import { LOBBY_SPAWN_WINNER, LOBBY_SPAWN_LOSER } from "./config";

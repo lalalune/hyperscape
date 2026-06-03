@@ -41,7 +41,7 @@ import {
   PANEL_SLOT_RADIUS,
 } from "../../constants/panelLayout";
 import type { PlayerStats, ClientWorld } from "../../types";
-import { spellService, EventType, type Spell } from "@hyperscape/shared";
+import { spellService, EventType, type Spell } from "@hyperforge/shared";
 
 // Spell panel layout constants — use shared sizing tokens from panelLayout.ts
 // to ensure consistency across Prayer, Spells, Skills, and Inventory panels.
@@ -705,7 +705,7 @@ export function SpellsPanel({ stats, world }: SpellsPanelProps) {
               top: contextMenu.y,
               zIndex: zIndex.contextMenu,
               background:
-                theme.name === "hyperscape"
+                theme.name === "hyperia"
                   ? "linear-gradient(180deg, rgba(44, 36, 24, 0.98) 0%, rgba(18, 15, 11, 0.98) 100%)"
                   : `linear-gradient(180deg, ${theme.colors.background.tertiary} 0%, ${theme.colors.background.secondary} 100%)`,
               border: `1px solid ${theme.colors.border.default}`,

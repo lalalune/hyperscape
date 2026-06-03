@@ -17,11 +17,11 @@ jobs:
           key: ${{ secrets.VAST_SSH_KEY }}
           script: |
             export PATH="/root/.bun/bin:$PATH"
-            cd /root/hyperscape
+            cd /root/hyperia
             echo "=== Diagnostic 1: Checking dist/index.js ==="
             ls -la packages/server/dist/ || echo "No dist folder in server!"
             echo "=== Diagnostic 2: Checking pm2 errors ==="
-            cat /root/.pm2/logs/hyperscape-duel-error-0.log | tail -n 50 || echo "No error log"
+            cat /root/.pm2/logs/hyperia-duel-error-0.log | tail -n 50 || echo "No error log"
             echo "=== Diagnostic 3: Manual start attempt ==="
             cd packages/server
             bun run src/index.ts || echo "Failed to start server directly"

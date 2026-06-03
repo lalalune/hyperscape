@@ -19,7 +19,7 @@ import {
   type ITransactionValidator,
   type ValidationResult,
   type Position2D,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 
 /** Entity lookup function type */
 type EntityLookup = (entityId: string) => { position?: Position2D } | undefined;

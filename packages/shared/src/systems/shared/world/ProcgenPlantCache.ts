@@ -92,10 +92,10 @@ const presetCache = new Map<string, PresetCache>();
  * PlantGenerator import (lazy loaded).
  */
 let PlantGenerator:
-  | typeof import("@hyperscape/procgen/plant").PlantGenerator
+  | typeof import("@hyperforge/procgen/plant").PlantGenerator
   | null = null;
 let RenderQualityEnum:
-  | typeof import("@hyperscape/procgen/plant").RenderQualityEnum
+  | typeof import("@hyperforge/procgen/plant").RenderQualityEnum
   | null = null;
 let procgenLoaded = false;
 let procgenLoadPromise: Promise<void> | null = null;
@@ -113,21 +113,21 @@ async function loadProcgen(): Promise<boolean> {
     return procgenLoaded;
   }
 
-  console.log("[ProcgenPlantCache] Loading @hyperscape/procgen/plant...");
+  console.log("[ProcgenPlantCache] Loading @hyperforge/procgen/plant...");
 
-  procgenLoadPromise = import("@hyperscape/procgen/plant")
+  procgenLoadPromise = import("@hyperforge/procgen/plant")
     .then((procgen) => {
       PlantGenerator = procgen.PlantGenerator;
       RenderQualityEnum = procgen.RenderQualityEnum;
       procgenLoaded = true;
       console.log(
-        "[ProcgenPlantCache] Successfully loaded @hyperscape/procgen/plant",
+        "[ProcgenPlantCache] Successfully loaded @hyperforge/procgen/plant",
       );
     })
     .catch((err) => {
       procgenLoadFailed = true;
       console.error(
-        "[ProcgenPlantCache] Failed to load @hyperscape/procgen/plant:",
+        "[ProcgenPlantCache] Failed to load @hyperforge/procgen/plant:",
         err,
       );
     });

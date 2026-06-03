@@ -17,7 +17,7 @@ import {
   type BuildingLayout,
   CELL_SIZE,
   FOUNDATION_HEIGHT,
-} from "@hyperscape/procgen/building";
+} from "@hyperforge/procgen/building";
 
 /** Registered building data */
 interface RegisteredBuilding {

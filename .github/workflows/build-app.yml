@@ -196,16 +196,16 @@ jobs:
           TARGET_ENV="${{ github.event_name == 'workflow_dispatch' && inputs.environment }}"
 
           if [[ "${GITHUB_REF_NAME}" == "staging" || "$TARGET_ENV" == "staging" ]]; then
-            echo "api_url=${STAGING_API_URL:-https://staging-api.hyperscape.club}" >> "$GITHUB_OUTPUT"
-            echo "ws_url=${STAGING_WS_URL:-wss://staging-api.hyperscape.club/ws}" >> "$GITHUB_OUTPUT"
-            echo "app_url=${STAGING_APP_URL:-https://staging.hyperscape.club}" >> "$GITHUB_OUTPUT"
-            echo "cdn_url=${STAGING_CDN_URL:-https://staging-assets.hyperscape.club}" >> "$GITHUB_OUTPUT"
+            echo "api_url=${STAGING_API_URL:-https://staging-api.hyperia.club}" >> "$GITHUB_OUTPUT"
+            echo "ws_url=${STAGING_WS_URL:-wss://staging-api.hyperia.club/ws}" >> "$GITHUB_OUTPUT"
+            echo "app_url=${STAGING_APP_URL:-https://staging.hyperia.club}" >> "$GITHUB_OUTPUT"
+            echo "cdn_url=${STAGING_CDN_URL:-https://staging-assets.hyperia.club}" >> "$GITHUB_OUTPUT"
             echo "Building for staging"
           else
-            echo "api_url=${PRODUCTION_API_URL:-https://hyperscape-production.up.railway.app}" >> "$GITHUB_OUTPUT"
-            echo "ws_url=${PRODUCTION_WS_URL:-wss://hyperscape-production.up.railway.app/ws}" >> "$GITHUB_OUTPUT"
-            echo "app_url=${PRODUCTION_APP_URL:-https://hyperscape.club}" >> "$GITHUB_OUTPUT"
-            echo "cdn_url=${PRODUCTION_CDN_URL:-https://assets.hyperscape.club}" >> "$GITHUB_OUTPUT"
+            echo "api_url=${PRODUCTION_API_URL:-https://hyperia-production.up.railway.app}" >> "$GITHUB_OUTPUT"
+            echo "ws_url=${PRODUCTION_WS_URL:-wss://hyperia-production.up.railway.app/ws}" >> "$GITHUB_OUTPUT"
+            echo "app_url=${PRODUCTION_APP_URL:-https://hyperia.club}" >> "$GITHUB_OUTPUT"
+            echo "cdn_url=${PRODUCTION_CDN_URL:-https://assets.hyperia.club}" >> "$GITHUB_OUTPUT"
             echo "Building for production"
           fi
 
@@ -293,7 +293,7 @@ jobs:
         if: needs.prepare.outputs.is_release == 'true'
         uses: actions/upload-artifact@v7
         with:
-          name: hyperscape-desktop-${{ matrix.target }}
+          name: hyperia-desktop-${{ matrix.target }}
           path: |
             packages/app/src-tauri/target/${{ matrix.rust_target }}/release/bundle/**/*
           if-no-files-found: error
@@ -303,9 +303,9 @@ jobs:
         if: needs.prepare.outputs.is_release != 'true'
         uses: actions/upload-artifact@v7
         with:
-          name: hyperscape-desktop-${{ matrix.target }}
+          name: hyperia-desktop-${{ matrix.target }}
           path: |
-            packages/app/src-tauri/target/${{ matrix.rust_target }}/release/hyperscape*
+            packages/app/src-tauri/target/${{ matrix.rust_target }}/release/hyperia*
             !packages/app/src-tauri/target/${{ matrix.rust_target }}/release/*.d
             !packages/app/src-tauri/target/${{ matrix.rust_target }}/release/*.rlib
           if-no-files-found: warn
@@ -366,16 +366,16 @@ jobs:
           TARGET_ENV="${{ github.event_name == 'workflow_dispatch' && inputs.environment }}"
 
           if [[ "${GITHUB_REF_NAME}" == "staging" || "$TARGET_ENV" == "staging" ]]; then
-            echo "api_url=${STAGING_API_URL:-https://staging-api.hyperscape.club}" >> "$GITHUB_OUTPUT"
-            echo "ws_url=${STAGING_WS_URL:-wss://staging-api.hyperscape.club/ws}" >> "$GITHUB_OUTPUT"
-            echo "app_url=${STAGING_APP_URL:-https://staging.hyperscape.club}" >> "$GITHUB_OUTPUT"
-            echo "cdn_url=${STAGING_CDN_URL:-https://staging-assets.hyperscape.club}" >> "$GITHUB_OUTPUT"
+            echo "api_url=${STAGING_API_URL:-https://staging-api.hyperia.club}" >> "$GITHUB_OUTPUT"
+            echo "ws_url=${STAGING_WS_URL:-wss://staging-api.hyperia.club/ws}" >> "$GITHUB_OUTPUT"
+            echo "app_url=${STAGING_APP_URL:-https://staging.hyperia.club}" >> "$GITHUB_OUTPUT"
+            echo "cdn_url=${STAGING_CDN_URL:-https://staging-assets.hyperia.club}" >> "$GITHUB_OUTPUT"
             echo "Building for staging"
           else
-            echo "api_url=${PRODUCTION_API_URL:-https://hyperscape-production.up.railway.app}" >> "$GITHUB_OUTPUT"
-            echo "ws_url=${PRODUCTION_WS_URL:-wss://hyperscape-production.up.railway.app/ws}" >> "$GITHUB_OUTPUT"
-            echo "app_url=${PRODUCTION_APP_URL:-https://hyperscape.club}" >> "$GITHUB_OUTPUT"
-            echo "cdn_url=${PRODUCTION_CDN_URL:-https://assets.hyperscape.club}" >> "$GITHUB_OUTPUT"
+            echo "api_url=${PRODUCTION_API_URL:-https://hyperia-production.up.railway.app}" >> "$GITHUB_OUTPUT"
+            echo "ws_url=${PRODUCTION_WS_URL:-wss://hyperia-production.up.railway.app/ws}" >> "$GITHUB_OUTPUT"
+            echo "app_url=${PRODUCTION_APP_URL:-https://hyperia.club}" >> "$GITHUB_OUTPUT"
+            echo "cdn_url=${PRODUCTION_CDN_URL:-https://assets.hyperia.club}" >> "$GITHUB_OUTPUT"
             echo "Building for production"
           fi
 
@@ -428,7 +428,7 @@ jobs:
       - name: Upload iOS artifact
         uses: actions/upload-artifact@v7
         with:
-          name: hyperscape-ios
+          name: hyperia-ios
           path: packages/app/src-tauri/gen/apple/build/**/*.ipa
           if-no-files-found: error
           retention-days: 14
@@ -495,16 +495,16 @@ jobs:
           TARGET_ENV="${{ github.event_name == 'workflow_dispatch' && inputs.environment }}"
 
           if [[ "${GITHUB_REF_NAME}" == "staging" || "$TARGET_ENV" == "staging" ]]; then
-            echo "api_url=${STAGING_API_URL:-https://staging-api.hyperscape.club}" >> "$GITHUB_OUTPUT"
-            echo "ws_url=${STAGING_WS_URL:-wss://staging-api.hyperscape.club/ws}" >> "$GITHUB_OUTPUT"
-            echo "app_url=${STAGING_APP_URL:-https://staging.hyperscape.club}" >> "$GITHUB_OUTPUT"
-            echo "cdn_url=${STAGING_CDN_URL:-https://staging-assets.hyperscape.club}" >> "$GITHUB_OUTPUT"
+            echo "api_url=${STAGING_API_URL:-https://staging-api.hyperia.club}" >> "$GITHUB_OUTPUT"
+            echo "ws_url=${STAGING_WS_URL:-wss://staging-api.hyperia.club/ws}" >> "$GITHUB_OUTPUT"
+            echo "app_url=${STAGING_APP_URL:-https://staging.hyperia.club}" >> "$GITHUB_OUTPUT"
+            echo "cdn_url=${STAGING_CDN_URL:-https://staging-assets.hyperia.club}" >> "$GITHUB_OUTPUT"
             echo "Building for staging"
           else
-            echo "api_url=${PRODUCTION_API_URL:-https://hyperscape-production.up.railway.app}" >> "$GITHUB_OUTPUT"
-            echo "ws_url=${PRODUCTION_WS_URL:-wss://hyperscape-production.up.railway.app/ws}" >> "$GITHUB_OUTPUT"
-            echo "app_url=${PRODUCTION_APP_URL:-https://hyperscape.club}" >> "$GITHUB_OUTPUT"
-            echo "cdn_url=${PRODUCTION_CDN_URL:-https://assets.hyperscape.club}" >> "$GITHUB_OUTPUT"
+            echo "api_url=${PRODUCTION_API_URL:-https://hyperia-production.up.railway.app}" >> "$GITHUB_OUTPUT"
+            echo "ws_url=${PRODUCTION_WS_URL:-wss://hyperia-production.up.railway.app/ws}" >> "$GITHUB_OUTPUT"
+            echo "app_url=${PRODUCTION_APP_URL:-https://hyperia.club}" >> "$GITHUB_OUTPUT"
+            echo "cdn_url=${PRODUCTION_CDN_URL:-https://assets.hyperia.club}" >> "$GITHUB_OUTPUT"
             echo "Building for production"
           fi
 
@@ -551,7 +551,7 @@ jobs:
             exit 0
           fi
 
-          KEYSTORE_PATH="$RUNNER_TEMP/hyperscape-upload.keystore"
+          KEYSTORE_PATH="$RUNNER_TEMP/hyperia-upload.keystore"
           printf "%s" "$ANDROID_KEYSTORE" | base64 --decode > "$KEYSTORE_PATH"
 
           echo "ANDROID_KEYSTORE_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
@@ -586,7 +586,7 @@ jobs:
       - name: Upload Android artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: hyperscape-android
+          name: hyperia-android
           path: |
             packages/app/src-tauri/gen/android/app/build/outputs/**/*.apk
             packages/app/src-tauri/gen/android/app/build/outputs/**/*.aab
@@ -609,7 +609,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-          pattern: hyperscape-*
+          pattern: hyperia-*
           merge-multiple: false
 
       - name: Collect release files
@@ -660,7 +660,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.prepare.outputs.release_tag }}
-          name: Hyperscape ${{ needs.prepare.outputs.release_tag }}
+          name: Hyperia ${{ needs.prepare.outputs.release_tag }}
           draft: ${{ github.event_name == 'workflow_dispatch' && inputs.draft_release || false }}
           prerelease: ${{ needs.prepare.outputs.is_prerelease == 'true' }}
           generate_release_notes: true

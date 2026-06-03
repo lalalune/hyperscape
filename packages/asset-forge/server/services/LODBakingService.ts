@@ -473,7 +473,7 @@ export class LODBakingService {
 
     // Find all GLB files in asset directories
     // Note: vegetation assets are in packages/server/world/assets/vegetation
-    // Rocks are now procedurally generated via @hyperscape/procgen/rock
+    // Rocks are now procedurally generated via @hyperforge/procgen/rock
     const patterns = [
       "packages/server/world/assets/vegetation/**/*.glb",
       "assets/trees/**/*.glb",
@@ -710,7 +710,7 @@ export class LODBakingService {
 
   /**
    * Start a TypeScript-based LOD baking job (no external tools required)
-   * Uses @hyperscape/decimation for in-process mesh simplification
+   * Uses @hyperforge/decimation for in-process mesh simplification
    */
   async startTypeScriptBakeJob(
     assetPaths?: string[],

@@ -14,7 +14,7 @@ export function resolveStreamingViewerAccessToken(
   }
 
   return createHash("sha256")
-    .update("hyperscape-stream-viewer:")
+    .update("hyperia-stream-viewer:")
     .update(jwtSecret)
     .digest("hex");
 }

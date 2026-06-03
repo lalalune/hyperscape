@@ -9,7 +9,7 @@ import React, {
   useMemo,
 } from "react";
 
-import { ControlPriorities, EventType, isTouch } from "@hyperscape/shared";
+import { ControlPriorities, EventType, isTouch } from "@hyperforge/shared";
 import type { ClientWorld, InventorySlotItem } from "../../types";
 import { getEmbeddedConfig } from "../../types/embeddedConfig";
 import { ActionPanel } from "../panels/ActionPanel";
@@ -20,7 +20,7 @@ const CHAT_HEADER_FONT = typography.fontFamily.body;
 
 /**
  * Module-level chat button style constant (without color - applied dynamically).
- * isTouch is a module-level constant from @hyperscape/shared that doesn't change at runtime,
+ * isTouch is a module-level constant from @hyperforge/shared that doesn't change at runtime,
  * so this style can be computed once at module load time.
  */
 const CHAT_BUTTON_BASE_STYLE: Omit<React.CSSProperties, "color"> = {

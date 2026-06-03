@@ -1,11 +1,11 @@
 /**
  * Skills E2E Tests
  *
- * Tests skill system interactions using real Hyperscape instances.
+ * Tests skill system interactions using real Hyperia instances.
  * NO MOCKS - these tests run against actual game servers.
  *
  * Per project rules:
- * - Use real Hyperscape worlds
+ * - Use real Hyperia worlds
  * - Test via Three.js scene introspection
  * - Visual verification with screenshots
  *

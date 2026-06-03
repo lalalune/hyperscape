@@ -45,8 +45,8 @@ interface PlayerSession {
 }
 
 class MockPlayerTokenManager {
-  private static STORAGE_KEY = "hyperscape_player_token";
-  private static SESSION_KEY = "hyperscape_session";
+  private static STORAGE_KEY = "hyperia_player_token";
+  private static SESSION_KEY = "hyperia_session";
 
   private currentToken: ClientPlayerToken;
   private currentSession: PlayerSession;
@@ -217,7 +217,7 @@ describe("PlayerTokenManager", () => {
       };
 
       localStorage.getItem = vi.fn((key: string): string | null => {
-        if (key === "hyperscape_player_token") {
+        if (key === "hyperia_player_token") {
           return JSON.stringify(existingToken);
         }
         return null;
@@ -286,11 +286,9 @@ describe("PlayerTokenManager", () => {
     it("should clear stored data", () => {
       manager.clearStoredData();
       expect(localStorage.removeItem).toHaveBeenCalledWith(
-        "hyperscape_player_token",
+        "hyperia_player_token",
       );
-      expect(localStorage.removeItem).toHaveBeenCalledWith(
-        "hyperscape_session",
-      );
+      expect(localStorage.removeItem).toHaveBeenCalledWith("hyperia_session");
     });
 
     it("should create new token after clear", () => {

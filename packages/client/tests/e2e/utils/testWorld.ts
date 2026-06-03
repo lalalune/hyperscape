@@ -1,7 +1,7 @@
 /**
- * Test Utilities for Real Hyperscape Instances
+ * Test Utilities for Real Hyperia Instances
  *
- * Per project rules: NO MOCKS. Tests use real Hyperscape servers
+ * Per project rules: NO MOCKS. Tests use real Hyperia servers
  * and verify behavior through:
  * - Three.js scene introspection
  * - Visual testing with colored cube proxies
@@ -24,8 +24,8 @@ export async function waitForGameLoad(
   const loadedHandle = await page
     .waitForFunction(
       () => {
-        const win = window as unknown as { __HYPERSCAPE_LOADING__?: boolean };
-        return win.__HYPERSCAPE_LOADING__ === false;
+        const win = window as unknown as { __HYPERIA_LOADING__?: boolean };
+        return win.__HYPERIA_LOADING__ === false;
       },
       undefined,
       {

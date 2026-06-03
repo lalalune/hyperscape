@@ -1,7 +1,7 @@
-# Hyperscape — full-stack Docker image (game server + web client)
+# Hyperia — full-stack Docker image (game server + web client)
 #
 # Build from repo root:
-#   docker build --platform linux/amd64 -f Dockerfile.server -t ghcr.io/alternatefutures/hyperscape:v12 .
+#   docker build --platform linux/amd64 -f Dockerfile.server -t ghcr.io/alternatefutures/hyperia:v12 .
 #
 # Issues this Dockerfile works around:
 #   1. better-sqlite3 — node-gyp fails under QEMU (stripped before install)
@@ -25,7 +25,7 @@ WORKDIR /app
 
 ENV CI=true \
     SKIP_ASSETS=true \
-    HYPERSCAPE_SKIP_BROWSER_INSTALL=true
+    HYPERIA_SKIP_BROWSER_INSTALL=true
 
 # Vite 8 requires Node 20.19+ or 22.12+. Bun 1.1.38 reports Node 22.6.0 when
 # running Vite-backed scripts, so copy in a current real Node binary for those
@@ -41,7 +41,7 @@ COPY packages/decimation/package.json      ./packages/decimation/
 COPY packages/impostors/package.json       ./packages/impostors/
 COPY packages/procgen/package.json         ./packages/procgen/
 COPY packages/shared/package.json          ./packages/shared/
-COPY packages/plugin-hyperscape/package.json ./packages/plugin-hyperscape/
+COPY packages/plugin-hyperia/package.json ./packages/plugin-hyperia/
 COPY packages/web3/package.json            ./packages/web3/
 COPY packages/server/package.json          ./packages/server/
 COPY packages/client/package.json          ./packages/client/
@@ -57,7 +57,7 @@ COPY packages/decimation         ./packages/decimation
 COPY packages/impostors          ./packages/impostors
 COPY packages/procgen            ./packages/procgen
 COPY packages/shared             ./packages/shared
-COPY packages/plugin-hyperscape  ./packages/plugin-hyperscape
+COPY packages/plugin-hyperia  ./packages/plugin-hyperia
 COPY packages/web3               ./packages/web3
 COPY packages/server             ./packages/server
 COPY packages/client             ./packages/client
@@ -84,7 +84,7 @@ RUN mkdir -p \
     packages/shared/node_modules \
     packages/procgen/node_modules \
     packages/impostors/node_modules \
-    packages/plugin-hyperscape/node_modules \
+    packages/plugin-hyperia/node_modules \
     packages/web3/node_modules \
     packages/client/node_modules
 
@@ -98,7 +98,7 @@ RUN cd /app/packages/physx-js-webidl && bun run build && \
     node ../../node_modules/vite/bin/vite.js build --config vite.lib.config.ts && \
     cd /app/packages/procgen && (bun run build || true) && \
     cd /app/packages/shared && bun run build && \
-    cd /app/packages/plugin-hyperscape && bun run build && \
+    cd /app/packages/plugin-hyperia && bun run build && \
     cd /app/packages/web3 && bun run build && \
     cd /app/packages/server && bun run build && \
     cd /app/packages/client && NODE_OPTIONS='--max-old-space-size=4096' \
@@ -123,7 +123,7 @@ WORKDIR /app
 ENV NODE_ENV=production \
     CI=true \
     SKIP_ASSETS=true \
-    HYPERSCAPE_SKIP_BROWSER_INSTALL=true
+    HYPERIA_SKIP_BROWSER_INSTALL=true
 
 # Package manifests from builder (has better-sqlite3 stripped).
 COPY --from=builder /app/package.json /app/bun.lock ./
@@ -132,7 +132,7 @@ COPY --from=builder /app/packages/decimation/package.json      ./packages/decima
 COPY --from=builder /app/packages/impostors/package.json       ./packages/impostors/
 COPY --from=builder /app/packages/procgen/package.json         ./packages/procgen/
 COPY --from=builder /app/packages/shared/package.json          ./packages/shared/
-COPY --from=builder /app/packages/plugin-hyperscape/package.json ./packages/plugin-hyperscape/
+COPY --from=builder /app/packages/plugin-hyperia/package.json ./packages/plugin-hyperia/
 COPY --from=builder /app/packages/web3/package.json            ./packages/web3/
 COPY --from=builder /app/packages/server/package.json          ./packages/server/
 COPY --from=builder /app/packages/client/package.json          ./packages/client/
@@ -141,26 +141,26 @@ COPY --from=builder /app/packages/client/package.json          ./packages/client
 # Bun 1.3 uses per-package node_modules (not flat hoisting). Docker COPY
 # also destroys workspace symlinks. We need three things:
 #   1. Root node_modules (with .bun cache containing all resolved packages)
-#   2. Manual workspace symlinks (@hyperscape/* -> packages/*)
+#   2. Manual workspace symlinks (@hyperforge/* -> packages/*)
 #   3. Per-package node_modules for every workspace member used at runtime
 COPY --from=builder /app/node_modules ./node_modules
 
-RUN mkdir -p node_modules/@hyperscape && \
-    ln -s ../../packages/physx-js-webidl    node_modules/@hyperscape/physx-js-webidl && \
-    ln -s ../../packages/decimation         node_modules/@hyperscape/decimation && \
-    ln -s ../../packages/impostors          node_modules/@hyperscape/impostor && \
-    ln -s ../../packages/procgen            node_modules/@hyperscape/procgen && \
-    ln -s ../../packages/shared             node_modules/@hyperscape/shared && \
-    ln -s ../../packages/plugin-hyperscape  node_modules/@hyperscape/plugin-hyperscape && \
-    ln -s ../../packages/web3              node_modules/@hyperscape/web3 && \
-    ln -s ../../packages/server            node_modules/@hyperscape/server && \
-    ln -s ../../packages/client            node_modules/@hyperscape/client
+RUN mkdir -p node_modules/@hyperia && \
+    ln -s ../../packages/physx-js-webidl    node_modules/@hyperforge/physx-js-webidl && \
+    ln -s ../../packages/decimation         node_modules/@hyperforge/decimation && \
+    ln -s ../../packages/impostors          node_modules/@hyperforge/impostor && \
+    ln -s ../../packages/procgen            node_modules/@hyperforge/procgen && \
+    ln -s ../../packages/shared             node_modules/@hyperforge/shared && \
+    ln -s ../../packages/plugin-hyperia  node_modules/@hyperforge/plugin-hyperia && \
+    ln -s ../../packages/web3              node_modules/@hyperforge/web3 && \
+    ln -s ../../packages/server            node_modules/@hyperforge/server && \
+    ln -s ../../packages/client            node_modules/@hyperforge/client
 
 COPY --from=builder /app/packages/server/node_modules            ./packages/server/node_modules
 COPY --from=builder /app/packages/shared/node_modules            ./packages/shared/node_modules
 COPY --from=builder /app/packages/procgen/node_modules           ./packages/procgen/node_modules
 COPY --from=builder /app/packages/impostors/node_modules         ./packages/impostors/node_modules
-COPY --from=builder /app/packages/plugin-hyperscape/node_modules ./packages/plugin-hyperscape/node_modules
+COPY --from=builder /app/packages/plugin-hyperia/node_modules ./packages/plugin-hyperia/node_modules
 COPY --from=builder /app/packages/web3/node_modules              ./packages/web3/node_modules
 COPY --from=builder /app/packages/client/node_modules            ./packages/client/node_modules
 
@@ -170,7 +170,7 @@ COPY --from=builder /app/packages/decimation/dist       ./packages/decimation/di
 COPY --from=builder /app/packages/impostors/dist        ./packages/impostors/dist
 COPY --from=builder /app/packages/procgen/dist          ./packages/procgen/dist
 COPY --from=builder /app/packages/shared/build          ./packages/shared/build
-COPY --from=builder /app/packages/plugin-hyperscape/dist ./packages/plugin-hyperscape/dist
+COPY --from=builder /app/packages/plugin-hyperia/dist ./packages/plugin-hyperia/dist
 COPY --from=builder /app/packages/web3/dist             ./packages/web3/dist
 COPY --from=builder /app/packages/server/dist           ./packages/server/dist
 COPY --from=builder /app/packages/server/scripts        ./packages/server/scripts

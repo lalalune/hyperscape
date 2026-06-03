@@ -1,5 +1,5 @@
 import React, { useState, memo } from "react";
-import { getItem } from "@hyperscape/shared";
+import { getItem } from "@hyperforge/shared";
 import { resolveRuntimeAssetUrl } from "../../lib/api-config";
 import { getItemIcon, isNotedItem } from "../../utils/itemUtils";
 

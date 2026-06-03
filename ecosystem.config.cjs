@@ -1,12 +1,12 @@
 /**
- * PM2 Ecosystem Config – Hyperscape Duel Stack
+ * PM2 Ecosystem Config – Hyperia Duel Stack
  *
  * Usage:
  *   pm2 start ecosystem.config.cjs          # start
  *   pm2 restart ecosystem.config.cjs        # restart all
  *   pm2 stop ecosystem.config.cjs           # stop all
  *   pm2 delete ecosystem.config.cjs         # remove from pm2
- *   pm2 logs hyperscape-duel                # tail logs
+ *   pm2 logs hyperia-duel                # tail logs
  *
  * The duel-stack.mjs orchestrator already manages sub-processes internally
  * (game server, client, bots, RTMP bridge, betting app, keeper bot).
@@ -20,7 +20,7 @@
 // read the secrets file directly to ensure DATABASE_URL et al. are present.
 const fs = require("fs");
 const SECRETS_FILES = [
-  "/tmp/hyperscape-secrets.env",
+  "/tmp/hyperia-secrets.env",
   require("path").join(__dirname, ".env.production"),
 ];
 for (const secretsPath of SECRETS_FILES) {
@@ -117,7 +117,7 @@ const runtimeEnv = sanitizeRuntimeEnv();
 module.exports = {
   apps: [
     {
-      name: "hyperscape-duel",
+      name: "hyperia-duel",
       script: "scripts/duel-stack.mjs",
       interpreter: "bun",
       args: "--skip-betting --skip-bots",
@@ -155,7 +155,7 @@ module.exports = {
           process.env.SOLANA_GOLD_MINT ||
           "DK9nBUMfdu4XprPRWeh8f6KnQiGWD8Z4xz3yzs9gpump",
 
-        PUBLIC_CDN_URL: process.env.PUBLIC_CDN_URL || "https://assets.hyperscape.club",
+        PUBLIC_CDN_URL: process.env.PUBLIC_CDN_URL || "https://assets.hyperia.club",
         DISABLE_RATE_LIMIT: "true",
         ALLOW_DESTRUCTIVE_CHANGES: "false",
         AUTO_START_AGENTS: "true",

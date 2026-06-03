@@ -155,21 +155,21 @@ export async function createHttpServer(
     "https://www.hyperbet.win",
     "https://bsc.hyperbet.win",
     "https://www.bsc.hyperbet.win",
-    "https://hyperscape.gg",
-    "https://www.hyperscape.gg",
-    "https://hyperscape.club",
-    "https://www.hyperscape.club",
-    "https://hyperscape.pages.dev",
-    "https://hyperscape-betting.pages.dev",
+    "https://hyperia.gg",
+    "https://www.hyperia.gg",
+    "https://hyperia.club",
+    "https://www.hyperia.club",
+    "https://hyperia.pages.dev",
+    "https://hyperia-betting.pages.dev",
     "https://hyperbet.pages.dev",
     "https://hyperbet-solana.pages.dev",
     "https://hyperbet-bsc.pages.dev",
-    "https://hyperscape-production.up.railway.app",
+    "https://hyperia-production.up.railway.app",
     "https://api.hyperbet.win",
     "https://bsc-api.hyperbet.win",
     // Production domains (HTTP for legacy/testing)
-    "http://hyperscape.pages.dev",
-    "http://hyperscape-betting.pages.dev",
+    "http://hyperia.pages.dev",
+    "http://hyperia-betting.pages.dev",
     "http://hyperbet.pages.dev",
     "http://hyperbet-solana.pages.dev",
     "http://hyperbet-bsc.pages.dev",
@@ -181,13 +181,13 @@ export async function createHttpServer(
     /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$/, // Matches http://localhost:3333, http://127.0.0.1:4179, etc.
     /^https?:\/\/(www\.)?hyperbet\.win$/, // hyperbet.win apex and www
     /^https?:\/\/.+\.hyperbet\.win$/, // hyperbet.win subdomains
-    /^https?:\/\/.+\.hyperscape-betting\.pages\.dev$/, // Existing Hyperbet Pages preview deployments
+    /^https?:\/\/.+\.hyperia-betting\.pages\.dev$/, // Existing Hyperbet Pages preview deployments
     /^https?:\/\/.+\.hyperbet\.pages\.dev$/, // Hyperbet Pages preview deployments
     /^https?:\/\/.+\.hyperbet-solana\.pages\.dev$/, // Hyperbet Solana preview deployments
     /^https?:\/\/.+\.hyperbet-bsc\.pages\.dev$/, // Hyperbet BSC preview deployments
-    /^https?:\/\/(www\.)?hyperscape\.gg$/, // hyperscape.gg apex and www
-    /^https?:\/\/.+\.hyperscape\.gg$/, // hyperscape.gg subdomains
-    /^https?:\/\/.+\.hyperscape\.pages\.dev$/, // Cloudflare Pages preview deployments
+    /^https?:\/\/(www\.)?hyperia\.gg$/, // hyperia.gg apex and www
+    /^https?:\/\/.+\.hyperia\.gg$/, // hyperia.gg subdomains
+    /^https?:\/\/.+\.hyperia\.pages\.dev$/, // Cloudflare Pages preview deployments
     /^https:\/\/.+\.farcaster\.xyz$/,
     /^https:\/\/.+\.warpcast\.com$/,
     /^https:\/\/.+\.privy\.io$/,
@@ -209,7 +209,7 @@ export async function createHttpServer(
       "X-Requested-With",
       "X-CSRF-Token", // Allow CSRF token header
       "solana-client", // Required by @solana/web3.js browser RPC requests
-      "x-hyperscape-origin-secret",
+      "x-hyperia-origin-secret",
       "x-admin-code", // Admin panel authentication
     ],
   });
@@ -264,7 +264,7 @@ export async function createHttpServer(
         return;
       }
 
-      const header = request.headers["x-hyperscape-origin-secret"];
+      const header = request.headers["x-hyperia-origin-secret"];
       const presented =
         typeof header === "string"
           ? header
@@ -821,7 +821,7 @@ function registerMusicRoute(
         path.join(
           process.cwd(),
           "packages",
-          "hyperscape",
+          "hyperia",
           "public",
           "assets/world",
         ),

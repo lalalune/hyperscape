@@ -9,7 +9,7 @@ import { newDb } from "pg-mem";
 import { drizzle } from "drizzle-orm/node-postgres";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type pg from "pg";
-import { SessionType } from "@hyperscape/shared";
+import { SessionType } from "@hyperforge/shared";
 import * as schema from "../../../src/database/schema";
 import type { Item } from "../../../../shared/src/types/game/item-types";
 import { ITEMS } from "../../../../shared/src/data/items";

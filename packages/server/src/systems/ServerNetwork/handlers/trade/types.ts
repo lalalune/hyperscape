@@ -5,7 +5,7 @@
  * These are internal types used by the handler modules.
  */
 
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 import type { ServerSocket } from "../../../../shared/types";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type pg from "pg";

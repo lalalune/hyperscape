@@ -1,14 +1,14 @@
 /**
- * Types for embedded Eliza agents in Hyperscape server
+ * Types for embedded Eliza agents in Hyperia server
  */
 
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 
 /**
  * Configuration for an embedded agent
  */
 export interface EmbeddedAgentConfig {
-  /** Character ID in Hyperscape database */
+  /** Character ID in Hyperia database */
   characterId: string;
   /** Account ID that owns the agent */
   accountId: string;
@@ -222,10 +222,10 @@ export interface AgentQuestInfo {
 }
 
 /**
- * Interface for the embedded Hyperscape service
+ * Interface for the embedded Hyperia service
  * Provides direct world access instead of WebSocket
  */
-export interface IEmbeddedHyperscapeService {
+export interface IEmbeddedHyperiaService {
   /** Get the world instance */
   getWorld(): World;
 

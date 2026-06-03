@@ -38,7 +38,7 @@ import {
   BiomeSystem,
   type TerrainConfig,
   type BiomeDefinition,
-} from "@hyperscape/procgen/terrain";
+} from "@hyperforge/procgen/terrain";
 
 /**
  * Terrain System
@@ -269,7 +269,7 @@ export class TerrainSystem extends System {
   private waterVisualManager: WaterVisualManager | null = null;
   private grassVisualManager: GrassVisualManager | null = null;
 
-  // Unified terrain generator from @hyperscape/procgen
+  // Unified terrain generator from @hyperforge/procgen
   // Provides deterministic height/biome calculation independent of rendering
   private terrainGenerator!: TerrainGenerator;
 
@@ -1295,7 +1295,7 @@ export class TerrainSystem extends System {
   }
 
   /**
-   * Initialize the unified TerrainGenerator from @hyperscape/procgen
+   * Initialize the unified TerrainGenerator from @hyperforge/procgen
    * This creates a standalone generator that matches this system's configuration
    */
   private initializeTerrainGenerator(): void {
@@ -1506,7 +1506,7 @@ export class TerrainSystem extends System {
     // Initialize deterministic noise from world id + per-biome noise sets
     this.ensureNoiseInitialized();
 
-    // Initialize the unified terrain generator from @hyperscape/procgen
+    // Initialize the unified terrain generator from @hyperforge/procgen
     this.initializeTerrainGenerator();
 
     // Water body registry — ocean level only (no manual rivers/ponds)
@@ -2304,12 +2304,12 @@ export class TerrainSystem extends System {
           if (typeof window === "undefined") return undefined;
           const cfg = (
             window as Window & {
-              __HYPERSCAPE_CONFIG__?: {
+              __HYPERIA_CONFIG__?: {
                 followEntity?: string;
                 characterId?: string;
               };
             }
-          ).__HYPERSCAPE_CONFIG__;
+          ).__HYPERIA_CONFIG__;
           return cfg?.followEntity || cfg?.characterId;
         })();
 
@@ -4948,7 +4948,7 @@ export class TerrainSystem extends System {
 
   /**
    * Generate decorative (non-harvestable) rocks for a tile.
-   * Uses procedural generation from @hyperscape/procgen/rock.
+   * Uses procedural generation from @hyperforge/procgen/rock.
    */
   private generateDecorativeRocksForTile(
     tile: TerrainTile,
@@ -4992,7 +4992,7 @@ export class TerrainSystem extends System {
 
   /**
    * Generate decorative (non-harvestable) plants for a tile.
-   * Uses procedural generation from @hyperscape/procgen/plant.
+   * Uses procedural generation from @hyperforge/procgen/plant.
    * DISABLED: Plants not working/looking good yet
    */
   // private generateDecorativePlantsForTile(tile: TerrainTile, biomeData: BiomeData): void {
@@ -7206,12 +7206,12 @@ export class TerrainSystem extends System {
     const isEmbeddedSpectator = (() => {
       if (typeof window === "undefined") return false;
       const win = window as Window & {
-        __HYPERSCAPE_EMBEDDED__?: boolean;
-        __HYPERSCAPE_CONFIG__?: { mode?: string };
+        __HYPERIA_EMBEDDED__?: boolean;
+        __HYPERIA_CONFIG__?: { mode?: string };
       };
       return (
-        win.__HYPERSCAPE_EMBEDDED__ === true &&
-        win.__HYPERSCAPE_CONFIG__?.mode === "spectator"
+        win.__HYPERIA_EMBEDDED__ === true &&
+        win.__HYPERIA_CONFIG__?.mode === "spectator"
       );
     })();
     // world.isServer can be false during early bootstrap (before network mode

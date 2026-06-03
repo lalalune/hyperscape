@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import * as THREE from "three";
-import { PlantGenerator, LPK } from "@hyperscape/procgen/plant";
+import { PlantGenerator, LPK } from "@hyperforge/procgen/plant";
 import {
   generateRocks,
   generatePlants,

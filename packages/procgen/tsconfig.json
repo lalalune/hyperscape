@@ -15,7 +15,7 @@
     "rootDir": "src",
     "baseUrl": ".",
     "paths": {
-      "@hyperscape/shared": ["../shared/build/framework.d.ts"]
+      "@hyperforge/shared": ["../shared/build/framework.d.ts"]
     },
     "strict": true,
     "noImplicitAny": true,

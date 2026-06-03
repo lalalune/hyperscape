@@ -28,7 +28,7 @@ export function TokenHero() {
               className="font-body text-base sm:text-lg md:text-xl max-w-lg mx-auto md:mx-0 mb-6"
               style={{ color: "var(--text-secondary)" }}
             >
-              The official in-game currency of Hyperscape, tokenized on Solana.
+              The official in-game currency of Hyperia, tokenized on Solana.
               Every token equals exactly 1 gold in-game.
             </p>
           </FadeIn>

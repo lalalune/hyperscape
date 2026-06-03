@@ -10,7 +10,7 @@
  */
 
 import type { ServerSocket } from "../../../shared/types";
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 import { eq, and } from "drizzle-orm";
 import { getDatabase } from "./common/helpers";
 import type { DatabaseConnection } from "./common/types";

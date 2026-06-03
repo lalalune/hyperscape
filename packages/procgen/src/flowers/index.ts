@@ -9,7 +9,7 @@
  *
  * @example
  * ```ts
- * import { FlowerGen } from "@hyperscape/procgen";
+ * import { FlowerGen } from "@hyperforge/procgen";
  *
  * // Quick flower field generation
  * const field = FlowerGen.FlowerGenerator.generateField({

@@ -14,35 +14,35 @@ const DEFAULT_ANVIL_PRIVATE_KEY =
 
 const ABI = [
   {
-    name: "hyperscape__getItemCount",
+    name: "hyperia__getItemCount",
     type: "function",
     stateMutability: "view",
     inputs: [],
     outputs: [{ name: "count", type: "uint32" }],
   },
   {
-    name: "hyperscape__getNumericId",
+    name: "hyperia__getNumericId",
     type: "function",
     stateMutability: "view",
     inputs: [{ name: "stringId", type: "string" }],
     outputs: [{ name: "numericId", type: "uint32" }],
   },
   {
-    name: "hyperscape__getStringId",
+    name: "hyperia__getStringId",
     type: "function",
     stateMutability: "view",
     inputs: [{ name: "numericId", type: "uint32" }],
     outputs: [{ name: "stringId", type: "string" }],
   },
   {
-    name: "hyperscape__getPlayerAddress",
+    name: "hyperia__getPlayerAddress",
     type: "function",
     stateMutability: "view",
     inputs: [{ name: "characterId", type: "bytes32" }],
     outputs: [{ name: "playerAddress", type: "address" }],
   },
   {
-    name: "hyperscape__balanceOf",
+    name: "hyperia__balanceOf",
     type: "function",
     stateMutability: "view",
     inputs: [
@@ -52,28 +52,28 @@ const ABI = [
     outputs: [{ name: "balance", type: "uint256" }],
   },
   {
-    name: "hyperscape__isPlayerRegistered",
+    name: "hyperia__isPlayerRegistered",
     type: "function",
     stateMutability: "view",
     inputs: [{ name: "playerAddress", type: "address" }],
     outputs: [{ name: "registered", type: "bool" }],
   },
   {
-    name: "hyperscape__getCharacterId",
+    name: "hyperia__getCharacterId",
     type: "function",
     stateMutability: "view",
     inputs: [{ name: "playerAddress", type: "address" }],
     outputs: [{ name: "characterId", type: "bytes32" }],
   },
   {
-    name: "hyperscape__getGold",
+    name: "hyperia__getGold",
     type: "function",
     stateMutability: "view",
     inputs: [{ name: "characterId", type: "bytes32" }],
     outputs: [{ name: "amount", type: "uint64" }],
   },
   {
-    name: "hyperscape__getTradeSession",
+    name: "hyperia__getTradeSession",
     type: "function",
     stateMutability: "view",
     inputs: [{ name: "tradeId", type: "bytes32" }],
@@ -88,7 +88,7 @@ const ABI = [
     ],
   },
   {
-    name: "hyperscape__getTradeOffer",
+    name: "hyperia__getTradeOffer",
     type: "function",
     stateMutability: "view",
     inputs: [
@@ -103,7 +103,7 @@ const ABI = [
     ],
   },
   {
-    name: "hyperscape__getPlayerStats",
+    name: "hyperia__getPlayerStats",
     type: "function",
     stateMutability: "view",
     inputs: [{ name: "characterId", type: "bytes32" }],
@@ -120,7 +120,7 @@ const ABI = [
     ],
   },
   {
-    name: "hyperscape__getNpcKillCount",
+    name: "hyperia__getNpcKillCount",
     type: "function",
     stateMutability: "view",
     inputs: [
@@ -183,7 +183,7 @@ async function main() {
     const itemCount = (await client.readContract({
       address: world,
       abi: ABI,
-      functionName: "hyperscape__getItemCount",
+      functionName: "hyperia__getItemCount",
       account: readAccount?.address,
     })) as number;
 
@@ -208,7 +208,7 @@ async function main() {
       const numericId = (await client.readContract({
         address: world,
         abi: ABI,
-        functionName: "hyperscape__getNumericId",
+        functionName: "hyperia__getNumericId",
         args: [stringId],
         account: readAccount?.address,
       })) as number;
@@ -220,7 +220,7 @@ async function main() {
     const resolved = (await client.readContract({
       address: world,
       abi: ABI,
-      functionName: "hyperscape__getStringId",
+      functionName: "hyperia__getStringId",
       args: [numericId],
       account: readAccount?.address,
     })) as string;
@@ -240,7 +240,7 @@ async function main() {
     const registered = (await client.readContract({
       address: world,
       abi: ABI,
-      functionName: "hyperscape__isPlayerRegistered",
+      functionName: "hyperia__isPlayerRegistered",
       args: [address],
       account: readAccount?.address,
     })) as boolean;
@@ -249,7 +249,7 @@ async function main() {
     const linkedCharacter = (await client.readContract({
       address: world,
       abi: ABI,
-      functionName: "hyperscape__getCharacterId",
+      functionName: "hyperia__getCharacterId",
       args: [address],
       account: readAccount?.address,
     })) as `0x${string}`;
@@ -259,7 +259,7 @@ async function main() {
       const owner = (await client.readContract({
         address: world,
         abi: ABI,
-        functionName: "hyperscape__getPlayerAddress",
+        functionName: "hyperia__getPlayerAddress",
         args: [characterId],
         account: readAccount?.address,
       })) as Address;
@@ -268,7 +268,7 @@ async function main() {
       const gold = (await client.readContract({
         address: world,
         abi: ABI,
-        functionName: "hyperscape__getGold",
+        functionName: "hyperia__getGold",
         args: [characterId],
         account: readAccount?.address,
       })) as bigint;
@@ -280,7 +280,7 @@ async function main() {
       itemId = (await client.readContract({
         address: world,
         abi: ABI,
-        functionName: "hyperscape__getNumericId",
+        functionName: "hyperia__getNumericId",
         args: [itemString],
         account: readAccount?.address,
       })) as number;
@@ -293,7 +293,7 @@ async function main() {
       const balance = (await client.readContract({
         address: world,
         abi: ABI,
-        functionName: "hyperscape__balanceOf",
+        functionName: "hyperia__balanceOf",
         args: [address, BigInt(itemId)],
         account: readAccount?.address,
       })) as bigint;
@@ -320,7 +320,7 @@ async function main() {
     ] = (await client.readContract({
       address: world,
       abi: ABI,
-      functionName: "hyperscape__getTradeSession",
+      functionName: "hyperia__getTradeSession",
       args: [tradeId],
       account: readAccount?.address,
     })) as readonly [
@@ -364,7 +364,7 @@ async function main() {
       const [itemId, quantity, sourceSlot] = (await client.readContract({
         address: world,
         abi: ABI,
-        functionName: "hyperscape__getTradeOffer",
+        functionName: "hyperia__getTradeOffer",
         args: [tradeId, side, offerIndex],
         account: readAccount?.address,
       })) as readonly [number | bigint, number | bigint, number | bigint];
@@ -383,7 +383,7 @@ async function main() {
     const stats = (await client.readContract({
       address: world,
       abi: ABI,
-      functionName: "hyperscape__getPlayerStats",
+      functionName: "hyperia__getPlayerStats",
       args: [characterId],
       account: readAccount?.address,
     })) as readonly [
@@ -414,7 +414,7 @@ async function main() {
       const npcKills = (await client.readContract({
         address: world,
         abi: ABI,
-        functionName: "hyperscape__getNpcKillCount",
+        functionName: "hyperia__getNpcKillCount",
         args: [characterId, npcId],
         account: readAccount?.address,
       })) as number | bigint;

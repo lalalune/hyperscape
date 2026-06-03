@@ -11,9 +11,9 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { World, BFSPathfinder, tilesEqual } from "@hyperscape/shared";
-import { BuildingCollisionService } from "@hyperscape/shared";
-import type { TileCoord } from "@hyperscape/shared";
+import { World, BFSPathfinder, tilesEqual } from "@hyperforge/shared";
+import { BuildingCollisionService } from "@hyperforge/shared";
+import type { TileCoord } from "@hyperforge/shared";
 
 // Test configuration
 const TEST_TIMEOUT = 30000;

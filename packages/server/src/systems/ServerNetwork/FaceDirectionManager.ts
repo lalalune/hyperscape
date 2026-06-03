@@ -13,7 +13,7 @@
  * @see https://osrs-docs.com/docs/packets/outgoing/updating/masks/face-direction/
  */
 
-import type { World } from "@hyperscape/shared";
+import type { World } from "@hyperforge/shared";
 import {
   quaternionPool,
   worldToTile,
@@ -21,7 +21,7 @@ import {
   getCardinalFaceAngle,
   type TileCoord,
   type CardinalDirection,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import { DEBUG_FACE_DIRECTION } from "./debug";
 
 /**

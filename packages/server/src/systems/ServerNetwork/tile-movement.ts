@@ -40,8 +40,8 @@ import {
   CollisionFlag,
   BuildingCollisionService,
   type EntityID,
-} from "@hyperscape/shared";
-import type { TileCoord, TileMovementState } from "@hyperscape/shared";
+} from "@hyperforge/shared";
+import type { TileCoord, TileMovementState } from "@hyperforge/shared";
 
 // Security: Input validation and anti-cheat
 import {

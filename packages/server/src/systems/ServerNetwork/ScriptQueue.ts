@@ -33,7 +33,7 @@
  */
 
 import type { ServerSocket } from "../../shared/types";
-import { getCachedTimestamp } from "@hyperscape/shared";
+import { getCachedTimestamp } from "@hyperforge/shared";
 
 /**
  * Script priority levels (OSRS-accurate)

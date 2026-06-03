@@ -894,7 +894,7 @@ export function createVRMFactory(
  *
  * This hybrid approach combines:
  * - Asset Forge: normalized bones + vrm.humanoid.update()
- * - Hyperscape: efficient cloning for multiple instances
+ * - Hyperia: efficient cloning for multiple instances
  */
 function cloneGLB(glb: GLBData): GLBData {
   // Deep clone the scene (including skeleton and skinned meshes)

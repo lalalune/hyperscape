@@ -5,7 +5,7 @@
  */
 
 import type { ClientWorld, InventorySlotItem } from "../../../types";
-import type { PlayerEquipmentItems } from "@hyperscape/shared";
+import type { PlayerEquipmentItems } from "@hyperforge/shared";
 
 // ============================================================================
 // GAME DATA (from server)

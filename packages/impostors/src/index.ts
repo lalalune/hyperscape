@@ -5,7 +5,7 @@
  *
  * @example
  * ```typescript
- * import { OctahedralImpostor, OctahedronType } from '@hyperscape/impostor';
+ * import { OctahedralImpostor, OctahedronType } from '@hyperforge/impostor';
  *
  * // Create impostor system
  * const impostor = new OctahedralImpostor(renderer);

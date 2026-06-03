@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import type { World, LabelSegment } from "@hyperscape/shared";
+import type { World, LabelSegment } from "@hyperforge/shared";
 import { useThemeStore } from "@/ui";
 import { UI } from "@/ui/core";
 import {

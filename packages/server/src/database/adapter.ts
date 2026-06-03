@@ -74,7 +74,7 @@
 
 import { eq, and, or, isNull, gt, SQL } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
-import type { SystemDatabase } from "@hyperscape/shared";
+import type { SystemDatabase } from "@hyperforge/shared";
 import * as schema from "./schema";
 
 // Type for condition groups (AND/OR) - used by query builder for complex conditions

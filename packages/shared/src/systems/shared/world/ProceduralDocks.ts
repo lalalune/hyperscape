@@ -20,13 +20,13 @@ import type {
   ShorelinePoint,
   WaterBody,
   ItemCollisionData,
-} from "@hyperscape/procgen/items";
+} from "@hyperforge/procgen/items";
 import {
   DockGenerator,
   DEFAULT_DOCK_PARAMS,
   type GeneratedDock,
   type DockRecipe,
-} from "@hyperscape/procgen/items/dock";
+} from "@hyperforge/procgen/items/dock";
 import { ISLAND_DOCKS, type DockDefinition } from "./DockDefinition";
 import { CollisionFlag, getOppositeWallFlag } from "../movement/CollisionFlags";
 

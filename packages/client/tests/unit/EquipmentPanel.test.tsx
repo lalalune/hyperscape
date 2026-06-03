@@ -6,7 +6,7 @@ import {
   ITEMS,
   type Item,
   type PlayerEquipmentItems,
-} from "@hyperscape/shared";
+} from "@hyperforge/shared";
 import { EquipmentPanel } from "../../src/game/panels/EquipmentPanel";
 
 let mockShouldUseMobileUI = false;

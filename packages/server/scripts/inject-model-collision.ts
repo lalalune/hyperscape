@@ -12,7 +12,7 @@
  *   {
  *     "asset": { ... },
  *     "extras": {
- *       "hyperscape": {
+ *       "hyperia": {
  *         "collision": {
  *           "footprint": { "width": 2, "depth": 2 },
  *           "bounds": { "min": {...}, "max": {...} }
@@ -57,8 +57,8 @@ interface CollisionData {
   generatedAt: string;
 }
 
-interface HyperscapeExtras {
-  hyperscape: {
+interface HyperiaExtras {
+  hyperia: {
     collision: CollisionData;
   };
 }
@@ -88,7 +88,7 @@ interface GltfMesh {
 
 interface GltfJson {
   asset: { version: string; generator?: string };
-  extras?: HyperscapeExtras;
+  extras?: HyperiaExtras;
   accessors?: GltfAccessor[];
   meshes?: GltfMesh[];
   scenes?: { nodes?: number[] }[];
@@ -282,7 +282,7 @@ function injectCollision(glbPath: string, force: boolean = false): boolean {
   }
 
   // Check if collision already exists
-  if (chunks.json.extras?.hyperscape?.collision && !force) {
+  if (chunks.json.extras?.hyperia?.collision && !force) {
     console.log("  ⊘ Already has collision (use --force to overwrite)");
     return true;
   }
@@ -315,11 +315,11 @@ function injectCollision(glbPath: string, force: boolean = false): boolean {
 
   // Inject into extras
   if (!chunks.json.extras) {
-    chunks.json.extras = { hyperscape: { collision } };
-  } else if (!chunks.json.extras.hyperscape) {
-    chunks.json.extras.hyperscape = { collision };
+    chunks.json.extras = { hyperia: { collision } };
+  } else if (!chunks.json.extras.hyperia) {
+    chunks.json.extras.hyperia = { collision };
   } else {
-    chunks.json.extras.hyperscape.collision = collision;
+    chunks.json.extras.hyperia.collision = collision;
   }
 
   // Write back
@@ -397,7 +397,7 @@ function main() {
         // Check if it was skipped (already had collision)
         const buffer = readFileSync(glbPath);
         const chunks = parseGlb(buffer);
-        if (chunks?.json.extras?.hyperscape?.collision) {
+        if (chunks?.json.extras?.hyperia?.collision) {
           processed++;
         }
       } else {

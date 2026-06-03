@@ -1,8 +1,8 @@
 /**
- * Entity Testing Utilities for Hyperscape E2E Tests
+ * Entity Testing Utilities for Hyperia E2E Tests
  *
  * Provides functions for querying and verifying entity state in the Three.js scene.
- * Per project rules: Tests use real Hyperscape instances, no mocks.
+ * Per project rules: Tests use real Hyperia instances, no mocks.
  *
  * @packageDocumentation
  */

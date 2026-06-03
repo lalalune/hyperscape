@@ -15,10 +15,10 @@
  * **Referenced by**: Game systems, handlers, API routes
  */
 
-import type { Entity } from "@hyperscape/shared";
+import type { Entity } from "@hyperforge/shared";
 
 // Re-export WorldOptions from shared
-export type { WorldOptions } from "@hyperscape/shared";
+export type { WorldOptions } from "@hyperforge/shared";
 
 // ============================================================================
 // WORLD CONFIGURATION

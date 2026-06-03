@@ -1062,11 +1062,11 @@ Animation support in Asset Forge is limited but growing:
    - Place animated GLB in asset library
    - Animations preserved and playable
 
-**Animation in Hyperscape**
-If using assets in Hyperscape:
-- Hyperscape has its own animation system
-- Rigged assets integrate with Hyperscape character controller
-- Animations defined in Hyperscape game code
+**Animation in Hyperia**
+If using assets in Hyperia:
+- Hyperia has its own animation system
+- Rigged assets integrate with Hyperia character controller
+- Animations defined in Hyperia game code
 
 ## Export and Integration
 
@@ -1239,7 +1239,7 @@ For production use with thousands of assets:
 
 ### How do I contribute?
 
-Asset Forge is part of the Hyperscape project and welcomes contributions:
+Asset Forge is part of the Hyperia project and welcomes contributions:
 
 **Types of Contributions**
 
@@ -1271,8 +1271,8 @@ Asset Forge is part of the Hyperscape project and welcomes contributions:
 
 1. **Fork Repository**
    ```bash
-   git clone https://github.com/[org]/hyperscape
-   cd hyperscape/packages/asset-forge
+   git clone https://github.com/[org]/hyperia
+   cd hyperia/packages/asset-forge
    ```
 
 2. **Create Branch**

@@ -13,7 +13,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { SOCIAL_CONSTANTS } from "@hyperscape/shared";
+import { SOCIAL_CONSTANTS } from "@hyperforge/shared";
 
 // ============================================================================
 // Mock Types

@@ -11,7 +11,7 @@
  */
 
 import type { ServerSocket } from "../../../shared/types";
-import { EventType, World, spellService } from "@hyperscape/shared";
+import { EventType, World, spellService } from "@hyperforge/shared";
 import { validateRequestTimestamp } from "../services/InputValidation";
 
 /**

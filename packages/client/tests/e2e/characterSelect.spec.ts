@@ -8,7 +8,7 @@
  * - Character preview
  * - Input validation
  *
- * Per project rules: Uses real Hyperscape instances with Playwright
+ * Per project rules: Uses real Hyperia instances with Playwright
  *
  * @packageDocumentation
  */

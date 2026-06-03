@@ -13,22 +13,22 @@
  *
  * @technical-debt
  * These tests use MockWorld and MockQuestRepository which violates the project's
- * "NO MOCKS" policy. This should be refactored to use real Hyperscape instances
+ * "NO MOCKS" policy. This should be refactored to use real Hyperia instances
  * with Playwright for true integration testing. The current implementation tests
  * the QuestSystem logic correctly but doesn't validate real database operations
  * or network message handling. See: .cursor/rules/testing.mdc
  *
  * Priority: Medium | Effort: High
- * Tracking: https://github.com/HyperscapeAI/hyperscape/issues/702
+ * Tracking: https://github.com/PlayHyperia/hyperia/issues/702
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { QuestSystem } from "@hyperscape/shared";
-import { EventType } from "@hyperscape/shared";
+import { QuestSystem } from "@hyperforge/shared";
+import { EventType } from "@hyperforge/shared";
 import type {
   QuestDefinition,
   QuestStatus,
-} from "@hyperscape/shared/types/game/quest-types";
+} from "@hyperforge/shared/types/game/quest-types";
 
 // Mock world interface - minimal mock to test real QuestSystem logic
 interface MockWorld {
@@ -309,7 +309,7 @@ describe("QuestSystem Integration Tests", () => {
     };
 
     questSystem = new QuestSystem(
-      mockWorld as unknown as import("@hyperscape/shared").World,
+      mockWorld as unknown as import("@hyperforge/shared").World,
     );
 
     await questSystem.init();

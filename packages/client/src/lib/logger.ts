@@ -70,7 +70,7 @@ const SENSITIVE_KEYS = [
   "jwt",
   "privyToken",
   "tokenSecret",
-  "HYPERSCAPE_AUTH_TOKEN",
+  "HYPERIA_AUTH_TOKEN",
 ];
 
 /**

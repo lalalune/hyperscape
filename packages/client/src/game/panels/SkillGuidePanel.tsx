@@ -8,7 +8,7 @@
 import React, { useMemo } from "react";
 import { ModalWindow, useThemeStore } from "@/ui";
 import { getPanelSurfaceStyle } from "@/ui/theme/themes";
-import type { SkillUnlock } from "@hyperscape/shared";
+import type { SkillUnlock } from "@hyperforge/shared";
 import type { CSSProperties } from "react";
 
 interface SkillGuidePanelProps {
@@ -49,7 +49,7 @@ function UnlockRow({ unlock, isUnlocked, isNext }: UnlockRowProps) {
     }
     return {
       background:
-        theme.name === "hyperscape"
+        theme.name === "hyperia"
           ? "linear-gradient(180deg, rgba(255, 255, 255, 0.025) 0%, rgba(0, 0, 0, 0.08) 100%)"
           : theme.colors.background.panelSecondary,
       border: `1px solid ${theme.colors.border.default}2a`,
@@ -263,7 +263,7 @@ export function SkillGuidePanel({
             flexDirection: "column",
             gap: theme.spacing.xs,
             background:
-              theme.name === "hyperscape"
+              theme.name === "hyperia"
                 ? "linear-gradient(180deg, rgba(255, 255, 255, 0.015) 0%, rgba(0, 0, 0, 0.12) 100%)"
                 : "transparent",
           }}

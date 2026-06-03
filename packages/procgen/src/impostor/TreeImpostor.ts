@@ -1,7 +1,7 @@
 /**
  * Tree Impostor - High-level API for tree-specific impostor generation
  *
- * Wraps @hyperscape/impostor for tree-specific functionality.
+ * Wraps @hyperforge/impostor for tree-specific functionality.
  */
 
 import * as THREE from "three";
@@ -13,7 +13,7 @@ import {
   type ImpostorInstance,
   type OctahedronTypeValue,
   type TSLImpostorMaterial,
-} from "@hyperscape/impostor";
+} from "@hyperforge/impostor";
 import type { TreeMeshResult } from "../rendering/TreeMesh.js";
 
 /**
@@ -27,7 +27,7 @@ export type BakeMode = "standard" | "withNormals" | "hybrid";
 /**
  * Options for tree impostor generation.
  *
- * Grid Size Convention (matching @hyperscape/impostor):
+ * Grid Size Convention (matching @hyperforge/impostor):
  * - gridSizeX/Y = number of points/cells per axis
  * - 31x31 is the default (matching the demo)
  * - buildOctahedronMesh(gridSize) creates gridSize points

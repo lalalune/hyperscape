@@ -1,11 +1,11 @@
 {
-  "name": "@hyperscape/shared",
+  "name": "@hyperforge/shared",
   "version": "0.13.0",
   "type": "module",
   "main": "build/framework.js",
   "types": "build/framework.d.ts",
   "bin": {
-    "hyperscape": "build/cli.js"
+    "hyperia": "build/cli.js"
   },
   "exports": {
     ".": {
@@ -19,12 +19,12 @@
       "default": "./build/framework.client.js"
     }
   },
-  "homepage": "https://github.com/HyperscapeAI/hyperscape#readme",
+  "homepage": "https://github.com/PlayHyperia/hyperia#readme",
   "bugs": {
-    "url": "https://github.com/HyperscapeAI/hyperscape/issues"
+    "url": "https://github.com/PlayHyperia/hyperia/issues"
   },
   "keywords": [
-    "hyperscape",
+    "hyperia",
     "3d",
     "components",
     "virtual-worlds",
@@ -49,7 +49,7 @@
     "lint": "eslint src --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "docs:extract": "echo 'TSDoc extraction happens at root level via TypeDoc'",
-    "cap:init": "cap init 'Hyperscape' 'com.hyperscape.app' --web-dir build/public",
+    "cap:init": "cap init 'Hyperia' 'com.hyperia.app' --web-dir build/public",
     "cap:sync": "cap sync",
     "cap:sync:ios": "cap sync ios",
     "cap:sync:android": "cap sync android",
@@ -75,9 +75,9 @@
     "@fastify/multipart": "^9.0.1",
     "@fastify/static": "^9.1.0",
     "@fastify/websocket": "^11.0.1",
-    "@hyperscape/decimation": "workspace:*",
-    "@hyperscape/impostor": "workspace:*",
-    "@hyperscape/physx-js-webidl": "workspace:*",
+    "@hyperforge/decimation": "workspace:*",
+    "@hyperforge/impostor": "workspace:*",
+    "@hyperforge/physx-js-webidl": "workspace:*",
     "@pixiv/three-vrm": "3.5.1",
     "@privy-io/react-auth": "^3.13.1",
     "@privy-io/server-auth": "^1.32.5",
@@ -117,7 +117,7 @@
     "@capacitor/cli": "^8.1.0",
     "@capacitor/core": "^8.2.0",
     "@capacitor/ios": "^8.2.0",
-    "@hyperscape/procgen": "workspace:*",
+    "@hyperforge/procgen": "workspace:*",
     "@microsoft/api-extractor": "^7.52.10",
     "@playwright/test": "^1.58.2",
     "@rollup/plugin-node-resolve": "^16.0.1",

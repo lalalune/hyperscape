@@ -1,7 +1,7 @@
 /**
  * Duel System E2E Tests
  *
- * Tests for the complete duel flow using real Hyperscape instances.
+ * Tests for the complete duel flow using real Hyperia instances.
  * Per project rules: NO MOCKS - uses real servers and Playwright.
  *
  * Test scenarios:

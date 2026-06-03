@@ -154,7 +154,7 @@ export class DevStats extends System {
   private createUI(): void {
     // Container
     this.container = document.createElement("div");
-    this.container.id = "hyperscape-dev-stats";
+    this.container.id = "hyperia-dev-stats";
     this.container.style.cssText = `
       position: fixed;
       top: 12px;
@@ -1253,7 +1253,7 @@ export class DevStats extends System {
    */
   private getPlainTextStats(): string {
     const lines: string[] = [];
-    lines.push(`=== Hyperscape DevStats ===`);
+    lines.push(`=== Hyperia DevStats ===`);
     lines.push(
       `FPS: ${this.currentFps}  Frame: ${this.getAverageFrameTime().toFixed(1)}ms`,
     );

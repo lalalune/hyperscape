@@ -22,16 +22,10 @@ describe("resolveApiConfig", () => {
       buildEnv: {},
     });
 
-    expect(result.elizaOsUrl).toBe(
-      "https://hyperscape-production.up.railway.app",
-    );
-    expect(result.gameApiUrl).toBe(
-      "https://hyperscape-production.up.railway.app",
-    );
-    expect(result.gameWsUrl).toBe(
-      "wss://hyperscape-production.up.railway.app/ws",
-    );
-    expect(result.cdnUrl).toBe("https://assets.hyperscape.club");
+    expect(result.elizaOsUrl).toBe("https://hyperia-production.up.railway.app");
+    expect(result.gameApiUrl).toBe("https://hyperia-production.up.railway.app");
+    expect(result.gameWsUrl).toBe("wss://hyperia-production.up.railway.app/ws");
+    expect(result.cdnUrl).toBe("https://assets.hyperia.club");
   });
 
   it("uses local defaults in development", () => {

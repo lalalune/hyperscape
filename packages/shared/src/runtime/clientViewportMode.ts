@@ -1,6 +1,6 @@
-interface HyperscapeViewportWindow extends Window {
-  __HYPERSCAPE_EMBEDDED__?: boolean;
-  __HYPERSCAPE_CONFIG__?: {
+interface HyperiaViewportWindow extends Window {
+  __HYPERIA_EMBEDDED__?: boolean;
+  __HYPERIA_CONFIG__?: {
     mode?: string;
   };
 }
@@ -16,14 +16,12 @@ function parseTruthy(value: string | null | undefined): boolean {
   );
 }
 
-function getWindowRef(win?: Window): HyperscapeViewportWindow | undefined {
+function getWindowRef(win?: Window): HyperiaViewportWindow | undefined {
   if (typeof window === "undefined") return undefined;
-  return (win ?? window) as HyperscapeViewportWindow;
+  return (win ?? window) as HyperiaViewportWindow;
 }
 
-function getSearchParams(
-  win: HyperscapeViewportWindow,
-): URLSearchParams | null {
+function getSearchParams(win: HyperiaViewportWindow): URLSearchParams | null {
   try {
     return new URLSearchParams(win.location.search);
   } catch {
@@ -53,8 +51,8 @@ export function isEmbeddedSpectatorViewport(win?: Window): boolean {
   const modeFromQuery = (params?.get("mode") || "").trim().toLowerCase();
 
   const embeddedFromConfig =
-    windowRef.__HYPERSCAPE_EMBEDDED__ === true &&
-    windowRef.__HYPERSCAPE_CONFIG__?.mode === "spectator";
+    windowRef.__HYPERIA_EMBEDDED__ === true &&
+    windowRef.__HYPERIA_CONFIG__?.mode === "spectator";
 
   return (
     (embeddedFromQuery && modeFromQuery === "spectator") || embeddedFromConfig

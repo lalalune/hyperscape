@@ -1,8 +1,8 @@
-# Hyperscape Shared Package Developer Guide
+# Hyperia Shared Package Developer Guide
 
-> **Complete documentation for the Hyperscape 3D multiplayer game engine**
+> **Complete documentation for the Hyperia 3D multiplayer game engine**
 
-Welcome to the comprehensive documentation for Hyperscape Shared! This guide covers everything from getting started to advanced development topics for the core 3D multiplayer game engine.
+Welcome to the comprehensive documentation for Hyperia Shared! This guide covers everything from getting started to advanced development topics for the core 3D multiplayer game engine.
 
 ---
 
@@ -125,9 +125,9 @@ Additional resources:
 
 ## 📊 Overview
 
-### What is Hyperscape Shared?
+### What is Hyperia Shared?
 
-Hyperscape Shared is the **core 3D multiplayer game engine** that powers the Hyperscape RPG project. It provides a complete Entity Component System (ECS) architecture with PhysX physics, Three.js rendering, and client-server networking for building multiplayer 3D games.
+Hyperia Shared is the **core 3D multiplayer game engine** that powers the Hyperia RPG project. It provides a complete Entity Component System (ECS) architecture with PhysX physics, Three.js rendering, and client-server networking for building multiplayer 3D games.
 
 ### Key Features
 
@@ -187,7 +187,7 @@ Hyperscape Shared is the **core 3D multiplayer game engine** that powers the Hyp
 
 ```bash
 # Navigate to project root
-cd hyperscape
+cd hyperia
 
 # Install dependencies
 npm install  # or: bun install
@@ -196,7 +196,7 @@ npm install  # or: bun install
 ### Create Your First World
 
 ```typescript
-import { createClientWorld } from '@hyperscape/shared';
+import { createClientWorld } from '@hyperforge/shared';
 
 // Create a client world
 const world = await createClientWorld({
@@ -252,15 +252,15 @@ See [Development Guide](11-development/setup-guide.md) for contributing guidelin
 
 ## 📝 License
 
-Part of the Hyperscape project.
+Part of the Hyperia project.
 
 ---
 
 ## 🔗 Related Documentation
 
-- [Hyperscape Main README](../../../README.md)
+- [Hyperia Main README](../../../README.md)
 - [Asset Forge Docs](../../asset-forge/dev-book/README.md)
-- [Plugin Hyperscape Docs](../../plugin-hyperscape/README.md)
+- [Plugin Hyperia Docs](../../plugin-hyperia/README.md)
 
 ---
 
