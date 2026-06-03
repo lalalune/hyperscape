@@ -92,7 +92,7 @@
     "source-map-support": "^0.5.21",
     "uuid": "^14.0.0",
     "viem": "^2.46.2",
-    "uWebSockets.js": "uNetworking/uWebSockets.js#v20.64.0",
+    "uWebSockets.js": "uNetworking/uWebSockets.js#v20.68.0",
     "ws": "^8.18.0",
     "zod": "^4.1.11"
   },
