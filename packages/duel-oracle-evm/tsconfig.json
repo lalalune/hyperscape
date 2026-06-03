@@ -6,6 +6,7 @@
     "module": "commonjs",
     "moduleResolution": "node",
     "target": "ES2021",
+    "ignoreDeprecations": "6.0",
     "lib": ["ES2021"],
     "declaration": true,
     "declarationMap": true,

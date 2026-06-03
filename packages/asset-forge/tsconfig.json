@@ -27,6 +27,7 @@
     
     /* Type Checking */
     "strict": true,
+    "ignoreDeprecations": "6.0",
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,

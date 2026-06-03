@@ -176,6 +176,7 @@
     "@elizaos/plugin-groq": "alpha",
     "@elizaos/plugin-openai": "alpha",
     "@elizaos/plugin-sql": "alpha",
+    "@elizaos/cloud-sdk": "2.0.0-beta.1",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "typescript": "^6.0.2",

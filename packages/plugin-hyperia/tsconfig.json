@@ -12,6 +12,7 @@
     "lib": ["ES2022", "DOM"],
     "types": ["node"],
     "strict": true,
+    "ignoreDeprecations": "6.0",
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
