@@ -67,7 +67,7 @@
     "@tauri-apps/plugin-opener": "^2.3.0",
     "@xyflow/react": "^12.10.1",
     "buffer": "^6.0.3",
-    "canonicalize": "^2.1.0",
+    "canonicalize": "^3.0.0",
     "d3": "^7.9.0",
     "eventemitter3": "^5.0.1",
     "fetch-retry": "^6.0.0",
