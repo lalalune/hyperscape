@@ -155,7 +155,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "husky": "^9.1.7",
     "jest": "^30.3.0",
-    "lint-staged": "^16.2.6",
+    "lint-staged": "^17.0.7",
     "prettier": "^3.6.2",
     "puppeteer": "^25.1.0",
     "react": "19.2.7",
