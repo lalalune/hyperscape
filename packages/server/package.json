@@ -65,7 +65,7 @@
     "@elizaos/plugin-groq": "alpha",
     "@elizaos/plugin-openai": "alpha",
     "@elizaos/plugin-sql": "alpha",
-    "@fastify/compress": "^8.0.1",
+    "@fastify/compress": "^9.0.0",
     "@fastify/cors": "^10.0.1",
     "@fastify/multipart": "^10.0.0",
     "@fastify/rate-limit": "^10.1.1",
