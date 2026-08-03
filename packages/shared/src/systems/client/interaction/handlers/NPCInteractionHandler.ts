@@ -3,7 +3,7 @@
  *
  * Handles interactions with NPCs (non-hostile characters).
  *
- * OSRS Context Menu Format: "<Action> <NPCName>" with yellow target (NPC color)
+ * classic MMORPG Context Menu Format: "<Action> <NPCName>" with yellow target (NPC color)
  *
  * Banker NPC:
  * - "Talk-to Banker" (yellow #ffff00 for "Banker")
@@ -21,8 +21,6 @@
  * - "store"/"shop" → Opens store interface
  * - (default) → Opens dialogue
  *
- * @see https://oldschool.runescape.wiki/w/Choose_Option for OSRS menu format
- * @see https://oldschool.runescape.wiki/w/Banker for banker info
  */
 
 import { BaseInteractionHandler } from "./BaseInteractionHandler";
@@ -61,7 +59,7 @@ export class NPCInteractionHandler extends BaseInteractionHandler {
   /**
    * Right-click: Show all available actions
    *
-   * OSRS-accurate format with yellow NPC names:
+   * rules-accurate format with yellow NPC names:
    * - Banker: "Talk-to Banker", "Bank Banker", "Collect Banker"
    * - Shop: "Talk-to Shop keeper", "Trade Shop keeper"
    */
@@ -72,7 +70,7 @@ export class NPCInteractionHandler extends BaseInteractionHandler {
     const npcName = target.name || "NPC";
 
     // Talk-to (always available, primary for most NPCs)
-    // OSRS: "Talk-to Banker" / "Talk-to Shop keeper"
+    // classic MMORPG: "Talk-to Banker" / "Talk-to Shop keeper"
     actions.push({
       id: "talk",
       label: `Talk-to ${npcName}`,
@@ -85,7 +83,7 @@ export class NPCInteractionHandler extends BaseInteractionHandler {
       handler: () => this.startDialogue(target),
     });
 
-    // Bank service - OSRS: "Bank Banker"
+    // Bank service - classic MMORPG: "Bank Banker"
     if (services.includes("bank")) {
       actions.push({
         id: "bank",
@@ -99,7 +97,7 @@ export class NPCInteractionHandler extends BaseInteractionHandler {
         handler: () => this.openBank(target),
       });
 
-      // Collect (Grand Exchange) - OSRS: "Collect Banker"
+      // Collect (Grand Exchange) - classic MMORPG: "Collect Banker"
       actions.push({
         id: "collect",
         label: `Collect ${npcName}`,
@@ -113,7 +111,7 @@ export class NPCInteractionHandler extends BaseInteractionHandler {
       });
     }
 
-    // Store service - OSRS: "Trade Shop keeper"
+    // Store service - classic MMORPG: "Trade Shop keeper"
     if (services.includes("store") || services.includes("shop")) {
       actions.push({
         id: "trade",
@@ -131,7 +129,7 @@ export class NPCInteractionHandler extends BaseInteractionHandler {
     // Walk here
     actions.push(this.createWalkHereAction(target));
 
-    // Examine - OSRS: "Examine Banker" / "Examine Shop keeper"
+    // Examine - classic MMORPG: "Examine Banker" / "Examine Shop keeper"
     const examineText = this.getExamineText(target, config);
     actions.push({
       id: "examine",
@@ -169,7 +167,7 @@ export class NPCInteractionHandler extends BaseInteractionHandler {
 
   /**
    * Collect items from Grand Exchange.
-   * In OSRS, bankers can access GE collection box.
+   * In classic MMORPG, bankers can access GE collection box.
    */
   private collectFromGE(target: RaycastTarget): void {
     this.queueInteraction({

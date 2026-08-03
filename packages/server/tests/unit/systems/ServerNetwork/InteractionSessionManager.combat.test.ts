@@ -1,10 +1,9 @@
 /**
  * InteractionSessionManager Combat Tests
  *
- * Tests the OSRS-style behavior where being attacked closes bank/store/dialogue.
+ * Tests the classic MMORPG-style behavior where being attacked closes bank/store/dialogue.
  * This is server-authoritative - the server sends close packets when combat starts.
  *
- * @see https://oldschool.runescape.wiki/w/Bank
  * "If a player is attacked while banking, the bank window will close."
  */
 
@@ -188,7 +187,7 @@ describe("InteractionSessionManager - Combat Closes Sessions", () => {
         targetId: playerId,
         targetType: "player",
         attackerId: "mob-1",
-        damage: 0, // OSRS: Even splash/miss (0 damage) interrupts
+        damage: 0, // classic MMORPG: Even splash/miss (0 damage) interrupts
       });
 
       // Session should be closed
@@ -205,7 +204,7 @@ describe("InteractionSessionManager - Combat Closes Sessions", () => {
       );
     });
 
-    it("should close session even with zero damage (OSRS-accurate)", () => {
+    it("should close session even with zero damage (rules-accurate)", () => {
       const playerId = "player-4";
 
       manager.openSession({
@@ -215,7 +214,7 @@ describe("InteractionSessionManager - Combat Closes Sessions", () => {
         targetEntityId: "bank-npc-1",
       });
 
-      // OSRS: Splash attacks (0 damage) still interrupt banking
+      // classic MMORPG: Splash attacks (0 damage) still interrupt banking
       mockWorld._triggerEvent(EventType.COMBAT_DAMAGE_DEALT, {
         targetId: playerId,
         targetType: "player",

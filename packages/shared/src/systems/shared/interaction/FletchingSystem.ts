@@ -1,7 +1,7 @@
 /**
  * FletchingSystem - Handles Fletching Skill
  *
- * OSRS-accurate fletching implementation:
+ * rules-accurate fletching implementation:
  * - Knife + logs → arrow shafts (multi-output) or unstrung bows
  * - Bowstring + unstrung bow → strung bow (item-on-item)
  * - Arrowtips + headless arrows → finished arrows (item-on-item, multi-output)
@@ -10,7 +10,6 @@
  * - Grants fletching XP per action
  * - Auto-fletching continues until out of materials
  *
- * @see https://oldschool.runescape.wiki/w/Fletching
  * @see ProcessingDataProvider for fletching recipes from manifest
  */
 
@@ -111,7 +110,7 @@ export class FletchingSystem extends SystemBase {
       },
     );
 
-    // Cancel fletching on movement (OSRS: any click cancels skilling)
+    // Cancel fletching on movement (classic MMORPG: any click cancels skilling)
     this.subscribe<{
       playerId: string;
       targetPosition: { x: number; y: number; z: number };

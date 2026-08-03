@@ -113,7 +113,7 @@ describe("SeededRandom", () => {
     });
   });
 
-  describe("OSRS combat methods", () => {
+  describe("classic MMORPG combat methods", () => {
     it("damageRoll() produces values in [0, maxHit]", () => {
       const rng = new SeededRandom(42);
       const maxHit = 25;

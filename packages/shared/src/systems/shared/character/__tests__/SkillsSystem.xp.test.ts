@@ -1,13 +1,12 @@
 /**
  * Combat XP Distribution Unit Tests
  *
- * Tests for OSRS-accurate experience point distribution:
+ * Tests for rules-accurate experience point distribution:
  * - Focused styles: 4 XP per damage to combat skill + 1.33 XP to HP
  * - Controlled style: 1.33 XP per damage to each of 4 skills
  *
  * Verifies fractional XP accumulation (no flooring until display).
  *
- * @see https://oldschool.runescape.wiki/w/Combat#Experience
  */
 
 import { describe, it, expect } from "vitest";
@@ -21,16 +20,16 @@ describe("Combat XP Distribution", () => {
     CONTROLLED_XP_PER_DAMAGE,
   } = COMBAT_CONSTANTS.XP;
 
-  describe("OSRS XP Constants", () => {
-    it("COMBAT_XP_PER_DAMAGE is 4 (OSRS-accurate)", () => {
+  describe("classic MMORPG XP Constants", () => {
+    it("COMBAT_XP_PER_DAMAGE is 4 (rules-accurate)", () => {
       expect(COMBAT_XP_PER_DAMAGE).toBe(4);
     });
 
-    it("HITPOINTS_XP_PER_DAMAGE is 1.33 (OSRS-accurate)", () => {
+    it("HITPOINTS_XP_PER_DAMAGE is 1.33 (rules-accurate)", () => {
       expect(HITPOINTS_XP_PER_DAMAGE).toBe(1.33);
     });
 
-    it("CONTROLLED_XP_PER_DAMAGE is 1.33 (OSRS-accurate)", () => {
+    it("CONTROLLED_XP_PER_DAMAGE is 1.33 (rules-accurate)", () => {
       expect(CONTROLLED_XP_PER_DAMAGE).toBe(1.33);
     });
   });
@@ -106,7 +105,7 @@ describe("Combat XP Distribution", () => {
     it("trades efficiency for balanced skill training", () => {
       // Controlled: 1.33 to each of 4 skills = 5.32 total
       // Focused: 4 to 1 skill + 1.33 to HP = 5.33 total
-      // Difference is intentional OSRS design
+      // Difference is intentional classic MMORPG design
       const damage = 100;
       const focusedXP =
         damage * (COMBAT_XP_PER_DAMAGE + HITPOINTS_XP_PER_DAMAGE);

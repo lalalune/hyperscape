@@ -2,7 +2,7 @@
  * Trade System Types
  *
  * Type definitions for player-to-player trading system.
- * Follows OSRS-style trade mechanics with mutual acceptance.
+ * Follows classic MMORPG-style trade mechanics with mutual acceptance.
  *
  * Trade Flow:
  * 1. Player A requests trade with Player B (tradeRequest)
@@ -211,7 +211,7 @@ export type TradeStartedPayload = {
   partnerName: string;
   /** Trading partner's combat level */
   partnerLevel: number;
-  /** Number of free inventory slots partner has (OSRS-style indicator) */
+  /** Number of free inventory slots partner has (classic MMORPG-style indicator) */
   partnerFreeSlots?: number;
 };
 
@@ -235,7 +235,7 @@ export type TradeUpdatedPayload = {
   myOffer: TradeOfferView;
   /** Partner's offer */
   theirOffer: TradeOfferView;
-  /** Number of free inventory slots partner has (OSRS-style indicator) */
+  /** Number of free inventory slots partner has (classic MMORPG-style indicator) */
   partnerFreeSlots?: number;
 };
 
@@ -293,7 +293,7 @@ export type TradeErrorPayload = {
 // ============================================================================
 
 /**
- * Trade screen type for two-screen confirmation flow (OSRS-style)
+ * Trade screen type for two-screen confirmation flow (classic MMORPG-style)
  * - offer: Main trading screen where players add/remove items
  * - confirm: Confirmation screen showing final summary
  */
@@ -327,7 +327,7 @@ export type TradeWindowState = {
   myOfferValue: number;
   /** Total value of partner's offer (for wealth transfer indicator) */
   theirOfferValue: number;
-  /** Number of free inventory slots partner has (OSRS-style indicator) */
+  /** Number of free inventory slots partner has (classic MMORPG-style indicator) */
   partnerFreeSlots: number;
 };
 
@@ -355,7 +355,7 @@ export type TradeRequestModalState = {
  * Trade system constants
  */
 export const TRADE_CONSTANTS = {
-  /** Maximum items per trade offer (matches OSRS inventory size) */
+  /** Maximum items per trade offer (matches classic MMORPG inventory size) */
   MAX_TRADE_SLOTS: 28,
 
   /** Trade request timeout in milliseconds (30 seconds) */

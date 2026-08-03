@@ -20,14 +20,14 @@ export const SessionType = {
 export type SessionType = (typeof SessionType)[keyof typeof SessionType];
 
 // ============================================================================
-// DISTANCE CONFIGURATION (OSRS-style Chebyshev)
+// DISTANCE CONFIGURATION (classic MMORPG-style Chebyshev)
 // ============================================================================
 
 /**
  * Maximum interaction distances per session type.
- * Uses Chebyshev distance (max of |dx|, |dz|) - OSRS standard.
+ * Uses Chebyshev distance (max of |dx|, |dz|) - classic MMORPG standard.
  *
- * OSRS uses ~1-2 tiles to open, closes at ~2-3 tiles away.
+ * classic MMORPG uses ~1-2 tiles to open, closes at ~2-3 tiles away.
  * We use 2 tiles for stores/banks (authentic) and 2 for dialogue.
  */
 export const INTERACTION_DISTANCE: Readonly<Record<SessionType, number>> = {

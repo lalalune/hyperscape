@@ -174,7 +174,7 @@ export class EventBridge {
         },
       );
 
-      // OSRS-STYLE: Forward gathering tool show/hide events (for fishing rod visual)
+      // classic MMORPG-STYLE: Forward gathering tool show/hide events (for fishing rod visual)
       this.on(EventType.GATHERING_TOOL_SHOW, (payload: unknown) => {
         const data = payload as EventMap[EventType.GATHERING_TOOL_SHOW];
         if (data.playerId) {
@@ -321,7 +321,7 @@ export class EventBridge {
         }
       });
 
-      // Forward XP drops to clients for visual feedback (RS3-style)
+      // Forward XP drops to clients for visual feedback (modern MMORPG-style)
       // Uses XP_DROP_BROADCAST which is emitted AFTER SkillsSystem processes XP
       // This ensures newLevel reflects any level-ups that occurred
       this.on(EventType.XP_DROP_BROADCAST, (payload: unknown) => {
@@ -353,7 +353,7 @@ export class EventBridge {
         ) {
           // Map skill name to database column names
           // Round XP to integer at DB boundary (XP columns are integer type,
-          // but recipes use float values like 13.8, 67.5 for OSRS accuracy)
+          // but recipes use float values like 13.8, 67.5 for classic MMORPG accuracy)
           const skillLevelKey = `${data.skill}Level`;
           const skillXpKey = `${data.skill}Xp`;
           const saveData = {

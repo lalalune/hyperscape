@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   keywords: [
     "MMORPG",
     "AI gaming",
-    "RuneScape",
+    "classic fantasy MMORPG",
     "ElizaOS",
     "autonomous agents",
     "Web3 gaming",

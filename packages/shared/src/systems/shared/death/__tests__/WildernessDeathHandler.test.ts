@@ -330,7 +330,7 @@ describe("WildernessDeathHandler", () => {
       const expectedMs = ticksToMs(COMBAT_CONSTANTS.GROUND_ITEM_DESPAWN_TICKS);
 
       expect(spawnCall.despawnTime).toBe(expectedMs);
-      // 6000 ticks * 600ms = 3600000ms = 60 minutes (OSRS-accurate)
+      // 6000 ticks * 600ms = 3600000ms = 60 minutes (rules-accurate)
       expect(expectedMs).toBe(3600000);
     });
 

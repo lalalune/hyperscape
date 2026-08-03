@@ -194,7 +194,7 @@ Pragma: no-cache
     "type": "weapon",
     "metadata": {
       "isBaseModel": true,
-      "gameStyle": "runescape",
+      "gameStyle": "classic",
       "weaponType": "sword",
       "tier": 1,
       "polycount": 5000,
@@ -355,7 +355,7 @@ Content-Type: application/json
   "type": "weapon",
   "metadata": {
     "isBaseModel": true,
-    "gameStyle": "runescape",
+    "gameStyle": "classic",
     "weaponType": "sword",
     "tier": 2,
     "featured": true,
@@ -394,12 +394,12 @@ Content-Type: application/json
   "type": "weapon",
   "subtype": "sword",
   "description": "A polished steel longsword with leather grip",
-  "style": "runescape2007",
+  "style": "classicLowPoly",
   "assetId": "steel-longsword",
   "generationType": "item",
   "quality": "high",
   "metadata": {
-    "gameStyle": "runescape",
+    "gameStyle": "classic",
     "useGPT4Enhancement": true
   },
   "materialPresets": [
@@ -410,7 +410,7 @@ Content-Type: application/json
       "category": "metal",
       "tier": 1,
       "color": "#CD7F32",
-      "stylePrompt": "bronze texture, low-poly RuneScape style"
+      "stylePrompt": "bronze texture, low-poly classic fantasy MMORPG style"
     },
     {
       "id": "steel",
@@ -419,7 +419,7 @@ Content-Type: application/json
       "category": "metal",
       "tier": 2,
       "color": "#C0C0C0",
-      "stylePrompt": "polished steel texture, low-poly RuneScape style"
+      "stylePrompt": "polished steel texture, low-poly classic fantasy MMORPG style"
     }
   ],
   "enableGeneration": true,
@@ -450,7 +450,7 @@ Content-Type: application/json
 | type | string | Yes | Asset type (weapon, armor, character, etc.) |
 | subtype | string | Yes | Asset subtype (sword, helmet, humanoid, etc.) |
 | description | string | No | Detailed asset description |
-| style | string | No | Visual style (runescape2007, generic, etc.) |
+| style | string | No | Visual style (classicLowPoly, generic, etc.) |
 | assetId | string | No | Custom asset ID (auto-generated if not provided) |
 | generationType | string | No | Generation type (item or avatar, default: item) |
 | quality | string | No | Quality level (standard, high, ultra) |
@@ -570,7 +570,7 @@ Host: localhost:3004
     "category": "metal",
     "tier": 1,
     "color": "#CD7F32",
-    "stylePrompt": "bronze metal with copper-brown coloring, low-poly RuneScape 2007 style, simple shading",
+    "stylePrompt": "bronze metal with copper-brown coloring, classic low-poly fantasy style, simple shading",
     "description": "Basic bronze metal with copper-brown coloring"
   },
   {
@@ -580,7 +580,7 @@ Host: localhost:3004
     "category": "metal",
     "tier": 2,
     "color": "#C0C0C0",
-    "stylePrompt": "polished steel metal with silver-gray finish, low-poly RuneScape style",
+    "stylePrompt": "polished steel metal with silver-gray finish, low-poly classic fantasy MMORPG style",
     "description": "Strong steel metal with silver-gray finish"
   }
 ]

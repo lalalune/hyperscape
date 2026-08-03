@@ -63,7 +63,7 @@ export class MobNPCSystem extends SystemBase {
           type: npcId, // NPC ID from npcs.json
           name: npcData.name,
           level: npcData.stats.level,
-          health: npcData.stats.health, // OSRS: hitpoints = max HP directly
+          health: npcData.stats.health, // classic MMORPG: hitpoints = max HP directly
           stats: {
             attack: npcData.stats.attack,
             strength: npcData.stats.strength,
@@ -489,7 +489,7 @@ export class MobNPCSystem extends SystemBase {
       type: config.type,
       name: config.name,
       level: config.level,
-      health: config.health ?? config.level * 3, // OSRS: hitpoints = max HP
+      health: config.health ?? config.level * 3, // classic MMORPG: hitpoints = max HP
       stats: config.stats ?? {
         attack: config.level,
         strength: config.level,

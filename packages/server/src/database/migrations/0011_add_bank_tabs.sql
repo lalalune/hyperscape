@@ -1,4 +1,4 @@
--- Migration: Add bank tabs support (OSRS-style bank organization)
+-- Migration: Add bank tabs support (classic MMORPG-style bank organization)
 --
 -- Phase 2 of bank reorganization:
 -- 1. Add tabIndex column to bank_storage

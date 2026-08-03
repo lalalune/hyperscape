@@ -8,7 +8,7 @@
  * - Walk here
  * - Examine
  *
- * OSRS-Style Behavior:
+ * classic MMORPG-Style Behavior:
  * - Combat range based on equipped weapon
  * - Must be within range but NOT on same tile
  * - Tracks moving targets (mobs that wander)
@@ -82,7 +82,7 @@ export class MobInteractionHandler extends BaseInteractionHandler {
       label: `Attack ${mobName} (Level: ${mobLevel})`,
       styledLabel: [
         { text: "Attack " },
-        { text: mobName, color: CONTEXT_MENU_COLORS.NPC }, // Yellow for mob names (OSRS style)
+        { text: mobName, color: CONTEXT_MENU_COLORS.NPC }, // Yellow for mob names (classic MMORPG style)
         { text: " (Level: " },
         { text: `${mobLevel}`, color: levelColor },
         { text: ")" },
@@ -95,7 +95,7 @@ export class MobInteractionHandler extends BaseInteractionHandler {
     // Walk here
     actions.push(this.createWalkHereAction(target));
 
-    // Examine - OSRS: "Examine Goblin"
+    // Examine - classic MMORPG: "Examine Goblin"
     const examineText = this.getExamineText(target, mobData);
     actions.push({
       id: "examine",
@@ -151,7 +151,7 @@ export class MobInteractionHandler extends BaseInteractionHandler {
     }
 
     // Server-authoritative attack system:
-    // Send attack request immediately - server handles OSRS-style pathfinding
+    // Send attack request immediately - server handles classic MMORPG-style pathfinding
     // (cardinal-only melee range, path-to-adjacent tile)
     this.send(MESSAGE_TYPES.ATTACK_MOB, {
       mobId: target.entityId,
@@ -174,7 +174,7 @@ export class MobInteractionHandler extends BaseInteractionHandler {
   /**
    * Get local player's combat level.
    * Used for relative color calculation (green/yellow/red).
-   * Falls back to 3 (OSRS minimum) if unknown.
+   * Falls back to 3 (classic MMORPG minimum) if unknown.
    *
    * Checks multiple property paths to handle different player entity types:
    * - PlayerRemote: has `combatLevel` getter
@@ -220,7 +220,7 @@ export class MobInteractionHandler extends BaseInteractionHandler {
       return combat.combatLevel;
     }
 
-    // Fallback: OSRS minimum combat level
+    // Fallback: classic MMORPG minimum combat level
     return 3;
   }
 

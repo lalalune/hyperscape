@@ -1,5 +1,5 @@
 /**
- * TanningPanel - OSRS-style tanning interface
+ * TanningPanel - classic MMORPG-style tanning interface
  *
  * Features:
  * - Shows available hides to tan based on player's inventory

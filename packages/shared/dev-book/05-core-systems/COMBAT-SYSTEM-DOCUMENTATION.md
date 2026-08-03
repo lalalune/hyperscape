@@ -1,6 +1,6 @@
 # Combat System Documentation
 
-> **The Complete Technical Reference for Hyperia's OSRS-Accurate Combat System**
+> **The Complete Technical Reference for Hyperia's Rules-Accurate Combat System**
 
 ---
 
@@ -15,7 +15,7 @@
 7. [Loot & Economy Systems](#7-loot--economy-systems)
 8. [Animation & Timing](#8-animation--timing)
 9. [Client Visual Systems](#9-client-visual-systems)
-10. [OSRS Combat Mechanics](#10-osrs-combat-mechanics)
+10. [classic MMORPG Combat Mechanics](#10-classic-combat-mechanics)
 11. [Combat Flow Diagrams](#11-combat-flow-diagrams)
 12. [Damage Calculation](#12-damage-calculation)
 13. [Security & Anti-Cheat](#13-security--anti-cheat)
@@ -95,7 +95,7 @@
 
 | Principle | Implementation |
 |-----------|---------------|
-| **OSRS Accuracy** | Tick-based timing (600ms), authentic formulas, PID shuffle, tolerance timer |
+| **classic MMORPG Accuracy** | Tick-based timing (600ms), authentic formulas, PID shuffle, tolerance timer |
 | **Type Safety** | Runtime type guards, branded IDs, zero `any` types |
 | **Zero Allocations** | Object pooling, pre-allocated tile buffers |
 | **Security First** | OWASP validation, HMAC signing, rate limiting, anti-cheat scoring |
@@ -122,11 +122,11 @@ packages/shared/src/
 │   ├── CombatRequestValidator.ts    # HMAC signing (245 lines)
 │   ├── CombatReplayService.ts       # Replay & debugging (567 lines)
 │   ├── CombatAnimationSync.ts       # Animation-damage sync (492 lines)
-│   ├── RangeSystem.ts               # OSRS range calculations (300 lines)
+│   ├── RangeSystem.ts               # classic MMORPG range calculations (300 lines)
 │   ├── AggroSystem.ts               # Mob AI & aggression (857 lines)
 │   ├── MobDeathSystem.ts            # Mob death handling (79 lines)
 │   ├── PlayerDeathSystem.ts         # Player death/respawn (1,263 lines)
-│   ├── PidManager.ts                # OSRS PID system (392 lines)
+│   ├── PidManager.ts                # classic MMORPG PID system (392 lines)
 │   └── handlers/
 │       ├── index.ts                 # Barrel export
 │       ├── DamageHandler.ts         # Strategy interface (120 lines)
@@ -144,9 +144,9 @@ packages/shared/src/
 ├── systems/shared/economy/
 │   ├── LootSystem.ts                # Loot drop orchestration (203 lines)
 │   ├── LootTableService.ts          # Loot table logic/rolling (204 lines)
-│   └── GroundItemSystem.ts          # OSRS-style ground items (633 lines)
+│   └── GroundItemSystem.ts          # classic MMORPG-style ground items (633 lines)
 ├── systems/shared/character/
-│   └── HealthRegenSystem.ts         # OSRS passive health regen (230 lines)
+│   └── HealthRegenSystem.ts         # classic MMORPG passive health regen (230 lines)
 ├── systems/client/
 │   ├── DamageSplatSystem.ts         # Client damage visualization (238 lines)
 │   ├── XPDropSystem.ts              # Client XP drop display (226 lines)
@@ -177,10 +177,10 @@ packages/shared/src/
     ├── SeededRandom.ts              # Deterministic RNG (284 lines)
     ├── typeGuards.ts                # Runtime type validation (545 lines)
     └── game/
-        ├── CombatLevelCalculator.ts # OSRS combat level formula (156 lines)
+        ├── CombatLevelCalculator.ts # classic MMORPG combat level formula (156 lines)
         ├── CombatCalculations.ts    # Damage/accuracy formulas (468 lines)
         ├── CombatValidation.ts      # Input validation utilities (223 lines)
-        ├── HitDelayCalculator.ts    # OSRS hit delay/projectiles (345 lines)
+        ├── HitDelayCalculator.ts    # classic MMORPG hit delay/projectiles (345 lines)
         └── CombatUtils.ts           # Combat helper functions (358 lines)
 
 packages/server/src/
@@ -358,7 +358,7 @@ class CombatComponent extends Component {
 
 ### 3.6 PlayerCombatStateManager
 
-The `PlayerCombatStateManager.ts` (406 lines) manages player-specific combat state with OSRS-accurate mechanics.
+The `PlayerCombatStateManager.ts` (406 lines) manages player-specific combat state with rules-accurate mechanics.
 
 ```typescript
 class PlayerCombatStateManager {
@@ -367,7 +367,7 @@ class PlayerCombatStateManager {
   private targetId: string | null;
   private lastAttackerId: string | null;
 
-  // Auto-retaliate (enabled by default in OSRS)
+  // Auto-retaliate (enabled by default in classic MMORPG)
   private autoRetaliateEnabled = true;
 
   // AFK tracking (20 minutes disables auto-retaliate)
@@ -381,7 +381,7 @@ class PlayerCombatStateManager {
   performAttack(targetId: string, currentTick: number): boolean;
   onReceiveAttack(attackerId: string, currentTick: number): void;
 
-  // OSRS auto-retaliate timing: ceil(attackSpeed / 2) + 1 ticks
+  // classic MMORPG auto-retaliate timing: ceil(attackSpeed / 2) + 1 ticks
   private shouldAutoRetaliate(currentTick: number): boolean;
 
   // Logout check (16 ticks after damage)
@@ -392,15 +392,15 @@ class PlayerCombatStateManager {
 }
 ```
 
-**OSRS-Accurate Features:**
+**Rules-Accurate Features:**
 - Auto-retaliate delay: `ceil(attackSpeed / 2) + 1` ticks
 - AFK timeout: 2000 ticks (20 minutes) disables auto-retaliate
 - Logout prevention: 16 ticks (9.6 seconds) after taking damage
 - Combat timeout: 8 ticks (4.8 seconds) of inactivity
 
-### 3.7 PidManager (OSRS PID Shuffle)
+### 3.7 PidManager (classic MMORPG PID Shuffle)
 
-Ensures fair PvP combat priority using OSRS-accurate PID system.
+Ensures fair PvP combat priority using rules-accurate PID system.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -585,7 +585,7 @@ The AggroSystem handles mob AI, aggression detection, and chase mechanics.
 
 ### 4.2 Tolerance Timer System
 
-OSRS-accurate tolerance timer that stops aggression after 10 minutes in a region.
+rules-accurate tolerance timer that stops aggression after 10 minutes in a region.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -624,7 +624,7 @@ OSRS-accurate tolerance timer that stops aggression after 10 minutes in a region
 
 ### 4.3 Combat Level Calculator
 
-OSRS-accurate combat level formula for aggression checks.
+rules-accurate combat level formula for aggression checks.
 
 ```typescript
 /**
@@ -682,7 +682,7 @@ The `AIStateMachine.ts` (568 lines) provides a complete state machine for mob AI
 │           └───────────│  ATTACK  │──────────────────────────┘   │
 │                       └──────────┘                              │
 │                                                                  │
-│  OSRS-Accurate Features:                                        │
+│  Rules-Accurate Features:                                        │
 │  • Tile-based distance (not world distance)                     │
 │  • Range 1 melee: Cardinal only (no diagonal)                   │
 │  • Same-tile handling: Step out to random cardinal direction    │
@@ -711,7 +711,7 @@ class AIStateMachine {
 
 ### 4.5 AggroManager (Per-Entity Targeting)
 
-The `AggroManager.ts` (306 lines) handles target acquisition with OSRS-accurate random selection.
+The `AggroManager.ts` (306 lines) handles target acquisition with rules-accurate random selection.
 
 ```typescript
 class AggroManager {
@@ -721,7 +721,7 @@ class AggroManager {
   // Zero-allocation buffer for valid targets
   private readonly _validTargetsBuffer: PlayerTarget[];
 
-  // OSRS-accurate: Random selection from ALL valid candidates
+  // rules-accurate: Random selection from ALL valid candidates
   // (not first-found, not closest)
   findNearbyPlayer(
     currentPos: Position3D,
@@ -743,11 +743,11 @@ class AggroManager {
 
 ## 5. Range System
 
-### 5.1 Three OSRS Range Types
+### 5.1 Three classic MMORPG Range Types
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    OSRS RANGE TYPES                              │
+│                    classic MMORPG RANGE TYPES                              │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  1. HUNT RANGE (Aggro Detection)                                 │
@@ -828,7 +828,7 @@ const NPC_SIZES: Record<string, NPCSize> = {
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    OSRS MELEE RANGE RULES                        │
+│                    classic MMORPG MELEE RANGE RULES                        │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  Range 1 (Standard Melee) - CARDINAL ONLY:                      │
@@ -953,7 +953,7 @@ const NPC_SIZES: Record<string, NPCSize> = {
 │           │                                                      │
 │           ▼                                                      │
 │  ┌──────────────────┐                                           │
-│  │ Spawn Gravestone │ ──► AFTER respawn (RuneScape-style)       │
+│  │ Spawn Gravestone │ ──► AFTER respawn (classic fantasy MMORPG-style)       │
 │  │ (Safe Areas)     │                                           │
 │  └──────────────────┘                                           │
 │                                                                  │
@@ -1020,7 +1020,7 @@ class SafeAreaDeathHandler {
 }
 ```
 
-**OSRS-Accurate Timing:**
+**Rules-Accurate Timing:**
 - Gravestone: 500 ticks (5 minutes)
 - Ground items: 200 ticks (2 minutes) after gravestone expires
 - Items protected from other players while in gravestone
@@ -1116,7 +1116,7 @@ class DeathStateManager {
 
 ### 6.8 RespawnManager
 
-The `RespawnManager.ts` (251 lines) manages mob respawn locations with OSRS-accurate tick-based timing.
+The `RespawnManager.ts` (251 lines) manages mob respawn locations with rules-accurate tick-based timing.
 
 ```typescript
 class RespawnManager {
@@ -1148,7 +1148,7 @@ interface RespawnConfig {
 }
 ```
 
-**OSRS-Accurate Features:**
+**Rules-Accurate Features:**
 - Mobs spawn in an AREA, not a single point
 - Random location within configured radius
 - Tick-based timing (600ms per tick)
@@ -1210,7 +1210,7 @@ class LootSystem extends SystemBase {
 }
 ```
 
-**OSRS-Style Behavior:**
+**classic MMORPG-Style Behavior:**
 - Mob dies → Items drop directly to ground at tile center
 - Items pile on same tile, stackables merge
 - Click item directly to pick up (no loot window)
@@ -1246,7 +1246,7 @@ interface LootDrop {
 
 ### 7.3 GroundItemSystem
 
-The `GroundItemSystem.ts` (633 lines) manages OSRS-style ground items with tile-based piling.
+The `GroundItemSystem.ts` (633 lines) manages classic MMORPG-style ground items with tile-based piling.
 
 ```typescript
 class GroundItemSystem extends SystemBase {
@@ -1279,7 +1279,7 @@ class GroundItemSystem extends SystemBase {
 }
 ```
 
-**OSRS-Accurate Features:**
+**Rules-Accurate Features:**
 - Items snap to tile centers
 - Stackable items merge in same pile
 - Only top item visible per pile (click to see pile menu)
@@ -1353,7 +1353,7 @@ interface ScheduledAttack {
 
 ### 8.3 HitDelayCalculator
 
-The `HitDelayCalculator.ts` (345 lines) calculates OSRS-accurate hit delays and manages projectile tracking.
+The `HitDelayCalculator.ts` (345 lines) calculates rules-accurate hit delays and manages projectile tracking.
 
 ```typescript
 // Calculate hit delay for any attack type
@@ -1415,7 +1415,7 @@ class CombatStateManager {
   private nextAttackTick = 0;
   private lastAttackerId: string | null = null;
 
-  // First-attack timing (OSRS-accurate)
+  // First-attack timing (rules-accurate)
   // When NPC first enters combat range, attack happens NEXT tick
   private _pendingFirstAttack = false;
   private _firstAttackTick = -1;
@@ -1425,13 +1425,13 @@ class CombatStateManager {
   onEnterCombatRange(currentTick: number): void;
   canAttack(currentTick: number): boolean;
   performAttack(targetId: string, currentTick: number): boolean;
-  onReceiveAttack(currentTick: number): void;  // OSRS retaliation timing
+  onReceiveAttack(currentTick: number): void;  // classic MMORPG retaliation timing
 }
 ```
 
 ### 8.5 HealthRegenSystem
 
-The `HealthRegenSystem.ts` (230 lines) handles OSRS-style passive health regeneration.
+The `HealthRegenSystem.ts` (230 lines) handles classic MMORPG-style passive health regeneration.
 
 ```typescript
 class HealthRegenSystem extends SystemBase {
@@ -1452,7 +1452,7 @@ class HealthRegenSystem extends SystemBase {
 }
 ```
 
-**OSRS-Accurate Timing:**
+**Rules-Accurate Timing:**
 - No regen while in combat
 - 17 tick cooldown (10.2s) after taking damage
 - 1 HP every 100 ticks (60 seconds) when eligible
@@ -1464,7 +1464,7 @@ class HealthRegenSystem extends SystemBase {
 
 ### 9.1 DamageSplatSystem
 
-The `DamageSplatSystem.ts` (238 lines) creates OSRS-style damage splats.
+The `DamageSplatSystem.ts` (238 lines) creates classic MMORPG-style damage splats.
 
 ```typescript
 class DamageSplatSystem extends System {
@@ -1485,7 +1485,7 @@ class DamageSplatSystem extends System {
 
 ### 9.2 XPDropSystem
 
-The `XPDropSystem.ts` (226 lines) creates RS3-style XP drops.
+The `XPDropSystem.ts` (226 lines) creates modern MMORPG-style XP drops.
 
 ```typescript
 class XPDropSystem extends System {
@@ -1532,7 +1532,7 @@ class HealthBars extends SystemBase {
 }
 ```
 
-**OSRS-Style Features:**
+**classic MMORPG-Style Features:**
 - Only visible during combat (hides after timeout)
 - Red/green bar with black border
 - Positioned above entity head
@@ -1540,13 +1540,13 @@ class HealthBars extends SystemBase {
 
 ---
 
-## 10. OSRS Combat Mechanics
+## 10. classic MMORPG Combat Mechanics
 
 ### 10.1 Tick-Based Timing
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    OSRS TICK SYSTEM                              │
+│                    classic MMORPG TICK SYSTEM                              │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  1 Tick = 600ms = 0.6 seconds                                   │
@@ -1592,7 +1592,7 @@ class HealthBars extends SystemBase {
 │           ▼                                                      │
 │  ┌──────────────────┐                                           │
 │  │ AFK > 20 min?    │───► YES ──► No retaliation               │
-│  │ (2000 ticks)     │             (OSRS-accurate)               │
+│  │ (2000 ticks)     │             (rules-accurate)               │
 │  └────────┬─────────┘                                           │
 │           │ NO                                                   │
 │           ▼                                                      │
@@ -1724,7 +1724,7 @@ class HealthBars extends SystemBase {
 
 ## 12. Damage Calculation
 
-### 12.1 OSRS Accuracy Formula
+### 12.1 classic MMORPG Accuracy Formula
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -1758,7 +1758,7 @@ class HealthBars extends SystemBase {
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 12.2 OSRS Max Hit Formula
+### 12.2 classic MMORPG Max Hit Formula
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -1797,7 +1797,7 @@ class HealthBars extends SystemBase {
 The `CombatCalculations.ts` file (468 lines) provides the core calculation functions used throughout the combat system.
 
 ```typescript
-// Combat Style Bonuses (OSRS-accurate)
+// Combat Style Bonuses (rules-accurate)
 type CombatStyle = "accurate" | "aggressive" | "defensive" | "controlled";
 
 function getStyleBonus(style: CombatStyle): StyleBonus {
@@ -1958,7 +1958,7 @@ class CombatRequestValidator {
 │  Damage Validation (validateDamage):                            │
 │  ────────────────────────────────────                           │
 │  • Calculates theoretical max hit for attacker stats            │
-│  • Uses OSRS formula                                             │
+│  • Uses classic combat formula                                             │
 │  • Adds 10% tolerance for special attacks                       │
 │  • Flags CRITICAL violation if damage > limit                   │
 │                                                                  │
@@ -2311,7 +2311,7 @@ function isEquipmentSystem(system: unknown): system is EquipmentSystemLike;
 
 ## Summary
 
-This combat system represents a **production-ready, OSRS-accurate** implementation with:
+This combat system represents a **production-ready, rules-accurate** implementation with:
 
 | Metric | Value |
 |--------|-------|
@@ -2319,14 +2319,14 @@ This combat system represents a **production-ready, OSRS-accurate** implementati
 | **Number of Files** | 57 |
 | **Type Safety** | 100% (no `any`, runtime type guards) |
 | **Security Layers** | 3 (Network, Combat, Anti-Cheat) |
-| **OSRS Accuracy** | Full (tick system, formulas, tolerance timer, PID shuffle) |
+| **classic MMORPG Accuracy** | Full (tick system, formulas, tolerance timer, PID shuffle) |
 | **Memory Efficiency** | Object pooling, bounded collections |
 | **Replay Capability** | Full (EventStore + ReplayService + AuditLog) |
 | **Event Systems** | 3 (EventBus, EventStore, AuditLog) |
 
 ### Complete Feature List
 
-- ✅ OSRS tick-based timing (600ms)
+- ✅ classic MMORPG tick-based timing (600ms)
 - ✅ Authentic damage formulas
 - ✅ PID shuffle system for fair PvP
 - ✅ Tolerance timer (10-minute aggro immunity)
@@ -2337,13 +2337,13 @@ This combat system represents a **production-ready, OSRS-accurate** implementati
 - ✅ Mob death with loot/respawn
 - ✅ Mob respawn with randomized spawn points
 - ✅ Loot table system with drop tiers
-- ✅ Ground items with OSRS tile piling
-- ✅ OSRS health regeneration (17-tick combat cooldown)
+- ✅ Ground items with classic MMORPG tile piling
+- ✅ classic MMORPG health regeneration (17-tick combat cooldown)
 - ✅ Animation-damage-hitsplat synchronization
 - ✅ Hit delay by attack type (melee/ranged/magic)
-- ✅ OSRS-style damage splats (red/blue)
+- ✅ classic MMORPG-style damage splats (red/blue)
 - ✅ XP drop notifications with skill icons
-- ✅ Auto-retaliate with OSRS timing
+- ✅ Auto-retaliate with classic MMORPG timing
 - ✅ AFK detection (20-minute threshold)
 - ✅ Entity ID validation (OWASP compliant)
 - ✅ Rate limiting (per-tick and per-second)

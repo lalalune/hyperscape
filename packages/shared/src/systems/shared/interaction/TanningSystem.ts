@@ -1,14 +1,13 @@
 /**
  * TanningSystem - Handles Hide Tanning at Tanner NPCs
  *
- * OSRS-accurate tanning implementation:
+ * rules-accurate tanning implementation:
  * - Talk to tanner NPC to open tanning interface
  * - Select hide type and quantity
  * - Instant conversion: deduct coins + hide, add leather
- * - No tick delay — tanning is instant in OSRS
+ * - No tick delay — tanning is instant in classic MMORPG
  * - Costs: cowhide → leather (1gp), green dragonhide → green dragon leather (20gp)
  *
- * @see https://oldschool.runescape.wiki/w/Tanner
  * @see ProcessingDataProvider for tanning recipes from manifest
  */
 

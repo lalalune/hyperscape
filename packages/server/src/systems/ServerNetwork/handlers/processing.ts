@@ -138,7 +138,7 @@ export function handleFiremakingRequest(
     return;
   }
 
-  // Validate inventory slot bounds (OSRS inventory is 28 slots: 0-27)
+  // Validate inventory slot bounds (classic MMORPG inventory is 28 slots: 0-27)
   if (
     payload.logsSlot < 0 ||
     payload.logsSlot > 27 ||
@@ -151,7 +151,7 @@ export function handleFiremakingRequest(
     return;
   }
 
-  // Stop player movement before lighting fire (OSRS: player stands still to light)
+  // Stop player movement before lighting fire (classic MMORPG: player stands still to light)
   ctx.tileMovementManager.stopPlayer(player.id);
 
   ctx.world.emit(EventType.PROCESSING_FIREMAKING_REQUEST, {

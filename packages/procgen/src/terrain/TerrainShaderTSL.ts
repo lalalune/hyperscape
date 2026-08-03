@@ -5,7 +5,7 @@
  * Both Asset Forge and the game engine share this code for visual consistency.
  *
  * Features:
- * - OSRS-style flat-shaded vertex colors (no textures)
+ * - classic MMORPG-style flat-shaded vertex colors (no textures)
  * - Height and slope-based biome blending
  * - Noise-based dirt patches
  * - Snow at high elevations
@@ -315,11 +315,11 @@ export interface TerrainMaterialOptions {
 }
 
 // ============================================================================
-// TERRAIN MATERIAL - OSRS Style (No Textures)
+// TERRAIN MATERIAL - classic MMORPG Style (No Textures)
 // ============================================================================
 
 /**
- * Create the game-accurate OSRS-style terrain material
+ * Create the game-accurate classic MMORPG-style terrain material
  *
  * This is the EXACT same material used in the game engine.
  * Uses TSL (Three Shader Language) for WebGPU rendering.
@@ -356,10 +356,10 @@ export function createTerrainMaterial(
   const slope = sub(float(1.0), abs(worldNormal.y));
 
   // ============================================================================
-  // OSRS-STYLE VERTEX COLORS
+  // classic MMORPG-STYLE VERTEX COLORS
   // ============================================================================
 
-  // Core terrain colors (OSRS palette)
+  // Core terrain colors (classic MMORPG palette)
   const grassGreen = vec3(0.3, 0.55, 0.15);
   const grassDark = vec3(0.22, 0.42, 0.1);
   const dirtBrown = vec3(0.45, 0.32, 0.18);

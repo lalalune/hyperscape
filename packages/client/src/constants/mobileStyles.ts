@@ -50,13 +50,13 @@ export const MOBILE_SPACING = {
   xl: 20,
 } as const;
 
-/** Inventory grid configuration for mobile - matches desktop OSRS 4x7 layout */
+/** Inventory grid configuration for mobile - matches desktop classic MMORPG 4x7 layout */
 export const MOBILE_INVENTORY_GRID = {
-  /** Number of columns in mobile inventory (4 like OSRS) */
+  /** Number of columns in mobile inventory (4 like classic MMORPG) */
   columns: 4,
-  /** Number of rows in mobile inventory (7 like OSRS) */
+  /** Number of rows in mobile inventory (7 like classic MMORPG) */
   rows: 7,
-  /** Total slots (4 * 7 = 28, OSRS standard) */
+  /** Total slots (4 * 7 = 28, classic MMORPG standard) */
   totalSlots: INVENTORY_CONSTANTS.MAX_INVENTORY_SLOTS,
   /** Gap between slots */
   gap: 3,
@@ -64,7 +64,7 @@ export const MOBILE_INVENTORY_GRID = {
 
 /** Equipment panel configuration for mobile */
 export const MOBILE_EQUIPMENT = {
-  /** Number of columns in mobile equipment grid (3-column OSRS paperdoll) */
+  /** Number of columns in mobile equipment grid (3-column classic MMORPG paperdoll) */
   columns: 3,
   /** Slot height */
   slotHeight: 52,

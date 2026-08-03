@@ -1,8 +1,8 @@
 /**
- * Trade Panel - OSRS Style
+ * Trade Panel - classic MMORPG Style
  *
  * Main trading interface showing both players' offers side-by-side.
- * Uses OSRS-style click-based item management with right-click context menus.
+ * Uses classic MMORPG-style click-based item management with right-click context menus.
  *
  * Layout:
  * - Left side: Local player's offer
@@ -197,7 +197,7 @@ export function TradePanel({
         style={{
           ...getPanelSurfaceStyle(theme, { emphasis: "strong" }),
           borderRadius: theme.borderRadius.xl,
-          // OSRS layout: wider to fit inventory on right side
+          // classic MMORPG layout: wider to fit inventory on right side
           width: state.screen === "offer" ? "680px" : "480px",
         }}
       >
@@ -254,7 +254,7 @@ export function TradePanel({
           </button>
         </div>
 
-        {/* Trade areas - OSRS layout: offers on left, inventory on right */}
+        {/* Trade areas - classic MMORPG layout: offers on left, inventory on right */}
         <div className="p-4">
           <div className="flex gap-4">
             {/* Left section: Trade offers */}
@@ -420,7 +420,7 @@ export function TradePanel({
                 </div>
               </div>
 
-              {/* Trade status bar - OSRS style: free slots + wealth transfer */}
+              {/* Trade status bar - classic MMORPG style: free slots + wealth transfer */}
               <div
                 className="mt-3 px-3 py-2 rounded text-sm flex items-center justify-between"
                 style={{
@@ -430,7 +430,7 @@ export function TradePanel({
                   }),
                 }}
               >
-                {/* Partner free slots indicator (OSRS-style) */}
+                {/* Partner free slots indicator (classic MMORPG-style) */}
                 <span style={{ color: theme.colors.text.secondary }}>
                   <span
                     className="mr-2 uppercase tracking-[0.14em] text-[10px]"
@@ -489,7 +489,7 @@ export function TradePanel({
               </div>
             </div>
 
-            {/* Right section: Inventory (OSRS style - only on offer screen) */}
+            {/* Right section: Inventory (classic MMORPG style - only on offer screen) */}
             {state.screen === "offer" && (
               <>
                 {/* Divider between offers and inventory */}

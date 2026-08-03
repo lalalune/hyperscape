@@ -619,7 +619,7 @@ function Toast({ world }: { world: ClientWorld }) {
   }, []);
   if (!msg) return null;
 
-  // RS3-style: If position is provided, render positioned tooltip
+  // modern MMORPG-style: If position is provided, render positioned tooltip
   if (msg.position) {
     return (
       <>
@@ -665,7 +665,7 @@ function Toast({ world }: { world: ClientWorld }) {
   );
 }
 
-/** RS3-style positioned tooltip that appears near cursor */
+/** modern MMORPG-style positioned tooltip that appears near cursor */
 function PositionedToast({
   text,
   position,
@@ -709,7 +709,7 @@ function PositionedToast({
 
     setCoords({ x, y });
 
-    // RS3-style: Display for 2.5 seconds then fade out
+    // modern MMORPG-style: Display for 2.5 seconds then fade out
     const timer = setTimeout(() => setVisible(false), 2500);
     return () => clearTimeout(timer);
   }, [position]);

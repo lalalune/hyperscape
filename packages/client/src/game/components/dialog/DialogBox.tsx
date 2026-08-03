@@ -2,7 +2,7 @@
  * DialogBox Component
  *
  * Main container for dialog/conversation UI.
- * RS3-style dialog panel with glassmorphism and gold accents.
+ * modern MMORPG-style dialog panel with glassmorphism and gold accents.
  *
  * @packageDocumentation
  */

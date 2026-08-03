@@ -1,7 +1,7 @@
 /**
  * Distance Calculation Utilities
  *
- * OSRS uses Chebyshev distance (square range), not Euclidean (circular range).
+ * classic MMORPG uses Chebyshev distance (square range), not Euclidean (circular range).
  * All game systems MUST use these functions for consistency.
  */
 
@@ -15,7 +15,7 @@ export interface Position2D {
  *
  * Chebyshev = max(|x1-x2|, |z1-z2|)
  *
- * This creates "square" range checks matching OSRS tile-based mechanics.
+ * This creates "square" range checks matching classic MMORPG tile-based mechanics.
  * Example: (3,4) from origin = Chebyshev 4, Euclidean 5
  */
 export function chebyshevDistance(a: Position2D, b: Position2D): number {

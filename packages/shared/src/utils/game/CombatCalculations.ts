@@ -1,6 +1,5 @@
 /**
  * Combat damage/accuracy calculations. Deterministic via SeededRandom.
- * @see https://oldschool.runescape.wiki/w/Damage_per_second/Melee
  */
 
 import { COMBAT_CONSTANTS } from "../../constants/CombatConstants";
@@ -31,7 +30,6 @@ export interface StyleBonus {
 /**
  * Pre-allocated style bonuses to avoid object creation in hot path.
  * Frozen to prevent mutation and enable V8 optimizations.
- * @see https://oldschool.runescape.wiki/w/Combat_Options
  */
 const STYLE_BONUSES: Readonly<Record<CombatStyle, Readonly<StyleBonus>>> = {
   accurate: Object.freeze({ attack: 3, strength: 0, defense: 0 }),
@@ -67,7 +65,7 @@ export interface HitCalculationResult {
 
 /**
  * Prayer bonus multipliers for combat.
- * Applied to effective levels per OSRS formula.
+ * Applied to effective levels per classic combat formula.
  */
 export interface PrayerCombatBonuses {
   attackMultiplier?: number;
@@ -76,9 +74,8 @@ export interface PrayerCombatBonuses {
 }
 
 /**
- * OSRS-accurate hit chance from attack and defense rolls.
+ * rules-accurate hit chance from attack and defense rolls.
  * Shared by melee, ranged, and magic damage calculators.
- * @see https://oldschool.runescape.wiki/w/Accuracy
  */
 export function calculateHitChance(
   attackRoll: number,
@@ -92,9 +89,8 @@ export function calculateHitChance(
 }
 
 /**
- * Calculate hit chance using OSRS-accurate formula.
+ * Calculate hit chance using rules-accurate formula.
  * Prayer bonuses are applied as multipliers to effective levels.
- * @see https://oldschool.runescape.wiki/w/Accuracy
  */
 function calculateAccuracy(
   attackerAttackLevel: number,
@@ -114,7 +110,7 @@ function calculateAccuracy(
     ? getStyleBonus(defenderStyle)
     : { attack: 0, strength: 0, defense: 0 };
 
-  // OSRS formula: prayer multiplier is applied to base level before adding constants
+  // classic combat formula: prayer multiplier is applied to base level before adding constants
   // effectiveLevel = floor(baseLevel * prayerMultiplier) + 8 + styleBonus
   const prayerAttackMultiplier = attackerPrayerBonuses?.attackMultiplier ?? 1;
   const boostedAttackLevel = Math.floor(
@@ -141,9 +137,8 @@ function calculateAccuracy(
 }
 
 /**
- * Calculate melee damage using OSRS-accurate formulas.
+ * Calculate melee damage using rules-accurate formulas.
  * Prayer bonuses are applied as multipliers to effective levels.
- * @see https://oldschool.runescape.wiki/w/Damage_per_second/Melee
  */
 export function calculateDamage(
   attacker: { stats?: CombatStats; config?: { attackPower?: number } },
@@ -179,7 +174,7 @@ export function calculateDamage(
 
       attackStat = baseAttackLevel;
 
-      // OSRS formula: prayer multiplier is applied to base level before adding constants
+      // classic combat formula: prayer multiplier is applied to base level before adding constants
       // effectiveStrength = floor(baseStrength * prayerMultiplier) + 8 + styleBonus
       const prayerStrengthMultiplier =
         attackerPrayerBonuses?.strengthMultiplier ?? 1;
@@ -264,7 +259,6 @@ function _getDefenseValue(entity: {
   return 0;
 }
 
-/** @see https://oldschool.runescape.wiki/w/Attack_range */
 export function isInAttackRange(
   attackerPos: { x: number; y: number; z: number },
   targetPos: { x: number; y: number; z: number },
@@ -292,7 +286,6 @@ export function isAttackOnCooldownTicks(
   return currentTick < nextAttackTick;
 }
 
-/** ceil(attack_speed / 2) + 1 ticks @see https://oldschool.runescape.wiki/w/Auto_Retaliate */
 export function calculateRetaliationDelay(attackSpeedTicks: number): number {
   return Math.ceil(attackSpeedTicks / 2) + 1;
 }

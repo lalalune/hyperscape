@@ -109,7 +109,7 @@ interface GenerationState {
   assetName: string
   assetType: string
   description: string
-  gameStyle: 'runescape' | 'custom'
+  gameStyle: 'classic' | 'custom'
   customStyle: string
 
   // Reference Image Input (4 properties)
@@ -188,7 +188,7 @@ setEditingPreset: (preset: MaterialPreset | null) => void
 setAssetName: (name: string) => void
 setAssetType: (type: string) => void
 setDescription: (desc: string) => void
-setGameStyle: (style: 'runescape' | 'custom') => void
+setGameStyle: (style: 'classic' | 'custom') => void
 setCustomStyle: (style: string) => void
 ```
 

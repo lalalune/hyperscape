@@ -1,7 +1,7 @@
 /**
  * RangeSystem Unit Tests
  *
- * Tests OSRS-accurate range calculations for NPC aggro and combat.
+ * Tests rules-accurate range calculations for NPC aggro and combat.
  *
  * Key behaviors tested:
  * - Hunt range (SW tile origin)
@@ -10,7 +10,6 @@
  * - Large NPC tile occupation
  * - Melee range 1 diagonal exclusion
  *
- * @see https://oldschool.runescape.wiki/w/Aggressiveness
  * @see MOB_AGGRO_IMPLEMENTATION_PLAN.md Phase 2.2
  */
 
@@ -301,7 +300,7 @@ describe("RangeSystem", () => {
         );
       });
 
-      it("returns false for diagonal adjacent tiles (range 1 - OSRS rule)", () => {
+      it("returns false for diagonal adjacent tiles (range 1 - classic MMORPG rule)", () => {
         const npc = createNPC(5, 5, 1, AttackType.MELEE);
 
         // NE diagonal

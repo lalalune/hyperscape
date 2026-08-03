@@ -1,7 +1,7 @@
 /**
  * Bank Equipment Unit Tests
  *
- * Tests for RS3-style bank equipment tab operations:
+ * Tests for modern MMORPG-style bank equipment tab operations:
  * - Withdraw to equipment (equip directly from bank)
  * - Deposit from equipment (unequip directly to bank)
  * - Deposit all equipment (one-click unequip all)

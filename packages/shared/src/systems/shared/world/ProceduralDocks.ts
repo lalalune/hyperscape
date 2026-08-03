@@ -4,7 +4,7 @@
  * Generates procedural docks on water bodies.
  * Follows the BridgeSystem pattern for collision registration:
  * - Walkable tiles: remove WATER flag, add DOCK flag
- * - Edge blocking: OSRS dual-tile wall flags on dock perimeter
+ * - Edge blocking: classic MMORPG dual-tile wall flags on dock perimeter
  * - Deck height tracking: per-tile Y override for player positioning
  *
  * Works on both client (mesh + collision) and server (collision only).
@@ -347,7 +347,7 @@ export class ProceduralDocks extends System {
       tileSet.add(key);
     }
 
-    // Pass 2: Cardinal wall flags from blockedEdges (OSRS dual-tile pattern)
+    // Pass 2: Cardinal wall flags from blockedEdges (classic MMORPG dual-tile pattern)
     for (const edge of dock.collision.blockedEdges) {
       let wallFlag: number;
       let ndx: number;

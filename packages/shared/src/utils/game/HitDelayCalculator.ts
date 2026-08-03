@@ -1,12 +1,11 @@
 /**
- * HitDelayCalculator - OSRS-Accurate Hit Delay System
+ * HitDelayCalculator - Rules-Accurate Hit Delay System
  *
  * Calculates the delay (in ticks) between an attack being made and
  * damage appearing on the target. This creates the projectile travel
- * time effect seen in RuneScape.
+ * time effect seen in classic fantasy MMORPG.
  *
- * OSRS HIT DELAY FORMULAS:
- * @see https://oldschool.runescape.wiki/w/Hit_delay
+ * classic MMORPG HIT DELAY FORMULAS:
  *
  * MELEE:
  *   Delay = 0 ticks (instant)
@@ -182,7 +181,7 @@ export function calculateMagicHitDelay(
  * Calculate distance between two positions in tiles
  *
  * Uses Chebyshev distance (max of x/z difference) for tile-based games.
- * This matches OSRS's tile distance calculation.
+ * This matches classic MMORPG's tile distance calculation.
  *
  * @param pos1 - First position
  * @param pos2 - Second position
@@ -197,7 +196,7 @@ export function calculateTileDistance(
   const dx = Math.abs(pos1.x - pos2.x);
   const dz = Math.abs(pos1.z - pos2.z);
 
-  // Chebyshev distance (how OSRS calculates tile distance)
+  // Chebyshev distance (how classic MMORPG calculates tile distance)
   return Math.max(dx, dz);
 }
 

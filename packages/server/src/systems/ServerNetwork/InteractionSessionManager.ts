@@ -3,7 +3,7 @@
  *
  * Server-authoritative management of UI interaction sessions (store, bank, dialogue).
  *
- * PRODUCTION PATTERN (OSRS/WoW style):
+ * PRODUCTION PATTERN (classic MMORPG/WoW style):
  * - Server is the single source of truth for UI state
  * - Server tracks active sessions per player
  * - Server validates distance and sends close packets when player moves away
@@ -121,7 +121,7 @@ export class InteractionSessionManager implements ISessionReader {
     // - Distance validation (player walks too far)
     // - Player disconnect
     //
-    // This is the correct server-authoritative pattern used by OSRS/WoW.
+    // This is the correct server-authoritative pattern used by classic MMORPG/WoW.
 
     // Listen for bank open events to create sessions
     // We listen for BOTH BANK_OPEN (direct click) and BANK_OPEN_REQUEST (via dialogue)
@@ -198,8 +198,8 @@ export class InteractionSessionManager implements ISessionReader {
     // Same reasoning as STORE_CLOSE above - user-initiated closes should not
     // clear the server session to avoid race conditions with new UI opens.
 
-    // OSRS-accurate: Close bank/store/dialogue if player is attacked
-    // In OSRS, being attacked (even a splash/miss) interrupts banking
+    // rules-accurate: Close bank/store/dialogue if player is attacked
+    // In classic MMORPG, being attacked (even a splash/miss) interrupts banking
     const combatDamageHandler = (event: unknown) => {
       const data = event as {
         targetId?: string;
@@ -209,7 +209,7 @@ export class InteractionSessionManager implements ISessionReader {
       if (!data.targetId || data.targetType !== "player") {
         return;
       }
-      // OSRS-accurate: Close session when player is ATTACKED, not just when taking damage
+      // rules-accurate: Close session when player is ATTACKED, not just when taking damage
       // Even a splash/miss (damage=0) interrupts banking - being in combat matters
       if (this.sessions.has(data.targetId)) {
         this.closeSession(data.targetId, "combat");
@@ -401,7 +401,7 @@ export class InteractionSessionManager implements ISessionReader {
       return { valid: false, reason: "target_gone" };
     }
 
-    // Calculate distance (Chebyshev/OSRS-style) using shared function and constants
+    // Calculate distance (Chebyshev/classic MMORPG-style) using shared function and constants
     const distance = chebyshevDistance(playerEntity.position, targetPos);
     const maxDistance = INTERACTION_DISTANCE[session.sessionType];
 

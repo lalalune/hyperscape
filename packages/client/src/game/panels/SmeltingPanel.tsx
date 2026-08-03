@@ -1,5 +1,5 @@
 /**
- * SmeltingPanel - OSRS-style smelting interface
+ * SmeltingPanel - classic MMORPG-style smelting interface
  *
  * Features:
  * - Shows available bars to smelt based on player's inventory

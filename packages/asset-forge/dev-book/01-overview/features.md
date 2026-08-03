@@ -588,7 +588,7 @@ Customize material presets:
 Customize generation prompts:
 
 **Game Style Prompts:**
-- RuneScape 2007: "Low-poly RuneScape style..."
+- classic low-poly fantasy: "Low-poly classic fantasy MMORPG style..."
 - Generic: "Game-ready 3D asset..."
 - Custom: User-defined styles
 

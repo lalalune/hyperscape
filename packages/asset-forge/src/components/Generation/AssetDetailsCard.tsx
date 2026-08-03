@@ -34,7 +34,7 @@ interface AssetDetailsCardProps {
   onAssetNameChange: (value: string) => void;
   onAssetTypeChange: (value: string) => void;
   onDescriptionChange: (value: string) => void;
-  onGameStyleChange: (style: "runescape" | "custom") => void;
+  onGameStyleChange: (style: "classic" | "custom") => void;
   onCustomStyleChange: (value: string) => void;
   onBack: () => void;
   onSaveCustomGameStyle?: (
@@ -191,7 +191,7 @@ const GameStyleSelector: React.FC<{
   gameStyle: string;
   customStyle: string;
   customGameStyles?: Record<string, GameStylePrompt>;
-  onGameStyleChange: (style: "runescape" | "custom") => void;
+  onGameStyleChange: (style: "classic" | "custom") => void;
   onCustomStyleChange: (value: string) => void;
   onSaveCustomGameStyle?: (
     styleId: string,
@@ -207,15 +207,15 @@ const GameStyleSelector: React.FC<{
 }) => {
   // Determine the current selected value for the dropdown
   const currentValue =
-    gameStyle === "runescape"
-      ? "runescape"
+    gameStyle === "classic"
+      ? "classic"
       : gameStyle === "custom" && customStyle
         ? `custom:${customStyle}`
-        : "runescape";
+        : "classic";
 
   const handleChange = (value: string) => {
-    if (value === "runescape") {
-      onGameStyleChange("runescape");
+    if (value === "classic") {
+      onGameStyleChange("classic");
     } else if (value.startsWith("custom:")) {
       const styleId = value.replace("custom:", "");
       onGameStyleChange("custom");
@@ -236,7 +236,7 @@ const GameStyleSelector: React.FC<{
         onChange={(e) => handleChange(e.target.value)}
         className="w-full px-4 py-2 bg-bg-secondary border border-border-primary rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all appearance-none cursor-pointer [&>option]:bg-bg-primary [&>option]:text-text-primary"
       >
-        <option value="runescape">RuneScape 2007</option>
+        <option value="classic">Classic Low-Poly Fantasy</option>
         {Object.entries(customGameStyles).map(([styleId, style]) => (
           <option key={styleId} value={`custom:${styleId}`}>
             {style.name}
@@ -244,7 +244,7 @@ const GameStyleSelector: React.FC<{
         ))}
       </select>
       {/* Show style details below the dropdown */}
-      {gameStyle === "runescape" && (
+      {gameStyle === "classic" && (
         <div className="px-3 py-2 bg-primary/5 border border-primary/10 rounded-lg">
           <p className="text-xs text-text-secondary">Classic low-poly style</p>
         </div>

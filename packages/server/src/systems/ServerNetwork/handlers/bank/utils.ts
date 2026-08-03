@@ -234,7 +234,7 @@ export function validateBankTabRows(rows: unknown[]): BankTabRowData[] {
 /**
  * Compact bank slots after an item is deleted.
  *
- * OSRS-style behavior: When an item is fully withdrawn, remaining items
+ * classic MMORPG-style behavior: When an item is fully withdrawn, remaining items
  * shift left to fill the gap. No empty slots in the middle of the bank.
  *
  * NOTE: This compacts within the CURRENT tab only (tab 0 by default for backwards compatibility).
@@ -286,7 +286,7 @@ export async function compactBankSlots(
  * Send full bank state including tabs to client
  * Helper function for all bank handlers to send consistent state
  *
- * RS3-STYLE PLACEHOLDERS:
+ * modern MMORPG-STYLE PLACEHOLDERS:
  * - Placeholders are just bank_storage rows with quantity = 0
  * - No separate placeholders array needed - items with qty=0 ARE placeholders
  * - Client renders qty=0 items with greyed-out style
@@ -297,7 +297,7 @@ export async function sendBankStateWithTabs(
   db: { drizzle: NodePgDatabase<typeof schema>; pool: pg.Pool },
 ): Promise<void> {
   const bankRepo = new BankRepository(db.drizzle, db.pool);
-  // RS3-style: getPlayerBank now includes qty=0 items (placeholders)
+  // modern MMORPG-style: getPlayerBank now includes qty=0 items (placeholders)
   const bankItems = await bankRepo.getPlayerBank(playerId);
   const bankTabs = await bankRepo.getPlayerTabs(playerId);
   const alwaysSetPlaceholder = await bankRepo.getAlwaysSetPlaceholder(playerId);

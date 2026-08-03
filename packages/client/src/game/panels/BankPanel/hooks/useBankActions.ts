@@ -63,13 +63,13 @@ interface BankActions {
     toSlot?: number,
   ) => void;
 
-  // Placeholder operations (RS3-style)
+  // Placeholder operations (modern MMORPG-style)
   handleWithdrawPlaceholder: (itemId: string) => void;
   handleReleasePlaceholder: (tabIndex: number, slot: number) => void;
   handleReleaseAllPlaceholders: () => void;
   handleToggleAlwaysPlaceholder: () => void;
 
-  // Equipment operations (RS3-style)
+  // Equipment operations (modern MMORPG-style)
   handleWithdrawToEquipment: (
     itemId: string,
     tabIndex: number,
@@ -113,7 +113,7 @@ export function useBankActions({
         return;
       }
       try {
-        // RS3-style: New items go to currently viewed tab (or tab 0 if viewing All)
+        // modern MMORPG-style: New items go to currently viewed tab (or tab 0 if viewing All)
         const targetTab = selectedTab === TAB_INDEX_ALL ? 0 : selectedTab;
         world.network.send("bankDeposit", {
           itemId,
@@ -133,7 +133,7 @@ export function useBankActions({
       return;
     }
     try {
-      // RS3-style: New items go to currently viewed tab (or tab 0 if viewing All)
+      // modern MMORPG-style: New items go to currently viewed tab (or tab 0 if viewing All)
       const targetTab = selectedTab === TAB_INDEX_ALL ? 0 : selectedTab;
       world.network.send("bankDepositAll", { targetTabIndex: targetTab });
     } catch (error) {
@@ -261,7 +261,7 @@ export function useBankActions({
     [world.network],
   );
 
-  // ========== PLACEHOLDER OPERATIONS (RS3-style) ==========
+  // ========== PLACEHOLDER OPERATIONS (modern MMORPG-style) ==========
 
   const handleWithdrawPlaceholder = useCallback(
     (itemId: string) => {
@@ -317,7 +317,7 @@ export function useBankActions({
     }
   }, [world.network]);
 
-  // ========== EQUIPMENT OPERATIONS (RS3-style) ==========
+  // ========== EQUIPMENT OPERATIONS (modern MMORPG-style) ==========
 
   const handleWithdrawToEquipment = useCallback(
     (itemId: string, tabIndex: number, slot: number) => {

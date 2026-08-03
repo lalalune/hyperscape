@@ -1,11 +1,9 @@
 /**
  * Cooking Calculator
  *
- * OSRS-accurate cooking burn rate calculations.
+ * rules-accurate cooking burn rate calculations.
  * Uses data from items.json manifest via ProcessingDataProvider.
  *
- * @see https://oldschool.runescape.wiki/w/Cooking
- * @see https://oldschool.runescape.wiki/w/Cooking/Burn_level
  */
 
 import { processingDataProvider } from "../../../../data/ProcessingDataProvider";
@@ -63,7 +61,7 @@ export function calculateBurnChance(
     return 0; // Edge case: stopBurn <= levelRequired
   }
 
-  const MAX_BURN_CHANCE = 0.55; // ~55% burn at minimum level (OSRS-like)
+  const MAX_BURN_CHANCE = 0.55; // ~55% burn at minimum level (classic MMORPG-like)
   const progress = cookingLevel - levelRequired;
   const rawBurn = 1 - progress / range;
   return Math.max(0, Math.min(MAX_BURN_CHANCE, rawBurn));

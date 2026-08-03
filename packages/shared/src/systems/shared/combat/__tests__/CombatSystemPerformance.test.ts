@@ -313,7 +313,7 @@ describe("CombatSystem Performance", () => {
   describe("Attack Timing Simulation", () => {
     it("simulates realistic combat tick with mixed attack speeds", () => {
       // Setup combats with different weapon speeds
-      const attackSpeeds = [3, 4, 5, 6, 7]; // OSRS weapon speed tiers
+      const attackSpeeds = [3, 4, 5, 6, 7]; // classic MMORPG weapon speed tiers
 
       for (let i = 0; i < 100; i++) {
         const speed = attackSpeeds[i % attackSpeeds.length];

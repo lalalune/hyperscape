@@ -283,7 +283,7 @@ interface GenerationState {
   assetName: string
   assetType: string
   description: string
-  gameStyle: 'runescape' | 'custom'
+  gameStyle: 'classic' | 'custom'
   customStyle: string
 
   // Reference Image

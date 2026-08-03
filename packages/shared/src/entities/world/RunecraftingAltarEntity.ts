@@ -162,7 +162,7 @@ export class RunecraftingAltarEntity extends InteractableEntity {
   }
 
   /**
-   * Return tiles occupied by this station for OSRS-style interaction checking.
+   * Return tiles occupied by this station for classic MMORPG-style interaction checking.
    */
   protected override getOccupiedTiles(): TileCoord[] {
     if (this.collisionTiles.length > 0) {

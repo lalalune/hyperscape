@@ -150,7 +150,7 @@ const response = await fetch('https://api.openai.com/v1/chat/completions', {
       "index": 0,
       "message": {
         "role": "assistant",
-        "content": "A menacing goblin warrior character standing in T-pose with arms stretched horizontally and empty hands, wearing rugged leather armor with bronze accents, green scaly skin texture, pointed ears, fierce expression, low-poly RuneScape style with blocky geometry and flat-shaded surfaces"
+        "content": "A menacing goblin warrior character standing in T-pose with arms stretched horizontally and empty hands, wearing rugged leather armor with bronze accents, green scaly skin texture, pointed ears, fierce expression, low-poly classic fantasy MMORPG style with blocky geometry and flat-shaded surfaces"
       },
       "finish_reason": "stop"
     }
@@ -254,7 +254,7 @@ const response = await fetch('https://api.openai.com/v1/images/generations', {
   },
   body: JSON.stringify({
     model: 'gpt-image-1',
-    prompt: 'A menacing goblin warrior character in T-pose with empty hands, leather armor with bronze accents, low-poly RuneScape style',
+    prompt: 'A menacing goblin warrior character in T-pose with empty hands, leather armor with bronze accents, low-poly classic fantasy MMORPG style',
     size: '1024x1024',
     quality: 'high'
   })

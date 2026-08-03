@@ -670,7 +670,7 @@ What You Can Do NOW:
       const isScripted = autonomyModeSetting === "scripted";
 
       // Build intelligent LLM prompt with full context (unless scripted mode is enabled)
-      const selectionPrompt = `You are an AI agent playing a RuneScape-style MMORPG. Choose your next goal intelligently.
+      const selectionPrompt = `You are an AI agent playing a classic fantasy MMORPG. Choose your next goal intelligently.
 
 CURRENT STATUS:
 - Health: ${healthPercent}%

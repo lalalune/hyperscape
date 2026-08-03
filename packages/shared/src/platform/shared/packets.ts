@@ -120,7 +120,7 @@ const names = [
   'gatheringComplete',
   'gatheringStarted',  // Server -> Client: gathering session started
   'gatheringStopped',  // Server -> Client: gathering session stopped
-  'gatheringToolShow', // Server -> Client: show gathering tool in hand (OSRS fishing rod)
+  'gatheringToolShow', // Server -> Client: show gathering tool in hand (classic MMORPG fishing rod)
   'gatheringToolHide', // Server -> Client: hide gathering tool from hand
   // Processing packets (firemaking/cooking)
   'firemakingRequest', // Client -> Server: request to light fire (tinderbox + logs)
@@ -164,7 +164,7 @@ const names = [
   // Combat packets
   'attackMob',
   'attackPlayer',  // PvP attack
-  'followPlayer',  // Follow another player (OSRS-style)
+  'followPlayer',  // Follow another player (classic MMORPG-style)
   'changeAttackStyle',
   'setAutoRetaliate',
   'autoRetaliateChanged',
@@ -186,7 +186,7 @@ const names = [
   'equipmentUpdated',
   // Skills sync packets
   'skillsUpdated',
-  // XP drop visual feedback packets (RS3-style)
+  // XP drop visual feedback packets (modern MMORPG-style)
   'xpDrop',
   // UI feedback packets
   'showToast',
@@ -246,12 +246,12 @@ const names = [
   'bankDeleteTab',     // Delete tab (items move to main tab)
   'bankMoveToTab',     // Move item between tabs
   'bankSelectTab',     // Client selected a different tab
-  // Bank placeholder packets (RS3 style: qty=0 in bank_storage)
-  'bankWithdrawPlaceholder',      // Withdraw all and leave qty=0 placeholder (RS3 style)
+  // Bank placeholder packets (modern MMORPG style: qty=0 in bank_storage)
+  'bankWithdrawPlaceholder',      // Withdraw all and leave qty=0 placeholder (modern MMORPG style)
   'bankReleasePlaceholder',       // Release single placeholder (delete qty=0 row)
   'bankReleaseAllPlaceholders',   // Clear all placeholders (delete all qty=0 rows)
   'bankToggleAlwaysPlaceholder',  // Toggle auto-placeholder setting
-  // Bank equipment tab packets (RS3-style equipment view in bank)
+  // Bank equipment tab packets (modern MMORPG-style equipment view in bank)
   'bankWithdrawToEquipment',      // Withdraw item directly to equipment slot
   'bankDepositEquipment',         // Deposit single equipment slot to bank
   'bankDepositAllEquipment',      // Deposit all worn equipment to bank
@@ -272,7 +272,7 @@ const names = [
   'dialogueContinue',
   'dialogueEnd',
   'dialogueClose',
-  // Tile movement packets (RuneScape-style)
+  // Tile movement packets (classic fantasy MMORPG-style)
   'entityTileUpdate',    // Server -> Client: entity moved to new tile position
   'tileMovementStart',   // Server -> Client: movement path started
   'tileMovementEnd',     // Server -> Client: arrived at destination
@@ -325,7 +325,7 @@ const names = [
   'tradeCompleted',      // Server -> Client: trade successful, items swapped
   'tradeCancelled',      // Server -> Client: trade cancelled (disconnect, decline, etc.)
   'tradeError',          // Server -> Client: trade operation failed with reason
-  'tradeConfirmScreen',  // Server -> Client: move to confirmation screen (OSRS two-screen)
+  'tradeConfirmScreen',  // Server -> Client: move to confirmation screen (classic MMORPG two-screen)
   // Duel Arena packets
   'duel:challenge',        // Client -> Server: challenge player to duel
   'duel:challenge:respond',// Client -> Server: accept/decline duel challenge

@@ -7,7 +7,7 @@
  * - Ignore list
  * - Private messaging
  *
- * Follows RuneScape-style social mechanics with bidirectional friendships.
+ * Follows classic fantasy MMORPG-style social mechanics with bidirectional friendships.
  *
  * @see packages/server/src/database/repositories/FriendRepository for server implementation
  * @see packages/client/src/game/panels/FriendsPanel for UI implementation

@@ -1683,7 +1683,7 @@ export class BuildingCollisionService {
             floorIndex,
           );
 
-        // Standard OSRS rule: blocked only if BOTH cardinal paths are blocked
+        // Standard classic MMORPG rule: blocked only if BOTH cardinal paths are blocked
         if (path1Blocked && path2Blocked) {
           if (this._debugLogging) {
             console.log(

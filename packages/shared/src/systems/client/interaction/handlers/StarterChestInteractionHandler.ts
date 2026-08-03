@@ -4,7 +4,7 @@
  * Handles interactions with the starter chest that provides new players
  * with basic equipment (bronze tools, tinderbox, net, food).
  *
- * OSRS Context Menu Format: "<Action> <TargetName>" with cyan target (scenery color)
+ * classic MMORPG Context Menu Format: "<Action> <TargetName>" with cyan target (scenery color)
  * - "Search Starter Chest" (cyan #00ffff for target)
  * - "Examine Starter Chest" (cyan #00ffff for target)
  */
@@ -13,7 +13,7 @@ import { BaseInteractionHandler } from "./BaseInteractionHandler";
 import type { RaycastTarget, ContextMenuAction } from "../types";
 import { INTERACTION_RANGE } from "../constants";
 
-/** OSRS scenery/object color (cyan) for context menu target names */
+/** classic MMORPG scenery/object color (cyan) for context menu target names */
 const SCENERY_COLOR = "#00ffff";
 
 export class StarterChestInteractionHandler extends BaseInteractionHandler {
@@ -27,7 +27,7 @@ export class StarterChestInteractionHandler extends BaseInteractionHandler {
   /**
    * Right-click: Show chest options
    *
-   * OSRS-accurate format:
+   * rules-accurate format:
    * - "Search Starter Chest" (action white, target cyan)
    * - "Examine Starter Chest" (action white, target cyan)
    */
@@ -35,7 +35,7 @@ export class StarterChestInteractionHandler extends BaseInteractionHandler {
     const actions: ContextMenuAction[] = [];
     const targetName = target.name || "Starter Chest";
 
-    // Search action (primary) - OSRS: "Search Starter Chest"
+    // Search action (primary) - classic MMORPG: "Search Starter Chest"
     actions.push({
       id: "search-chest",
       label: `Search ${targetName}`,
@@ -51,7 +51,7 @@ export class StarterChestInteractionHandler extends BaseInteractionHandler {
     // Walk here
     actions.push(this.createWalkHereAction(target));
 
-    // Examine - OSRS: "Examine Starter Chest"
+    // Examine - classic MMORPG: "Examine Starter Chest"
     actions.push({
       id: "examine",
       label: `Examine ${targetName}`,

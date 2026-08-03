@@ -2,11 +2,11 @@
   "__comment": "Game style prompts - add custom styles in the 'custom' section",
   "version": "1.0.0",
   "default": {
-    "runescape": {
-      "name": "RuneScape 2007",
-      "base": "Low-poly RuneScape 2007",
-      "enhanced": "low-poly RuneScape style",
-      "generation": "runescape2007"
+    "classic": {
+      "name": "Classic Low-Poly Fantasy",
+      "base": "Classic low-poly fantasy",
+      "enhanced": "low-poly classic fantasy MMORPG style",
+      "generation": "classicLowPoly"
     },
     "generic": {
       "name": "Generic Low-Poly",

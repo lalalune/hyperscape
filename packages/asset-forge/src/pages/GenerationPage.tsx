@@ -205,8 +205,8 @@ export const GenerationPage: React.FC = () => {
   // Get current style prompt
   const currentStylePrompt = useMemo(() => {
     if (!gameStylePrompts) return "";
-    if (gameStyle === "runescape") {
-      return gameStylePrompts.default?.runescape?.base || "";
+    if (gameStyle === "classic") {
+      return gameStylePrompts.default?.classic?.base || "";
     } else if (
       gameStyle === "custom" &&
       customStyle &&
@@ -268,10 +268,10 @@ export const GenerationPage: React.FC = () => {
   // Apply game style specific prompts when game style changes
   useEffect(() => {
     if (!gameStyleLoading && gameStylePrompts && gameStyle) {
-      if (gameStyle === "runescape") {
-        const runescapePrompt = gameStylePrompts.default?.runescape?.base;
-        if (runescapePrompt) {
-          setCustomGamePrompt(runescapePrompt);
+      if (gameStyle === "classic") {
+        const classicPrompt = gameStylePrompts.default?.classic?.base;
+        if (classicPrompt) {
+          setCustomGamePrompt(classicPrompt);
         }
       } else if (
         gameStyle === "custom" &&
@@ -560,8 +560,8 @@ export const GenerationPage: React.FC = () => {
 
     // Get the game style configuration
     const gameStyleConfig =
-      gameStyle === "runescape"
-        ? gameStylePrompts?.default?.runescape
+      gameStyle === "classic"
+        ? gameStylePrompts?.default?.classic
         : gameStyle === "custom" && customStyle
           ? gameStylePrompts?.custom?.[customStyle] ||
             gameStylePrompts?.default?.generic

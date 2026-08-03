@@ -125,7 +125,7 @@ class MockSkillsSystem {
   }
 
   private calculateLevel(xp: number): number {
-    // Simplified OSRS XP table (approximation)
+    // Simplified classic MMORPG XP table (approximation)
     if (xp < 83) return 1;
     if (xp < 174) return 2;
     if (xp < 276) return 3;

@@ -1,7 +1,7 @@
 /**
  * SkillsSystem.ts - Skills, XP, and Leveling System
  *
- * Implements RuneScape-style skill progression system with experience points and levels.
+ * Implements classic fantasy MMORPG-style skill progression system with experience points and levels.
  *
  * **Skills Managed:**
  * - Combat: attack, strength, defense, constitution, ranged
@@ -9,7 +9,7 @@
  * - Artisan: firemaking, cooking
  *
  * **XP Calculation:**
- * Uses RuneScape XP table formula:
+ * Uses classic fantasy MMORPG XP table formula:
  * - Level 1-99 (max level)
  * - XP for level N = floor(N + 300 * 2^(N/7)) / 4
  * - Example: Level 50 requires 101,333 XP
@@ -345,7 +345,7 @@ export class SkillsSystem extends SystemBase {
    * Get combat level for an entity
    */
   public getCombatLevel(stats: StatsComponent): number {
-    // RuneScape combat level formula
+    // classic fantasy MMORPG combat level formula
     // Extract levels from stats
     const defenseLevel = stats.defense?.level ?? 1;
     const hitpointsLevel = stats.constitution?.level ?? 10;
@@ -634,7 +634,7 @@ export class SkillsSystem extends SystemBase {
     }
 
     // Special handling for Prayer level up
-    // Prayer level = max prayer points (OSRS-accurate)
+    // Prayer level = max prayer points (rules-accurate)
     if (skill === Skill.PRAYER) {
       const prayerSystem = this.world.getSystem("prayer") as unknown as {
         setMaxPrayerPoints?: (id: string, max: number) => void;
@@ -642,7 +642,7 @@ export class SkillsSystem extends SystemBase {
       } | null;
       if (prayerSystem?.setMaxPrayerPoints) {
         prayerSystem.setMaxPrayerPoints(entity.id, newLevel);
-        // Also restore prayer points to new max (OSRS behavior on level-up)
+        // Also restore prayer points to new max (classic MMORPG behavior on level-up)
         prayerSystem.restorePrayerPoints?.(entity.id, newLevel);
       }
     }
@@ -657,7 +657,7 @@ export class SkillsSystem extends SystemBase {
   }
 
   private calculateMaxHitpoints(level: number): number {
-    // RuneScape formula: 10 + level
+    // classic fantasy MMORPG formula: 10 + level
     return 10 + level;
   }
 
@@ -718,8 +718,7 @@ export class SkillsSystem extends SystemBase {
     const targetStats = getStatsComponent(target);
     if (!targetStats) return;
 
-    // OSRS Formula: 4 XP per damage for combat skills, 1.33 XP per damage for Hitpoints
-    // @see https://oldschool.runescape.wiki/w/Combat#Experience
+    // classic MMORPG Formula: 4 XP per damage for combat skills, 1.33 XP per damage for Hitpoints
     // Use damageDealt (total damage by this player) or fallback to mob's max HP
     const totalDamage =
       damageDealt > 0 ? damageDealt : (targetStats.health?.max ?? 10);
@@ -759,7 +758,7 @@ export class SkillsSystem extends SystemBase {
         break;
 
       case "controlled": {
-        // OSRS: Controlled gives 1.33 XP per damage to each of 4 skills
+        // classic MMORPG: Controlled gives 1.33 XP per damage to each of 4 skills
         // Total: 5.32 XP per damage (vs 5.33 for focused styles)
         const controlledXP =
           totalDamage * COMBAT_CONSTANTS.XP.CONTROLLED_XP_PER_DAMAGE;
@@ -821,7 +820,7 @@ export class SkillsSystem extends SystemBase {
         break;
     }
 
-    // ALWAYS grant Hitpoints XP (Constitution) for combat - OSRS standard
+    // ALWAYS grant Hitpoints XP (Constitution) for combat - classic MMORPG standard
     this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
       playerId: attackerId,
       skill: Skill.CONSTITUTION,

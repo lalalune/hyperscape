@@ -1,4 +1,4 @@
--- Migration: Allow quantity=0 in bank_storage for RS3-style placeholders
+-- Migration: Allow quantity=0 in bank_storage for modern MMORPG-style placeholders
 -- When a player withdraws all of an item, the row stays with quantity=0
 -- to reserve the bank slot (placeholder). The previous constraint (>=1)
 -- blocked this, causing withdraw failures.

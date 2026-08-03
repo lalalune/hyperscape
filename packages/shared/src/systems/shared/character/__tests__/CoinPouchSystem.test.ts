@@ -1,7 +1,7 @@
 /**
  * CoinPouchSystem Unit Tests
  *
- * Tests the coin pouch functionality (OSRS-style money pouch):
+ * Tests the coin pouch functionality (classic MMORPG-style money pouch):
  * - Basic coin operations (add, remove, query)
  * - Overflow protection (MAX_COINS cap)
  * - Persistence operations
@@ -18,7 +18,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 // ============================================================================
 
 const DEFAULT_STARTING_COINS = 100;
-const MAX_COINS = 2147483647; // Max 32-bit signed integer (OSRS cap)
+const MAX_COINS = 2147483647; // Max 32-bit signed integer (classic MMORPG cap)
 
 // ============================================================================
 // Types
@@ -480,7 +480,7 @@ describe("CoinPouchSystem", () => {
       await manager.initializePlayerCoins("player-1");
       manager.addCoins("player-1", 1000);
 
-      // Death in OSRS doesn't affect money pouch
+      // Death in classic MMORPG doesn't affect money pouch
       // Coins should remain intact
       const coinsAfterDeath = manager.getCoins("player-1");
 

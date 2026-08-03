@@ -40,11 +40,11 @@ export function useGameStylePrompts() {
         setPrompts({
           version: "1.0.0",
           default: {
-            runescape: {
-              name: "RuneScape 2007",
-              base: "Low-poly RuneScape 2007",
-              enhanced: "low-poly RuneScape style",
-              generation: "runescape2007",
+            classic: {
+              name: "Classic Low-Poly Fantasy",
+              base: "Classic low-poly fantasy",
+              enhanced: "low-poly classic fantasy MMORPG style",
+              generation: "classicLowPoly",
             },
             generic: {
               name: "Generic Low-Poly",
@@ -277,11 +277,11 @@ export function useAssetTypePrompts() {
 // Hook for material prompt templates
 export function useMaterialPromptTemplates() {
   const [templates, setTemplates] = useState<{
-    templates: { runescape: string; generic: string } & Record<string, string>;
+    templates: { classic: string; generic: string } & Record<string, string>;
     customOverrides: Record<string, string>;
   }>({
     templates: {
-      runescape: "${materialId} texture, low-poly RuneScape style",
+      classic: "${materialId} texture, low-poly classic fantasy MMORPG style",
       generic: "${materialId} texture",
     },
     customOverrides: {},

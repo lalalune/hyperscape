@@ -1,7 +1,7 @@
 /**
  * Tick System
  *
- * Implements RuneScape-style server tick system.
+ * Implements classic fantasy MMORPG-style server tick system.
  * All game logic runs on 600ms ticks, ensuring:
  * - Consistent timing for all players
  * - Predictable movement (1-2 tiles per tick)
@@ -41,7 +41,7 @@ interface TickListener {
 }
 
 /**
- * Server tick system for RuneScape-style game loop
+ * Server tick system for classic fantasy MMORPG-style game loop
  *
  * Uses self-correcting setTimeout instead of setInterval to prevent drift.
  * setInterval can accumulate timing errors over time, especially under load.
@@ -57,7 +57,7 @@ export class TickSystem {
   private isRunning = false;
   /**
    * When true, skip missed ticks and reset schedule when falling behind (>1 tick).
-   * This is the correct RuneScape behavior: ticks stretch under load, they don't
+   * This is the correct classic fantasy MMORPG behavior: ticks stretch under load, they don't
    * replay in a burst. Actions stay responsive on the next clean tick.
    * Set TICK_ALLOW_SKIP=false to disable (useful for diagnosing desync).
    */

@@ -336,7 +336,7 @@ export class RangedAttackHandler {
       return;
     }
 
-    // Resolve ranged style before range check so longrange +2 applies (OSRS-accurate)
+    // Resolve ranged style before range check so longrange +2 applies (rules-accurate)
     let rangedStyle: RangedCombatStyle = "accurate";
     const styleData = this.ctx.playerSystem?.getPlayerAttackStyle?.(attackerId);
     if (styleData?.id) {
@@ -347,7 +347,7 @@ export class RangedAttackHandler {
     }
     const styleBonus = RANGED_STYLE_BONUSES[rangedStyle];
 
-    // Check ranged attack range — longrange style adds +2 tiles (OSRS-accurate)
+    // Check ranged attack range — longrange style adds +2 tiles (rules-accurate)
     const attackRange = (weapon?.attackRange ?? 7) + styleBonus.rangeModifier;
     const distance = checkProjectileRange(
       this.ctx,
@@ -421,7 +421,7 @@ export class RangedAttackHandler {
 
     this.ctx.projectileService.createProjectile(projectileParams);
 
-    // OSRS: Consume one arrow from equipment on fire
+    // classic MMORPG: Consume one arrow from equipment on fire
     this.ctx.emitTypedEvent(EventType.EQUIPMENT_CONSUME_ARROW, {
       playerId: attackerId,
     });
@@ -473,7 +473,7 @@ export class RangedAttackHandler {
         ? target.getMobData().defense
         : this.ctx.getPlayerSkillLevel(String(target.id), "defense");
 
-    // Use per-style defenseRanged from equipment (OSRS combat triangle).
+    // Use per-style defenseRanged from equipment (classic MMORPG combat triangle).
     // Falls back to generic ranged bonus for backward compatibility.
     const targetEquipStats = this.ctx.playerEquipmentStats.get(
       String(target.id),
@@ -495,7 +495,7 @@ export class RangedAttackHandler {
     // Do NOT add arrowStrength separately as that would double-count it
     const rangedStrengthBonus = equipmentStats?.rangedStrength ?? arrowStrength;
 
-    // Get player's combat style for OSRS-accurate damage bonuses
+    // Get player's combat style for rules-accurate damage bonuses
     let rangedStyle: RangedCombatStyle = "accurate";
     const styleData = this.ctx.playerSystem?.getPlayerAttackStyle?.(attackerId);
     if (styleData?.id) {

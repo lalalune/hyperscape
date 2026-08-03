@@ -32,7 +32,7 @@ export const PLAYER_CONSTANTS = {
   DEFAULT_MAX_STAMINA: 100,
   BASE_MOVEMENT_SPEED: 1.0,
   RUNNING_SPEED_MULTIPLIER: 1.5,
-  HEALTH_REGEN_RATE: 1, // 1 HP per regen tick (RuneScape-style)
+  HEALTH_REGEN_RATE: 1, // 1 HP per regen tick (classic fantasy MMORPG-style)
   // Note: Health regen cooldown/interval use COMBAT_CONSTANTS tick-based values
   STAMINA_REGEN_RATE: 2.0,
   STAMINA_DRAIN_RATE: 5.0,
@@ -255,13 +255,13 @@ export const UI_CONSTANTS = {
   CHAT_MESSAGE_TIMEOUT: 5000, // 5 seconds
 } as const;
 
-// === OSRS-STYLE CONTEXT MENU COLORS ===
+// === classic MMORPG-STYLE CONTEXT MENU COLORS ===
 export const CONTEXT_MENU_COLORS = {
-  /** Item name color in context menus (OSRS orange) */
+  /** Item name color in context menus (classic MMORPG orange) */
   ITEM: "#ff9040",
-  /** NPC name color in context menus (OSRS yellow) */
+  /** NPC name color in context menus (classic MMORPG yellow) */
   NPC: "#ffff00",
-  /** Object name color in context menus (OSRS cyan) */
+  /** Object name color in context menus (classic MMORPG cyan) */
   OBJECT: "#00ffff",
   /** Player name color in context menus */
   PLAYER: "#ffffff",

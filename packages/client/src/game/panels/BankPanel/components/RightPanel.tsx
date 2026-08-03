@@ -2,7 +2,7 @@
  * RightPanel Component
  *
  * Right-side panel containing inventory grid and equipment paperdoll views.
- * RS3-style tab switcher between backpack and worn equipment.
+ * modern MMORPG-style tab switcher between backpack and worn equipment.
  */
 
 import React, { useState } from "react";
@@ -90,7 +90,7 @@ export function RightPanel({
         minWidth: shouldUseMobileUI ? undefined : `${desktopPanelWidth}px`,
       }}
     >
-      {/* RS3-style Tab Header with view switcher */}
+      {/* modern MMORPG-style Tab Header with view switcher */}
       <div
         className="flex justify-between items-center px-2 py-1.5 rounded-t-lg"
         style={{

@@ -1,21 +1,20 @@
 /**
  * Combat Constants
  *
- * OSRS-accurate timing and combat values.
+ * rules-accurate timing and combat values.
  * All tick-based values assume 600ms per tick.
  *
- * @see https://oldschool.runescape.wiki/w/Game_tick
  */
 
 import { WeaponType } from "../types/game/item-types";
 
 /**
  * Melee attack style determines which per-style attack/defence bonuses are used.
- * OSRS: Each weapon type has a default style (e.g., swords slash, daggers stab).
+ * classic MMORPG: Each weapon type has a default style (e.g., swords slash, daggers stab).
  */
 export type MeleeAttackStyle = "stab" | "slash" | "crush";
 
-/** Default melee attack style per weapon type (OSRS-accurate) */
+/** Default melee attack style per weapon type (rules-accurate) */
 export const WEAPON_DEFAULT_ATTACK_STYLE: Record<string, MeleeAttackStyle> = {
   [WeaponType.SWORD]: "slash",
   [WeaponType.LONGSWORD]: "slash",
@@ -42,13 +41,13 @@ export const COMBAT_CONSTANTS = {
 
   // === Combat Timing (ticks) ===
   DEFAULT_ATTACK_SPEED_TICKS: 4,
-  COMBAT_TIMEOUT_TICKS: 17, // OSRS-accurate: 10.2 seconds (17 ticks * 600ms)
+  COMBAT_TIMEOUT_TICKS: 17, // rules-accurate: 10.2 seconds (17 ticks * 600ms)
   LOGOUT_PREVENTION_TICKS: 16,
   HEALTH_REGEN_COOLDOWN_TICKS: 17,
   HEALTH_REGEN_INTERVAL_TICKS: 100,
   AFK_DISABLE_RETALIATE_TICKS: 2000,
 
-  // === Food Consumption (OSRS-accurate) ===
+  // === Food Consumption (rules-accurate) ===
   /** Ticks before player can eat again after eating (3 ticks = 1.8s) */
   EAT_DELAY_TICKS: 3,
   /** Ticks added to attack cooldown when eating during combat */
@@ -100,15 +99,15 @@ export const COMBAT_CONSTANTS = {
     EMOTE_RANGED: "ranged",
     EMOTE_MAGIC: "magic",
     EMOTE_IDLE: "idle",
-    /** Duration (seconds) for GLB animation crossfades. RS3 uses 300-400ms; 350ms splits the range. */
+    /** Duration (seconds) for GLB animation crossfades. modern MMORPG uses 300-400ms; 350ms splits the range. */
     CROSSFADE_DURATION: 0.35,
   },
 
   // === Death & Loot (ticks) ===
   RESPAWN_TICKS_RANDOMNESS: 8,
   GRAVESTONE_TICKS: 1500,
-  GROUND_ITEM_DESPAWN_TICKS: 6000, // OSRS-accurate: 60 minutes (was 300 = 3 min)
-  UNTRADEABLE_DESPAWN_TICKS: 6000, // OSRS-accurate: 60 minutes (was 300 = 3 min)
+  GROUND_ITEM_DESPAWN_TICKS: 6000, // rules-accurate: 60 minutes (was 300 = 3 min)
+  UNTRADEABLE_DESPAWN_TICKS: 6000, // rules-accurate: 60 minutes (was 300 = 3 min)
   LOOT_PROTECTION_TICKS: 100,
   CORPSE_DESPAWN_TICKS: 200,
 
@@ -147,7 +146,7 @@ export const COMBAT_CONSTANTS = {
       ATTACK_SPEED_TICKS: 4,
       AGGRO_RANGE: 4,
       COMBAT_RANGE: 1,
-      LEASH_RANGE: 42, // Extended from OSRS default of 7 for better gameplay
+      LEASH_RANGE: 42, // Extended from classic MMORPG default of 7 for better gameplay
       RESPAWN_TICKS: 25,
       WANDER_RADIUS: 5,
     },
@@ -203,7 +202,7 @@ export interface MagicStyleBonus {
   readonly xpSplit: "magic" | "magic_defence";
 }
 
-/** Pre-allocated frozen style bonuses for ranged combat (OSRS-accurate) */
+/** Pre-allocated frozen style bonuses for ranged combat (rules-accurate) */
 export const RANGED_STYLE_BONUSES: Readonly<
   Record<RangedCombatStyle, Readonly<RangedStyleBonus>>
 > = Object.freeze({

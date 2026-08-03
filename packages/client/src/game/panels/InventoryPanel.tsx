@@ -41,7 +41,7 @@ import {
   EventType,
   getItem,
   uuid,
-  // OSRS-accurate item helpers (extracted to shared)
+  // rules-accurate item helpers (extracted to shared)
   isFood,
   isPotion,
   isBone,
@@ -61,7 +61,7 @@ import { CoinPouch } from "./inventory";
 import { zIndex } from "../../constants/tokens";
 
 /**
- * Maximum inventory slots (OSRS-style: 28 slots)
+ * Maximum inventory slots (classic MMORPG-style: 28 slots)
  * Uses INVENTORY_CONSTANTS from shared package as single source of truth
  */
 const MAX_SLOTS = INVENTORY_CONSTANTS.MAX_INVENTORY_SLOTS;
@@ -114,7 +114,7 @@ interface DraggableItemProps {
     position: { x: number; y: number },
   ) => void;
   onTargetHoverEnd?: () => void;
-  // RS3-style hover tooltip (separate from targeting mode)
+  // modern MMORPG-style hover tooltip (separate from targeting mode)
   onItemHoverStart?: (
     item: InventorySlotViewItem,
     position: { x: number; y: number },
@@ -133,10 +133,10 @@ interface DraggableItemProps {
   ) => void;
 }
 
-// OSRS-style: 4 columns × 7 rows = 28 slots, all visible (no pagination)
+// classic MMORPG-style: 4 columns × 7 rows = 28 slots, all visible (no pagination)
 
 /**
- * Format quantity for OSRS-style display
+ * Format quantity for classic MMORPG-style display
  * - Under 100K: show exact number
  * - 100K-9.99M: green "123K" format
  * - 10M+: green "12M" format
@@ -209,10 +209,10 @@ const DraggableInventorySlot = memo(function DraggableInventorySlot({
   // Slots stay fixed - no transform! Only the DragOverlay moves.
   const isEmpty = !item;
 
-  // OSRS-style targeting mode checks
+  // classic MMORPG-style targeting mode checks
   const isTargetingActive = targetingState?.active ?? false;
 
-  // Check if THIS slot is the source item (gets white border in OSRS)
+  // Check if THIS slot is the source item (gets white border in classic MMORPG)
   const isSourceItem =
     isTargetingActive && targetingState?.sourceItem?.slot === index;
 
@@ -270,15 +270,15 @@ const DraggableInventorySlot = memo(function DraggableInventorySlot({
           if (isValidTarget && item && onTargetClick) {
             onTargetClick(item, index);
           } else if (item && !isValidTarget && onInvalidTargetClick) {
-            // OSRS: Clicking an invalid item shows "Nothing interesting happens."
+            // classic MMORPG: Clicking an invalid item shows "Nothing interesting happens."
             // (Empty slots don't trigger this - only actual items)
             onInvalidTargetClick();
           }
-          // Clicking empty slot does nothing (OSRS behavior)
+          // Clicking empty slot does nothing (classic MMORPG behavior)
           return;
         }
 
-        // Shift-click to drop instantly (OSRS-style)
+        // Shift-click to drop instantly (classic MMORPG-style)
         if (e.shiftKey && item && onShiftClick) {
           e.preventDefault();
           e.stopPropagation();
@@ -286,7 +286,7 @@ const DraggableInventorySlot = memo(function DraggableInventorySlot({
           return;
         }
 
-        // Left-click: execute primary action (OSRS-style)
+        // Left-click: execute primary action (classic MMORPG-style)
         // Uses manifest-first approach with heuristic fallback
         // Uses memoized itemData and isItemNoted for efficiency
         if (item && onPrimaryAction) {
@@ -299,11 +299,11 @@ const DraggableInventorySlot = memo(function DraggableInventorySlot({
       }}
       onMouseEnter={(e) => {
         setIsHovered(true);
-        // OSRS-style: show "Use X → Y" tooltip when hovering valid target
+        // classic MMORPG-style: show "Use X → Y" tooltip when hovering valid target
         if (isValidTarget && item && onTargetHover) {
           onTargetHover(item, { x: e.clientX, y: e.clientY });
         } else if (!isTargetingActive && item && onItemHoverStart) {
-          // RS3-style: show item stats tooltip when not in targeting mode
+          // modern MMORPG-style: show item stats tooltip when not in targeting mode
           onItemHoverStart(item, { x: e.clientX, y: e.clientY });
         }
       }}
@@ -348,7 +348,7 @@ const DraggableInventorySlot = memo(function DraggableInventorySlot({
         const itemName = itemData?.name || item.itemId;
         const isNoted = isItemNoted;
 
-        // Build menu items - OSRS-accurate: use inventoryActions from manifest if available
+        // Build menu items - rules-accurate: use inventoryActions from manifest if available
         const menuItems: Array<{
           id: string;
           label: string;
@@ -356,7 +356,7 @@ const DraggableInventorySlot = memo(function DraggableInventorySlot({
           enabled: boolean;
         }> = [];
 
-        // OSRS-accurate: Check manifest's inventoryActions first
+        // rules-accurate: Check manifest's inventoryActions first
         if (
           itemData?.inventoryActions &&
           itemData.inventoryActions.length > 0 &&
@@ -488,7 +488,7 @@ const DraggableInventorySlot = memo(function DraggableInventorySlot({
           });
         }
 
-        // OSRS-style: Cancel is always the last option
+        // classic MMORPG-style: Cancel is always the last option
         menuItems.push({
           id: "cancel",
           label: "Cancel",
@@ -513,14 +513,14 @@ const DraggableInventorySlot = memo(function DraggableInventorySlot({
       style={{
         // Use 'size' for 2D container queries (cqw/cqh) in responsive grid
         containerType: "size",
-        // OSRS-style targeting:
+        // classic MMORPG-style targeting:
         // - Source item: WHITE border (the item being used)
         // - Valid targets: normal appearance, cursor indicates validity
         // - Invalid targets: normal appearance, cursor shows not-allowed
         ...slotChrome,
         opacity: isDragging ? 0.3 : slotChrome.opacity,
         borderColor: isSourceItem
-          ? "rgba(255, 255, 255, 0.95)" // OSRS: White border on source item
+          ? "rgba(255, 255, 255, 0.95)" // classic MMORPG: White border on source item
           : isOver
             ? "rgba(242, 208, 138, 0.5)" // Gold highlight when dragging over
             : isEmpty
@@ -537,7 +537,7 @@ const DraggableInventorySlot = memo(function DraggableInventorySlot({
               ? "linear-gradient(180deg, rgba(215, 200, 165, 0.95) 0%, rgba(235, 225, 195, 0.95) 100%)" // Parchment - lighter at bottom for emboss
               : "var(--color-slot-filled)", // Use theme slot.filled color
         boxShadow: isSourceItem
-          ? "0 0 8px rgba(255, 255, 255, 0.6)" // OSRS: White glow on source item
+          ? "0 0 8px rgba(255, 255, 255, 0.6)" // classic MMORPG: White glow on source item
           : isOver
             ? "inset 0 0 8px rgba(183, 140, 76, 0.24), 0 0 0 1px rgba(183, 140, 76, 0.12)"
             : isEmpty
@@ -545,7 +545,7 @@ const DraggableInventorySlot = memo(function DraggableInventorySlot({
               : isItemNoted
                 ? "inset 1px 1px 3px rgba(0, 0, 0, 0.25), inset -1px -1px 1px rgba(255, 255, 255, 0.4)" // Subtle paper emboss
                 : "inset 2px 2px 4px rgba(0, 0, 0, 0.34), inset -1px -1px 2px rgba(98, 82, 60, 0.1)", // Emboss for filled
-        // OSRS-style cursor changes during targeting mode
+        // classic MMORPG-style cursor changes during targeting mode
         cursor: isTargetingActive
           ? isSourceItem
             ? "default" // Source item - no special cursor
@@ -580,7 +580,7 @@ const DraggableInventorySlot = memo(function DraggableInventorySlot({
         </div>
       )}
 
-      {/* Quantity Badge - RS3 style: top-left, yellow for stacks */}
+      {/* Quantity Badge - modern MMORPG style: top-left, yellow for stacks */}
       {/* BANK NOTE SYSTEM: Darker text with light shadow for noted items */}
       {/* Mobile: Larger text for readability (clamp(10px, 3cqw, 14px)) */}
       {item &&
@@ -646,7 +646,7 @@ interface PendingMove {
 
 /**
  * Targeting mode state for "Use X on Y" interactions (firemaking, cooking)
- * OSRS-style: source item gets white border, cursor changes for valid/invalid targets
+ * classic MMORPG-style: source item gets white border, cursor changes for valid/invalid targets
  */
 interface TargetingState {
   active: boolean;
@@ -656,7 +656,7 @@ interface TargetingState {
 }
 
 /**
- * Hover state for "Use X → Y" tooltip (OSRS-style)
+ * Hover state for "Use X → Y" tooltip (classic MMORPG-style)
  */
 interface TargetHoverState {
   targetName: string;
@@ -664,7 +664,7 @@ interface TargetHoverState {
 }
 
 /**
- * Hover state for RS3-style item tooltip
+ * Hover state for modern MMORPG-style item tooltip
  */
 interface ItemHoverState {
   item: InventorySlotViewItem;
@@ -810,10 +810,10 @@ export function InventoryPanel({
     initialTargetingState,
   );
 
-  // OSRS-style hover tooltip state for "Use X → Y"
+  // classic MMORPG-style hover tooltip state for "Use X → Y"
   const [targetHover, setTargetHover] = useState<TargetHoverState | null>(null);
 
-  // RS3-style hover tooltip state for item stats
+  // modern MMORPG-style hover tooltip state for item stats
   const [itemHover, setItemHover] = useState<ItemHoverState | null>(null);
 
   // Track if context menu is open (suppress hover tooltips while open)
@@ -875,7 +875,7 @@ export function InventoryPanel({
       );
   }, [slotItems, world]);
 
-  // Listen for targeting mode events (OSRS-style "Use X on Y")
+  // Listen for targeting mode events (classic MMORPG-style "Use X on Y")
   useEffect(() => {
     if (!world) return;
 
@@ -1045,7 +1045,7 @@ export function InventoryPanel({
       preMoveSlotsSnapshot: [...slotItems],
     };
 
-    // OSRS-style SWAP: exchange two slots directly (don't shift/insert)
+    // classic MMORPG-style SWAP: exchange two slots directly (don't shift/insert)
     // Create deep copies of items to avoid mutating props and update .slot property
     const newSlots = [...slotItems];
     const fromItem = newSlots[fromIndex];
@@ -1114,7 +1114,7 @@ export function InventoryPanel({
       hoveredItem: InventorySlotViewItem,
       position: { x: number; y: number },
     ) => {
-      // OSRS-style "Use X → Y" tooltip
+      // classic MMORPG-style "Use X → Y" tooltip
       setTargetHover({
         targetName: hoveredItem.itemId,
         position,
@@ -1127,7 +1127,7 @@ export function InventoryPanel({
     setTargetHover(null);
   }, []);
 
-  // RS3-style item hover handlers for stats tooltip
+  // modern MMORPG-style item hover handlers for stats tooltip
   const handleItemHoverStart = useCallback(
     (item: InventorySlotViewItem, position: { x: number; y: number }) => {
       // Don't show hover tooltip if context menu is open
@@ -1178,10 +1178,10 @@ export function InventoryPanel({
   );
 
   const handleInvalidTargetClick = useCallback(() => {
-    // OSRS: "Nothing interesting happens." when using item on invalid target
+    // classic MMORPG: "Nothing interesting happens." when using item on invalid target
     const message = "Nothing interesting happens.";
 
-    // Show in chat (OSRS-style game message)
+    // Show in chat (classic MMORPG-style game message)
     if (world?.chat?.add) {
       world.chat.add({
         id: uuid(),
@@ -1273,7 +1273,7 @@ export function InventoryPanel({
         boxShadow: "none",
       }}
     >
-      {/* OSRS-style "Use X → Y" tooltip - rendered via portal to avoid transform issues */}
+      {/* classic MMORPG-style "Use X → Y" tooltip - rendered via portal to avoid transform issues */}
       {targetingState.active &&
         targetHover &&
         targetingState.sourceItem &&
@@ -1300,7 +1300,7 @@ export function InventoryPanel({
           document.body,
         )}
 
-      {/* RS3-style item hover tooltip - rendered via portal */}
+      {/* modern MMORPG-style item hover tooltip - rendered via portal */}
       {!targetingState.active &&
         itemHover &&
         renderItemHoverTooltip(itemHover, theme)}
@@ -1323,7 +1323,7 @@ export function InventoryPanel({
         <div
           className="grid h-full w-full"
           style={{
-            // Both mobile and desktop: 4 columns × 7 rows (OSRS style)
+            // Both mobile and desktop: 4 columns × 7 rows (classic MMORPG style)
             gridTemplateColumns: "repeat(4, 1fr)",
             gridTemplateRows: "repeat(7, 1fr)",
             // Mobile: tighter gap, Desktop: scales with container
@@ -1359,7 +1359,7 @@ export function InventoryPanel({
         </div>
       </div>
 
-      {/* RS3-style Coins/Money Pouch - Extracted component */}
+      {/* modern MMORPG-style Coins/Money Pouch - Extracted component */}
       {showCoinPouch && (
         <CoinPouch coins={coins} onWithdrawClick={openCoinModal} />
       )}

@@ -29,7 +29,7 @@ app:
   
   # Long description (max 4000 characters)
   long_description: |
-    Hyperia is an AI-native MMORPG that combines classic RuneScape-style gameplay
+    Hyperia is an AI-native MMORPG that combines classic fantasy MMORPG gameplay
     with cutting-edge AI technology and blockchain integration.
     
     Features:

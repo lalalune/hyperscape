@@ -1,7 +1,7 @@
 /**
  * Auto-Retaliate Unit Tests
  *
- * Tests for OSRS-style auto-retaliate functionality:
+ * Tests for classic MMORPG-style auto-retaliate functionality:
  * - State initialization (default ON)
  * - Toggle behavior with rate limiting
  * - Event emission on state change

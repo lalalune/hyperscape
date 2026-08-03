@@ -1,7 +1,7 @@
 /**
  * Bank Tab Handlers
  *
- * Manages custom bank tabs (RS3-style tab organization).
+ * Manages custom bank tabs (modern MMORPG-style tab organization).
  * Tab 0 is the main tab, tabs 1-9 are custom user tabs.
  */
 
@@ -36,7 +36,7 @@ import {
  * Creates a new custom tab (1-9) with an item from main tab (or another tab).
  * The item becomes the first item in the new tab and its icon.
  *
- * OSRS Behavior:
+ * classic MMORPG Behavior:
  * - Drag item to "+" button or empty tab slot to create
  * - First item becomes the tab icon
  * - Max 9 custom tabs (1-9)
@@ -173,7 +173,7 @@ export async function handleBankCreateTab(
  * Deletes a custom tab and moves all items to main tab (index 0).
  * Tab 0 (main) cannot be deleted.
  *
- * OSRS Behavior:
+ * classic MMORPG Behavior:
  * - Items from deleted tab are appended to main tab
  * - Tab numbers above the deleted tab shift down
  *
@@ -250,7 +250,7 @@ export async function handleBankDeleteTab(
             WHERE "playerId" = ${ctx.playerId} AND "tabIndex" = ${data.tabIndex}`,
       );
 
-      // RS3-STYLE: Shift all higher tabs down by 1 to fill the gap
+      // modern MMORPG-STYLE: Shift all higher tabs down by 1 to fill the gap
       // This ensures tabs are always sequential (1, 2, 3...) with no gaps
       //
       // NOTE: Cannot use single batched UPDATE due to unique constraint on (playerId, tabIndex, slot).

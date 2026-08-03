@@ -31,7 +31,7 @@ interface CustomMaterial {
 }
 
 interface MaterialVariantsCardProps {
-  gameStyle: "runescape" | "custom";
+  gameStyle: "classic" | "custom";
   isLoadingMaterials: boolean;
   materialPresets: MaterialPreset[];
   selectedMaterials: string[];
@@ -86,7 +86,7 @@ export const MaterialVariantsCard: React.FC<MaterialVariantsCardProps> = ({
       </CardHeader>
       <CardContent className="p-0 overflow-visible">
         <div className="p-6 space-y-6 overflow-visible">
-          {gameStyle === "runescape" && (
+          {gameStyle === "classic" && (
             <div className="space-y-4 relative">
               {/* Preset Materials Section */}
               <div className="flex items-center justify-between">
@@ -286,7 +286,7 @@ const MaterialPromptOverrides: React.FC<{
 
 // Sub-component for custom materials section
 const CustomMaterialsSection: React.FC<{
-  gameStyle: "runescape" | "custom";
+  gameStyle: "classic" | "custom";
   customMaterials: CustomMaterial[];
   onAddCustomMaterial: (material: CustomMaterial) => void;
   onUpdateCustomMaterial: (index: number, material: CustomMaterial) => void;
@@ -306,7 +306,7 @@ const CustomMaterialsSection: React.FC<{
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-secondary" />
           <h3 className="text-sm font-medium text-text-primary">
-            {gameStyle === "runescape" ? "Additional" : "Custom"} Materials
+            {gameStyle === "classic" ? "Additional" : "Custom"} Materials
           </h3>
         </div>
       </div>

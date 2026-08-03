@@ -1,12 +1,12 @@
 /**
- * Stats Panel - OSRS-style Equipment Stats Display
+ * Stats Panel - classic MMORPG-style Equipment Stats Display
  *
  * Shows equipment bonuses from all worn items, grouped by:
  * - Attack bonuses: Stab, Slash, Crush, Magic, Ranged
  * - Defence bonuses: Stab, Slash, Crush, Magic, Ranged
  * - Other bonuses: Melee Strength, Ranged Strength, Magic Damage, Prayer
  *
- * Matches the RuneScape "Equipment Stats" screen layout.
+ * Matches the classic fantasy MMORPG "Equipment Stats" screen layout.
  */
 
 import { useMemo } from "react";

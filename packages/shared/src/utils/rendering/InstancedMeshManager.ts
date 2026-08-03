@@ -3474,7 +3474,7 @@ export class MobInstancedRenderer {
       // Combined distance fade (max of near and far fade)
       const distanceFade = max(farFade, nearFade);
 
-      // SCREEN-SPACE 4x4 BAYER DITHERING (RuneScape 3 style)
+      // SCREEN-SPACE 4x4 BAYER DITHERING (modern fantasy MMORPG style)
       // 4x4 Bayer matrix: [ 0, 8, 2,10; 12, 4,14, 6; 3,11, 1, 9; 15, 7,13, 5]/16
       const ix = mod(floor(viewportCoordinate.x), float(4.0));
       const iy = mod(floor(viewportCoordinate.y), float(4.0));
@@ -3495,7 +3495,7 @@ export class MobInstancedRenderer {
       );
       const ditherValue = mul(bayerInt, float(0.0625));
 
-      // RS3-style: discard when fade >= dither
+      // modern MMORPG-style: discard when fade >= dither
       // step returns 0 or 1, multiply by 2 so threshold > 1.0 causes discard
       // Only apply when there's actual fade (prevents holes when distanceFade=0)
       const hasAnyFade = step(float(0.001), distanceFade);

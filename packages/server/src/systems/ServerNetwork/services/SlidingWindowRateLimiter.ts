@@ -251,7 +251,7 @@ export function getEquipRateLimiter(): RateLimiter {
 /**
  * Get the consumable rate limiter (3/sec)
  * Limits food/potion use requests - separate from equip to allow
- * OSRS-style PvP where players gear switch AND eat in same tick
+ * classic MMORPG-style PvP where players gear switch AND eat in same tick
  * Game logic already enforces 3-tick (1.8s) eat delay
  */
 export function getConsumeRateLimiter(): RateLimiter {
@@ -266,7 +266,7 @@ export function getConsumeRateLimiter(): RateLimiter {
 
 /**
  * Get the tile movement rate limiter (15/sec)
- * Limits tile movement requests - allows burst clicking (OSRS allows rapid clicks)
+ * Limits tile movement requests - allows burst clicking (classic MMORPG allows rapid clicks)
  * but prevents spam attacks that could overwhelm the server
  */
 export function getTileMovementRateLimiter(): RateLimiter {
@@ -296,7 +296,7 @@ export function getPathfindRateLimiter(): RateLimiter {
 
 /**
  * Get the combat rate limiter (3/sec)
- * Limits attack requests - OSRS tick is 600ms, so ~1.67 attacks/sec max
+ * Limits attack requests - classic MMORPG tick is 600ms, so ~1.67 attacks/sec max
  * We allow 3/sec to be generous with client click behavior
  */
 export function getCombatRateLimiter(): RateLimiter {
@@ -341,7 +341,7 @@ export function getCoinPouchRateLimiter(): RateLimiter {
 /**
  * Get the prayer rate limiter (5/sec)
  * Limits prayer toggle requests - matches PRAYER_TOGGLE_RATE_LIMIT
- * OSRS allows quick prayer switching but we prevent spam
+ * classic MMORPG allows quick prayer switching but we prevent spam
  */
 export function getPrayerRateLimiter(): RateLimiter {
   if (!prayerLimiter) {

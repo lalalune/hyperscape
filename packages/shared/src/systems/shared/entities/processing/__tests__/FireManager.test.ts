@@ -3,12 +3,11 @@
  *
  * Verifies fire lifecycle management:
  * - Fire creation and indexing
- * - OSRS walk-west behavior
+ * - classic MMORPG walk-west behavior
  * - Fire expiration
  * - Position-based queries
  * - Player fire limits
  *
- * @see https://oldschool.runescape.wiki/w/Firemaking
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
@@ -424,7 +423,7 @@ describe("FireManager", () => {
       expect(target).toEqual({ x: 11, z: 10 });
     });
 
-    it("follows OSRS priority order: W → E → S → N", () => {
+    it("follows classic MMORPG priority order: W → E → S → N", () => {
       expect(PROCESSING_CONSTANTS.FIRE_WALK_PRIORITY).toEqual([
         "west",
         "east",

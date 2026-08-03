@@ -5,7 +5,7 @@
  * This avoids manual duplication in item manifests - any tradeable,
  * non-stackable item automatically gets a noted version.
  *
- * OSRS Note Rules:
+ * classic MMORPG Note Rules:
  * - Only tradeable, non-stackable items can be noted
  * - Already stackable items (arrows, runes, coins) cannot be noted
  * - Untradeable/quest items cannot be noted
@@ -27,7 +27,7 @@ export const NOTE_SUFFIX = "_noted";
 /**
  * Determine if an item should have a noted variant generated.
  *
- * OSRS Rules:
+ * classic MMORPG Rules:
  * - Must be tradeable (default true for most items)
  * - Must NOT already be stackable (stackable items don't need notes)
  * - Must NOT be currency type (coins are inherently stackable)
@@ -63,7 +63,7 @@ export function shouldGenerateNote(item: Item): boolean {
     return false;
   }
 
-  // Untradeable items cannot be noted (OSRS rule)
+  // Untradeable items cannot be noted (classic MMORPG rule)
   // Default to tradeable if not specified
   const isTradeable = item.tradeable !== false;
   if (!isTradeable) {

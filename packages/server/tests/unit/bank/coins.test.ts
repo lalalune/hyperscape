@@ -13,7 +13,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 // Constants (mirror actual constants)
 // ============================================================================
 
-const MAX_COINS = 2147483647; // Max 32-bit signed integer (OSRS cap)
+const MAX_COINS = 2147483647; // Max 32-bit signed integer (classic MMORPG cap)
 const MAX_BANK_SLOTS = 1200;
 
 // ============================================================================

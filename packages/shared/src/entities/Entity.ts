@@ -303,7 +303,7 @@ export class Entity implements IEntity {
   protected level: number = 1;
 
   // UI elements - Atlas-based (HealthBars system uses instanced mesh)
-  // Names shown in right-click context menu only (OSRS pattern)
+  // Names shown in right-click context menu only (classic MMORPG pattern)
   private _entityHealthBarHandle: HealthBarHandle | null = null;
 
   // Pre-allocated matrix for health bar position updates
@@ -960,7 +960,7 @@ export class Entity implements IEntity {
 
   /**
    * Initialize visual elements (mesh, health bar) - from BaseEntity
-   * Names shown in right-click context menu only (OSRS pattern)
+   * Names shown in right-click context menu only (classic MMORPG pattern)
    */
   protected initializeVisuals(): void {
     // Create main mesh - implemented by subclasses
@@ -1000,7 +1000,7 @@ export class Entity implements IEntity {
         this.health,
         this.maxHealth,
       );
-      // Health bar starts hidden (RuneScape pattern: show during combat)
+      // Health bar starts hidden (classic fantasy MMORPG pattern: show during combat)
       // Position update happens in clientUpdate() via handle.move()
       return;
     }

@@ -161,7 +161,7 @@ export abstract class InteractableEntity extends Entity {
    * Override in subclasses (e.g., station entities) to return multi-tile footprints.
    * Default: single tile at entity position.
    *
-   * OSRS-style: Interaction is allowed if player is within `interactionRange`
+   * classic MMORPG-style: Interaction is allowed if player is within `interactionRange`
    * tiles of ANY occupied tile, using Chebyshev distance (diagonals count as 1).
    */
   protected getOccupiedTiles(): TileCoord[] {
@@ -171,7 +171,7 @@ export abstract class InteractableEntity extends Entity {
 
   /**
    * Calculate tile distance (Chebyshev distance) between two tiles.
-   * Diagonal movement counts as 1 step, matching OSRS mechanics.
+   * Diagonal movement counts as 1 step, matching classic tick-based mechanics.
    */
   private getTileDistance(t1: TileCoord, t2: TileCoord): number {
     return Math.max(Math.abs(t1.x - t2.x), Math.abs(t1.z - t2.z));
@@ -219,7 +219,7 @@ export abstract class InteractableEntity extends Entity {
       return false;
     }
 
-    // Check distance using OSRS-style tile distance (Chebyshev)
+    // Check distance using classic MMORPG-style tile distance (Chebyshev)
     // Player must be within interactionRange tiles of ANY occupied tile
     const tileDistance = this.calculateTileDistance(playerPosition);
 

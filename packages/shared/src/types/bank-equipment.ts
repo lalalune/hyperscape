@@ -1,7 +1,7 @@
 /**
  * Bank Equipment Tab Types
  *
- * Type definitions for the RS3-style bank equipment view feature.
+ * Type definitions for the modern MMORPG-style bank equipment view feature.
  * Enables players to:
  * - View/manage equipment from bank interface
  * - Withdraw items directly to equipment slot

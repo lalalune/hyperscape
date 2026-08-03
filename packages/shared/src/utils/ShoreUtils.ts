@@ -13,7 +13,6 @@
  * 2. findShorePoints (LEGACY) — Independently samples terrain heights.
  *    Kept for non-fishing uses and as fallback when collision data is unavailable.
  *
- * @see https://oldschool.runescape.wiki/w/Fishing - OSRS fishing spots appear at water edges
  */
 
 import { TERRAIN_CONSTANTS } from "../constants/GameConstants";
@@ -361,7 +360,7 @@ export function findShorePoints(
 
 /**
  * Finds points IN the water that are adjacent to walkable land.
- * This is the OSRS-accurate placement - fishing spots appear as ripples
+ * This is the rules-accurate placement - fishing spots appear as ripples
  * in the water near the shore where players can reach them.
  *
  * @param bounds - Rectangle to search within (world coordinates)

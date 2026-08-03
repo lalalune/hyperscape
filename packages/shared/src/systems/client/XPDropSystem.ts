@@ -1,8 +1,8 @@
 /**
- * XPDropSystem - RuneScape 3-style XP Drops
+ * XPDropSystem - modern fantasy MMORPG-style XP Drops
  *
  * Creates visual XP numbers that float up from the player when experience is gained.
- * Mimics RuneScape 3's iconic XP drop feedback system.
+ * Mimics modern fantasy MMORPG's iconic XP drop feedback system.
  *
  * Features:
  * - Gold/yellow XP text with skill icon

@@ -94,14 +94,14 @@ export interface CombatFollowTargetPayload {
 }
 
 /**
- * OSRS-accurate: Player clicked to move (not on target), cancel their attacking combat
+ * rules-accurate: Player clicked to move (not on target), cancel their attacking combat
  */
 export interface CombatPlayerDisengagePayload {
   playerId: string;
 }
 
 /**
- * OSRS-accurate: Player clicked elsewhere, cancel their pending attack
+ * rules-accurate: Player clicked elsewhere, cancel their pending attack
  * (e.g., player was walking to mob to attack, but clicked ground instead)
  */
 export interface PendingAttackCancelPayload {
@@ -1017,7 +1017,7 @@ export interface EventMap {
     playerId?: string;
     message: string;
     type: "info" | "success" | "warning" | "error" | string;
-    /** Screen coordinates for positioned toasts (RS3-style). If omitted, toast displays centered. */
+    /** Screen coordinates for positioned toasts (modern MMORPG-style). If omitted, toast displays centered. */
     position?: { x: number; y: number };
   };
   [EventType.UI_SIDEBAR_CHAT_TOGGLE]: void;

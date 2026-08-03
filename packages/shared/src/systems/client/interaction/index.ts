@@ -1,7 +1,7 @@
 /**
  * Interaction System
  *
- * Production-quality interaction handling for OSRS-style gameplay.
+ * Production-quality interaction handling for classic MMORPG-style gameplay.
  *
  * This module provides a complete replacement for the legacy InteractionSystem:
  * - Frame-based action queue (replaces unreliable setTimeout)

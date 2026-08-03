@@ -1,5 +1,5 @@
 /**
- * BankPanel - RuneScape-style bank interface
+ * BankPanel - classic fantasy MMORPG-style bank interface
  *
  * SIMPLE SERVER-AUTHORITATIVE APPROACH:
  * - NO optimistic predictions - just display what server tells us
@@ -7,7 +7,7 @@
  * - Clicks fire requests to server and wait for response
  * - 100% reliable - no desync, no duplication bugs, no oscillation
  *
- * This approach is used by many successful MMOs including early RuneScape.
+ * This approach is used by many successful MMOs including early classic fantasy MMORPG.
  * Trade-off: Very slightly less responsive (wait ~50-100ms for server),
  * but 100% reliable with zero edge cases.
  *
@@ -137,13 +137,13 @@ function renderBankItemHoverTooltip(
 }
 
 export function BankPanel({
-  items, // RS3-style: includes qty=0 items (placeholders)
+  items, // modern MMORPG-style: includes qty=0 items (placeholders)
   tabs = [],
   alwaysSetPlaceholder = false,
   maxSlots,
   world,
   inventory,
-  equipment, // RS3-style equipment view
+  equipment, // modern MMORPG-style equipment view
   coins,
   onClose: _onClose, // Handled by ModalWindow wrapper, kept for interface compatibility
 }: BankPanelProps) {
@@ -158,7 +158,7 @@ export function BankPanel({
     ? 5 * (responsiveSlotSize + responsiveGap) // 5 rows on mobile
     : BANK_SCROLL_HEIGHT;
 
-  // RS3-style right panel view mode (inventory vs equipment)
+  // modern MMORPG-style right panel view mode (inventory vs equipment)
   type RightPanelMode = "inventory" | "equipment";
   const [rightPanelMode, setRightPanelMode] =
     useState<RightPanelMode>("inventory");
@@ -197,7 +197,7 @@ export function BankPanel({
   // We'll initialize it after the useBankActions call below
 
   // ========== BANK NOTE SYSTEM STATE ==========
-  // OSRS-style: Toggle between withdrawing as base items or bank notes
+  // classic MMORPG-style: Toggle between withdrawing as base items or bank notes
   // Notes are stackable, so 1000 noted logs = 1 inventory slot
   // Persisted to localStorage for convenience
   const [withdrawAsNote, setWithdrawAsNote] = useState<boolean>(() => {
@@ -336,21 +336,21 @@ export function BankPanel({
       } else if (action === "deposit") {
         handleDeposit(contextMenu.itemId, quantity);
       } else if (action === "withdrawPlaceholder") {
-        // RS3-style: Withdraw all and leave qty=0 placeholder
+        // modern MMORPG-style: Withdraw all and leave qty=0 placeholder
         handleWithdrawPlaceholder(contextMenu.itemId);
       } else if (
         action === "releasePlaceholder" &&
         contextMenu.tabIndex !== undefined &&
         contextMenu.slot !== undefined
       ) {
-        // RS3-style: Delete the qty=0 row
+        // modern MMORPG-style: Delete the qty=0 row
         handleReleasePlaceholder(contextMenu.tabIndex, contextMenu.slot);
       } else if (
         action === "equip" &&
         contextMenu.tabIndex !== undefined &&
         contextMenu.slot !== undefined
       ) {
-        // RS3-style: Equip directly from bank
+        // modern MMORPG-style: Equip directly from bank
         handleWithdrawToEquipment(
           contextMenu.itemId,
           contextMenu.tabIndex,
@@ -413,7 +413,7 @@ export function BankPanel({
         .reduce((sum, item) => sum + (item.quantity || 1), 0);
     }
 
-    // RS3-style: No separate hasPlaceholder check needed
+    // modern MMORPG-style: No separate hasPlaceholder check needed
     // Items with qty=0 ARE placeholders (handled by context menu component)
     setContextMenu({
       visible: true,
@@ -430,7 +430,7 @@ export function BankPanel({
   // ========== SLOT CLICK HANDLER ==========
   const handleSlotClick = useCallback(
     (itemId: string, tabIndex: number, slot: number) => {
-      // RS3-style: When in equipment mode, try to withdraw directly to equipment
+      // modern MMORPG-style: When in equipment mode, try to withdraw directly to equipment
       if (rightPanelMode === "equipment") {
         const itemData = getItem(itemId);
         // Check if item is equipable (has an equipSlot)
@@ -552,12 +552,12 @@ export function BankPanel({
                   const tabItems = itemsByTab.get(tabIdx) ?? [];
                   if (tabItems.length === 0) return null;
 
-                  // RS3-style: Prefer real items, but show placeholder icon if tab only has placeholders
+                  // modern MMORPG-style: Prefer real items, but show placeholder icon if tab only has placeholders
                   const firstRealItem = tabItems.find((i) => i.quantity > 0);
                   const firstAnyItem = tabItems[0];
                   const iconItem = firstRealItem || firstAnyItem;
                   const isPlaceholderIcon = iconItem && iconItem.quantity === 0;
-                  // RS3-style: All tabs treated equally, icon derived from first item
+                  // modern MMORPG-style: All tabs treated equally, icon derived from first item
                   const tabLabel = iconItem
                     ? `${getItemIcon(iconItem.itemId)} Tab ${tabIdx}${isPlaceholderIcon ? " (empty)" : ""}`
                     : `📦 Tab ${tabIdx}`;
@@ -570,7 +570,7 @@ export function BankPanel({
 
                   return (
                     <div key={tabIdx}>
-                      {/* Tab Header - OSRS style separator - DROPPABLE to move items to this tab */}
+                      {/* Tab Header - classic MMORPG style separator - DROPPABLE to move items to this tab */}
                       <div
                         className="flex items-center gap-2 mb-1 pb-0.5 transition-colors"
                         style={{
@@ -728,7 +728,7 @@ export function BankPanel({
                           );
                         })}
 
-                        {/* RS3-STYLE: Placeholders are items with qty=0, already rendered above with greyed style */}
+                        {/* modern MMORPG-STYLE: Placeholders are items with qty=0, already rendered above with greyed style */}
 
                         {/* APPEND ZONE - Empty slot at end for dropping items to append */}
                         {draggedSlot !== null && (
@@ -887,7 +887,7 @@ export function BankPanel({
                   );
                 })}
 
-                {/* RS3-STYLE: Placeholders are items with qty=0, already rendered above with greyed style */}
+                {/* modern MMORPG-STYLE: Placeholders are items with qty=0, already rendered above with greyed style */}
 
                 {/* APPEND ZONE - Empty slot at end for dropping items to append */}
                 {draggedSlot !== null && selectedTab >= 0 && (
@@ -977,7 +977,7 @@ export function BankPanel({
           />
         </div>
 
-        {/* Right Panel - Inventory / Equipment (RS3-style tab switcher) */}
+        {/* Right Panel - Inventory / Equipment (modern MMORPG-style tab switcher) */}
         <RightPanel
           mode={rightPanelMode}
           onChangeMode={setRightPanelMode}

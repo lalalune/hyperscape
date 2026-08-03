@@ -33,7 +33,7 @@ export type QuestStatus =
 /** Database-stored status values (ready_to_complete is derived, not stored) */
 export type QuestDbStatus = "not_started" | "in_progress" | "completed";
 
-/** Quest difficulty levels matching RuneScape */
+/** Quest difficulty levels matching classic fantasy MMORPG */
 export type QuestDifficulty =
   | "novice"
   | "intermediate"

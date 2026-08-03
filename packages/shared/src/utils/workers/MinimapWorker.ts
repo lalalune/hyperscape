@@ -12,7 +12,7 @@
  * Features:
  * - Height-based terrain coloring
  * - Entity pip rendering
- * - Camera rotation support (RS3-style)
+ * - Camera rotation support (modern MMORPG-style)
  * - Zoom/extent controls
  */
 

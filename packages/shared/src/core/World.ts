@@ -221,7 +221,7 @@ export class World extends EventEmitter {
   accumulator = 0;
 
   /**
-   * Current server tick number (OSRS-style 600ms ticks).
+   * Current server tick number (classic MMORPG-style 600ms ticks).
    * Set by TickSystem on the server, used by mobs/NPCs for tick-aligned AI.
    * On client, this is 0 (client uses frame-based updates).
    *
@@ -594,7 +594,7 @@ export class World extends EventEmitter {
 
   /**
    * Unified collision matrix for tile-based collision.
-   * Stores OSRS-accurate bitmask flags per tile in zone-based chunks.
+   * Stores rules-accurate bitmask flags per tile in zone-based chunks.
    *
    * Key features:
    * - Static objects (trees, rocks, furnaces) set BLOCKED flag
@@ -618,7 +618,6 @@ export class World extends EventEmitter {
    * - Delegates blocking checks to CollisionMatrix
    *
    * @see NPC_ENTITY_COLLISION_PLAN.md
-   * @see https://osrs-docs.com/docs/mechanics/entity-collision/
    */
   entityOccupancy: IEntityOccupancy = new EntityOccupancyMap();
 

@@ -41,7 +41,7 @@
  *
  * **Visual Representation**:
  * - 3D model or humanoid mesh
- * - Name shown in right-click menu (OSRS pattern)
+ * - Name shown in right-click menu (classic MMORPG pattern)
  * - NO health bar (cannot be damaged)
  * - Idle animations
  * - Interaction highlight when in range

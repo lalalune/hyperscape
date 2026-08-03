@@ -144,7 +144,7 @@ describe("Depth Blur Default Values", () => {
     expect(typeof DEPTH_BLUR_DEFAULTS.skyDistance).toBe("number");
   });
 
-  it("should have RuneScape-style focus distance (~100 world units)", () => {
+  it("should have classic fantasy MMORPG-style focus distance (~100 world units)", () => {
     // Focus far out so player and nearby objects stay sharp
     expect(DEPTH_BLUR_DEFAULTS.focusDistance).toBe(100);
     expect(DEPTH_BLUR_DEFAULTS.focusDistance).toBeGreaterThanOrEqual(40);
@@ -157,8 +157,8 @@ describe("Depth Blur Default Values", () => {
     expect(DEPTH_BLUR_DEFAULTS.blurRange).toBeGreaterThan(0);
   });
 
-  it("should have heavy default intensity for RuneScape-style blur", () => {
-    // High intensity like RuneScape's prominent depth blur
+  it("should have heavy default intensity for classic fantasy MMORPG-style blur", () => {
+    // High intensity like classic fantasy MMORPG's prominent depth blur
     expect(DEPTH_BLUR_DEFAULTS.intensity).toBe(0.85);
     expect(DEPTH_BLUR_DEFAULTS.intensity).toBeGreaterThan(0.5);
     expect(DEPTH_BLUR_DEFAULTS.intensity).toBeLessThanOrEqual(1);
@@ -703,7 +703,7 @@ describe("Identity LUT Generation", () => {
 // ============================================================================
 
 describe("Depth Blur Math", () => {
-  // Test the depth blur calculation logic (FAR BLUR ONLY - RuneScape style)
+  // Test the depth blur calculation logic (FAR BLUR ONLY - classic fantasy MMORPG style)
 
   // Smoothstep function (matches GLSL smoothstep)
   function smoothstep(edge0: number, edge1: number, x: number): number {

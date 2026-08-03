@@ -1,7 +1,7 @@
 /**
  * CombatSystem Eat Delay Integration Tests
  *
- * Tests for OSRS-accurate attack delay when eating during combat:
+ * Tests for rules-accurate attack delay when eating during combat:
  * - isPlayerOnAttackCooldown() detection
  * - addAttackDelay() application
  * - Correct integration with nextAttackTicks and CombatData
@@ -37,7 +37,7 @@ class CombatSystemEatDelayTester {
 
   /**
    * Add delay ticks to player's next attack
-   * Used by eating system (OSRS: eating during combat adds 3 tick delay)
+   * Used by eating system (classic MMORPG: eating during combat adds 3 tick delay)
    */
   addAttackDelay(playerId: string, delayTicks: number): void {
     const typedPlayerId = createEntityID(playerId);
@@ -53,7 +53,7 @@ class CombatSystemEatDelayTester {
         combatData.nextAttackTick += delayTicks;
       }
     }
-    // If no current cooldown, do nothing (OSRS-accurate: no delay if weapon ready)
+    // If no current cooldown, do nothing (rules-accurate: no delay if weapon ready)
   }
 
   // Helper: Set attack cooldown for testing
@@ -131,7 +131,7 @@ describe("CombatSystem - Eat Delay Integration", () => {
       expect(combatSystem.nextAttackTicks.get(typedId)).toBe(113);
     });
 
-    it("does nothing when no existing cooldown (OSRS-accurate)", () => {
+    it("does nothing when no existing cooldown (rules-accurate)", () => {
       // Player has no cooldown entry - weapon is ready
       combatSystem.addAttackDelay(
         "player-1",
@@ -175,7 +175,7 @@ describe("CombatSystem - Eat Delay Integration", () => {
     });
   });
 
-  describe("OSRS attack delay constants", () => {
+  describe("classic MMORPG attack delay constants", () => {
     it("uses exactly 3 ticks for eat attack delay", () => {
       expect(COMBAT_CONSTANTS.EAT_ATTACK_DELAY_TICKS).toBe(3);
     });

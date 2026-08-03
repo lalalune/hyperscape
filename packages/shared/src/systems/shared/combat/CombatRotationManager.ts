@@ -59,7 +59,7 @@ export class CombatRotationManager {
   }
 
   /**
-   * Rotate an entity to face a target (RuneScape-style instant rotation)
+   * Rotate an entity to face a target (classic fantasy MMORPG-style instant rotation)
    * @param entityId - Entity to rotate
    * @param targetId - Target to face
    * @param entityType - Whether entity is player or mob

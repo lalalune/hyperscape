@@ -60,22 +60,22 @@ interface MaterialPreset {
   id: string;
   label: string;
   prompt: string;
-  group: "osrs" | "fantasy";
+  group: "classic" | "fantasy";
   /** CSS color for the swatch dot */
   swatch?: string;
 }
 
 /** Preset material prompts organized by style.
- *  OSRS presets include hex codes + specific material descriptors for Meshy-6 color accuracy.
+ *  classic MMORPG presets include hex codes + specific material descriptors for Meshy-6 color accuracy.
  *  Fantasy presets are detailed AI prompts with surface quality keywords. */
 const MATERIAL_PRESETS: MaterialPreset[] = [
-  // ── OSRS-style solid color tiers ──────────────────────────
+  // ── classic MMORPG-style solid color tiers ──────────────────────────
   {
     id: "bronze",
     label: "Bronze",
     prompt:
       "bronze metal armor plate, warm copper-gold #cd7f32 color, polished bronze surface",
-    group: "osrs",
+    group: "classic",
     swatch: "#cd7f32",
   },
   {
@@ -83,7 +83,7 @@ const MATERIAL_PRESETS: MaterialPreset[] = [
     label: "Iron",
     prompt:
       "iron metal armor plate, dark grey #6b6b6b color, matte forged iron surface",
-    group: "osrs",
+    group: "classic",
     swatch: "#6b6b6b",
   },
   {
@@ -91,7 +91,7 @@ const MATERIAL_PRESETS: MaterialPreset[] = [
     label: "Steel",
     prompt:
       "steel metal armor plate, bright silver #b8b8b8 color, polished reflective steel surface",
-    group: "osrs",
+    group: "classic",
     swatch: "#b8b8b8",
   },
   {
@@ -99,7 +99,7 @@ const MATERIAL_PRESETS: MaterialPreset[] = [
     label: "Black",
     prompt:
       "black metal armor plate, very dark #2a2a2a color, polished obsidian black surface",
-    group: "osrs",
+    group: "classic",
     swatch: "#2a2a2a",
   },
   {
@@ -107,7 +107,7 @@ const MATERIAL_PRESETS: MaterialPreset[] = [
     label: "Mithril",
     prompt:
       "mithril metal armor plate, blue-steel #4a7ab5 color, gleaming blue-purple surface",
-    group: "osrs",
+    group: "classic",
     swatch: "#4a7ab5",
   },
   {
@@ -115,7 +115,7 @@ const MATERIAL_PRESETS: MaterialPreset[] = [
     label: "Adamant",
     prompt:
       "adamantite metal armor plate, dark green #2d6b3f color, polished green surface",
-    group: "osrs",
+    group: "classic",
     swatch: "#2d6b3f",
   },
   {
@@ -123,7 +123,7 @@ const MATERIAL_PRESETS: MaterialPreset[] = [
     label: "Rune",
     prompt:
       "runite metal armor plate, bright teal-cyan #3db8c4 color, polished cyan surface",
-    group: "osrs",
+    group: "classic",
     swatch: "#3db8c4",
   },
   {
@@ -131,7 +131,7 @@ const MATERIAL_PRESETS: MaterialPreset[] = [
     label: "Dragon",
     prompt:
       "dragon metal armor plate, deep crimson #8b1a1a color, polished dark red surface",
-    group: "osrs",
+    group: "classic",
     swatch: "#8b1a1a",
   },
   // ── Detailed fantasy presets ──────────────────────────────
@@ -388,9 +388,11 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
         return;
       }
 
-      // ── Batch Tiers: generate all 8 OSRS tiers at once (programmatic) ──
+      // ── Batch Tiers: generate all 8 classic MMORPG tiers at once (programmatic) ──
       if (textureMethod === "batch") {
-        const tierPresets = MATERIAL_PRESETS.filter((p) => p.group === "osrs");
+        const tierPresets = MATERIAL_PRESETS.filter(
+          (p) => p.group === "classic",
+        );
         setStage("loading-result");
         addLog(
           `Generating ${tierPresets.length} material tiers for ${slots.length} slot(s)...`,
@@ -450,7 +452,7 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
       // ── AI Retexture: Meshy API ──
       const prompt = getPrompt();
       const preset = MATERIAL_PRESETS.find((p) => p.id === selectedPreset);
-      const swatchHex = preset?.swatch; // only OSRS presets have swatch
+      const swatchHex = preset?.swatch; // only classic MMORPG presets have swatch
 
       // CRITICAL: Do NOT send image_style_url alongside text_style_prompt.
       // Per Meshy docs, image_style_url OVERRIDES text_style_prompt entirely —
@@ -676,7 +678,7 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
       const { GLTFExporter } =
         await import("three/addons/exporters/GLTFExporter.js");
       const exporter = new GLTFExporter();
-      const tierPresets = MATERIAL_PRESETS.filter((p) => p.group === "osrs");
+      const tierPresets = MATERIAL_PRESETS.filter((p) => p.group === "classic");
       const slots = Array.from(selectedSlots);
 
       for (const tier of tierPresets) {
@@ -966,11 +968,11 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
                       const cur = MATERIAL_PRESETS.find(
                         (p) => p.id === selectedPreset,
                       );
-                      if (cur?.group !== "osrs") {
+                      if (cur?.group !== "classic") {
                         setSelectedPreset("rune");
                       }
                     }
-                    // AI mode keeps whatever preset is selected — supports both OSRS and fantasy
+                    // AI mode keeps whatever preset is selected — supports both classic MMORPG and fantasy
                   }}
                   className={`flex-1 px-2 py-1.5 rounded-md text-xs font-medium transition-all text-center ${
                     textureMethod === id
@@ -994,7 +996,7 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
                   Metal Tier
                 </label>
                 <div className="grid grid-cols-4 gap-1">
-                  {MATERIAL_PRESETS.filter((p) => p.group === "osrs").map(
+                  {MATERIAL_PRESETS.filter((p) => p.group === "classic").map(
                     (preset) => (
                       <button
                         key={preset.id}
@@ -1102,10 +1104,10 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
           {textureMethod === "batch" && (
             <div className="space-y-2">
               <label className="text-sm font-medium text-text-secondary">
-                All 8 OSRS Tiers
+                All 8 classic MMORPG Tiers
               </label>
               <div className="flex flex-wrap gap-1.5">
-                {MATERIAL_PRESETS.filter((p) => p.group === "osrs").map(
+                {MATERIAL_PRESETS.filter((p) => p.group === "classic").map(
                   (tier) => (
                     <div
                       key={tier.id}
@@ -1167,7 +1169,7 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
           {/* ── AI Texture options ── */}
           {textureMethod === "ai" && (
             <>
-              {/* OSRS Metal Tiers — AI textured with style reference for consistency */}
+              {/* classic MMORPG Metal Tiers — AI textured with style reference for consistency */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-text-secondary">
                   Metal Tier{" "}
@@ -1176,7 +1178,7 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
                   </span>
                 </label>
                 <div className="grid grid-cols-4 gap-1">
-                  {MATERIAL_PRESETS.filter((p) => p.group === "osrs").map(
+                  {MATERIAL_PRESETS.filter((p) => p.group === "classic").map(
                     (preset) => (
                       <button
                         key={preset.id}
@@ -1509,14 +1511,16 @@ export const TextureGeneratorTab: React.FC<TextureGeneratorTabProps> = ({
                 </>
               ) : textureMethod === "batch" ? (
                 <>
-                  <li>Generates all 8 OSRS metal tiers side-by-side</li>
+                  <li>
+                    Generates all 8 classic MMORPG metal tiers side-by-side
+                  </li>
                   <li>Instant — no API call needed</li>
                   <li>Download exports each tier × slot as separate GLBs</li>
                 </>
               ) : (
                 <>
                   <li>Instant — no API call, no cost</li>
-                  <li>Perfect for OSRS-style flat metal armor</li>
+                  <li>Perfect for classic MMORPG-style flat metal armor</li>
                   <li>Adjust metalness/roughness for different looks</li>
                 </>
               )}

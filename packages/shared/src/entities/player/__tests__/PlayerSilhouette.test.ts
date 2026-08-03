@@ -1,7 +1,7 @@
 /**
  * PlayerSilhouette Comprehensive Tests
  *
- * Tests the RuneScape-style silhouette x-ray effect with full coverage:
+ * Tests the classic fantasy MMORPG-style silhouette x-ray effect with full coverage:
  * - Happy path: normal operation
  * - Edge cases: missing data, empty scenes, unusual hierarchies
  * - Error handling: null values, dispose states

@@ -1,5 +1,5 @@
 /**
- * XP Progress Orb module - RuneLite-style XP visual feedback
+ * XP Progress Orb module - third-party-client-style XP visual feedback
  *
  * This module provides:
  * - XPProgressOrb: Main component (composition root)

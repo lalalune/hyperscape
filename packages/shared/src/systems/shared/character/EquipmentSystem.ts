@@ -1168,7 +1168,7 @@ export class EquipmentSystem extends SystemBase {
         if (bonuses.defenseMagic)
           equipment.totalStats.magicDefense += bonuses.defenseMagic;
 
-        // Map per-style defence bonuses (OSRS combat triangle)
+        // Map per-style defence bonuses (classic MMORPG combat triangle)
         if (bonuses.defenseStab)
           equipment.totalStats.defenseStab += bonuses.defenseStab;
         if (bonuses.defenseSlash)
@@ -1216,7 +1216,7 @@ export class EquipmentSystem extends SystemBase {
       return "weapon";
     }
 
-    // OSRS-accurate: Check explicit equipSlot first (handles tools like hatchets/pickaxes)
+    // rules-accurate: Check explicit equipSlot first (handles tools like hatchets/pickaxes)
     // Tools have type: "tool" but equipSlot: "weapon" - they should be equipable
     if (itemData.equipSlot && itemData.equipSlot !== "2h") {
       return itemData.equipSlot;

@@ -17,7 +17,7 @@
  * 5. PLAYER_LEAVE → Save final state to database
  *
  * **Attack Styles:**
- * Manages RuneScape-style attack modes:
+ * Manages classic fantasy MMORPG-style attack modes:
  * - attack: +3 Attack XP per damage
  * - strength: +3 Strength XP per damage
  * - defense: +3 Defense XP per damage
@@ -25,7 +25,7 @@
  * - ranged: Ranged combat style
  *
  * **Combat Level:**
- * Calculated from combat skills using RuneScape formula:
+ * Calculated from combat skills using classic fantasy MMORPG formula:
  * Base = 0.25 * (Defense + Constitution + floor(Ranged/2))
  * Melee = 0.325 * (Attack + Strength)
  * Ranged = 0.325 * (Ranged * 1.5)
@@ -93,10 +93,10 @@ export class PlayerSystem extends SystemBase {
   private saveInterval?: NodeJS.Timeout;
   private _tempVec3 = new THREE.Vector3();
 
-  // Eat delay tracking (OSRS-accurate 3-tick cooldown)
+  // Eat delay tracking (rules-accurate 3-tick cooldown)
   private eatDelayManager = new EatDelayManager();
 
-  // Bury delay tracking (OSRS-accurate 2-tick cooldown)
+  // Bury delay tracking (rules-accurate 2-tick cooldown)
   private buryDelayManager = new BuryDelayManager();
 
   // Player spawn tracking (merged from PlayerSpawnSystem)
@@ -143,7 +143,7 @@ export class PlayerSystem extends SystemBase {
   private playerAttackStyles = new Map<string, PlayerAttackStyleState>();
   private skillSaveTimers = new Map<string, NodeJS.Timeout>();
 
-  // Auto-retaliate tracking (OSRS-style combat preference)
+  // Auto-retaliate tracking (classic MMORPG-style combat preference)
   /** Player auto-retaliate settings (Map lookup = O(1), no allocations) */
   private playerAutoRetaliate = new Map<string, boolean>();
   private pendingSkillUpdates = new Map<string, Skills>();
@@ -151,8 +151,7 @@ export class PlayerSystem extends SystemBase {
   private autoRetaliateLastToggle = new Map<string, number>();
   private readonly AUTO_RETALIATE_COOLDOWN_MS = 500; // Max 2 toggles/second
 
-  // Attack styles - OSRS-accurate stat bonuses applied via CombatCalculations.getStyleBonus()
-  // @see https://oldschool.runescape.wiki/w/Combat_Options
+  // Attack styles - rules-accurate stat bonuses applied via CombatCalculations.getStyleBonus()
   private readonly ATTACK_STYLES: Record<string, AttackStyle> = {
     accurate: {
       id: "accurate",
@@ -206,7 +205,7 @@ export class PlayerSystem extends SystemBase {
       icon: "⚖️",
     },
 
-    // Ranged combat styles (OSRS-accurate)
+    // Ranged combat styles (rules-accurate)
     rapid: {
       id: "rapid",
       name: "Rapid",
@@ -233,7 +232,7 @@ export class PlayerSystem extends SystemBase {
       icon: "🔭",
     },
 
-    // Magic combat styles (OSRS-accurate)
+    // Magic combat styles (rules-accurate)
     autocast: {
       id: "autocast",
       name: "Autocast",
@@ -358,7 +357,7 @@ export class PlayerSystem extends SystemBase {
       ),
     );
 
-    // OSRS-accurate: auto-switch style when weapon changes and current style is invalid
+    // rules-accurate: auto-switch style when weapon changes and current style is invalid
     // Only subscribe on server — style changes are server-authoritative
     if (this.world.isServer) {
       this.subscribe(EventType.PLAYER_EQUIPMENT_CHANGED, (data) => {
@@ -524,7 +523,7 @@ export class PlayerSystem extends SystemBase {
 
     // Load saved combat preferences from database if available
     let savedAttackStyle: string | undefined;
-    let savedAutoRetaliate = true; // Default ON (OSRS behavior)
+    let savedAutoRetaliate = true; // Default ON (classic MMORPG behavior)
     if (this.databaseSystem) {
       try {
         const databaseId = PlayerIdMapper.getDatabaseId(data.playerId);
@@ -812,7 +811,7 @@ export class PlayerSystem extends SystemBase {
       );
       player.health.current = player.health.max;
     } else {
-      // Floor to ensure health is always an integer (RuneScape-style)
+      // Floor to ensure health is always an integer (classic fantasy MMORPG-style)
       player.health.current = Math.floor(
         Math.max(0, Math.min(validCurrentHealth, player.health.max)),
       );
@@ -912,7 +911,7 @@ export class PlayerSystem extends SystemBase {
       return;
     }
 
-    // Apply damage - floor to ensure health is always an integer (RuneScape-style)
+    // Apply damage - floor to ensure health is always an integer (classic fantasy MMORPG-style)
     const newHealth = Math.floor(
       Math.max(0, player.health.current - data.damage),
     );
@@ -1071,7 +1070,7 @@ export class PlayerSystem extends SystemBase {
     if (!player || !player.alive) return false;
 
     const oldHealth = player.health.current;
-    // Floor to ensure health is always an integer (RuneScape-style)
+    // Floor to ensure health is always an integer (classic fantasy MMORPG-style)
     player.health.current = Math.floor(
       Math.min(player.health.max, player.health.current + amount),
     );
@@ -1090,13 +1089,13 @@ export class PlayerSystem extends SystemBase {
   }
 
   /**
-   * Handle food consumption with OSRS-accurate timing
+   * Handle food consumption with rules-accurate timing
    *
    * Implements:
    * - 3-tick (1.8s) eat delay between foods
    * - Attack delay when eating during combat
    * - OWASP input validation
-   * - OSRS-style chat message format
+   * - classic MMORPG-style chat message format
    */
   private handleItemUsed(data: {
     playerId: string;
@@ -1194,11 +1193,10 @@ export class PlayerSystem extends SystemBase {
     // NOTE: healPlayer() emits PLAYER_HEALTH_UPDATED only if health changed
     this.healPlayer(data.playerId, healAmount);
 
-    // OSRS Behavior: Message and attack delay ALWAYS apply when eating,
+    // classic MMORPG Behavior: Message and attack delay ALWAYS apply when eating,
     // even at full health. Food is consumed regardless.
-    // @see https://oldschool.runescape.wiki/w/Food
 
-    // OSRS-style message (lowercase item name, no heal amount shown)
+    // classic MMORPG-style message (lowercase item name, no heal amount shown)
     this.emitTypedEvent(EventType.UI_MESSAGE, {
       playerId: data.playerId,
       message: `You eat the ${itemData.name.toLowerCase()}.`,
@@ -1210,9 +1208,9 @@ export class PlayerSystem extends SystemBase {
   }
 
   /**
-   * Apply attack delay when eating during combat (OSRS-accurate)
+   * Apply attack delay when eating during combat (rules-accurate)
    *
-   * OSRS Rule: Foods only add to EXISTING attack delay.
+   * classic MMORPG Rule: Foods only add to EXISTING attack delay.
    * If weapon is ready to attack, eating does NOT add delay.
    */
   private applyEatAttackDelay(playerId: string, currentTick: number): void {
@@ -1232,19 +1230,18 @@ export class PlayerSystem extends SystemBase {
         COMBAT_CONSTANTS.EAT_ATTACK_DELAY_TICKS,
       );
     }
-    // If not on cooldown, do nothing (OSRS-accurate behavior)
+    // If not on cooldown, do nothing (rules-accurate behavior)
   }
 
   /**
-   * Handle bone burying for prayer XP (OSRS-accurate)
+   * Handle bone burying for prayer XP (rules-accurate)
    *
-   * OSRS Mechanics:
+   * classic MMORPG Mechanics:
    * - 2-tick (1.2s) delay between burials
    * - XP granted immediately upon bury
    * - Some bones require minimum prayer level
    * - Message: "You bury the bones."
    *
-   * @see https://oldschool.runescape.wiki/w/Bones
    */
   private handleBoneBury(
     playerId: string,
@@ -1302,7 +1299,7 @@ export class PlayerSystem extends SystemBase {
       });
     }
 
-    // OSRS-style message
+    // classic MMORPG-style message
     this.emitTypedEvent(EventType.UI_MESSAGE, {
       playerId,
       message: "You bury the bones.",
@@ -1455,7 +1452,7 @@ export class PlayerSystem extends SystemBase {
         ? player.health.current
         : player.health.max;
 
-    // Floor to ensure health is always an integer (RuneScape-style)
+    // Floor to ensure health is always an integer (classic fantasy MMORPG-style)
     player.health.current = Math.floor(
       Math.max(0, currentHealth - validAmount),
     );
@@ -1788,7 +1785,7 @@ export class PlayerSystem extends SystemBase {
   }
 
   private calculateCombatLevel(skills: Skills): number {
-    // OSRS Combat Level Formula:
+    // classic MMORPG Combat Level Formula:
     // base = 0.25 × (Defence + Hitpoints + floor(Prayer / 2))
     // melee = 0.325 × (Attack + Strength)
     // ranged = 0.325 × floor(Ranged × 1.5)
@@ -1907,7 +1904,7 @@ export class PlayerSystem extends SystemBase {
       return;
     }
 
-    // Validate style is allowed for equipped weapon (OSRS-accurate)
+    // Validate style is allowed for equipped weapon (rules-accurate)
     const weaponType = this.getPlayerWeaponType(playerId);
 
     if (!isStyleValidForWeapon(weaponType, newStyle as CombatStyleExtended)) {
@@ -1950,7 +1947,7 @@ export class PlayerSystem extends SystemBase {
   }
 
   /**
-   * OSRS-accurate: When weapon changes, validate current style is still available.
+   * rules-accurate: When weapon changes, validate current style is still available.
    * If not, auto-switch to the first valid style for the new weapon type.
    * Example: switching from staff (autocast) to sword → auto-select "accurate"
    */
@@ -2299,7 +2296,7 @@ export class PlayerSystem extends SystemBase {
       }
     }
 
-    // Final fallback: default to true (OSRS behavior)
+    // Final fallback: default to true (classic MMORPG behavior)
     enabled = enabled ?? true;
 
     if (data.callback) {

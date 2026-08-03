@@ -1,5 +1,5 @@
 /**
- * OSRS-accurate item type detection helpers.
+ * rules-accurate item type detection helpers.
  * Used for context menu ordering and left-click default actions.
  *
  * These helpers determine:
@@ -98,10 +98,10 @@ export const HANDLED_INVENTORY_ACTIONS = new Set<string>([
 ]);
 
 /**
- * Get primary action from manifest's inventoryActions (OSRS-accurate approach).
+ * Get primary action from manifest's inventoryActions (rules-accurate approach).
  * Returns the first action in the array, or null if no actions defined.
  *
- * OSRS stores explicit inventory options per item in the manifest.
+ * classic MMORPG stores explicit inventory options per item in the manifest.
  * First option is always the left-click default.
  */
 export function getPrimaryActionFromManifest(
@@ -130,7 +130,7 @@ export function getPrimaryActionFromManifest(
 
 /**
  * Get primary action using manifest-first approach with heuristic fallback.
- * OSRS-accurate: reads from inventoryActions if available.
+ * rules-accurate: reads from inventoryActions if available.
  */
 export function getPrimaryAction(
   item: Item | null,

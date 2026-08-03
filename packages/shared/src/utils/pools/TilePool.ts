@@ -181,7 +181,7 @@ class TilePoolImpl {
 
   /**
    * Calculate Chebyshev distance between two tiles.
-   * This is the OSRS-style distance used for range checks.
+   * This is the classic MMORPG-style distance used for range checks.
    */
   chebyshevDistance(a: PooledTile, b: PooledTile): number {
     const dx = Math.abs(a.x - b.x);

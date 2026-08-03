@@ -11,7 +11,7 @@
  *
  * ## Shared Shader Features
  * - Screen-space dithered dissolve (Bayer 4x4)
- * - Camera-to-player occlusion cone (RuneScape-style)
+ * - Camera-to-player occlusion cone (classic fantasy MMORPG-style)
  * - Near-camera depth fade
  * - Per-instance Fresnel rim highlight
  *
@@ -96,7 +96,7 @@ export const GPU_VEG_CONFIG = {
   WATER_BUFFER: 3.0,
 
   // ========== OCCLUSION DISSOLVE CONFIG ==========
-  // Camera-to-player line-of-sight dissolve (RuneScape-style)
+  // Camera-to-player line-of-sight dissolve (classic fantasy MMORPG-style)
   // Uses a CONE shape that expands from camera toward player for natural visibility
 
   /** Radius at camera end of the cone (meters) - keeps near objects visible */
@@ -114,13 +114,13 @@ export const GPU_VEG_CONFIG = {
   /** Distance from player where occlusion stops (small buffer behind player) */
   OCCLUSION_FAR_MARGIN: 0.3,
 
-  /** Sharpness of the cutoff edge (higher = sharper, more binary like RuneScape) */
+  /** Sharpness of the cutoff edge (higher = sharper, more binary like classic fantasy MMORPG) */
   OCCLUSION_EDGE_SHARPNESS: 0.5,
 
   /** Maximum occlusion dissolve strength (0 = disabled, matches buildings) */
   OCCLUSION_STRENGTH: 0.0,
 
-  // ========== NEAR-CAMERA DISSOLVE (RuneScape-style depth fade) ==========
+  // ========== NEAR-CAMERA DISSOLVE (classic fantasy MMORPG-style depth fade) ==========
   // Prevents hard geometry clipping when camera clips through objects
 
   /** Distance from camera where near-fade begins (meters) - fully opaque beyond this */
@@ -243,7 +243,7 @@ export type DissolveMaterial = THREE.MeshStandardNodeMaterial & {
 
 /**
  * Creates a GPU vegetation material with distance-based dithered fade
- * and camera-to-player occlusion dissolve (RuneScape-style).
+ * and camera-to-player occlusion dissolve (classic fantasy MMORPG-style).
  *
  * Uses cutout rendering (alphaTest) for performance - no alpha blending.
  * Dithering is per-instance (not per-fragment) for consistent fade.
@@ -272,7 +272,7 @@ export function createGPUVegetationMaterial(
   const fadeStartSq = mul(uFadeStart, uFadeStart);
   const fadeEndSq = mul(uFadeEnd, uFadeEnd);
 
-  // Occlusion dissolve constants (RuneScape-style cone)
+  // Occlusion dissolve constants (classic fantasy MMORPG-style cone)
   const enableOcclusion = options.enableOcclusionDissolve !== false;
   const occlusionCameraRadius = float(GPU_VEG_CONFIG.OCCLUSION_CAMERA_RADIUS);
   const occlusionPlayerRadius = float(GPU_VEG_CONFIG.OCCLUSION_PLAYER_RADIUS);
@@ -282,7 +282,7 @@ export function createGPUVegetationMaterial(
   const occlusionEdgeSharpness = float(GPU_VEG_CONFIG.OCCLUSION_EDGE_SHARPNESS);
   const occlusionStrength = float(GPU_VEG_CONFIG.OCCLUSION_STRENGTH);
 
-  // Near-camera dissolve constants (RuneScape-style depth fade)
+  // Near-camera dissolve constants (classic fantasy MMORPG-style depth fade)
   const nearCameraFadeStart = float(GPU_VEG_CONFIG.NEAR_CAMERA_FADE_START);
   const nearCameraFadeEnd = float(GPU_VEG_CONFIG.NEAR_CAMERA_FADE_END);
 
@@ -303,7 +303,7 @@ export function createGPUVegetationMaterial(
     // 3. Distance factor: 0.0 when close (keep fragment), 1.0 when far (discard fragment)
     const distanceFade = smoothstep(fadeStartSq, fadeEndSq, distSq);
 
-    // 4. CAMERA-TO-PLAYER OCCLUSION DISSOLVE (RuneScape-style)
+    // 4. CAMERA-TO-PLAYER OCCLUSION DISSOLVE (classic fantasy MMORPG-style)
     const occlusionFade = enableOcclusion
       ? (() => {
           const camToPlayer = vec3(
@@ -376,7 +376,7 @@ export function createGPUVegetationMaterial(
         })()
       : float(0.0);
 
-    // 5. NEAR-CAMERA DISSOLVE (RuneScape-style depth fade)
+    // 5. NEAR-CAMERA DISSOLVE (classic fantasy MMORPG-style depth fade)
     const camToFrag = sub(worldPos, uCameraPos);
     const camDistSq = dot(camToFrag, camToFrag);
     const camDist = sqrt(camDistSq);
@@ -388,7 +388,7 @@ export function createGPUVegetationMaterial(
     // 6. Combine all fade factors
     const combinedFade = max(max(distanceFade, occlusionFade), nearCameraFade);
 
-    // 7. SCREEN-SPACE 4x4 BAYER DITHERING (RuneScape 3 style)
+    // 7. SCREEN-SPACE 4x4 BAYER DITHERING (modern fantasy MMORPG style)
     const ix = mod(floor(viewportCoordinate.x), float(4.0));
     const iy = mod(floor(viewportCoordinate.y), float(4.0));
 
@@ -408,7 +408,7 @@ export function createGPUVegetationMaterial(
     );
     const ditherValue = mul(bayerInt, float(0.0625));
 
-    // 8. RS3-style threshold: discard when fade >= dither
+    // 8. modern MMORPG-style threshold: discard when fade >= dither
     const hasAnyFade = step(float(0.001), combinedFade);
     const ditherThreshold = mul(
       mul(step(ditherValue, combinedFade), hasAnyFade),
@@ -545,7 +545,7 @@ export function createDissolveMaterial(
     GPU_VEG_CONFIG.WATER_LEVEL + GPU_VEG_CONFIG.WATER_BUFFER,
   );
 
-  // Occlusion dissolve constants (RuneScape-style cone)
+  // Occlusion dissolve constants (classic fantasy MMORPG-style cone)
   const occlusionCameraRadius = float(GPU_VEG_CONFIG.OCCLUSION_CAMERA_RADIUS);
   const occlusionPlayerRadius = float(GPU_VEG_CONFIG.OCCLUSION_PLAYER_RADIUS);
   const occlusionDistanceScale = float(GPU_VEG_CONFIG.OCCLUSION_DISTANCE_SCALE);
@@ -554,7 +554,7 @@ export function createDissolveMaterial(
   const occlusionEdgeSharpness = float(GPU_VEG_CONFIG.OCCLUSION_EDGE_SHARPNESS);
   const occlusionStrength = float(GPU_VEG_CONFIG.OCCLUSION_STRENGTH);
 
-  // Near-camera dissolve constants (RuneScape-style depth fade)
+  // Near-camera dissolve constants (classic fantasy MMORPG-style depth fade)
   const nearCameraFadeStart = float(GPU_VEG_CONFIG.NEAR_CAMERA_FADE_START);
   const nearCameraFadeEnd = float(GPU_VEG_CONFIG.NEAR_CAMERA_FADE_END);
 
@@ -587,7 +587,7 @@ export function createDissolveMaterial(
       smoothstep(nearCameraFadeEnd, nearCameraFadeStart, camDist),
     );
 
-    // CAMERA-TO-PLAYER OCCLUSION DISSOLVE (RuneScape-style)
+    // CAMERA-TO-PLAYER OCCLUSION DISSOLVE (classic fantasy MMORPG-style)
     const occlusionFade = enableOcclusion
       ? (() => {
           const camToPlayer = vec3(
@@ -664,7 +664,7 @@ export function createDissolveMaterial(
       nearCameraFade,
     );
 
-    // SCREEN-SPACE 4x4 BAYER DITHERING (RuneScape 3 style)
+    // SCREEN-SPACE 4x4 BAYER DITHERING (modern fantasy MMORPG style)
     const ix = mod(floor(viewportCoordinate.x), float(4.0));
     const iy = mod(floor(viewportCoordinate.y), float(4.0));
 
@@ -851,7 +851,7 @@ export function createImposterMaterial(
 
     const farFade = smoothstep(fadeStartSq, fadeEndSq, distSq);
 
-    // SCREEN-SPACE 4x4 BAYER DITHERING (RuneScape 3 style)
+    // SCREEN-SPACE 4x4 BAYER DITHERING (modern fantasy MMORPG style)
     const ix = mod(floor(viewportCoordinate.x), float(4.0));
     const iy = mod(floor(viewportCoordinate.y), float(4.0));
 

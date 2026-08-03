@@ -284,7 +284,7 @@ Effective prompts are crucial for high-quality asset generation. Follow these gu
 ```
 A medieval longsword with a leather-wrapped handle, silver crossguard,
 and runes etched along the blade. The pommel features a red gemstone.
-Low-poly 3D model, game-ready, RuneScape art style.
+Low-poly 3D model, game-ready, classic fantasy MMORPG art style.
 ```
 
 **Bad Prompt Example**
@@ -315,7 +315,7 @@ sword
    - Weathering: "battle-worn", "pristine"
 
 5. **Art Style** (Highly Recommended)
-   - Reference game: "RuneScape style", "WoW style"
+   - Reference game: "classic fantasy MMORPG style", "WoW style"
    - Style descriptors: "low-poly", "stylized", "hand-painted"
    - Avoid: "realistic", "photorealistic" (usually poor results)
 

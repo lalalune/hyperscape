@@ -99,7 +99,7 @@ export class InteractionRouter extends System {
   private lastHoverTime = 0;
   private static readonly HOVER_THROTTLE_MS = 50;
 
-  // Targeting mode state (OSRS "Use X on Y")
+  // Targeting mode state (classic MMORPG "Use X on Y")
   private targetingMode: TargetingModeState = {
     active: false,
     sourceItem: null,
@@ -282,7 +282,7 @@ export class InteractionRouter extends System {
     // This is critical for accurate item pickup (range 0 actions)
     this.world.on(EventType.ENTITY_MODIFIED, this.onEntityModified);
 
-    // Listen for targeting mode events (OSRS "Use X on Y")
+    // Listen for targeting mode events (classic MMORPG "Use X on Y")
     this.world.on(EventType.TARGETING_START, this.onTargetingStart);
     this.world.on(EventType.TARGETING_COMPLETE, this.onTargetingComplete);
     this.world.on(EventType.TARGETING_CANCEL, this.onTargetingCancel);
@@ -364,7 +364,7 @@ export class InteractionRouter extends System {
       this.canvas,
     );
 
-    // OSRS-style targeting mode: handle world entity clicks for cooking
+    // classic MMORPG-style targeting mode: handle world entity clicks for cooking
     if (this.targetingMode.active) {
       event.preventDefault();
 
@@ -990,7 +990,7 @@ export class InteractionRouter extends System {
    * When player becomes "idle" (movement finished), check queued actions
    * using the server-authoritative position for accurate range checking.
    *
-   * This is the OSRS-style pattern for reliable item pickup:
+   * This is the classic MMORPG-style pattern for reliable item pickup:
    * - Server sends final position in changes.p
    * - We use that exact position to check if player reached the item
    * - No reliance on interpolated client position
@@ -1357,7 +1357,7 @@ export class InteractionRouter extends System {
     return false;
   }
 
-  // === Targeting Mode (OSRS "Use X on Y") ===
+  // === Targeting Mode (classic MMORPG "Use X on Y") ===
 
   /**
    * Enter targeting mode when player uses an item.

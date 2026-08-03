@@ -2,7 +2,7 @@
  * VisualFeedbackService
  *
  * Handles visual feedback for interactions:
- * - RuneScape-style movement indicator (arrow + circle)
+ * - classic fantasy MMORPG-style movement indicator (arrow + circle)
  * - Click indicators for entity interactions (red X)
  * - Minimap destination sync
  *
@@ -33,7 +33,7 @@ export class VisualFeedbackService {
   private activeClickIndicator: THREE.Sprite | null = null;
   private clickIndicatorTimeout: ReturnType<typeof setTimeout> | null = null;
 
-  // RuneScape-style movement indicator components
+  // classic fantasy MMORPG-style movement indicator components
   private movementIndicatorGroup: THREE.Group | null = null;
   private movementArrow: THREE.Group | null = null;
   private movementCircle: THREE.Mesh | null = null;
@@ -82,7 +82,7 @@ export class VisualFeedbackService {
   }
 
   /**
-   * Create RuneScape-style movement indicator (V chevron + circle on tile)
+   * Create classic fantasy MMORPG-style movement indicator (V chevron + circle on tile)
    */
   private createMovementIndicator(): void {
     const scene = this.world.stage?.scene;
@@ -245,12 +245,12 @@ export class VisualFeedbackService {
 
   /**
    * Show click indicator at position
-   * For ground clicks: shows RuneScape-style arrow + circle
+   * For ground clicks: shows classic fantasy MMORPG-style arrow + circle
    * For entity clicks: shows red X marker
    */
   showClickIndicator(position: Position3D, type: "ground" | "entity"): void {
     if (type === "ground") {
-      // Use RuneScape-style movement indicator for ground clicks
+      // Use classic fantasy MMORPG-style movement indicator for ground clicks
       this.showMovementIndicator(position);
       return;
     }
@@ -308,7 +308,7 @@ export class VisualFeedbackService {
   }
 
   /**
-   * Show RuneScape-style movement indicator at position
+   * Show classic fantasy MMORPG-style movement indicator at position
    */
   private showMovementIndicator(position: Position3D): void {
     if (!this.movementIndicatorGroup) return;

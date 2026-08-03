@@ -1,5 +1,5 @@
 /**
- * Skill Data - Definitions and metadata for OSRS-style skills
+ * Skill Data - Definitions and metadata for classic MMORPG-style skills
  *
  * Shared constant used by:
  * - XPProgressOrb (HUD orbs)
@@ -36,8 +36,8 @@ export interface SkillDefinition {
 }
 
 /**
- * All skill definitions in OSRS-style display order.
- * Arranged in 3-column grid matching RuneScape layout:
+ * All skill definitions in classic MMORPG-style display order.
+ * Arranged in 3-column grid matching classic fantasy MMORPG layout:
  *   Column 1: Combat (Attack, Strength, Defence, Ranged, Magic, Prayer)
  *   Column 2: Support (Constitution, Agility)
  *   Column 3: Gathering/Production (Mining, Smithing, Fishing, Cooking, Firemaking, Woodcutting)
@@ -203,7 +203,7 @@ export const SKILL_ICONS: Readonly<Record<string, string>> = {
   defence: "🛡️",
   defense: "🛡️", // US spelling alias
   constitution: "❤️",
-  hitpoints: "❤️", // OSRS alias
+  hitpoints: "❤️", // classic MMORPG alias
   ranged: "🏹",
   prayer: "✨",
   magic: "🔮",

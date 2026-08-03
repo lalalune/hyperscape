@@ -13,7 +13,7 @@ import type { PlayerEquipmentItems } from "@hyperforge/shared";
 
 export interface BankItem {
   itemId: string;
-  quantity: number; // 0 = placeholder (RS3-style)
+  quantity: number; // 0 = placeholder (modern MMORPG-style)
   slot: number;
   tabIndex: number;
 }
@@ -66,12 +66,12 @@ export type RightPanelMode = "inventory" | "equipment";
 // ============================================================================
 
 /**
- * RS3-STYLE PLACEHOLDERS:
+ * modern MMORPG-STYLE PLACEHOLDERS:
  * - Placeholders are items with quantity = 0 (no separate data structure)
  * - Items with qty=0 are rendered with greyed-out style
  * - Context menu shows "Release" for qty=0 items, "Withdraw-Placeholder" for qty>0
  *
- * RS3-STYLE EQUIPMENT VIEW:
+ * modern MMORPG-STYLE EQUIPMENT VIEW:
  * - Right panel can switch between Inventory and Equipment views
  * - Equipment view shows all equipped items with deposit buttons
  * - "Deposit Worn Items" button deposits all equipment at once
@@ -83,7 +83,7 @@ export interface BankPanelProps {
   maxSlots: number;
   world: ClientWorld;
   inventory: InventorySlotViewItem[];
-  equipment?: PlayerEquipmentItems | null; // Player's equipped items (RS3-style)
+  equipment?: PlayerEquipmentItems | null; // Player's equipped items (modern MMORPG-style)
   coins: number;
   onClose: () => void;
 }

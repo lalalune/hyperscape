@@ -372,7 +372,7 @@ export class MagicAttackHandler {
       return;
     }
 
-    // Resolve magic style before range check so longrange +2 applies (OSRS-accurate)
+    // Resolve magic style before range check so longrange +2 applies (rules-accurate)
     let magicStyle: MagicCombatStyle = "accurate";
     const magicStyleData =
       this.ctx.playerSystem?.getPlayerAttackStyle?.(attackerId);
@@ -383,7 +383,7 @@ export class MagicAttackHandler {
       }
     }
 
-    // Check magic attack range — longrange style adds +2 tiles (OSRS-accurate)
+    // Check magic attack range — longrange style adds +2 tiles (rules-accurate)
     const attackRange = 10 + MAGIC_STYLE_BONUSES[magicStyle].rangeModifier;
     const distance = checkProjectileRange(
       this.ctx,
@@ -578,7 +578,7 @@ export class MagicAttackHandler {
         ? prayerSystem?.getCombinedBonuses(String(target.id))
         : undefined;
 
-    // Get player's combat style for OSRS-accurate damage bonuses
+    // Get player's combat style for rules-accurate damage bonuses
     let magicStyle: MagicCombatStyle = "accurate";
     const styleData = this.ctx.playerSystem?.getPlayerAttackStyle?.(attackerId);
     if (styleData?.id) {

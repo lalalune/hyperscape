@@ -222,11 +222,10 @@ export class MeleeAttackHandler {
   /**
    * Check if attacker is within combat range of target
    *
-   * OSRS melee rules (from wiki):
+   * classic MMORPG melee rules (from wiki):
    * - Range 1 (standard melee): Cardinal only (N/S/E/W) - NO diagonal attacks
    * - Range 2+ (halberd): Allows diagonal attacks
    *
-   * @see https://oldschool.runescape.wiki/w/Attack_range
    */
   private isWithinCombatRange(
     attacker: Entity | MobEntity,
@@ -247,7 +246,7 @@ export class MeleeAttackHandler {
       attackerType,
     );
 
-    // OSRS-accurate melee range check:
+    // rules-accurate melee range check:
     // - Range 1: Cardinal only (N/S/E/W)
     // - Range 2+: Allows diagonal (Chebyshev distance)
     if (
@@ -323,7 +322,7 @@ export class MeleeAttackHandler {
       currentTick + attackSpeedTicks,
     );
 
-    // Get player's combat style for OSRS-accurate damage bonuses
+    // Get player's combat style for rules-accurate damage bonuses
     let combatStyle: CombatStyle = "accurate";
     if (attackerType === "player") {
       const styleData =

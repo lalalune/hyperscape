@@ -4,7 +4,7 @@
  * Handles all state logic for the XP visual feedback system:
  * - Active skills tracking (which skills have recent XP gains)
  * - Level-up detection and animation triggers
- * - Floating XP drop grouping (RS3-style game tick grouping)
+ * - Floating XP drop grouping (modern MMORPG-style game tick grouping)
  * - Orb fade timers
  * - Event subscription to XP_DROP_RECEIVED events
  *
@@ -17,9 +17,9 @@ import type { ClientWorld } from "../../../types";
 
 // === CONSTANTS ===
 
-/** Game tick duration in ms (OSRS-style) */
+/** Game tick duration in ms (classic MMORPG-style) */
 export const GAME_TICK_MS = 600;
-/** Duration before orb starts fading (in ms) - ~10 seconds like RuneLite default */
+/** Duration before orb starts fading (in ms) - ~10 seconds like common client default */
 export const ORB_VISIBLE_DURATION_MS = 10000;
 /** Duration of the fade-out animation (in ms) */
 export const ORB_FADE_DURATION_MS = 1000;
@@ -70,7 +70,7 @@ export function normalizeSkillName(skill: string): string {
   return lower;
 }
 
-// Pre-computed XP table for O(1) lookups (OSRS formula)
+// Pre-computed XP table for O(1) lookups (classic combat formula)
 // Computed once at module load instead of looping on every render
 const XP_TABLE: readonly number[] = (() => {
   const table: number[] = new Array(100).fill(0);
@@ -378,7 +378,7 @@ export function useXPOrbState(world: ClientWorld): UseXPOrbStateResult {
         }
       });
 
-      // RS3-style grouping
+      // modern MMORPG-style grouping
       if (
         pendingDropRef.current &&
         now - pendingDropRef.current.startTime < GROUP_WINDOW_MS

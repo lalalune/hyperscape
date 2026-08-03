@@ -193,7 +193,7 @@ export type {
   StreamingGuardrailPhase,
 } from "./utils/rendering/streamingGuardrails";
 
-// Export SeededRandom and game RNG utilities (OSRS-accurate deterministic RNG)
+// Export SeededRandom and game RNG utilities (rules-accurate deterministic RNG)
 export {
   SeededRandom,
   initializeGameRng,
@@ -580,7 +580,7 @@ export { ControlPriorities } from "./systems/client/ControlPriorities";
 export { downloadFile } from "./utils/downloadFile";
 export * from "./utils/typeGuards";
 
-// Item type detection helpers (OSRS-accurate inventory actions)
+// Item type detection helpers (rules-accurate inventory actions)
 export {
   isFood,
   isPotion,
@@ -1033,7 +1033,7 @@ export {
   tileKey as buildingTileKey,
 } from "./types/world/building-collision-types";
 
-// Export tile movement system (RuneScape-style)
+// Export tile movement system (classic fantasy MMORPG-style)
 export {
   // Constants
   TILE_SIZE,
@@ -1158,10 +1158,10 @@ export { PLAYER_CONSTANTS } from "./constants/GameConstants";
 // Gathering constants (tick-based timing, ranges, etc.)
 export { GATHERING_CONSTANTS } from "./constants/GatheringConstants";
 
-// Context menu colors (OSRS-accurate styling)
+// Context menu colors (rules-accurate styling)
 export { CONTEXT_MENU_COLORS } from "./constants/GameConstants";
 
-// Weapon style configuration (OSRS-accurate style restrictions per weapon)
+// Weapon style configuration (rules-accurate style restrictions per weapon)
 export {
   WEAPON_STYLE_CONFIG,
   getAvailableStyles,
@@ -1169,7 +1169,7 @@ export {
   getDefaultStyleForWeapon,
 } from "./constants/WeaponStyleConfig";
 
-// Hit delay calculator (OSRS-accurate projectile delays)
+// Hit delay calculator (rules-accurate projectile delays)
 export {
   calculateHitDelay,
   calculateMeleeHitDelay,
@@ -1188,7 +1188,7 @@ export type {
   HitDelayResult,
 } from "./utils/game/HitDelayCalculator";
 
-// Distance utilities (OSRS-style Chebyshev)
+// Distance utilities (classic MMORPG-style Chebyshev)
 export {
   chebyshevDistance,
   isWithinDistance,

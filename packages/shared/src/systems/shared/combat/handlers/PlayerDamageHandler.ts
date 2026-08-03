@@ -89,7 +89,7 @@ export class PlayerDamageHandler implements DamageHandler {
       return { actualDamage: 0, targetDied: false, success: false };
     }
 
-    // Handle 0 damage as a valid combat outcome (OSRS miss/block)
+    // Handle 0 damage as a valid combat outcome (classic MMORPG miss/block)
     // PlayerSystem.damagePlayer() returns false for amount <= 0, which would
     // trigger a false positive "Failed to apply damage" error in CombatSystem
     if (damage <= 0) {
@@ -143,7 +143,7 @@ export class PlayerDamageHandler implements DamageHandler {
 
   canRetaliate(entityId: EntityID, _currentTick: number): boolean {
     if (!this.playerSystem) {
-      // Default to OSRS behavior (auto-retaliate on)
+      // Default to classic MMORPG behavior (auto-retaliate on)
       return true;
     }
 

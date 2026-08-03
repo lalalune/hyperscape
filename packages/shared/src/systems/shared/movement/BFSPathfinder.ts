@@ -1,11 +1,11 @@
 /**
- * BFS Pathfinder — OSRS "Smartpathing"
+ * BFS Pathfinder — classic MMORPG "Smartpathing"
  *
- * OSRS player movement uses BFS ("smartpathing") as the primary algorithm.
+ * classic MMORPG player movement uses BFS ("smartpathing") as the primary algorithm.
  * Naive/dumb diagonal pathing is ONLY used by NPC chase movement (see ChasePathfinding.ts).
  *
  * Key features:
- * - BFS with OSRS neighbor order (W,E,S,N,SW,SE,NW,NE)
+ * - BFS with classic MMORPG neighbor order (W,E,S,N,SW,SE,NW,NE)
  * - findPathToAny(): Multi-destination BFS for combat — terminates at the first
  *   valid combat tile reached, naturally finding the shortest path.
  * - findNaivePath(): Exposed for NPC chase systems only, never called from findPath().
@@ -27,7 +27,6 @@
  * BFS is limited to PATHFIND_RADIUS (128 tiles) from the start position.
  * Destinations outside this radius will result in partial paths.
  *
- * @see https://oldschool.runescape.wiki/w/Pathfinding
  */
 
 import {
@@ -111,7 +110,7 @@ export class BFSPathfinder {
   }
 
   /**
-   * Find a path from start to end using BFS (OSRS "smartpathing").
+   * Find a path from start to end using BFS (classic MMORPG "smartpathing").
    * BFS is the primary pathfinder for all player movement.
    *
    * After calling, check `wasLastPathPartial()` to see if the path
@@ -177,7 +176,7 @@ export class BFSPathfinder {
       }
     }
 
-    // BFS is the primary pathfinder (OSRS "smartpathing")
+    // BFS is the primary pathfinder (classic MMORPG "smartpathing")
     // Note: BFS may also set _lastPathWasPartial if iteration limit is reached
     return this.findBFSPath(start, end, isWalkable, maxIterations);
   }
@@ -185,7 +184,7 @@ export class BFSPathfinder {
   /**
    * Multi-destination BFS: find shortest path from start to ANY destination tile.
    *
-   * OSRS combat pathfinding feeds all valid interaction tiles into the pathfinder
+   * classic MMORPG combat pathfinding feeds all valid interaction tiles into the pathfinder
    * and terminates as soon as any is reached. This naturally finds the shortest
    * path to the closest valid combat tile.
    *
@@ -262,7 +261,7 @@ export class BFSPathfinder {
           return this.reconstructPath(start, current, parent);
         }
 
-        // Expand neighbors in OSRS order (zero-allocation scratch tile for checks)
+        // Expand neighbors in classic MMORPG order (zero-allocation scratch tile for checks)
         for (const dir of TILE_DIRECTIONS) {
           const nx = current.x + dir.x;
           const nz = current.z + dir.z;
@@ -449,7 +448,7 @@ export class BFSPathfinder {
           return this.reconstructPath(start, end, parent);
         }
 
-        // Check all 8 directions in OSRS order: W, E, S, N, SW, SE, NW, NE
+        // Check all 8 directions in classic MMORPG order: W, E, S, N, SW, SE, NW, NE
         // OPTIMIZATION: Use scratch tile for checks, only allocate when enqueuing.
         // Reduces allocations from 8 per iteration to ~1-2 (only walkable neighbors).
         for (const dir of TILE_DIRECTIONS) {

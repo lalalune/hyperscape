@@ -747,7 +747,7 @@ export class InventorySystem extends SystemBase {
       }
       const position = player.node.position;
 
-      // Use GroundItemSystem for proper pile management (OSRS-style)
+      // Use GroundItemSystem for proper pile management (classic MMORPG-style)
       const groundItems = this.world.getSystem("ground-items");
       if (groundItems) {
         // Spawn through GroundItemSystem for tile-based pile management
@@ -806,9 +806,9 @@ export class InventorySystem extends SystemBase {
     // Get all items that will be dropped (for logging)
     const droppedItemCount = inventory.items.length;
 
-    // Clear the inventory (RuneScape-style: all items go to gravestone)
+    // Clear the inventory (classic fantasy MMORPG-style: all items go to gravestone)
     inventory.items = [];
-    // NOTE: Coins are protected and remain in coin pouch (RuneScape-style)
+    // NOTE: Coins are protected and remain in coin pouch (classic fantasy MMORPG-style)
 
     // CRITICAL: Update UI by emitting inventory update event
     this.emitInventoryUpdate(playerID);
@@ -976,7 +976,7 @@ export class InventorySystem extends SystemBase {
         return;
       }
 
-      // Check loot protection (OSRS: killer has 1 minute exclusivity on mob loot)
+      // Check loot protection (classic MMORPG: killer has 1 minute exclusivity on mob loot)
       const groundItems = this.world.getSystem("ground-items");
       if (groundItems) {
         const currentTick = this.world.currentTick ?? 0;
@@ -1083,9 +1083,9 @@ export class InventorySystem extends SystemBase {
   // NOTE: updateCoins() removed - now handled by CoinPouchSystem
 
   /**
-   * Move/swap items between inventory slots (OSRS-style)
+   * Move/swap items between inventory slots (classic MMORPG-style)
    *
-   * Implements OSRS-style SWAP behavior:
+   * Implements classic MMORPG-style SWAP behavior:
    * - If both slots have items: swap them
    * - If only source has item: move to destination
    * - If source is empty: no-op
@@ -1175,7 +1175,7 @@ export class InventorySystem extends SystemBase {
       return;
     }
 
-    // OSRS-style swap
+    // classic MMORPG-style swap
     if (toItem) {
       // Both slots occupied - swap
       fromItem.slot = toSlot;
@@ -2143,9 +2143,9 @@ export class InventorySystem extends SystemBase {
 
     const droppedItemCount = inventory.items.length;
 
-    // Clear the inventory (RuneScape-style: all items go to gravestone)
+    // Clear the inventory (classic fantasy MMORPG-style: all items go to gravestone)
     inventory.items = [];
-    // NOTE: Coins are protected and remain in coin pouch (RuneScape-style)
+    // NOTE: Coins are protected and remain in coin pouch (classic fantasy MMORPG-style)
 
     // CRITICAL: Update UI by emitting inventory update event
     this.emitInventoryUpdate(playerID);

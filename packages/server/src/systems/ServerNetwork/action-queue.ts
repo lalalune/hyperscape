@@ -1,7 +1,7 @@
 /**
  * Action Queue System
  *
- * OSRS-style action queue that processes player inputs on tick boundaries.
+ * classic MMORPG-style action queue that processes player inputs on tick boundaries.
  * This ensures fair, predictable timing for all players regardless of
  * connection speed or click rate.
  *
@@ -12,7 +12,7 @@
  * - Interaction actions can be queued (up to limit)
  * - Each player has their own queue
  *
- * OSRS Reference:
+ * classic MMORPG Reference:
  * - Walk-here replaces current movement, doesn't queue
  * - Attack sets target, combat continues until target dead/out of range
  * - Use-item queues if busy, executes when possible
@@ -129,8 +129,8 @@ export class ActionQueue {
 
   /**
    * Queue a movement action
-   * Movement ALWAYS replaces pending action (OSRS behavior)
-   * In OSRS, clicking the ground immediately cancels whatever you're doing
+   * Movement ALWAYS replaces pending action (classic MMORPG behavior)
+   * In classic MMORPG, clicking the ground immediately cancels whatever you're doing
    */
   queueMovement(socket: ServerSocket, data: unknown): void {
     const playerId = socket.player?.id;
@@ -148,18 +148,18 @@ export class ActionQueue {
       priority: ActionPriority.MOVEMENT,
     };
 
-    // Movement always replaces pending action (OSRS: ground click cancels all)
+    // Movement always replaces pending action (classic MMORPG: ground click cancels all)
     state.pendingAction = action;
 
     // Clear combat target when player clicks to move elsewhere
-    // (OSRS behavior: clicking ground cancels combat)
+    // (classic MMORPG behavior: clicking ground cancels combat)
     state.combatTarget = null;
   }
 
   /**
    * Queue a combat action
    * Sets persistent combat target that continues across ticks
-   * OSRS behavior: clicking new target switches immediately
+   * classic MMORPG behavior: clicking new target switches immediately
    *
    * Includes rate limiting to prevent combat spam:
    * - Max 2 combat requests per tick

@@ -3,21 +3,20 @@
  *
  * Handles interactions with bank objects (booths, chests, etc.).
  *
- * OSRS Context Menu Format: "<Action> <TargetName>" with cyan target (scenery color)
+ * classic MMORPG Context Menu Format: "<Action> <TargetName>" with cyan target (scenery color)
  * - "Bank Bank booth" / "Bank Bank chest" (cyan #00ffff for target)
  * - "Examine Bank booth" (cyan #00ffff for target)
  *
  * Note: Bank NPCs (clerks) are handled by NPCInteractionHandler.
  * This handler is for bank objects/furniture only.
  *
- * @see https://oldschool.runescape.wiki/w/Choose_Option for OSRS menu format
  */
 
 import { BaseInteractionHandler } from "./BaseInteractionHandler";
 import type { RaycastTarget, ContextMenuAction } from "../types";
 import { INTERACTION_RANGE, MESSAGE_TYPES } from "../constants";
 
-/** OSRS scenery/object color (cyan) for context menu target names */
+/** classic MMORPG scenery/object color (cyan) for context menu target names */
 const SCENERY_COLOR = "#00ffff";
 
 export class BankInteractionHandler extends BaseInteractionHandler {
@@ -31,7 +30,7 @@ export class BankInteractionHandler extends BaseInteractionHandler {
   /**
    * Right-click: Show bank options
    *
-   * OSRS-accurate format:
+   * rules-accurate format:
    * - "Bank Bank booth" (action white, target cyan)
    * - "Examine Bank booth" (action white, target cyan)
    */
@@ -39,7 +38,7 @@ export class BankInteractionHandler extends BaseInteractionHandler {
     const actions: ContextMenuAction[] = [];
     const targetName = target.name || "Bank booth";
 
-    // Bank action (primary) - OSRS: "Bank Bank booth"
+    // Bank action (primary) - classic MMORPG: "Bank Bank booth"
     actions.push({
       id: "use-bank",
       label: `Bank ${targetName}`,
@@ -52,7 +51,7 @@ export class BankInteractionHandler extends BaseInteractionHandler {
       handler: () => this.openBank(target),
     });
 
-    // Examine - OSRS: "Examine Bank booth"
+    // Examine - classic MMORPG: "Examine Bank booth"
     actions.push({
       id: "examine",
       label: `Examine ${targetName}`,

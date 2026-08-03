@@ -1,7 +1,7 @@
 /**
  * Bank Equipment Handler Integration Tests
  *
- * Tests the RS3-style equipment tab handler flows with mocked dependencies.
+ * Tests the modern MMORPG-style equipment tab handler flows with mocked dependencies.
  * These tests verify handler behavior at the integration boundary.
  */
 

@@ -572,7 +572,7 @@ export class ClientInput extends SystemBase {
       }
     }
 
-    // RuneScape-style: no keyboard-driven movement; do not send network cancels on key release
+    // classic fantasy MMORPG-style: no keyboard-driven movement; do not send network cancels on key release
   };
 
   private onPointerDown = (e: PointerEvent) => {
@@ -938,7 +938,7 @@ export class ClientInput extends SystemBase {
 
     this.inputBuffer.push(buffered);
 
-    // RuneScape-style: no keyboard-driven movement; do not send moveRequest from keyboard
+    // classic fantasy MMORPG-style: no keyboard-driven movement; do not send moveRequest from keyboard
 
     // Trim buffer
     while (this.inputBuffer.length > MovementConfig.inputBufferSize) {
@@ -1322,7 +1322,7 @@ export class ClientInput extends SystemBase {
    * Start random walk behavior (for AI agents)
    *
    * Picks random positions within the configured radius and walks to them.
-   * Uses OSRS-style probabilistic wandering with configurable interval.
+   * Uses classic MMORPG-style probabilistic wandering with configurable interval.
    *
    * @param radius - Max distance from current position (default 10)
    * @param interval - Time between random walks in ms (default 3000)

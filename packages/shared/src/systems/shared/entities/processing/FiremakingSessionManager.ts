@@ -2,13 +2,12 @@
  * Firemaking Session Manager
  *
  * Tick-based firemaking session management.
- * Follows OSRS mechanics:
+ * Follows classic tick-based mechanics:
  * - 4-tick roll attempts
  * - Level-based success rate (25.4% at 1, 100% at 43+)
  * - Retry on failure
  * - Movement cancellation
  *
- * @see https://oldschool.runescape.wiki/w/Firemaking
  */
 
 import { PROCESSING_CONSTANTS } from "../../../../constants/ProcessingConstants";
@@ -111,7 +110,7 @@ export class FiremakingSessionManager {
     const now = Date.now();
     const lastRequest = this.rateLimits.get(playerId);
     if (lastRequest && now - lastRequest < PROCESSING_CONSTANTS.RATE_LIMIT_MS) {
-      return null; // Silently drop (OSRS behavior)
+      return null; // Silently drop (classic MMORPG behavior)
     }
     this.rateLimits.set(playerId, now);
 
@@ -267,7 +266,7 @@ export class FiremakingSessionManager {
           logId: session.cachedLogId,
           xpAwarded: 0,
           fireCreated: false,
-          message: "", // No message on fail (OSRS doesn't show fail messages for firemaking)
+          message: "", // No message on fail (classic MMORPG doesn't show fail messages for firemaking)
         });
 
         this.callbacks.onAttemptFailed(playerId, session.cachedLogId);

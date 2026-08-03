@@ -13,7 +13,7 @@
 /**
  * Interaction ranges in tiles (using Chebyshev/max-distance)
  *
- * OSRS uses tile-based ranges where diagonal counts as 1 tile.
+ * classic MMORPG uses tile-based ranges where diagonal counts as 1 tile.
  * Range 0 = must stand ON the tile (items)
  * Range 1 = adjacent tile (most interactions)
  */
@@ -55,7 +55,7 @@ export const TIMING = {
   RESOURCE_DEBOUNCE_MS: 1000,
   /** Mobile long-press duration to trigger context menu */
   LONG_PRESS_MS: 500,
-  /** How long click indicator stays visible (RS3 style) */
+  /** How long click indicator stays visible (modern MMORPG style) */
   CLICK_INDICATOR_MS: 300,
   /** Max time to wait for player to reach target (auto-cancel) */
   ACTION_TIMEOUT_MS: 10000,
@@ -67,7 +67,7 @@ export const TIMING = {
  * Visual feedback constants
  */
 export const VISUAL = {
-  /** OSRS-style: disable tile target marker */
+  /** classic MMORPG-style: disable tile target marker */
   TARGET_MARKER_ENABLED: false,
   /** Target marker size as fraction of tile */
   TARGET_MARKER_SCALE: 0.9,
@@ -81,7 +81,7 @@ export const VISUAL = {
   CLICK_INDICATOR_MAX_SCALE: 0.8,
   /** Reference distance for indicator scaling */
   CLICK_INDICATOR_REFERENCE_DISTANCE: 10,
-  /** Target marker color (yellow/gold like RuneScape) */
+  /** Target marker color (yellow/gold like classic fantasy MMORPG) */
   TARGET_MARKER_COLOR: 0xffff00,
   /** Yellow X color for ground clicks */
   CLICK_INDICATOR_GROUND_COLOR: "#ffff00",
@@ -145,7 +145,7 @@ export const ACTION_QUEUE = {
    * arrives at the same tile as the item, even with minor position differences.
    *
    * Value: 0.75 tiles = 75% of tile size, enough to cover tile center variations.
-   * OSRS uses exact tile matching, but our items can be visually offset.
+   * classic MMORPG uses exact tile matching, but our items can be visually offset.
    */
   ITEM_PICKUP_TOLERANCE_TILES: 0.75,
 } as const;

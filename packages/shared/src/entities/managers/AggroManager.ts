@@ -1,12 +1,11 @@
 /**
  * Manages mob target acquisition. Random selection from players in range.
  *
- * OSRS-Accurate Aggro Mechanics:
+ * Rules-Accurate Aggro Mechanics:
  * - Hunt Range: Area where NPC detects players (from NPC's CURRENT position)
  * - Aggression Range: Area where NPC can attack players (from NPC's SPAWN point)
  * - Both checks must pass for aggro to occur
  *
- * @see https://oldschool.runescape.wiki/w/Aggressiveness
  */
 
 import type { Position3D } from "../../types";
@@ -40,13 +39,13 @@ export class AggroManager {
   /**
    * Random selection from valid candidates in range.
    *
-   * OSRS-Accurate: Two checks must pass for aggro:
+   * Rules-Accurate: Two checks must pass for aggro:
    * 1. Hunt Range: Player within aggroRange of mob's CURRENT position
    * 2. Aggression Range: Player within aggressionRange of mob's SPAWN point
    *
    * @param currentPos - Mob's current world position
    * @param players - Array of potential targets
-   * @param spawnPoint - Mob's spawn point (for OSRS-accurate aggression range check)
+   * @param spawnPoint - Mob's spawn point (for rules-accurate aggression range check)
    * @param aggressionRange - Max distance from spawn where players can be attacked (leashRange + attackRange)
    */
   findNearbyPlayer(
@@ -85,7 +84,7 @@ export class AggroManager {
     this._validTargetsBuffer.length = 0;
     const mobTile = worldToTile(currentPos.x, currentPos.z);
 
-    // Compute spawn tile if spawn point provided (for OSRS-accurate aggression range)
+    // Compute spawn tile if spawn point provided (for rules-accurate aggression range)
     const spawnTile: TileCoord | null = spawnPoint
       ? worldToTile(spawnPoint.x, spawnPoint.z)
       : null;
@@ -102,7 +101,7 @@ export class AggroManager {
       if (huntDistance > this.config.aggroRange) continue;
 
       // Check 2: Aggression Range - player within aggressionRange of mob's SPAWN point
-      // This is OSRS-accurate: "The origin of the aggression range is the static spawn point"
+      // This is rules-accurate: "The origin of the aggression range is the static spawn point"
       if (spawnTile !== null && aggressionRange !== undefined) {
         const playerSpawnDistance = tileChebyshevDistance(
           spawnTile,

@@ -3,7 +3,7 @@
  *
  * Handles interactions with runecrafting altars.
  *
- * OSRS Context Menu Format: "<Action> <TargetName>" with cyan target (scenery color)
+ * classic MMORPG Context Menu Format: "<Action> <TargetName>" with cyan target (scenery color)
  * - "Craft-rune Runecrafting Altar" (cyan #00ffff for target)
  * - "Walk here"
  * - "Examine Runecrafting Altar" (cyan #00ffff for target)
@@ -11,14 +11,13 @@
  * Left-click: Instantly send all essence for rune crafting.
  * Right-click: Context menu with Craft-rune and Examine.
  *
- * @see https://oldschool.runescape.wiki/w/Runecrafting for OSRS mechanics
  */
 
 import { BaseInteractionHandler } from "./BaseInteractionHandler";
 import type { RaycastTarget, ContextMenuAction } from "../types";
 import { INTERACTION_RANGE } from "../constants";
 
-/** OSRS scenery/object color (cyan) for context menu target names */
+/** classic MMORPG scenery/object color (cyan) for context menu target names */
 const SCENERY_COLOR = "#00ffff";
 
 export class RunecraftingAltarInteractionHandler extends BaseInteractionHandler {
@@ -37,7 +36,7 @@ export class RunecraftingAltarInteractionHandler extends BaseInteractionHandler 
   /**
    * Right-click: Show altar options
    *
-   * OSRS-accurate format:
+   * rules-accurate format:
    * - "Craft-rune Runecrafting Altar" (action white, target cyan)
    * - "Walk here"
    * - "Examine Runecrafting Altar" (action white, target cyan)

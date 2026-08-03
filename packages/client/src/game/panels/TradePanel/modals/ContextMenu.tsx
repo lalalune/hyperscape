@@ -1,7 +1,7 @@
 /**
  * Trade Context Menu Component
  *
- * OSRS-style context menu for trade inventory items.
+ * classic MMORPG-style context menu for trade inventory items.
  * Shows offer options (1, 5, 10, X, All) plus Value and Examine.
  */
 

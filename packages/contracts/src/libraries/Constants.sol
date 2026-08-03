@@ -11,7 +11,7 @@ library Constants {
     // Inventory
     // =========================================================================
 
-    /// @notice Maximum inventory slots (RuneScape-style)
+    /// @notice Maximum inventory slots (classic fantasy MMORPG-style)
     uint8 internal constant MAX_INVENTORY_SLOTS = 28;
 
     /// @notice Maximum equipment slot type index (0-10 inclusive)
@@ -80,7 +80,7 @@ library Constants {
     uint64 internal constant MAX_GOLD = 2_147_483_647;
 
     // =========================================================================
-    // Combat XP Rates (matches OSRS)
+    // Combat XP Rates (matches classic MMORPG)
     // =========================================================================
 
     /// @notice XP per damage dealt for the trained combat skill (×100 for precision)

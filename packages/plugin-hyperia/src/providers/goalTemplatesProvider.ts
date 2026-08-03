@@ -1,12 +1,12 @@
 /**
- * goalTemplatesProvider - Structured goal templates for OSRS beginner flows
+ * goalTemplatesProvider - Structured goal templates for classic MMORPG beginner flows
  *
  * Provides the LLM with recommended goal templates based on:
  * - Current player state (skills, inventory, equipment)
  * - Nearby resources and entities
  * - Prerequisites and progression paths
  *
- * Goal templates represent common OSRS activities:
+ * Goal templates represent common classic MMORPG activities:
  * - Woodcutting basics
  * - Bronze gear crafting chain (mine -> smelt -> smith)
  * - Combat training
@@ -71,7 +71,7 @@ export interface ScoredGoalTemplate extends GoalTemplate {
 }
 
 // ============================================================================
-// GOAL TEMPLATES - OSRS Beginner Flows
+// GOAL TEMPLATES - classic MMORPG Beginner Flows
 // ============================================================================
 
 const GOAL_TEMPLATES: GoalTemplate[] = [
@@ -788,7 +788,8 @@ function scoreTemplate(
 
 export const goalTemplatesProvider: Provider = {
   name: "goalTemplates",
-  description: "Structured goal templates for OSRS beginner activities",
+  description:
+    "Structured goal templates for classic MMORPG beginner activities",
   dynamic: true,
   position: 8, // After possibilitiesProvider
 

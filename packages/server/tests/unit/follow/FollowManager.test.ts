@@ -1,17 +1,17 @@
 /**
  * FollowManager Unit Tests
  *
- * Tests the OSRS-accurate player following system.
+ * Tests the rules-accurate player following system.
  *
  * Key behaviors tested:
  * - Starting and stopping follows
- * - 1-tick delay before following starts (OSRS-accurate)
+ * - 1-tick delay before following starts (rules-accurate)
  * - 1-tile trailing behavior using previousTile
  * - Re-pathing when target moves
  * - Cleanup on player disconnect
  * - Mutual following ("dancing" pattern)
  *
- * @see https://runescape.wiki/w/Follow
+ * @see https://classic.wiki/w/Follow
  * @see https://rune-server.org/threads/help-with-player-dancing-spinning-when-following-each-other.706121/
  */
 

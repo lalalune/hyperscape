@@ -3,7 +3,7 @@ pragma solidity >=0.8.24;
 
 /**
  * @title CombatLevel
- * @notice Calculates OSRS-accurate combat level from skill levels.
+ * @notice Calculates rules-accurate combat level from skill levels.
  *
  * Formula (must match TypeScript CombatCalculations.ts):
  *   base = 0.25 × (Defense + Constitution + floor(Prayer / 2))

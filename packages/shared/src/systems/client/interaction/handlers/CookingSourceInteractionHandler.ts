@@ -3,7 +3,7 @@
  *
  * Handles interactions with cooking sources (fires and ranges).
  *
- * OSRS Context Menu Format: "<Action> <TargetName>" with cyan target (scenery color)
+ * classic MMORPG Context Menu Format: "<Action> <TargetName>" with cyan target (scenery color)
  * - "Cook Fire" / "Cook Range" (cyan #00ffff for target)
  * - "Walk here"
  * - "Examine Fire" / "Examine Range" (cyan #00ffff for target)
@@ -11,7 +11,6 @@
  * When player is in targeting mode with raw food, clicking a fire/range
  * will trigger the cooking request.
  *
- * @see https://oldschool.runescape.wiki/w/Choose_Option for OSRS menu format
  */
 
 import { BaseInteractionHandler } from "./BaseInteractionHandler";
@@ -19,7 +18,7 @@ import type { RaycastTarget, ContextMenuAction } from "../types";
 import { INTERACTION_RANGE } from "../constants";
 import { EventType } from "../../../../types/events/event-types";
 
-/** OSRS scenery/object color (cyan) for context menu target names */
+/** classic MMORPG scenery/object color (cyan) for context menu target names */
 const SCENERY_COLOR = "#00ffff";
 
 /**
@@ -63,7 +62,7 @@ export class CookingSourceInteractionHandler extends BaseInteractionHandler {
   /**
    * Right-click: Show Cook action and other options
    *
-   * OSRS-accurate format:
+   * rules-accurate format:
    * - "Cook Fire" / "Cook Range" (action white, target cyan)
    * - "Walk here"
    * - "Examine Fire" / "Examine Range" (action white, target cyan)
@@ -77,7 +76,7 @@ export class CookingSourceInteractionHandler extends BaseInteractionHandler {
     const targetName =
       target.name || (sourceType === "range" ? "Range" : "Fire");
 
-    // Cook action (primary) - OSRS: "Cook Fire" or "Cook Range"
+    // Cook action (primary) - classic MMORPG: "Cook Fire" or "Cook Range"
     actions.push({
       id: "cook",
       label: `Cook ${targetName}`,
@@ -100,7 +99,7 @@ export class CookingSourceInteractionHandler extends BaseInteractionHandler {
     // Walk here
     actions.push(this.createWalkHereAction(target));
 
-    // Examine - OSRS: "Examine Fire" or "Examine Range"
+    // Examine - classic MMORPG: "Examine Fire" or "Examine Range"
     const examineText = this.getExamineText(entity, sourceType, isActive);
     actions.push({
       id: "examine",

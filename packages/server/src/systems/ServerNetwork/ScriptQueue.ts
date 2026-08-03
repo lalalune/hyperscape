@@ -1,7 +1,7 @@
 /**
- * ScriptQueue - OSRS-Accurate Script Priority System
+ * ScriptQueue - Rules-Accurate Script Priority System
  *
- * Implements the RuneScape queue script priority system:
+ * Implements the classic fantasy MMORPG queue script priority system:
  *
  * STRONG (Priority 0):
  *   - Removes all WEAK scripts from queue
@@ -24,19 +24,18 @@
  *   - Always executes regardless of other queue state
  *   - Examples: System messages, login scripts
  *
- * IMPORTANT OSRS DIFFERENCE:
+ * IMPORTANT classic MMORPG DIFFERENCE:
  * - Players have all 4 queue types
  * - NPCs have only ONE queue type (all scripts are equal priority)
  *
- * @see https://oldschool.runescape.wiki/w/Tick
- * @see COMBAT_SYSTEM_AUDIT.md for full OSRS research
+ * @see COMBAT_SYSTEM_AUDIT.md for full classic MMORPG research
  */
 
 import type { ServerSocket } from "../../shared/types";
 import { getCachedTimestamp } from "@hyperforge/shared";
 
 /**
- * Script priority levels (OSRS-accurate)
+ * Script priority levels (rules-accurate)
  * Lower number = higher priority
  */
 export enum ScriptPriority {
@@ -141,7 +140,7 @@ const MAX_NORMAL_DELAY_TICKS = 10;
  * PlayerScriptQueue - Script queue for players with full priority system
  *
  * Processes scripts in priority order (STRONG > NORMAL > WEAK > SOFT)
- * with OSRS-accurate interruption and modal handling.
+ * with rules-accurate interruption and modal handling.
  */
 export class PlayerScriptQueue {
   private playerStates: Map<string, EntityScriptState> = new Map();
@@ -245,14 +244,14 @@ export class PlayerScriptQueue {
       executed: false,
     };
 
-    // OSRS RULE: STRONG scripts remove all WEAK scripts
+    // classic MMORPG RULE: STRONG scripts remove all WEAK scripts
     if (effectivePriority === ScriptPriority.STRONG) {
       state.scripts = state.scripts.filter(
         (s) => s.priority !== ScriptPriority.WEAK,
       );
     }
 
-    // OSRS RULE: Movement (walk-here) clears WEAK scripts
+    // classic MMORPG RULE: Movement (walk-here) clears WEAK scripts
     if (type === ScriptType.MOVEMENT) {
       state.scripts = state.scripts.filter(
         (s) => s.priority !== ScriptPriority.WEAK,
@@ -388,7 +387,7 @@ export class PlayerScriptQueue {
   /**
    * Process scripts for a specific player on this tick
    *
-   * OSRS Order (for players):
+   * classic MMORPG Order (for players):
    * 1. SOFT scripts execute first (always)
    * 2. STRONG scripts execute and close modals
    * 3. NORMAL scripts execute if no modal open (else delay)
@@ -580,7 +579,7 @@ export class PlayerScriptQueue {
 /**
  * NPCScriptQueue - Simplified script queue for NPCs
  *
- * OSRS DIFFERENCE: NPCs have only ONE queue type - all scripts are equal priority.
+ * classic MMORPG DIFFERENCE: NPCs have only ONE queue type - all scripts are equal priority.
  * This is much simpler than the player queue.
  */
 export class NPCScriptQueue {
@@ -684,7 +683,7 @@ export class NPCScriptQueue {
       scripts.push(script);
     }
 
-    // Execute scripts (FIFO - process first one only per tick like OSRS)
+    // Execute scripts (FIFO - process first one only per tick like classic MMORPG)
     if (this._toExecuteNPC.length > 0 && this.handler) {
       const script = this._toExecuteNPC[0];
       script.executed = true;

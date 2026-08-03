@@ -3,7 +3,7 @@
  *
  * Unit tests for the ProcessingSystem covering:
  * - Fire limits (max 3 per player)
- * - Burn chance calculation (OSRS-accurate)
+ * - Burn chance calculation (rules-accurate)
  * - Object pooling behavior
  * - fishSlot=-1 handling (find first cookable)
  * - Rate limiting logic

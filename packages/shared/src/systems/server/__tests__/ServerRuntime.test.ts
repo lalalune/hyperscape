@@ -258,7 +258,7 @@ describe("ServerRuntime - Runtime Behavior (Documentation)", () => {
 
   it("should document: runtime ticks run at 2Hz (500ms interval)", () => {
     // The server runtime only drives lifecycle callbacks.
-    // OSRS-like game logic still runs in TickSystem at 600ms.
+    // classic MMORPG-like game logic still runs in TickSystem at 600ms.
     const runtimeTickRate = 2; // Hz
     const runtimeTickInterval = 1000 / runtimeTickRate; // ms
     expect(runtimeTickInterval).toBe(500);
@@ -278,7 +278,7 @@ describe("ServerRuntime - Runtime Behavior (Documentation)", () => {
 
   it("should document: game logic still runs on TickSystem", () => {
     // ServerRuntime handles lifecycle callbacks; combat/AI remain on the
-    // separate OSRS-style TickSystem cadence.
+    // separate classic MMORPG-style TickSystem cadence.
     const tickSystemInterval = 600; // ms
     const runtimeInterval = 500; // ms
 

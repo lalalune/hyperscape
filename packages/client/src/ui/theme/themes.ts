@@ -3,9 +3,9 @@
  *
  * Two theme variants:
  * - base: Clean, minimal dark theme
- * - hyperia: RS3-inspired dark theme with gold/bronze accents and glassmorphism
+ * - hyperia: modern MMORPG-inspired dark theme with gold/bronze accents and glassmorphism
  *
- * Based on Runescape 3 visual design specifications.
+ * Based on classic fantasy MMORPG 3 visual design specifications.
  *
  * @packageDocumentation
  */
@@ -369,7 +369,7 @@ export const baseTheme: Theme = {
 
 /**
  * Hyperia Theme
- * RS3-inspired dark theme with gold/bronze accents and enhanced glassmorphism
+ * modern MMORPG-inspired dark theme with gold/bronze accents and enhanced glassmorphism
  * Updated with more polished color palette for modern game UI
  */
 export const hyperiaTheme: Theme = {
@@ -1055,7 +1055,7 @@ export function getStatusBarGradient(
 }
 
 /**
- * Get decorative panel border style (RS3-style bronze border)
+ * Get decorative panel border style (modern MMORPG-style bronze border)
  */
 export function getDecorativeBorderStyle(theme: Theme): React.CSSProperties {
   if (theme.name === "hyperia") {

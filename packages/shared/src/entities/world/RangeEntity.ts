@@ -159,7 +159,7 @@ export class RangeEntity extends InteractableEntity {
   }
 
   /**
-   * Return tiles occupied by this station for OSRS-style interaction checking.
+   * Return tiles occupied by this station for classic MMORPG-style interaction checking.
    * Uses the same tiles registered for collision.
    */
   protected override getOccupiedTiles(): TileCoord[] {

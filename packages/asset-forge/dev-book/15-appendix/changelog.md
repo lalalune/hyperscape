@@ -142,7 +142,7 @@ This is the first official release of Asset Forge, a comprehensive AI-powered 3D
 
 #### Default Settings
 - Default quality: High
-- Default game style: RuneScape
+- Default game style: classic fantasy MMORPG
 - Default materials: Bronze, Steel, Mithril
 - Default sprites: Disabled
 - Default rigging: Enabled for avatars

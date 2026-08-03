@@ -1,7 +1,7 @@
 /**
  * Ribbon Component
  *
- * Main navigation ribbon with 5 categories (RS3-style).
+ * Main navigation ribbon with 5 categories (modern MMORPG-style).
  * Supports collapsing, badges, and panel toggling.
  *
  * @packageDocumentation
@@ -26,7 +26,7 @@ export interface RibbonCategory {
   badgeType?: BadgeType;
 }
 
-/** Default ribbon categories (RS3-style) */
+/** Default ribbon categories (modern MMORPG-style) */
 export const DEFAULT_CATEGORIES: RibbonCategory[] = [
   {
     id: "hero",

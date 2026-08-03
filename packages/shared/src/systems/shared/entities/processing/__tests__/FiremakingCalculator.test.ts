@@ -1,13 +1,12 @@
 /**
  * Firemaking Calculator Tests
  *
- * Verifies OSRS-accurate firemaking calculations:
+ * Verifies rules-accurate firemaking calculations:
  * - Success rate formula (65/256 at level 1, 100% at level 43+)
  * - XP values per log type
  * - Level requirements
  * - Fire duration ranges
  *
- * @see https://oldschool.runescape.wiki/w/Firemaking
  */
 
 import { describe, it, expect, beforeAll } from "vitest";
@@ -26,7 +25,7 @@ import {
   type FiremakingManifest,
 } from "../../../../../data/ProcessingDataProvider";
 
-// OSRS-accurate firemaking data from recipes/firemaking.json
+// rules-accurate firemaking data from recipes/firemaking.json
 const FIREMAKING_MANIFEST: FiremakingManifest = {
   recipes: [
     { log: "logs", level: 1, xp: 40, ticks: 4 },
@@ -75,7 +74,7 @@ describe("FiremakingCalculator", () => {
       }
     });
 
-    it("follows OSRS LERP formula: (low + (high - low) * (level - 1) / 98) / 256", () => {
+    it("follows classic MMORPG LERP formula: (low + (high - low) * (level - 1) / 98) / 256", () => {
       const { low, high } = PROCESSING_CONSTANTS.FIREMAKING_SUCCESS_RATE;
 
       // Test at level 50 (midpoint)
@@ -224,7 +223,7 @@ describe("FiremakingCalculator", () => {
   });
 
   describe("getRandomFireDuration", () => {
-    it("returns value within OSRS range (100-198 ticks)", () => {
+    it("returns value within classic MMORPG range (100-198 ticks)", () => {
       for (let i = 0; i < 100; i++) {
         const duration = getRandomFireDuration();
         expect(duration).toBeGreaterThanOrEqual(100);
@@ -272,8 +271,8 @@ describe("FiremakingCalculator", () => {
     });
   });
 
-  describe("OSRS Wiki verification", () => {
-    // These tests verify specific values from the OSRS Wiki
+  describe("reference-rules verification", () => {
+    // These tests verify specific values from the reference ruleset
 
     it("normal logs: level 1, 40 XP", () => {
       expect(getFiremakingLevelRequired("logs")).toBe(1);

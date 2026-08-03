@@ -1,7 +1,7 @@
 /**
  * Status Bar Components
  *
- * RS3-style status bars for HP, prayer, adrenaline, energy.
+ * modern MMORPG-style status bars for HP, prayer, adrenaline, energy.
  * Supports both horizontal bar and orb variants.
  *
  * @packageDocumentation
@@ -148,7 +148,7 @@ export interface StatusOrbProps {
   showValue?: boolean;
   /** Active status effect (changes background color) */
   statusEffect?: StatusEffect;
-  /** Enable dynamic label color based on HP percentage (OSRS-style) */
+  /** Enable dynamic label color based on HP percentage (classic MMORPG-style) */
   dynamicLabelColor?: boolean;
   /** Click handler */
   onClick?: () => void;
@@ -161,7 +161,7 @@ export interface StatusOrbProps {
 }
 
 /**
- * Get label color based on HP percentage (OSRS-style)
+ * Get label color based on HP percentage (classic MMORPG-style)
  * Green (>50%) -> Yellow (25-50%) -> Red (<25%)
  */
 function getHpLabelColor(percent: number): string {
@@ -386,7 +386,7 @@ export interface SpecialAttackOrbProps {
 }
 
 /**
- * Special Attack Orb Component (OSRS-style)
+ * Special Attack Orb Component (classic MMORPG-style)
  *
  * Shows special attack energy with visual feedback:
  * - Light blue fill when spec weapon equipped
@@ -510,7 +510,7 @@ export interface RunEnergyOrbProps {
 }
 
 /**
- * Run Energy Orb Component (OSRS-style)
+ * Run Energy Orb Component (classic MMORPG-style)
  *
  * Shows run energy with toggle functionality:
  * - Amber/orange fill for energy level

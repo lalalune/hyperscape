@@ -1057,7 +1057,7 @@ describe('Full Generation Pipeline', () => {
       type: 'weapon',
       subtype: 'sword',
       description: 'iron sword',
-      style: 'runescape'
+      style: 'classic'
     }
 
     // Generate image
@@ -1180,7 +1180,7 @@ const NO_MANNEQUIN_INSTRUCTION =
 **Solution**: Be very explicit about style
 ```typescript
 const STYLE_INSTRUCTION =
-  "Art style: Low-poly RuneScape 2007 with under 500 polygons, " +
+  "Art style: Classic low-poly fantasy with under 500 polygons, " +
   "flat shading, vibrant saturated colors, chunky proportions, " +
   "early 2000s game aesthetic. NOT realistic, NOT high-poly."
 ```

@@ -274,7 +274,7 @@ export class DuelScheduler {
       const ranged = data.skills.ranged?.level || 1;
       const magic = data.skills.magic?.level || 1;
 
-      // OSRS combat level formula (simplified)
+      // classic MMORPG combat level formula (simplified)
       const base = 0.25 * (defence + hitpoints + Math.floor(prayer / 2));
       const melee = 0.325 * (attack + strength);
       const range = 0.325 * Math.floor(ranged * 1.5);

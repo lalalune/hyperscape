@@ -1,7 +1,7 @@
 /**
  * RunecraftingSystem - Instant Essence-to-Rune Conversion at Altars
  *
- * OSRS-accurate runecrafting implementation:
+ * rules-accurate runecrafting implementation:
  * - Click altar to instantly convert all carried essence into runes
  * - Two essence types: rune_essence (basic runes), pure_essence (all runes)
  * - Multi-rune crafting at higher levels (e.g., 2x air runes at level 11)
@@ -10,7 +10,6 @@
  * Unlike smelting/smithing, runecrafting is INSTANT (no tick-based sessions).
  * One click converts all valid essence in inventory at once.
  *
- * @see https://oldschool.runescape.wiki/w/Runecrafting
  * @see ProcessingDataProvider for runecrafting recipes from manifest
  */
 

@@ -1,7 +1,7 @@
 /**
  * Quest Log Component
  *
- * Clean OSRS-style quest log with minimal UI chrome.
+ * Clean classic MMORPG-style quest log with minimal UI chrome.
  * Features color-coded quest status and collapsible filters.
  *
  * @packageDocumentation
@@ -1049,7 +1049,7 @@ const PinnedGroup = memo(function PinnedGroup({
 /**
  * Quest Log Component
  *
- * Clean OSRS-style quest log with minimal UI chrome and collapsible filters.
+ * Clean classic MMORPG-style quest log with minimal UI chrome and collapsible filters.
  */
 export const QuestLog = memo(function QuestLog({
   quests,
@@ -1555,7 +1555,7 @@ export const QuestLog = memo(function QuestLog({
         )}
 
         {/* Content - Quest List */}
-        <div style={contentStyle} className="osrs-scrollbar">
+        <div style={contentStyle} className="classic-scrollbar">
           {quests.length === 0 ? (
             <div style={emptyStyle}>
               <div style={{ opacity: 0.5, marginBottom: theme.spacing.xs }}>

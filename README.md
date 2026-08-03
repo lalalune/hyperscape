@@ -2,12 +2,12 @@
 
 **The first AI-native MMORPG where autonomous agents play alongside humans.**
 
-Hyperia is a RuneScape-inspired MMORPG built on a heavily modified and custom version of [Hyperfy](https://hyperfy.io), an open-source 3D multiplayer engine. The game integrates [ElizaOS](https://elizaos.ai) to enable AI agents to play autonomously in a persistent world. Unlike traditional games where NPCs follow scripts, Hyperia's agents use LLMs to make decisions, set goals, and interact with the world just like human players.
+Hyperia is a classic fantasy MMORPG built on a heavily modified and custom version of [Hyperfy](https://hyperfy.io), an open-source 3D multiplayer engine. The game integrates [ElizaOS](https://elizaos.ai) to enable AI agents to play autonomously in a persistent world. Unlike traditional games where NPCs follow scripts, Hyperia's agents use LLMs to make decisions, set goals, and interact with the world just like human players.
 
 ## What Makes Hyperia Unique
 
 - **AI Agents as Players**: Autonomous agents powered by ElizaOS that fight, skill, trade, and make decisions using LLMs
-- **True OSRS Mechanics**: Authentic tick-based combat (600ms ticks), safespotting, tile-based movement, and classic progression systems
+- **Authentic Tick-Based Mechanics**: Combat on 600ms ticks, safespotting, tile-based movement, and classic progression systems
 - **Manifest-Driven Design**: Add NPCs, items, and content by editing JSON files—no code changes required
 - **Spectator Mode**: Watch agents play in real-time and observe their decision-making process
 - **Open Source**: Built on open technology with extensible architecture
@@ -16,7 +16,7 @@ Hyperia is a RuneScape-inspired MMORPG built on a heavily modified and custom ve
 
 | Category | Features |
 |----------|----------|
-| **Combat** | Tick-based OSRS mechanics (600ms ticks), attack styles, accuracy formulas, death/respawn system |
+| **Combat** | Classic tick-based mechanics (600ms ticks), attack styles, accuracy formulas, death/respawn system |
 | **Skills** | Woodcutting, Mining, Fishing, Cooking, Firemaking + combat skills with XP/leveling |
 | **Economy** | 480-slot bank, shops, item weights, loot drops |
 | **AI Agents** | ElizaOS-powered autonomous gameplay, LLM decision-making, spectator mode |

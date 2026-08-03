@@ -314,8 +314,8 @@ describe("TileSystem", () => {
       expect(hasNE).toBe(true);
     });
 
-    it("has OSRS priority order (W, E, S, N, SW, SE, NW, NE)", () => {
-      // OSRS BFS processes neighbors in this order
+    it("has classic MMORPG priority order (W, E, S, N, SW, SE, NW, NE)", () => {
+      // classic MMORPG BFS processes neighbors in this order
       expect(TILE_DIRECTIONS[0]).toEqual({ x: -1, z: 0 }); // W
       expect(TILE_DIRECTIONS[1]).toEqual({ x: 1, z: 0 }); // E
       expect(TILE_DIRECTIONS[2]).toEqual({ x: 0, z: -1 }); // S
@@ -332,7 +332,7 @@ describe("TileSystem", () => {
   describe("tilesWithinMeleeRange", () => {
     const center = { x: 5, z: 5 };
 
-    describe("range 1 (OSRS cardinal-only)", () => {
+    describe("range 1 (classic MMORPG cardinal-only)", () => {
       it("returns true for cardinal north neighbor", () => {
         expect(tilesWithinMeleeRange(center, { x: 5, z: 6 }, 1)).toBe(true);
       });
@@ -349,19 +349,19 @@ describe("TileSystem", () => {
         expect(tilesWithinMeleeRange(center, { x: 4, z: 5 }, 1)).toBe(true);
       });
 
-      it("returns false for diagonal northeast (OSRS rule)", () => {
+      it("returns false for diagonal northeast (classic MMORPG rule)", () => {
         expect(tilesWithinMeleeRange(center, { x: 6, z: 6 }, 1)).toBe(false);
       });
 
-      it("returns false for diagonal southeast (OSRS rule)", () => {
+      it("returns false for diagonal southeast (classic MMORPG rule)", () => {
         expect(tilesWithinMeleeRange(center, { x: 6, z: 4 }, 1)).toBe(false);
       });
 
-      it("returns false for diagonal southwest (OSRS rule)", () => {
+      it("returns false for diagonal southwest (classic MMORPG rule)", () => {
         expect(tilesWithinMeleeRange(center, { x: 4, z: 4 }, 1)).toBe(false);
       });
 
-      it("returns false for diagonal northwest (OSRS rule)", () => {
+      it("returns false for diagonal northwest (classic MMORPG rule)", () => {
         expect(tilesWithinMeleeRange(center, { x: 4, z: 6 }, 1)).toBe(false);
       });
 
@@ -675,7 +675,7 @@ describe("TileSystem", () => {
 
       it("returns true when standing on one footprint tile (adjacent to others)", () => {
         // When standing on a corner tile, player is in range of adjacent footprint tiles
-        // This is correct OSRS behavior - you're "in range" even if technically on the object
+        // This is correct classic MMORPG behavior - you're "in range" even if technically on the object
         // (4,4) is distance 1 from (5,4) and (4,5)
         expect(
           tilesWithinRangeOfFootprint({ x: 4, z: 4 }, center, 2, 2, 1),

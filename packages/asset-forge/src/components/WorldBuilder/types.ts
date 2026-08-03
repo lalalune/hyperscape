@@ -648,7 +648,7 @@ export interface WildernessZone {
 }
 
 /**
- * Default wilderness configuration (RuneScape-style, north direction)
+ * Default wilderness configuration (classic fantasy MMORPG-style, north direction)
  */
 export const DEFAULT_WILDERNESS: WildernessZone = {
   id: "wilderness-main",

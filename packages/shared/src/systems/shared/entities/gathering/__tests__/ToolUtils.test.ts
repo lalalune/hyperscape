@@ -6,7 +6,6 @@
  * - Category matching for pickaxes and hatchets
  * - Exact matching for fishing tools
  *
- * @see https://oldschool.runescape.wiki/w/Noted_items
  */
 
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";

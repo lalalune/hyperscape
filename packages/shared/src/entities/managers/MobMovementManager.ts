@@ -2,7 +2,7 @@
  * MobMovementManager - Manages tile movement, patrol, pathfinding, and occupancy for MobEntity.
  *
  * Extracted from MobEntity to separate movement/occupancy concerns from AI and combat logic.
- * Handles tile-based movement (OSRS-accurate), patrol point generation, wander targets,
+ * Handles tile-based movement (rules-accurate), patrol point generation, wander targets,
  * occupancy registration/unregistration, spawn tile search, and distance calculations.
  *
  * **Pattern**: Plain class (not a System subclass).
@@ -167,7 +167,7 @@ export class MobMovementManager {
   /**
    * Find an unoccupied tile for spawning using spiral search
    *
-   * OSRS Mechanic: If spawn tile is occupied, search outward in expanding rings
+   * classic MMORPG Mechanic: If spawn tile is occupied, search outward in expanding rings
    * until an unoccupied tile is found. Uses Chebyshev distance (8-connected).
    *
    * @param centerX - Center tile X coordinate
@@ -284,7 +284,7 @@ export class MobMovementManager {
    * Called after spawn/respawn to set collision flags on tiles this mob occupies.
    * Uses pre-allocated buffers to avoid hot path allocations.
    *
-   * OSRS Mechanic: Flags set when entity spawns/moves TO a tile
+   * classic MMORPG Mechanic: Flags set when entity spawns/moves TO a tile
    * If spawn tile is occupied, finds nearby unoccupied tile first.
    */
   registerOccupancy(): void {
@@ -302,7 +302,7 @@ export class MobMovementManager {
     this._currentTile.z = Math.floor(pos.z);
 
     // Check if spawn tile is already occupied by another mob
-    // If so, find an unoccupied tile nearby (OSRS-accurate: NPCs don't stack)
+    // If so, find an unoccupied tile nearby (rules-accurate: NPCs don't stack)
     const unoccupiedTile = this.findUnoccupiedSpawnTile(
       this._currentTile.x,
       this._currentTile.z,
@@ -349,7 +349,7 @@ export class MobMovementManager {
    *
    * Called when mob dies or despawns to clear collision flags.
    *
-   * OSRS Mechanic: Flags removed when entity despawns/dies
+   * classic MMORPG Mechanic: Flags removed when entity despawns/dies
    */
   unregisterOccupancy(): void {
     // Server-only: occupancy tracking is authoritative
@@ -367,7 +367,7 @@ export class MobMovementManager {
    * Called after successful movement to update collision flags.
    * Uses atomic move() to avoid race conditions.
    *
-   * OSRS Mechanic: Flags removed from old tiles, added to new tiles (in order)
+   * classic MMORPG Mechanic: Flags removed from old tiles, added to new tiles (in order)
    * Called by MobTileMovementManager after successful movement.
    */
   updateOccupancy(): void {
@@ -435,9 +435,9 @@ export class MobMovementManager {
   // ─── Wander target generation ───────────────────────────────────
 
   /**
-   * Generate a random wander target within wander radius (OSRS-accurate)
+   * Generate a random wander target within wander radius (rules-accurate)
    *
-   * OSRS generates wander targets relative to SPAWN, not current position.
+   * classic MMORPG generates wander targets relative to SPAWN, not current position.
    * This ensures NPCs naturally drift back toward spawn over time,
    * even after being leashed far from their spawn point.
    *
@@ -447,7 +447,7 @@ export class MobMovementManager {
     const spawn = this._currentSpawnPoint;
     const radius = this.ctx.config.wanderRadius;
 
-    // OSRS-accurate: Random tile within [-radius, +radius] of spawn
+    // rules-accurate: Random tile within [-radius, +radius] of spawn
     // This creates a square wander area centered on spawn
     const range = 2 * radius + 1;
     const offsetX = Math.floor(Math.random() * range) - radius;
@@ -530,7 +530,7 @@ export class MobMovementManager {
         Math.exp(-deltaTime * COMBAT_CONSTANTS.ROTATION.MOVEMENT_SLERP_SPEED);
       this.ctx.node.quaternion.slerp(this._targetQuat, rotationAlpha);
 
-      // Stuck detection: Only check when actively moving (RuneScape-style: give up if stuck)
+      // Stuck detection: Only check when actively moving (classic fantasy MMORPG-style: give up if stuck)
       // This prevents false positives during IDLE and ATTACK states
       const isMovingState =
         this.ctx.config.aiState === MobAIState.WANDER ||
@@ -572,7 +572,7 @@ export class MobMovementManager {
   }
 
   /**
-   * Emit a tile movement request (OSRS-accurate tick-based movement)
+   * Emit a tile movement request (rules-accurate tick-based movement)
    * Called by AI state machine's moveTowards callback.
    * Server's MobTileMovementManager will handle the actual movement on ticks.
    *
@@ -619,7 +619,7 @@ export class MobMovementManager {
 
   /**
    * Calculate 2D horizontal distance (XZ plane only, ignoring Y)
-   * @deprecated Use getSpawnDistanceTiles() for leash/spawn checks - OSRS uses Chebyshev distance
+   * @deprecated Use getSpawnDistanceTiles() for leash/spawn checks - classic MMORPG uses Chebyshev distance
    */
   getDistance2D(point: Position3D): number {
     const pos = this.ctx.getPosition();
@@ -629,9 +629,9 @@ export class MobMovementManager {
   }
 
   /**
-   * Calculate tile-based Chebyshev distance from spawn point (OSRS-accurate)
+   * Calculate tile-based Chebyshev distance from spawn point (rules-accurate)
    *
-   * OSRS uses Chebyshev distance (max of dx, dz) for tile-based checks.
+   * classic MMORPG uses Chebyshev distance (max of dx, dz) for tile-based checks.
    * This is critical for diagonal positions:
    * - Euclidean: (6,6) from (0,0) = 8.49 tiles (WRONG)
    * - Chebyshev: (6,6) from (0,0) = 6 tiles (CORRECT)
@@ -646,8 +646,7 @@ export class MobMovementManager {
 
   /**
    * Get the mob's leash range (max tiles from spawn during chase)
-   * OSRS-accurate default: 7 tiles max range from spawn
-   * @see https://oldschool.runescape.wiki/w/Aggressiveness
+   * rules-accurate default: 7 tiles max range from spawn
    */
   getLeashRange(): number {
     return (

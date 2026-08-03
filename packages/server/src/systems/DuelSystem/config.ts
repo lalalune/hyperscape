@@ -4,7 +4,7 @@
  * Centralized configuration constants for the duel system.
  * Eliminates magic numbers throughout the codebase.
  *
- * All timing values are in game ticks (600ms each, OSRS-accurate).
+ * All timing values are in game ticks (600ms each, rules-accurate).
  * Use ticksToMs() helper or multiply by TICK_DURATION_MS for setTimeout/setInterval.
  * All distance values are in tiles/units.
  */
@@ -48,7 +48,7 @@ export const SESSION_MAX_AGE_TICKS = 3000;
 
 /**
  * Delay before resolving duel after death to allow animation
- * OSRS-accurate: 8 ticks ≈ 4.8 seconds (close to 5s, aligned to tick boundary)
+ * rules-accurate: 8 ticks ≈ 4.8 seconds (close to 5s, aligned to tick boundary)
  */
 export const DEATH_RESOLUTION_DELAY_TICKS = 8;
 
@@ -82,7 +82,7 @@ export { TICK_DURATION_MS };
 
 /**
  * Maximum distance (in tiles) between players to create/maintain a challenge
- * OSRS-accurate: 15 tiles
+ * rules-accurate: 15 tiles
  */
 export const CHALLENGE_DISTANCE_TILES = 15;
 

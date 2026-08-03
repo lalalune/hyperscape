@@ -1,14 +1,13 @@
 /**
- * OSRS-Accurate Auto-Retaliate Movement Tests
+ * Rules-Accurate Auto-Retaliate Movement Tests
  *
- * Tests the critical OSRS behavior: when auto-retaliate triggers,
+ * Tests the critical classic MMORPG behavior: when auto-retaliate triggers,
  * the player's movement destination is REPLACED with the attacker's position.
  *
- * Key OSRS behaviors tested:
+ * Key classic MMORPG behaviors tested:
  * - Auto-retaliate ON: Player moves toward attacker (cancels "run away" movement)
  * - Auto-retaliate OFF: Player keeps their current movement (can run away)
  *
- * @see https://oldschool.runescape.wiki/w/Auto_Retaliate
  * "the player's character walks/runs towards the monster attacking and fights back"
  */
 
@@ -241,7 +240,7 @@ function createTestWorld(options: { currentTick?: number } = {}) {
   };
 }
 
-describe("OSRS Auto-Retaliate Movement", () => {
+describe("classic MMORPG Auto-Retaliate Movement", () => {
   let combatSystem: CombatSystem;
   let world: ReturnType<typeof createTestWorld>;
 
@@ -506,7 +505,7 @@ describe("OSRS Auto-Retaliate Movement", () => {
     });
   });
 
-  describe("OSRS-accurate auto-retaliate interrupts movement", () => {
+  describe("rules-accurate auto-retaliate interrupts movement", () => {
     it("emits COMBAT_FOLLOW_TARGET when mob with extended range attacks moving player", () => {
       // Player is actively moving (tileMovementActive = true)
       // Mob with range 2 attacks, player needs to close distance

@@ -4001,7 +4001,7 @@ export class AutonomousBehaviorManager {
   }
 
   /**
-   * Build prompt for action selection with OSRS common sense knowledge
+   * Build prompt for action selection with classic MMORPG common sense knowledge
    * This prompt gives the LLM context AND common sense rules so it can make intelligent decisions
    */
   private buildActionSelectionPrompt(
@@ -4181,7 +4181,7 @@ export class AutonomousBehaviorManager {
     // === SYSTEM INSTRUCTION ===
     const traits = getPersonalityTraits(this.runtime);
     lines.push(
-      "You are a character living in an OSRS-style RPG. You are preparing for duels against other agents.",
+      "You are a character living in a classic fantasy RPG. You are preparing for duels against other agents.",
     );
     lines.push(
       "Every action you take should make you stronger for combat. Think step by step, keeping your personality and duel preparation in mind.",
@@ -4397,7 +4397,7 @@ export class AutonomousBehaviorManager {
       lines.push("");
     }
 
-    // === OSRS COMMON SENSE RULES ===
+    // === classic MMORPG COMMON SENSE RULES ===
     lines.push("=== GAME KNOWLEDGE (Important!) ===");
     lines.push("These are the fundamental rules of the game:");
     lines.push("");
@@ -5952,7 +5952,7 @@ export class AutonomousBehaviorManager {
   /**
    * Duel combat tick — strategic combat loop during duel fights.
    *
-   * Priority order (like a real RS player):
+   * Priority order (like an experienced player):
    *   1. Heal if health below threshold
    *   2. Movement — kite/chase/circle based on fight plan
    *   3. Adjust combat style & prayers based on phase

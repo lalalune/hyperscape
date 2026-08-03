@@ -1,14 +1,13 @@
 /**
- * WanderBehavior - OSRS-accurate random walking
+ * WanderBehavior - rules-accurate random walking
  *
- * OSRS NPCs have a probabilistic wandering system:
+ * classic MMORPG NPCs have a probabilistic wandering system:
  * - ~10/1000 chance per CLIENT tick to start wandering
  * - With ~30 client ticks per server tick, this is ~26-30% per server tick
  * - Wander radius is typically 5 tiles from spawn point
  *
  * This replaces the time-based idle system with probabilistic wandering.
  *
- * @see https://osrs-docs.com/docs/mechanics/random-walk/
  */
 
 import type { TileCoord } from "./TileSystem";
@@ -31,13 +30,13 @@ export interface WanderConfig {
 }
 
 /**
- * WanderBehavior - OSRS-accurate random walking
+ * WanderBehavior - rules-accurate random walking
  *
- * Provides probabilistic wandering behavior matching OSRS mechanics.
+ * Provides probabilistic wandering behavior matching classic tick-based mechanics.
  * NPCs have a ~26-30% chance per server tick to start a new wander path.
  */
 export class WanderBehavior {
-  // OSRS probability converted to server tick
+  // classic MMORPG probability converted to server tick
   // ~10/1000 per client tick × ~30 client ticks/server tick ≈ 26%
   private static readonly DEFAULT_WANDER_CHANCE = 0.26;
   private static readonly DEFAULT_WANDER_RADIUS = 5;
@@ -65,7 +64,7 @@ export class WanderBehavior {
   /**
    * Check if NPC should start wandering this tick
    *
-   * OSRS-accurate: ~26-30% chance per tick when idle.
+   * rules-accurate: ~26-30% chance per tick when idle.
    * Returns false if:
    * - Movement type is stationary
    * - Already has a wander path
@@ -109,12 +108,12 @@ export class WanderBehavior {
     }
     this._lastWanderTick = currentTick;
 
-    // Probabilistic check (OSRS-accurate: ~26% per tick)
+    // Probabilistic check (rules-accurate: ~26% per tick)
     return Math.random() < this.wanderChance;
   }
 
   /**
-   * Generate wander destination (OSRS-accurate)
+   * Generate wander destination (rules-accurate)
    *
    * Random offset -5 to +5 tiles on each axis from spawn.
    * Uses pre-allocated buffer for zero allocation.
@@ -125,7 +124,7 @@ export class WanderBehavior {
   generateWanderTarget(spawnTile: TileCoord): TileCoord {
     const radius = this.wanderRadius;
 
-    // OSRS: Random offset within [-radius, +radius] from spawn
+    // classic MMORPG: Random offset within [-radius, +radius] from spawn
     // 2 * radius + 1 possible values on each axis
     const range = 2 * radius + 1;
     const offsetX = Math.floor(Math.random() * range) - radius;

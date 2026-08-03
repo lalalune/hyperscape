@@ -2,7 +2,7 @@
  * Coin Pouch Component
  *
  * Displays the money pouch balance and handles withdrawal interactions.
- * RS3-style: click or press Enter/Space to open withdrawal modal.
+ * modern MMORPG-style: click or press Enter/Space to open withdrawal modal.
  *
  * Accessibility:
  * - role="button" for screen reader identification

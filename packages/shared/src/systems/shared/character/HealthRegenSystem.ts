@@ -1,8 +1,8 @@
 /**
- * HealthRegenSystem - Passive Health Regeneration (OSRS-style)
+ * HealthRegenSystem - Passive Health Regeneration (classic MMORPG-style)
  *
  * Server-authoritative system that handles passive health regeneration for all players.
- * Implements OSRS-accurate mechanics using game ticks (600ms each):
+ * Implements rules-accurate mechanics using game ticks (600ms each):
  * - No regeneration while in combat
  * - 17 tick cooldown (10.2 seconds) after taking damage before regen starts
  * - Regenerates 1 HP every 100 ticks (60 seconds) when conditions are met
@@ -195,7 +195,7 @@ export class HealthRegenSystem extends SystemBase {
   }
 
   /**
-   * Get last damage tick from entity (tick-based for OSRS accuracy)
+   * Get last damage tick from entity (tick-based for classic MMORPG accuracy)
    */
   private getLastDamageTick(entity: unknown): number | null {
     if (!entity || typeof entity !== "object") return null;

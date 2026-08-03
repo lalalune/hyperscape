@@ -1,7 +1,7 @@
 /**
  * WanderBehavior Unit Tests
  *
- * Tests OSRS-accurate probabilistic wandering behavior.
+ * Tests rules-accurate probabilistic wandering behavior.
  *
  * Key behaviors tested:
  * - Probabilistic wander chance (~26% per tick)
@@ -9,7 +9,6 @@
  * - State management (active wander path)
  * - Movement type restrictions (stationary)
  *
- * @see https://osrs-docs.com/docs/mechanics/random-walk/
  * @see MOB_AGGRO_IMPLEMENTATION_PLAN.md Phase 3.1
  */
 

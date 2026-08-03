@@ -1,7 +1,7 @@
 /**
  * Mob Tile Movement Manager
  *
- * RuneScape-style tile-based movement system for mobs.
+ * classic fantasy MMORPG-style tile-based movement system for mobs.
  * Mobs move discretely from tile to tile on server ticks (600ms).
  *
  * Key behaviors:
@@ -9,13 +9,12 @@
  * - Mobs move 1-2 tiles per tick (based on mob speed)
  * - Uses greedy/direct pathfinding (chaseStep), NOT BFS
  * - Mobs walk directly toward target, getting stuck behind obstacles
- * - This enables "safespotting" gameplay (authentic OSRS behavior)
+ * - This enables "safespotting" gameplay (authentic classic MMORPG behavior)
  * - Client interpolates visually between tile positions
  *
- * OSRS Reference:
+ * classic MMORPG Reference:
  * - Mobs use "dumb" pathfinding - they don't navigate around obstacles
- * - This is why safespotting works in OSRS
- * - @see https://oldschool.runescape.wiki/w/Pathfinding
+ * - This is why safespotting works in classic MMORPG
  */
 
 import {
@@ -93,10 +92,10 @@ function createMobTileState(
 }
 
 /**
- * Tile-based movement manager for mobs (RuneScape-style)
+ * Tile-based movement manager for mobs (classic fantasy MMORPG-style)
  *
  * IMPORTANT: Mobs use greedy/direct pathfinding (chaseStep), NOT BFS.
- * This is authentic OSRS behavior - mobs walk directly toward their target
+ * This is authentic classic MMORPG behavior - mobs walk directly toward their target
  * and get stuck behind obstacles (enabling safespotting gameplay).
  */
 export class MobTileMovementManager {
@@ -310,7 +309,7 @@ export class MobTileMovementManager {
    * Called by MobEntity when AI wants to move
    *
    * IMPORTANT: Mobs use greedy/direct pathfinding (chaseStep), NOT BFS.
-   * This is authentic OSRS behavior - mobs walk directly toward their target
+   * This is authentic classic MMORPG behavior - mobs walk directly toward their target
    * and get stuck behind obstacles (enabling safespotting gameplay).
    *
    * @param mobId - The mob's entity ID
@@ -361,7 +360,7 @@ export class MobTileMovementManager {
 
     // If chasing an entity and already within combat range - stop moving
     // (Only for combat - when returning to spawn, we want the exact tile)
-    // OSRS-accurate: Range 1 = cardinal only (N/S/E/W), range 2+ = diagonal allowed
+    // rules-accurate: Range 1 = cardinal only (N/S/E/W), range 2+ = diagonal allowed
     if (
       targetEntityId !== null &&
       tilesWithinMeleeRange(state.currentTile, targetTile, combatRange)
@@ -413,7 +412,7 @@ export class MobTileMovementManager {
     this._currentPosTile.x = state.currentTile.x;
     this._currentPosTile.z = state.currentTile.z;
 
-    // OSRS-ACCURATE LEASH RANGE CAP: Get spawn point and leash range
+    // RULES-ACCURATE LEASH RANGE CAP: Get spawn point and leash range
     // Mobs cannot move beyond leashRange from their spawn point
     const mobEntity = entity instanceof MobEntity ? entity : null;
     const spawnPoint = mobEntity?.getSpawnPoint();
@@ -432,7 +431,7 @@ export class MobTileMovementManager {
 
       if (!nextTile) break; // Blocked
 
-      // OSRS-ACCURATE: Check if this step would exceed leash range from spawn
+      // RULES-ACCURATE: Check if this step would exceed leash range from spawn
       // If so, stop at current position (mob lingers at edge)
       if (spawnTile) {
         const nextDistFromSpawn = tileChebyshevDistance(nextTile, spawnTile);
@@ -449,7 +448,7 @@ export class MobTileMovementManager {
       this._currentPosTile.x = nextTile.x;
       this._currentPosTile.z = nextTile.z;
 
-      // Stop if we'll be in combat range after this step (OSRS melee rules)
+      // Stop if we'll be in combat range after this step (classic MMORPG melee rules)
       if (tilesWithinMeleeRange(nextTile, targetTile, combatRange)) break;
     }
 
@@ -504,7 +503,7 @@ export class MobTileMovementManager {
     // Broadcast movement started
     // Server sends COMPLETE authoritative path - client follows exactly, no recalculation
     // startTile: where server knows mob IS
-    // OSRS-style: Bundle emote with movement packet to prevent animation mismatch
+    // classic MMORPG-style: Bundle emote with movement packet to prevent animation mismatch
 
     // Zero-allocation: copy path to pre-allocated network buffer
     this._networkPathBuffer.length = state.path.length;
@@ -599,14 +598,13 @@ export class MobTileMovementManager {
         );
       }
 
-      // OSRS-STYLE DUMB PATHFINDER FOR CHASE MODE
+      // classic MMORPG-STYLE DUMB PATHFINDER FOR CHASE MODE
       // Instead of expensive BFS repathing every tick, NPCs use a simple algorithm:
       // 1. Try diagonal step toward target
       // 2. Try cardinal steps (prioritize axis with greater distance)
       // 3. If all blocked = NPC is "stuck" (safespotting!)
       //
       // This is O(1) per step, so no throttling is needed.
-      // @see https://oldschool.runescape.wiki/w/Pathfinding
       if (state.isChasing && state.targetEntityId) {
         // CRITICAL: Players are NOT in world.entities - they're accessed via world.getPlayer()
         // Mobs are in world.entities, but when chasing we're always targeting players
@@ -621,9 +619,9 @@ export class MobTileMovementManager {
             this._targetTile,
           );
 
-          // OSRS COMBAT POSITIONING: Check if we're already in combat range
+          // classic MMORPG COMBAT POSITIONING: Check if we're already in combat range
           // If so, we're in attack range - no need to move closer!
-          // OSRS-accurate: Range 1 = cardinal only (N/S/E/W), range 2+ = diagonal allowed
+          // rules-accurate: Range 1 = cardinal only (N/S/E/W), range 2+ = diagonal allowed
           const combatRange = state.combatRange || 1;
           if (
             tilesWithinMeleeRange(
@@ -698,7 +696,7 @@ export class MobTileMovementManager {
           this._currentPosTile.x = state.currentTile.x;
           this._currentPosTile.z = state.currentTile.z;
 
-          // OSRS-ACCURATE LEASH RANGE CAP: Get spawn point and leash range
+          // RULES-ACCURATE LEASH RANGE CAP: Get spawn point and leash range
           // Mobs cannot move beyond leashRange from their spawn point
           const mobEntity = entity instanceof MobEntity ? entity : null;
           const spawnPoint = mobEntity?.getSpawnPoint();
@@ -726,7 +724,7 @@ export class MobTileMovementManager {
               break;
             }
 
-            // OSRS-ACCURATE: Check if this step would exceed leash range from spawn
+            // RULES-ACCURATE: Check if this step would exceed leash range from spawn
             // If so, stop at current position (mob lingers at edge)
             if (hasSpawnTile) {
               const nextDistFromSpawn = tileChebyshevDistance(
@@ -747,7 +745,7 @@ export class MobTileMovementManager {
             this._currentPosTile.x = nextTile.x;
             this._currentPosTile.z = nextTile.z;
 
-            // Stop early if we'll be in combat range after this step (OSRS melee rules)
+            // Stop early if we'll be in combat range after this step (classic MMORPG melee rules)
             if (
               tilesWithinMeleeRange(nextTile, this._targetTile, combatRange)
             ) {
@@ -880,7 +878,7 @@ export class MobTileMovementManager {
 
         const nextTile = state.path[state.pathIndex];
 
-        // OSRS-STYLE COLLISION: Never step onto the tile occupied by our target
+        // classic MMORPG-STYLE COLLISION: Never step onto the tile occupied by our target
         // This is defense-in-depth - the path should already avoid this,
         // but we double-check here in case target moved after path calculation
         if (
@@ -898,10 +896,10 @@ export class MobTileMovementManager {
           break;
         }
 
-        // OSRS-ACCURATE ENTITY COLLISION: Check if tile is blocked by another NPC
-        // Per OSRS: Pathfinder IGNORES entity collision - it's checked HERE at movement time
+        // RULES-ACCURATE ENTITY COLLISION: Check if tile is blocked by another NPC
+        // Pathfinder ignores entity collision; it is checked here at movement time.
         // If blocked: movement fails, path is RETAINED for retry next tick
-        // This creates the "waiting behind" behavior seen in OSRS
+        // This creates the "waiting behind" behavior seen in classic MMORPG
         const isBlocked = this.world.entityOccupancy.isBlocked(
           nextTile,
           mobId as EntityID,
@@ -913,7 +911,7 @@ export class MobTileMovementManager {
               `[MobTileMovement] COLLISION: Mob ${mobId} at (${state.currentTile.x},${state.currentTile.z}) cannot move to (${nextTile.x},${nextTile.z}) - blocked by ${occupant?.entityId}`,
             );
           }
-          // Path is RETAINED - will retry next tick (OSRS-accurate)
+          // Path is RETAINED - will retry next tick (rules-accurate)
           break;
         } else if (this.DEBUG_MODE) {
           console.log(
@@ -975,7 +973,7 @@ export class MobTileMovementManager {
         entity.data.position = [worldPos.x, worldPos.y, worldPos.z];
       }
 
-      // Update entity occupancy after movement (OSRS-accurate tile collision)
+      // Update entity occupancy after movement (rules-accurate tile collision)
       // This updates the EntityOccupancyMap to reflect the mob's new position
       if (entity instanceof MobEntity) {
         if (this.DEBUG_MODE)
@@ -1052,9 +1050,9 @@ export class MobTileMovementManager {
   /**
    * Process movement for a specific mob on this tick
    *
-   * OSRS-ACCURATE: Called by GameTickProcessor during NPC phase
+   * RULES-ACCURATE: Called by GameTickProcessor during NPC phase
    * This processes just one mob's movement instead of all mobs.
-   * NPCs process BEFORE players in OSRS, which creates damage asymmetry.
+   * NPCs process BEFORE players in classic MMORPG, which creates damage asymmetry.
    *
    * Zero-allocation: Uses pre-allocated tile buffers.
    *
@@ -1073,7 +1071,7 @@ export class MobTileMovementManager {
 
     const terrain = this.getTerrain();
 
-    // OSRS-STYLE DUMB PATHFINDER FOR CHASE MODE
+    // classic MMORPG-STYLE DUMB PATHFINDER FOR CHASE MODE
     if (state.isChasing && state.targetEntityId) {
       const targetPlayer = this.world.getPlayer?.(state.targetEntityId);
       const targetEntity =
@@ -1126,7 +1124,7 @@ export class MobTileMovementManager {
         this._currentPosTile.x = state.currentTile.x;
         this._currentPosTile.z = state.currentTile.z;
 
-        // OSRS-ACCURATE LEASH RANGE CAP: Get spawn point and leash range
+        // RULES-ACCURATE LEASH RANGE CAP: Get spawn point and leash range
         // Mobs cannot move beyond leashRange from their spawn point
         const mobEntity = entity instanceof MobEntity ? entity : null;
         const spawnPoint = mobEntity?.getSpawnPoint();
@@ -1151,7 +1149,7 @@ export class MobTileMovementManager {
 
           if (!nextTile) break;
 
-          // OSRS-ACCURATE: Check if this step would exceed leash range from spawn
+          // RULES-ACCURATE: Check if this step would exceed leash range from spawn
           // If so, stop at current position (mob lingers at edge)
           if (hasSpawnTile) {
             const nextDistFromSpawn = tileChebyshevDistance(
@@ -1220,11 +1218,11 @@ export class MobTileMovementManager {
       if (state.pathIndex >= state.path.length) break;
       const nextTile = state.path[state.pathIndex];
 
-      // OSRS-ACCURATE ENTITY COLLISION: Check if tile is blocked by another NPC
-      // Per OSRS: Pathfinder IGNORES entity collision - it's checked HERE at movement time
+      // RULES-ACCURATE ENTITY COLLISION: Check if tile is blocked by another NPC
+      // Pathfinder ignores entity collision; it is checked here at movement time.
       // If blocked: movement fails, path is RETAINED for retry next tick
       if (this.world.entityOccupancy.isBlocked(nextTile, mobId as EntityID)) {
-        // Path is RETAINED - will retry next tick (OSRS-accurate)
+        // Path is RETAINED - will retry next tick (rules-accurate)
         break;
       }
 
@@ -1277,7 +1275,7 @@ export class MobTileMovementManager {
       entity.data.position = [worldPos.x, worldPos.y, worldPos.z];
     }
 
-    // Update entity occupancy after movement (OSRS-accurate tile collision)
+    // Update entity occupancy after movement (rules-accurate tile collision)
     if (entity instanceof MobEntity) {
       entity.updateOccupancy();
     }

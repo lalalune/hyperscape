@@ -2,7 +2,7 @@
  * AnimationLOD - Distance-Based Animation Update Throttling
  *
  * Reduces CPU/GPU load by throttling animation updates for distant entities.
- * OSRS-style: Full animations up close, reduced/paused at distance.
+ * classic MMORPG-style: Full animations up close, reduced/paused at distance.
  *
  * ## LOD Levels (from DISTANCE_CONSTANTS.ANIMATION_LOD)
  * - **Full**: <30m - Update every frame (60fps animation)

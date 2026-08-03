@@ -1,10 +1,9 @@
 /**
- * Combat Level Calculator - OSRS-Accurate Combat Level Calculation
+ * Combat Level Calculator - Rules-Accurate Combat Level Calculation
  *
- * Implements the exact combat level formula from Old School RuneScape.
+ * Implements the configured combat-level formula used by the game.
  * Combat level determines player power and affects mob aggression behavior.
  *
- * Formula source: https://oldschool.runescape.wiki/w/Combat_level
  *
  * Key mechanics:
  * - Base stats (Defence, Hitpoints, Prayer) contribute to all combat types
@@ -39,7 +38,7 @@ export const MIN_COMBAT_LEVEL = 3;
 export const MAX_COMBAT_LEVEL = 126;
 
 /**
- * Calculate OSRS-accurate combat level.
+ * Calculate rules-accurate combat level.
  *
  * Formula:
  *   Base = 0.25 * (Defence + Hitpoints + floor(Prayer / 2))
@@ -127,7 +126,7 @@ export function normalizeCombatSkills(
 /**
  * Check if player level is high enough to be ignored by a mob.
  *
- * OSRS Rule: Mobs ignore players whose combat level is MORE THAN DOUBLE the mob's level.
+ * classic MMORPG Rule: Mobs ignore players whose combat level is MORE THAN DOUBLE the mob's level.
  *
  * Examples:
  * - Level 2 goblin ignores level 5+ players (5 > 2*2 = 4)
@@ -139,7 +138,6 @@ export function normalizeCombatSkills(
  * @param toleranceImmune - If true, mob never ignores players based on level (bosses)
  * @returns true if mob should ignore this player
  *
- * @see https://oldschool.runescape.wiki/w/Aggression
  */
 export function shouldMobIgnorePlayer(
   playerCombatLevel: number,
@@ -149,6 +147,6 @@ export function shouldMobIgnorePlayer(
   // Some mobs (bosses, special encounters) never ignore based on level
   if (toleranceImmune) return false;
 
-  // OSRS rule: player level > (mob level * 2) = mob ignores player
+  // classic MMORPG rule: player level > (mob level * 2) = mob ignores player
   return playerCombatLevel > mobLevel * 2;
 }

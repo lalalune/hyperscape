@@ -1,11 +1,11 @@
 /**
  * Level-Up Notification System
  *
- * RuneScape-style level-up popup with:
+ * classic fantasy MMORPG-style level-up popup with:
  * - Visual popup with skill icon and level
  * - CSS fireworks animation
  * - Placeholder audio fanfare (Web Audio API)
- * - Chat message integration (OSRS-style game message)
+ * - Chat message integration (classic MMORPG-style game message)
  * - Skill unlock display
  */
 

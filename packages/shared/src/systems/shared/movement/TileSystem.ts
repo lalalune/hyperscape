@@ -1,13 +1,13 @@
 /**
  * Tile System
  *
- * Core constants and utilities for RuneScape-style tile-based movement.
+ * Core constants and utilities for classic fantasy MMORPG-style tile-based movement.
  * The game world is divided into discrete tiles, and entities move
  * one tile at a time in sync with server ticks.
  *
  * Key concepts:
  * - TILE_SIZE: World units per tile (1.0 = 1 meter per tile)
- * - TICK_DURATION_MS: Server tick interval (600ms like RuneScape)
+ * - TICK_DURATION_MS: Server tick interval (600ms like classic fantasy MMORPG)
  * - Movement happens discretely: 1 tile/tick (walk) or 2 tiles/tick (run)
  * - Client interpolates visually between tile positions
  */
@@ -19,14 +19,14 @@ import type { IEntityOccupancy } from "./EntityOccupancyMap";
 /**
  * Core tile system constants
  *
- * OSRS uses 600ms ticks with 1 tile/tick walk, 2 tiles/tick run.
+ * classic MMORPG uses 600ms ticks with 1 tile/tick walk, 2 tiles/tick run.
  * We use 2x speed (2/4 tiles per tick) for a snappier modern feel
  * while keeping the tick-based movement system.
  */
 export const TILE_SIZE = 1.0; // 1 world unit = 1 tile
 export const TICK_DURATION_MS = 600; // 0.6 seconds per server tick
-export const TILES_PER_TICK_WALK = 2; // Walking: 2 tiles per tick (2x OSRS)
-export const TILES_PER_TICK_RUN = 4; // Running: 4 tiles per tick (2x OSRS)
+export const TILES_PER_TICK_WALK = 2; // Walking: 2 tiles per tick (2x classic MMORPG)
+export const TILES_PER_TICK_RUN = 4; // Running: 4 tiles per tick (2x classic MMORPG)
 export const MAX_PATH_LENGTH = 25; // Maximum checkpoint tiles in a path
 export const PATHFIND_RADIUS = 128; // BFS search radius in tiles
 
@@ -51,7 +51,7 @@ export interface TileMovementState {
   /**
    * Tile player was on at START of current tick (captured before movement)
    *
-   * OSRS-ACCURATE: Used by FollowManager for follow mechanic.
+   * RULES-ACCURATE: Used by FollowManager for follow mechanic.
    * Following a player means walking to their PREVIOUS tile,
    * creating the characteristic 1-tick trailing effect.
    *
@@ -160,7 +160,7 @@ export function tileToWorld(tile: TileCoord): {
 /**
  * Snap a world position to the center of its containing tile
  *
- * OSRS-ACCURACY: All interactable objects are tile-aligned in OSRS.
+ * RULES ACCURACY: All interactable objects are tile-aligned in classic MMORPG.
  * This function ensures resources, NPCs, and other objects are positioned
  * at tile centers rather than arbitrary coordinates.
  *
@@ -226,7 +226,7 @@ export function tilesEqual(a: TileCoord, b: TileCoord): boolean {
  * This includes diagonal adjacency (8 directions).
  * Used for general "next to each other" checks.
  *
- * OSRS Reference: Entities are considered "in melee range" when adjacent.
+ * classic MMORPG Reference: Entities are considered "in melee range" when adjacent.
  */
 export function tilesAdjacent(a: TileCoord, b: TileCoord): boolean {
   const dx = Math.abs(a.x - b.x);
@@ -261,7 +261,7 @@ export function tilesWithinRange(
 /**
  * Check if player is within range of ANY tile in a multi-tile footprint.
  *
- * OSRS-ACCURATE: Multi-tile objects like furnaces (2x2) can be interacted with
+ * RULES-ACCURATE: Multi-tile objects like furnaces (2x2) can be interacted with
  * from any adjacent tile. The footprint is CENTERED on the target position.
  *
  * For a 2x2 furnace at position (10.5, 10.5):
@@ -315,9 +315,9 @@ export function tilesWithinRangeOfFootprint(
 }
 
 /**
- * OSRS-accurate melee range check
+ * rules-accurate melee range check
  *
- * OSRS melee attack rules (from wiki):
+ * classic MMORPG melee attack rules (from wiki):
  * - Range 1 (standard melee): CARDINAL ONLY (N/S/E/W) - cannot attack diagonally
  * - Range 2+ (halberd, spear): Can attack diagonally (uses Chebyshev distance)
  * - Salamanders are special: range 1 but CAN attack diagonally (not implemented here)
@@ -327,7 +327,6 @@ export function tilesWithinRangeOfFootprint(
  * @param meleeRange - Weapon's melee range (1 = standard, 2 = halberd)
  * @returns true if target is within melee attack range
  *
- * @see https://oldschool.runescape.wiki/w/Attack_range
  */
 export function tilesWithinMeleeRange(
   attacker: TileCoord,
@@ -338,7 +337,7 @@ export function tilesWithinMeleeRange(
   const dz = Math.abs(attacker.z - target.z);
 
   // Range 1 (standard melee): CARDINAL ONLY - no diagonal attacks
-  // This is the core OSRS melee mechanic that makes positioning matter
+  // This is the core classic MMORPG melee mechanic that makes positioning matter
   if (meleeRange === COMBAT_CONSTANTS.MELEE_RANGE_STANDARD) {
     return (dx === 1 && dz === 0) || (dx === 0 && dz === 1);
   }
@@ -353,9 +352,9 @@ export function tilesWithinMeleeRange(
 /**
  * Check if two tiles are cardinally adjacent (Manhattan distance = 1)
  * This is N/S/E/W only, no diagonals.
- * In OSRS, melee attacks are cardinal-only (except salamanders).
+ * In classic MMORPG, melee attacks are cardinal-only (except salamanders).
  *
- * OSRS Reference: Standard melee can only attack N/S/E/W, not diagonally.
+ * classic MMORPG Reference: Standard melee can only attack N/S/E/W, not diagonally.
  */
 export function tilesCardinallyAdjacent(a: TileCoord, b: TileCoord): boolean {
   const dx = Math.abs(a.x - b.x);
@@ -369,11 +368,11 @@ export function tilesCardinallyAdjacent(a: TileCoord, b: TileCoord): boolean {
  * Returns the adjacent tile to `target` that is closest to `attacker`.
  * This is used for melee combat positioning - stand next to target, not on it.
  *
- * OSRS Reference: NPCs path to an adjacent tile when chasing for melee combat.
+ * classic MMORPG Reference: NPCs path to an adjacent tile when chasing for melee combat.
  *
  * @param target - The tile the target is standing on
  * @param attacker - The tile the attacker is currently on
- * @param cardinalOnly - If true, only consider N/S/E/W tiles (OSRS melee behavior)
+ * @param cardinalOnly - If true, only consider N/S/E/W tiles (classic MMORPG melee behavior)
  * @param isWalkable - Optional function to check if a tile is walkable
  * @returns The best adjacent tile to stand on, or null if none available
  */
@@ -495,9 +494,9 @@ export function getBestCombatRangeTile(
 }
 
 /**
- * OSRS-accurate melee destination tile selection
+ * rules-accurate melee destination tile selection
  *
- * When clicking an NPC for melee combat, OSRS:
+ * When clicking an NPC for melee combat, classic MMORPG:
  * 1. Finds all tiles within melee range of the target
  * 2. For range 1: only cardinal tiles (N/S/E/W) - NO diagonal
  * 3. For range 2+: all tiles within Chebyshev distance
@@ -509,7 +508,6 @@ export function getBestCombatRangeTile(
  * @param isWalkable - Optional function to check if a tile is walkable
  * @returns The best tile to path to for melee combat, or null if none available
  *
- * @see https://oldschool.runescape.wiki/w/Pathfinding
  */
 export function getBestMeleeTile(
   target: TileCoord,
@@ -524,7 +522,7 @@ export function getBestMeleeTile(
     return attacker;
   }
 
-  // For range 1: CARDINAL ONLY (OSRS melee behavior)
+  // For range 1: CARDINAL ONLY (classic MMORPG melee behavior)
   if (effectiveRange === COMBAT_CONSTANTS.MELEE_RANGE_STANDARD) {
     const cardinalTiles = [
       { x: target.x - 1, z: target.z }, // West
@@ -582,7 +580,7 @@ export function getBestMeleeTile(
 }
 
 /**
- * Get adjacent tiles (8 directions - RuneScape order)
+ * Get adjacent tiles (8 directions - classic fantasy MMORPG order)
  * Order: W, E, S, N, SW, SE, NW, NE
  */
 export function getAdjacentTiles(tile: TileCoord): TileCoord[] {
@@ -599,7 +597,7 @@ export function getAdjacentTiles(tile: TileCoord): TileCoord[] {
 }
 
 /**
- * Direction vectors matching RuneScape's neighbor check order
+ * Direction vectors matching classic fantasy MMORPG's neighbor check order
  */
 export const TILE_DIRECTIONS = [
   { x: -1, z: 0 }, // West
@@ -614,9 +612,8 @@ export const TILE_DIRECTIONS = [
 
 /**
  * Cardinal directions only (N/E/S/W, no diagonals)
- * OSRS uses all 4 cardinal directions for NPC step-out when on same tile
+ * classic MMORPG uses all 4 cardinal directions for NPC step-out when on same tile
  *
- * @see https://osrs-docs.com/docs/mechanics/entity-collision/
  */
 export const CARDINAL_DIRECTIONS = [
   { x: 0, z: 1 }, // North
@@ -640,16 +637,15 @@ export function getCardinalTiles(tile: TileCoord): TileCoord[] {
 
 /**
  * Get a random cardinal-adjacent tile
- * Used for OSRS-accurate NPC step-out when on same tile as target.
+ * Used for rules-accurate NPC step-out when on same tile as target.
  *
- * OSRS behavior: "In RS, they pick a random cardinal direction (north, east,
- * west, south) and try to move the NPC towards that by 1 tile."
+ * Uses the four cardinal directions (north, east, west, south) so the NPC
+ * moves one tile at a time.
  *
  * @param tile - Center tile
  * @param rng - Random number generator (for deterministic behavior)
  * @returns Random cardinal tile (N, E, S, or W)
  *
- * @see https://osrs-docs.com/docs/mechanics/entity-collision/
  */
 export function getRandomCardinalTile(
   tile: TileCoord,
@@ -680,10 +676,10 @@ const _stepOutBuffer: TileCoord[] = [
 /**
  * Find the best cardinal tile to step out to when on same tile as target.
  *
- * OSRS-accurate: When an NPC is on the same tile as its target, it must
+ * rules-accurate: When an NPC is on the same tile as its target, it must
  * step out to a cardinal tile before it can attack. This function finds
  * the first valid tile by:
- * 1. Shuffling all 4 cardinal directions (maintains OSRS randomness)
+ * 1. Shuffling all 4 cardinal directions (maintains classic MMORPG randomness)
  * 2. Checking each for terrain walkability AND entity occupancy
  * 3. Returning the first valid tile found
  *
@@ -699,7 +695,6 @@ const _stepOutBuffer: TileCoord[] = [
  * @param rng - RNG for shuffling directions (deterministic)
  * @returns Best tile to step to, or null if all 4 cardinal tiles are blocked
  *
- * @see https://osrs-docs.com/docs/mechanics/entity-collision/
  */
 export function getBestStepOutTile(
   currentTile: TileCoord,
@@ -722,7 +717,7 @@ export function getBestStepOutTile(
   _stepOutBuffer[3].x = currentTile.x + 1;
   _stepOutBuffer[3].z = currentTile.z;
 
-  // Fisher-Yates shuffle for random order (OSRS-style randomness)
+  // Fisher-Yates shuffle for random order (classic MMORPG-style randomness)
   for (let i = 3; i > 0; i--) {
     const j = rng.nextInt(i + 1);
     // Swap values (not references, to keep buffer intact)
@@ -757,7 +752,7 @@ export function getBestStepOutTile(
 // ============================================================================
 
 /**
- * OSRS-accurate Line of Sight check for ranged/magic combat.
+ * rules-accurate Line of Sight check for ranged/magic combat.
  * Traces a line between two tiles using Bresenham's algorithm and checks
  * for BLOCKS_RANGED obstacles on intermediate tiles.
  *
@@ -838,7 +833,7 @@ export function getValidRangedTiles(
 
 /**
  * Generate all valid tiles for melee combat.
- * Range 1 (standard): cardinal only (N/S/E/W) — OSRS melee behavior.
+ * Range 1 (standard): cardinal only (N/S/E/W) — classic MMORPG melee behavior.
  * Range 2+ (halberd): all Chebyshev tiles within range.
  *
  * @param target - Target's tile position
@@ -855,7 +850,7 @@ export function getValidMeleeTiles(
   const tiles: TileCoord[] = [];
 
   if (effectiveRange === COMBAT_CONSTANTS.MELEE_RANGE_STANDARD) {
-    // Range 1: cardinal only (OSRS melee behavior)
+    // Range 1: cardinal only (classic MMORPG melee behavior)
     const cardinals = [
       { x: target.x - 1, z: target.z },
       { x: target.x + 1, z: target.z },
@@ -989,7 +984,7 @@ const _extendedMeleeTiles: TileCoord[] = Array.from({ length: 24 }, () => ({
 /**
  * Get cardinal melee tiles (range 1) into pre-allocated buffer
  *
- * OSRS melee range 1: Cardinal only (N/S/E/W) - no diagonal attacks
+ * classic MMORPG melee range 1: Cardinal only (N/S/E/W) - no diagonal attacks
  * Uses zero-allocation by writing to provided buffer.
  *
  * @param targetTile - Target's tile position
@@ -1049,7 +1044,7 @@ export function getExtendedMeleeTilesInto(
 /**
  * Find best unoccupied combat tile for melee attack (zero-allocation)
  *
- * OSRS-accurate: Cardinal tiles only for range 1, diagonal allowed for range 2+.
+ * rules-accurate: Cardinal tiles only for range 1, diagonal allowed for range 2+.
  * Checks both terrain walkability AND entity occupancy.
  *
  * Uses internal pre-allocated buffers - DO NOT store returned tile reference
@@ -1147,7 +1142,7 @@ export function hasUnoccupiedCardinalTile(
 /**
  * Get all tiles adjacent to a multi-tile resource (valid standing positions)
  *
- * OSRS-ACCURACY: For multi-tile resources (like large trees), players can
+ * RULES ACCURACY: For multi-tile resources (like large trees), players can
  * interact from any adjacent tile around the resource's footprint.
  *
  * For a 2×2 resource at anchor (15,-10), this returns the 12 tiles surrounding it:
@@ -1201,7 +1196,7 @@ export function getResourceAdjacentTiles(
 /**
  * Find the best adjacent tile for a player to stand on when interacting with a resource
  *
- * OSRS-ACCURACY: Returns the walkable tile nearest to player's current position.
+ * RULES ACCURACY: Returns the walkable tile nearest to player's current position.
  * This creates natural pathing behavior where players move to the closest valid spot.
  *
  * @param playerTile - Player's current tile position

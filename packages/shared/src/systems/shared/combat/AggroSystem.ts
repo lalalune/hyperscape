@@ -34,9 +34,8 @@ import type { ZoneDetectionSystem } from "../death/ZoneDetectionSystem";
 
 /**
  * Tolerance state for a player in a region
- * In OSRS, aggressive mobs stop attacking after player has been in a 21x21 region for 10 minutes
+ * In classic MMORPG, aggressive mobs stop attacking after player has been in a 21x21 region for 10 minutes
  *
- * @see https://oldschool.runescape.wiki/w/Aggression#Tolerance
  */
 interface ToleranceState {
   /** Region identifier (21x21 tile zone) */
@@ -50,7 +49,7 @@ interface ToleranceState {
 /** Tolerance timer duration: 1000 ticks = 10 minutes at 600ms/tick */
 const TOLERANCE_TICKS = 1000;
 
-/** Tolerance region size in tiles (OSRS uses 21x21 regions) */
+/** Tolerance region size in tiles (classic MMORPG uses 21x21 regions) */
 const TOLERANCE_REGION_SIZE = 21;
 
 /**
@@ -280,7 +279,7 @@ export class AggroSystem extends SystemBase {
       }
     }
 
-    // Start AI update loop aligned to server tick (OSRS-accurate)
+    // Start AI update loop aligned to server tick (rules-accurate)
     this.createInterval(() => {
       this.updateMobAI();
     }, TICK_DURATION_MS); // 600ms - aligned to server tick
@@ -307,7 +306,7 @@ export class AggroSystem extends SystemBase {
 
     const mobType = mobData.type.toLowerCase();
 
-    // Use manifest values with OSRS-accurate DEFAULTS as fallback
+    // Use manifest values with rules-accurate DEFAULTS as fallback
     // This replaces the legacy MOB_BEHAVIORS lookup pattern
     const detectionRange =
       mobData.combat?.aggroRange ?? COMBAT_CONSTANTS.DEFAULTS.NPC.AGGRO_RANGE;
@@ -566,14 +565,13 @@ export class AggroSystem extends SystemBase {
   /**
    * Check if mob should aggro a player based on level and behavior
    *
-   * OSRS Rule: Mobs ignore players whose combat level is MORE THAN DOUBLE the mob's level.
+   * classic MMORPG Rule: Mobs ignore players whose combat level is MORE THAN DOUBLE the mob's level.
    *
    * Examples:
    * - Level 2 goblin ignores level 5+ players (5 > 2*2 = 4)
    * - Level 10 guard ignores level 21+ players (21 > 10*2 = 20)
    * - Bosses (toleranceImmune) never ignore based on level
    *
-   * @see https://oldschool.runescape.wiki/w/Aggression
    */
   private shouldMobAggroPlayer(
     mobState: MobAIStateData,
@@ -595,7 +593,7 @@ export class AggroSystem extends SystemBase {
       }
     }
 
-    // Get player combat level using OSRS formula
+    // Get player combat level using classic combat formula
     const playerCombatLevel = this.getPlayerCombatLevel(playerId);
 
     // Get mob's combat level from the entity
@@ -607,7 +605,7 @@ export class AggroSystem extends SystemBase {
     // They always aggro regardless of player level
     const toleranceImmune = mobState.levelIgnore >= 999;
 
-    // OSRS double-level aggro rule
+    // classic MMORPG double-level aggro rule
     // Player level > (mob level * 2) = mob ignores player
     if (shouldMobIgnorePlayer(playerCombatLevel, mobLevel, toleranceImmune)) {
       return false;
@@ -668,12 +666,12 @@ export class AggroSystem extends SystemBase {
     return combatLevel;
   }
 
-  /** Default skills for fresh character (OSRS level 3) */
+  /** Default skills for fresh character (classic MMORPG level 3) */
   private static readonly DEFAULT_SKILLS = {
     attack: 1,
     strength: 1,
     defense: 1,
-    constitution: 10, // Hitpoints starts at 10 in OSRS
+    constitution: 10, // Hitpoints starts at 10 in classic MMORPG
     ranged: 1,
     magic: 1,
     prayer: 1,
@@ -706,7 +704,6 @@ export class AggroSystem extends SystemBase {
 
   /**
    * Update tolerance state - after 10 min in a 21x21 region, mobs stop aggro
-   * @see https://oldschool.runescape.wiki/w/Aggression#Tolerance
    */
   private updatePlayerTolerance(
     playerId: string,
@@ -762,7 +759,7 @@ export class AggroSystem extends SystemBase {
 
   /**
    * Get tolerance region ID for a tile position
-   * OSRS divides the world into 21x21 tile regions for tolerance purposes
+   * classic MMORPG divides the world into 21x21 tile regions for tolerance purposes
    *
    * @param tile - Tile coordinates
    * @returns Region identifier string "x:z"
@@ -827,7 +824,7 @@ export class AggroSystem extends SystemBase {
 
   /**
    * Get the tolerance region ID for a world position
-   * Regions are 21x21 tiles (OSRS-accurate)
+   * Regions are 21x21 tiles (rules-accurate)
    *
    * @param position - World position (x, z coordinates)
    * @returns Region identifier string "x:z"

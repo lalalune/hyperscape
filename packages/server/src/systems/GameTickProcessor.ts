@@ -1,20 +1,19 @@
 /**
- * GameTickProcessor - OSRS-Accurate Tick Processing
+ * GameTickProcessor - Rules-Accurate Tick Processing
  *
  * Implements Henke's Model for deterministic game tick processing:
  * 1. Client inputs processed (from previous tick)
  * 2. NPCs processed (in spawn order): timers → queues → movement → combat
  * 3. Players processed (in PID order): queues → timers → movement → combat
- * 4. Queued damage applied (OSRS damage asymmetry)
+ * 4. Queued damage applied (classic MMORPG damage asymmetry)
  * 5. State broadcast (batched)
  *
  * CRITICAL: NPCs process BEFORE players. This creates the asymmetric
- * damage timing that defines OSRS combat feel:
+ * damage timing that defines classic MMORPG combat feel:
  * - NPC → Player damage: Same tick (NPC queues, Player processes same tick)
  * - Player → NPC damage: Next tick (Player queues, NPC processes next tick)
  *
- * @see https://oldschool.runescape.wiki/w/Game_tick
- * @see COMBAT_SYSTEM_AUDIT.md for full OSRS research
+ * @see COMBAT_SYSTEM_AUDIT.md for full classic MMORPG research
  */
 
 import type { World } from "@hyperforge/shared";
@@ -111,7 +110,7 @@ interface PlayerEntityInterface {
 export type DamageAttackType = "melee" | "ranged" | "magic";
 
 /**
- * Queued damage for OSRS-style tick scheduling
+ * Queued damage for classic MMORPG-style tick scheduling
  *
  * Hit delay based on attack type:
  * - Melee: 0 tick delay (instant)
@@ -147,7 +146,7 @@ interface QueuedBroadcast {
 }
 
 /**
- * GameTickProcessor - Unified OSRS-accurate tick processor
+ * GameTickProcessor - Unified rules-accurate tick processor
  *
  * Processes all game logic in deterministic order each tick:
  * 1. Inputs → 2. NPCs → 3. Players → 4. Damage → 5. Broadcast
@@ -160,26 +159,25 @@ export class GameTickProcessor {
   private pendingAttacks: PendingAttackManager;
   private broadcastManager: BroadcastManager;
 
-  // OSRS-accurate script queues
+  // rules-accurate script queues
   // Players have Strong/Normal/Weak/Soft priority system
   // NPCs have single queue type (FIFO)
   private playerScriptQueue: PlayerScriptQueue | null = null;
   private npcScriptQueue: NPCScriptQueue | null = null;
 
-  // OSRS-accurate face direction manager
+  // rules-accurate face direction manager
   // Handles deferred face direction processing at end of tick
-  // @see https://osrs-docs.com/docs/packets/outgoing/updating/masks/face-direction/
   private faceDirectionManager: FaceDirectionManager | null = null;
 
   // Feature flag to enable/disable new tick processing
   // When false, falls back to legacy per-system tick processing
   private enabled = true;
 
-  // Feature flag for OSRS script queue system
+  // Feature flag for classic MMORPG script queue system
   // When true, uses Strong/Normal/Weak/Soft priority system
   private scriptQueueEnabled = true;
 
-  // Damage queue for next-tick application (OSRS asymmetry)
+  // Damage queue for next-tick application (classic MMORPG asymmetry)
   private damageQueue: QueuedDamage[] = [];
 
   // Broadcast queue for end-of-tick batching
@@ -266,7 +264,7 @@ export class GameTickProcessor {
       this.npcScriptQueue = deps.npcScriptQueue;
     }
 
-    // Face direction manager (OSRS-accurate deferred facing)
+    // Face direction manager (rules-accurate deferred facing)
     if (deps.faceDirectionManager) {
       this.faceDirectionManager = deps.faceDirectionManager;
     }
@@ -299,7 +297,7 @@ export class GameTickProcessor {
   setEnabled(enabled: boolean): void {
     this.enabled = enabled;
     console.log(
-      `[GameTickProcessor] ${enabled ? "Enabled" : "Disabled"} OSRS-accurate tick processing`,
+      `[GameTickProcessor] ${enabled ? "Enabled" : "Disabled"} rules-accurate tick processing`,
     );
   }
 
@@ -311,13 +309,13 @@ export class GameTickProcessor {
   }
 
   /**
-   * Enable or disable OSRS script queue system.
+   * Enable or disable classic MMORPG script queue system.
    * When enabled, uses Strong/Normal/Weak/Soft priority system.
    */
   setScriptQueueEnabled(enabled: boolean): void {
     this.scriptQueueEnabled = enabled;
     console.log(
-      `[GameTickProcessor] ${enabled ? "Enabled" : "Disabled"} OSRS script queue system`,
+      `[GameTickProcessor] ${enabled ? "Enabled" : "Disabled"} classic MMORPG script queue system`,
     );
   }
 
@@ -350,7 +348,7 @@ export class GameTickProcessor {
   }
 
   /**
-   * Process a single game tick - OSRS accurate order
+   * Process a single game tick - rules-accurate order
    *
    * This is the main entry point called by TickSystem.
    * Processes all game logic in deterministic order.
@@ -363,7 +361,7 @@ export class GameTickProcessor {
     // Update processing order if entities changed
     this.updateProcessingOrder();
 
-    // PHASE 0: Reset per-tick flags (OSRS face direction system)
+    // PHASE 0: Reset per-tick flags (classic MMORPG face direction system)
     // Must happen BEFORE any movement processing
     this.faceDirectionManager?.resetMovementFlags();
 
@@ -371,15 +369,14 @@ export class GameTickProcessor {
     this.processInputs(tickNumber);
 
     // PHASE 2: Process all NPCs (in spawn order)
-    // OSRS: NPCs process BEFORE players
+    // classic MMORPG: NPCs process BEFORE players
     this.processNPCs(tickNumber);
 
     // PHASE 3: Process all Players (in PID/connection order)
     this.processPlayers(tickNumber);
 
-    // PHASE 3.5: Process face direction (OSRS-accurate)
+    // PHASE 3.5: Process face direction (rules-accurate)
     // Only applies rotation if player has faceTarget AND did NOT move this tick
-    // @see https://osrs-docs.com/docs/packets/outgoing/updating/masks/face-direction/
     this.faceDirectionManager?.processFaceDirection(this.playerProcessingOrder);
 
     // PHASE 4: Apply queued damage from previous tick
@@ -483,7 +480,7 @@ export class GameTickProcessor {
   /**
    * PHASE 2: Process all NPCs in spawn order
    *
-   * OSRS Order per NPC:
+   * classic MMORPG Order per NPC:
    * 1. Timers execute (BEFORE queues for NPCs!)
    * 2. Queue scripts execute (single queue type)
    * 3. Movement processing
@@ -503,7 +500,7 @@ export class GameTickProcessor {
       // Skip dead mobs
       if ((mob.config?.currentHealth ?? 0) <= 0) continue;
 
-      // OSRS ORDER FOR NPCs:
+      // classic MMORPG ORDER FOR NPCs:
       // 1. Timers execute (BEFORE queues for NPCs!)
       // 2. Queue scripts execute (single queue type - FIFO)
       // 3. Movement processing
@@ -512,7 +509,7 @@ export class GameTickProcessor {
       // 1. Process NPC AI (handles timers internally)
       this.processNPCAI(mob, tickNumber);
 
-      // 2. Process NPC script queue (OSRS-accurate)
+      // 2. Process NPC script queue (rules-accurate)
       // NPCs have single queue type (no priority system)
       if (this.scriptQueueEnabled && this.npcScriptQueue) {
         this.npcScriptQueue.processNPCTick(mobId, tickNumber);
@@ -540,7 +537,7 @@ export class GameTickProcessor {
   /**
    * Process NPC AI for this tick
    *
-   * In OSRS: NPCs run timers BEFORE queues.
+   * In classic MMORPG: NPCs run timers BEFORE queues.
    * Our AIStateMachine handles this internally.
    */
   private processNPCAI(mob: MobEntityInterface, _tickNumber: number): void {
@@ -577,7 +574,7 @@ export class GameTickProcessor {
   /**
    * PHASE 3: Process all Players in PID order
    *
-   * OSRS Order per Player:
+   * classic MMORPG Order per Player:
    * 1. Queue scripts execute (Strong → Normal → Weak)
    * 2. Timers execute (AFTER queues for Players!)
    * 3. Movement processing
@@ -598,13 +595,13 @@ export class GameTickProcessor {
       // Skip dead or loading players
       if (player.data?.alive === false || player.data?.isLoading) continue;
 
-      // OSRS ORDER FOR PLAYERS:
+      // classic MMORPG ORDER FOR PLAYERS:
       // 1. Queue scripts execute (Strong > Normal > Weak, then Soft always)
       // 2. Timers execute (AFTER queues for Players!)
       // 3. Movement processing
       // 4. Combat interactions
 
-      // 1. Process player script queue (OSRS-accurate)
+      // 1. Process player script queue (rules-accurate)
       // Players have Strong/Normal/Weak/Soft priority system
       if (this.scriptQueueEnabled && this.playerScriptQueue) {
         this.playerScriptQueue.processPlayerTick(playerId, tickNumber);
@@ -635,7 +632,7 @@ export class GameTickProcessor {
   /**
    * Process player combat turn
    *
-   * Player → NPC damage is QUEUED for next tick (OSRS asymmetry)
+   * Player → NPC damage is QUEUED for next tick (classic MMORPG asymmetry)
    */
   private processPlayerCombat(playerId: string, tickNumber: number): void {
     const combatSystem = this.world.getSystem("combat") as
@@ -650,7 +647,7 @@ export class GameTickProcessor {
   /**
    * Queue damage for future tick application
    *
-   * This implements the OSRS damage asymmetry:
+   * This implements the classic MMORPG damage asymmetry:
    * - Player → NPC: applyAtTick = currentTick + 1
    * - NPC → Player: applyAtTick = currentTick (same tick)
    */
@@ -659,12 +656,12 @@ export class GameTickProcessor {
   }
 
   /**
-   * Queue damage with OSRS-accurate hit delay calculation
+   * Queue damage with rules-accurate hit delay calculation
    *
    * This method calculates the appropriate hit delay based on attack type
    * and distance, then queues the damage to apply at the correct tick.
    *
-   * OSRS Hit Delay Formulas:
+   * classic MMORPG Hit Delay Formulas:
    * - Melee: 0 ticks (instant)
    * - Ranged: 1 + floor((3 + distance) / 6) ticks
    * - Magic: 1 + floor((1 + distance) / 3) ticks
@@ -715,7 +712,7 @@ export class GameTickProcessor {
     // Cap at maximum delay (10 ticks)
     hitDelayTicks = Math.min(hitDelayTicks, 10);
 
-    // Apply OSRS damage asymmetry
+    // Apply classic MMORPG damage asymmetry
     // Player → NPC damage: +1 tick (queued for next tick)
     // NPC → Player damage: +0 ticks (same tick)
     let asymmetryDelay = 0;

@@ -28,7 +28,7 @@ export const CONTROL_BUTTON_SIZE = parseTokenToNumber(
 export const CONTROL_BUTTON_GAP = 4; // Gap between control button and slots
 export const SLOTS_CONTAINER_BORDER = 2; // 1px border on each side of slots container
 
-// Default keyboard shortcuts for up to 12 slots (RS3-style: 1-9, 0, -, =)
+// Default keyboard shortcuts for up to 12 slots (modern MMORPG-style: 1-9, 0, -, =)
 export const DEFAULT_KEYBOARD_SHORTCUTS = [
   "1",
   "2",

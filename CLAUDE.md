@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Hyperia is a RuneScape-style MMORPG built on a custom 3D multiplayer engine. The project features a real-time 3D metaverse engine (Hyperia) in a persistent world.
+Hyperia is a classic fantasy MMORPG built on a custom 3D multiplayer engine. The project features a real-time 3D metaverse engine (Hyperia) in a persistent world.
 
 ## CRITICAL: Secrets and Private Keys
 

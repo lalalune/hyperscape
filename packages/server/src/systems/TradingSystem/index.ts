@@ -567,7 +567,7 @@ export class TradingSystem {
   /**
    * Set acceptance state for a player
    *
-   * Two-screen confirmation flow (OSRS-style):
+   * Two-screen confirmation flow (classic MMORPG-style):
    * 1. On "active" (offer screen): both accept → moveToConfirming: true
    * 2. On "confirming" (confirmation screen): both accept → bothAccepted: true
    */
@@ -627,7 +627,7 @@ export class TradingSystem {
   }
 
   /**
-   * Move trade to confirmation screen (OSRS two-screen flow)
+   * Move trade to confirmation screen (classic MMORPG two-screen flow)
    * Resets acceptance for both players
    */
   moveToConfirmation(tradeId: string): TradeOperationResult {
@@ -688,7 +688,7 @@ export class TradingSystem {
    * Complete a trade - swap items between players
    * Returns the items each player receives (for database operations)
    *
-   * Note: Trade must be in "confirming" status (OSRS two-screen flow)
+   * Note: Trade must be in "confirming" status (classic MMORPG two-screen flow)
    */
   completeTrade(tradeId: string): TradeOperationResult & {
     initiatorReceives?: TradeOfferItem[];

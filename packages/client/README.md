@@ -1,6 +1,6 @@
 # Hyperia RPG Engine
 
-A comprehensive RPG system built on the Hyperia 3D multiplayer game engine, featuring RuneScape-inspired mechanics with AI-generated content.
+A comprehensive RPG system built on the Hyperia 3D multiplayer game engine, featuring classic fantasy MMORPG-inspired mechanics with AI-generated content.
 
 ## Overview
 

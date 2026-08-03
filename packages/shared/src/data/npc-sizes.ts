@@ -2,7 +2,6 @@
  * NPC Size Manifest
  * Defines collision sizes for NPCs used in range calculations.
  * Most NPCs are 1x1 tiles. Bosses occupy larger footprints.
- * @see https://oldschool.runescape.wiki/w/Non-player_character
  */
 
 export interface NPCSize {

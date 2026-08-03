@@ -1,11 +1,11 @@
 /**
  * EntityHighlightService
  *
- * Manages RS3-style entity outline highlighting on mouse hover.
+ * Manages modern MMORPG-style entity outline highlighting on mouse hover.
  * Maps entity types to highlight colors and drives the post-processing
  * outline pass via the PostProcessingComposer.
  *
- * Color scheme (RS3 defaults):
+ * Color scheme (modern MMORPG defaults):
  * - Yellow: Friendly NPCs
  * - Red: Attackable/hostile mobs
  * - Cyan: Interactable objects, resources, stations

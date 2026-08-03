@@ -4,7 +4,7 @@
  * Handles interactions with forfeit pillars in the Duel Arena.
  * Players can click a pillar during an active duel to forfeit and surrender.
  *
- * OSRS Context Menu Format:
+ * classic MMORPG Context Menu Format:
  * - "Forfeit Trapdoor" (primary action - only enabled during active duel)
  * - "Examine Trapdoor"
  *
@@ -13,14 +13,13 @@
  * - Disabled if the duel has "noForfeit" rule enabled
  * - Immediately ends the duel with the opponent as winner
  *
- * @see https://oldschool.runescape.wiki/w/Duel_Arena for OSRS duel mechanics
  */
 
 import { BaseInteractionHandler } from "./BaseInteractionHandler";
 import type { RaycastTarget, ContextMenuAction } from "../types";
 import { INTERACTION_RANGE, MESSAGE_TYPES } from "../constants";
 
-/** OSRS scenery/object color (cyan) for context menu target names */
+/** classic MMORPG scenery/object color (cyan) for context menu target names */
 const SCENERY_COLOR = "#00ffff";
 
 export class ForfeitPillarInteractionHandler extends BaseInteractionHandler {
@@ -38,7 +37,7 @@ export class ForfeitPillarInteractionHandler extends BaseInteractionHandler {
   /**
    * Right-click: Show forfeit pillar options
    *
-   * OSRS-accurate format:
+   * rules-accurate format:
    * - "Forfeit Trapdoor" (action white, target cyan) - only if in duel
    * - "Examine Trapdoor" (action white, target cyan)
    */

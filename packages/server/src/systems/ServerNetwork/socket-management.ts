@@ -45,7 +45,7 @@ const TEST_MAX_SOCKET_COUNT = Math.max(
 /**
  * Socket health manager for WebSocket connection monitoring
  */
-/** Duration to keep a player entity alive after combat disconnect (OSRS: ~10s) */
+/** Duration to keep a player entity alive after combat disconnect (classic MMORPG: ~10s) */
 const COMBAT_LOGOUT_DELAY_MS = Math.max(
   0,
   parseInt(process.env.COMBAT_LOGOUT_DELAY_MS || "10000", 10),
@@ -282,7 +282,7 @@ export class SocketManager {
         },
       );
 
-      // Check combat logout timer (OSRS: can't log out for ~10s after combat)
+      // Check combat logout timer (classic MMORPG: can't log out for ~10s after combat)
       const combatSystem = this.world.getSystem("combat") as {
         canLogout?: (
           playerId: string,
@@ -296,7 +296,7 @@ export class SocketManager {
       );
 
       if (logoutCheck && !logoutCheck.allowed) {
-        // Player is in combat — delay entity removal (OSRS combat-logging prevention)
+        // Player is in combat — delay entity removal (classic MMORPG combat-logging prevention)
         // Entity stays in-world and targetable during the grace period
         console.log(
           `[SocketManager] Combat logout delay for ${playerId}: ${logoutCheck.reason}`,

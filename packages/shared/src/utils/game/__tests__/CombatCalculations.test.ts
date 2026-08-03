@@ -1,7 +1,7 @@
 /**
  * CombatCalculations Unit Tests
  *
- * Tests for OSRS-style combat calculation functions:
+ * Tests for classic MMORPG-style combat calculation functions:
  * - Damage calculation with accuracy system
  * - Attack range checking (melee tile-adjacent)
  * - Attack cooldown checking (tick-based)
@@ -40,7 +40,7 @@ describe("CombatCalculations", () => {
       expect(result).toHaveProperty("damageType");
       expect(result).toHaveProperty("didHit");
       expect(result.damageType).toBe(AttackType.MELEE);
-      expect(result.isCritical).toBe(false); // OSRS has no critical system
+      expect(result.isCritical).toBe(false); // classic MMORPG has no critical system
     });
 
     it("returns non-negative damage", () => {
@@ -237,18 +237,17 @@ describe("CombatCalculations", () => {
       expect(isInAttackRange(attacker, target, AttackType.MELEE)).toBe(true);
     });
 
-    it("returns false for diagonally adjacent tiles (range-1 melee OSRS-accurate)", () => {
-      // OSRS: Range-1 melee (standard weapons) EXCLUDES diagonals
+    it("returns false for diagonally adjacent tiles (range-1 melee rules-accurate)", () => {
+      // classic MMORPG: Range-1 melee (standard weapons) EXCLUDES diagonals
       // Only cardinal directions (N, S, E, W) are valid for range-1
       // Diagonal attacks require range-2+ weapons (halberds, spears)
-      // @see https://oldschool.runescape.wiki/w/Attack_range
       const attacker = { x: 0.5, y: 0, z: 0.5 };
       const target = { x: 1.5, y: 0, z: 1.5 };
       expect(isInAttackRange(attacker, target, AttackType.MELEE)).toBe(false);
     });
 
     it("returns true for diagonally adjacent tiles with range-2 melee (halberd)", () => {
-      // OSRS: Range-2+ melee (halberds, spears) INCLUDES diagonals
+      // classic MMORPG: Range-2+ melee (halberds, spears) INCLUDES diagonals
       const attacker = { x: 0.5, y: 0, z: 0.5 };
       const target = { x: 1.5, y: 0, z: 1.5 };
       // Using meleeRange parameter = 2 (halberd range)
@@ -262,7 +261,7 @@ describe("CombatCalculations", () => {
       expect(isInAttackRange(attacker, target, AttackType.MELEE)).toBe(false);
     });
 
-    it("returns false for same tile (OSRS requires adjacent, not overlapping)", () => {
+    it("returns false for same tile (classic MMORPG requires adjacent, not overlapping)", () => {
       // Both on same tile - cannot attack from same tile
       const attacker = { x: 0.3, y: 0, z: 0.3 };
       const target = { x: 0.7, y: 0, z: 0.7 };

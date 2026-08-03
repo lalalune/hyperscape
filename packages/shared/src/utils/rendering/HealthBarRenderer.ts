@@ -11,7 +11,7 @@
 /// <reference lib="dom" />
 
 /**
- * Health bar color scheme (RuneScape style)
+ * Health bar color scheme (classic fantasy MMORPG style)
  */
 export const HEALTH_BAR_COLORS = {
   /** Red background for depleted health */

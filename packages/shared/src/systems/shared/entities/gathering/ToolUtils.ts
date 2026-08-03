@@ -12,7 +12,7 @@ import { isNotedItemId } from "../../../../data/NoteGenerator";
 import { getExternalTool } from "../../../../utils/ExternalAssetUtils";
 
 /**
- * OSRS fishing tools that require exact matching (not interchangeable)
+ * classic MMORPG fishing tools that require exact matching (not interchangeable)
  */
 export const EXACT_FISHING_TOOLS = [
   "small_fishing_net",
@@ -63,7 +63,7 @@ const CATEGORY_TO_SKILL: Partial<Record<string, GatheringSkill>> = {
  *
  * e.g., "bronze_hatchet" -> "hatchet", "bronze_pickaxe" -> "pickaxe"
  *
- * OSRS-ACCURACY: Fishing tools use EXACT matching because:
+ * RULES ACCURACY: Fishing tools use EXACT matching because:
  * - small_fishing_net catches shrimp/anchovies (level 1)
  * - fishing_rod + bait catches sardine/herring/pike (level 5+)
  * - fly_fishing_rod + feathers catches trout/salmon (level 20+)
@@ -75,7 +75,7 @@ const CATEGORY_TO_SKILL: Partial<Record<string, GatheringSkill>> = {
 export function getToolCategory(toolRequired: string): string {
   const lowerTool = toolRequired.toLowerCase();
 
-  // OSRS-ACCURACY: Fishing tools require EXACT matching (not interchangeable)
+  // RULES ACCURACY: Fishing tools require EXACT matching (not interchangeable)
   // Return the exact tool ID for fishing equipment
   if (EXACT_FISHING_TOOLS.includes(lowerTool as FishingToolId)) {
     return lowerTool; // Return exact ID, not category
@@ -100,7 +100,7 @@ export function getToolCategory(toolRequired: string): string {
 const TOOL_DISPLAY_NAMES: Record<string, string> = {
   hatchet: "hatchet",
   pickaxe: "pickaxe",
-  // OSRS-accurate fishing tool names
+  // rules-accurate fishing tool names
   small_fishing_net: "small fishing net",
   fishing_rod: "fishing rod",
   fly_fishing_rod: "fly fishing rod",

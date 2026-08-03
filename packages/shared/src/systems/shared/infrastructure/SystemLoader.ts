@@ -331,7 +331,7 @@ export async function registerSystems(world: World): Promise<void> {
   world.register("prayer", PrayerSystem);
 
   // 12a. Health regeneration system - Passive health regen (depends on combat system)
-  // Server-only: handles RuneScape-style out-of-combat health regeneration
+  // Server-only: handles classic fantasy MMORPG-style out-of-combat health regeneration
   // Note: world.isServer isn't reliable here because ServerNetwork registers later
   // Use Node.js/Bun environment check instead
   const isServerEnvironment =
@@ -419,7 +419,7 @@ export async function registerSystems(world: World): Promise<void> {
     world.register("inventory-interaction", InventoryInteractionSystem);
 
     // XP Drop System - 3D version disabled, using 2D screen-space drops in XPProgressOrb
-    // The 2D approach is more like RS3 where XP floats up the screen toward the orb
+    // The 2D approach is more like modern MMORPG where XP floats up the screen toward the orb
     // Keep XPDropSystem.ts for potential future use or alternative mode
   }
 

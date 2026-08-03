@@ -1,7 +1,7 @@
 /**
- * PathPersistenceManager - OSRS-accurate NPC path persistence
+ * PathPersistenceManager - rules-accurate NPC path persistence
  *
- * Key OSRS behaviors:
+ * Key classic MMORPG behaviors:
  * - Path persists when blocked by entities (retry next tick)
  * - Path clears only when blocked by terrain (safespotted)
  * - NPCs slide along obstacles when blocked
@@ -9,7 +9,6 @@
  * This manager tracks path state per NPC and distinguishes between
  * entity blocking (temporary) and terrain blocking (permanent/safespot).
  *
- * @see https://oldschool.runescape.wiki/w/Pathfinding
  */
 
 import type { TileCoord } from "./TileSystem";
@@ -50,7 +49,7 @@ export type BlockChecker = (
 /**
  * PathPersistenceManager - Manages path state for all NPCs
  *
- * Provides OSRS-accurate path persistence:
+ * Provides rules-accurate path persistence:
  * - Paths persist when blocked by entities
  * - Paths clear when blocked by terrain (safespotted)
  */
@@ -169,7 +168,7 @@ export class PathPersistenceManager {
         const blockResult = checkBlock(desiredTile, npcId);
 
         if (blockResult.blocked && blockResult.byEntity) {
-          // Blocked by entity - PERSIST path (OSRS behavior)
+          // Blocked by entity - PERSIST path (classic MMORPG behavior)
           state.blockedByEntity = true;
           state.ticksBlocked++;
           state.lastAttemptedTile = desiredTile;
@@ -185,7 +184,7 @@ export class PathPersistenceManager {
       }
     }
 
-    // Blocked by terrain - CLEAR path (safespotted, OSRS behavior)
+    // Blocked by terrain - CLEAR path (safespotted, classic MMORPG behavior)
     state.targetTile = null;
     state.blockedByEntity = false;
     state.ticksBlocked = 0;

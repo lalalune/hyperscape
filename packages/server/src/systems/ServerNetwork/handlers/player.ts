@@ -9,7 +9,7 @@
  * - Rate limiting (prevents spam)
  * - Server-side player existence verification
  *
- * @see https://runescape.wiki/w/Follow
+ * @see https://classic.wiki/w/Follow
  */
 
 import type { ServerSocket } from "../../../shared/types";
@@ -35,7 +35,7 @@ function sendPlayerError(socket: ServerSocket, reason: string): void {
 /**
  * Handle follow player request from client
  *
- * OSRS behavior:
+ * classic MMORPG behavior:
  * - Player walks behind the target
  * - Re-paths when target moves
  * - Cancelled by clicking elsewhere, trading, equipping items
