@@ -103,7 +103,7 @@ export function BankTabBar({
   };
 
   // Get the next available tab index for creating new tabs
-  // RS3-STYLE: Always append at end (max + 1), never fill gaps
+  // modern MMORPG-STYLE: Always append at end (max + 1), never fill gaps
   const nextAvailableTabIndex = (() => {
     if (tabs.length === 0) return 1; // No custom tabs yet, start at 1
     const maxTabIndex = Math.max(...tabs.map((t) => t.tabIndex));
@@ -121,7 +121,7 @@ export function BankTabBar({
         zIndex: 10,
       }}
     >
-      {/* All Tab (∞) - RS3 style */}
+      {/* All Tab (∞) - modern MMORPG style */}
       <button
         onClick={() => onSelectTab(TAB_INDEX_ALL)}
         className="px-2 py-1.5 rounded-t text-xs font-bold transition-colors flex-shrink-0"
@@ -203,7 +203,7 @@ export function BankTabBar({
         </div>
       </button>
 
-      {/* All Tabs (0-9) - RS3 style: Tab 0 is just another tab, icon = first item */}
+      {/* All Tabs (0-9) - modern MMORPG style: Tab 0 is just another tab, icon = first item */}
       {(() => {
         // Create array of all tabs including tab 0 (which always exists implicitly)
         const allTabIndexes = [0, ...tabs.map((t) => t.tabIndex)].sort(
@@ -220,7 +220,7 @@ export function BankTabBar({
             : isSelected
               ? `1px solid ${theme.colors.border.default}`
               : `1px solid ${theme.colors.border.decorative}`;
-          // RS3-style: Tab icon = first item by slot order
+          // modern MMORPG-style: Tab icon = first item by slot order
           // Prefer real items (qty > 0), but fall back to placeholders if tab only has placeholders
           const tabItemsSorted = items
             .filter((i) => i.tabIndex === tabIndex)

@@ -4,7 +4,7 @@
  * Handles both:
  * - Drag-and-drop for inventory/equipment management
  * - Item right-click context menus (Wear, Drop, Eat, Use, etc.)
- * Provides complete RuneScape-style inventory interactions.
+ * Provides complete classic fantasy MMORPG-style inventory interactions.
  */
 
 import {
@@ -1183,7 +1183,7 @@ export class InventoryInteractionSystem extends SystemBase {
       },
     });
 
-    // === OSRS-STYLE "USE" ACTIONS FOR FIREMAKING/COOKING ===
+    // === classic MMORPG-STYLE "USE" ACTIONS FOR FIREMAKING/COOKING ===
 
     // Tinderbox: Use on logs to light fire
     this.registerAction("processing", {
@@ -1196,7 +1196,7 @@ export class InventoryInteractionSystem extends SystemBase {
       },
     });
 
-    // Logs: Use on tinderbox (reverse direction also works in OSRS)
+    // Logs: Use on tinderbox (reverse direction also works in classic MMORPG)
     this.registerAction("processing", {
       id: "use",
       label: "Use",
@@ -1568,7 +1568,7 @@ export class InventoryInteractionSystem extends SystemBase {
     return dataManager.getItem(itemId);
   }
 
-  // === TARGETING MODE FOR OSRS-STYLE "USE X ON Y" ===
+  // === TARGETING MODE FOR classic MMORPG-STYLE "USE X ON Y" ===
 
   /**
    * Start targeting mode for "Use X on Y" interactions.

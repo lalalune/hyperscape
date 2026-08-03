@@ -70,7 +70,7 @@ export const spacing = {
  */
 export const typography = {
   fontFamily: {
-    /** Fantasy/medieval headers - Cinzel for RuneScape aesthetic */
+    /** Fantasy/medieval headers - Cinzel for classic fantasy MMORPG aesthetic */
     display: "'Cinzel', serif",
     /** UI body text - Inter for readability */
     body: "'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
@@ -178,7 +178,7 @@ export const shadows = {
   /** Extra large elevation */
   xl: "0 20px 25px rgba(0, 0, 0, 0.6), 0 8px 10px rgba(0, 0, 0, 0.2)",
 
-  /** Panel shadow with golden glow (RuneScape aesthetic) */
+  /** Panel shadow with golden glow (classic fantasy MMORPG aesthetic) */
   panel: "0 8px 32px rgba(0, 0, 0, 0.6), 0 0 1px rgba(242, 208, 138, 0.2)",
   /** Panel hover state */
   panelHover:
@@ -340,7 +340,7 @@ export const gameUI = {
   actionBar: {
     /** Minimum number of slots user can configure */
     minSlots: 4,
-    /** Maximum number of slots user can configure (RS3 has 14, we use 12) */
+    /** Maximum number of slots user can configure (modern MMORPG has 14, we use 12) */
     maxSlots: 12,
     /** Default number of slots */
     defaultSlots: 9,
@@ -481,7 +481,7 @@ export const statusColors = {
  * Use these instead of hardcoding styles in individual panels.
  */
 export const panelStyles = {
-  /** Base container for all panels - Hyperia theme (RS3-inspired dark with bronze accents) */
+  /** Base container for all panels - Hyperia theme (modern MMORPG-inspired dark with bronze accents) */
   container: {
     background: "#0f0f12", // Matches hyperiaTheme.colors.background.primary
     border: "1px solid #4d4540",

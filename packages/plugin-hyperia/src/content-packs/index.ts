@@ -4,8 +4,8 @@
  * Centralized exports for all available content packs in the plugin-hyperia system.
  */
 
-export { RunescapeRPGPack as RPGContentPack } from "./content-pack.js";
-export { default as RunescapeRPGPack } from "./content-pack.js";
+export { ClassicRPGPack as RPGContentPack } from "./content-pack.js";
+export { default as ClassicRPGPack } from "./content-pack.js";
 
 // Character profiles for agent personality differentiation
 export {

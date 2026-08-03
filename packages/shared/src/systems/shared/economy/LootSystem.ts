@@ -5,14 +5,12 @@
  * - LootTableService: Pure loot table logic and rolling
  * - GroundItemSystem: Shared ground item management
  *
- * OSRS-STYLE BEHAVIOR:
+ * classic MMORPG-STYLE BEHAVIOR:
  * - Mob dies → Items drop directly to ground at tile center
  * - Items pile on same tile, stackables merge
  * - Click item directly to pick up (no loot window)
  * - 2 minute despawn timer per item
  *
- * @see https://oldschool.runescape.wiki/w/Loot
- * @see https://oldschool.runescape.wiki/w/Dropped_items
  */
 
 import type { World } from "../../../types/index";
@@ -113,7 +111,7 @@ export class LootSystem extends SystemBase {
   }
 
   /**
-   * Handle mob death and generate loot (OSRS-style ground items)
+   * Handle mob death and generate loot (classic MMORPG-style ground items)
    *
    * Drops items directly to ground at tile center instead of creating
    * a corpse entity. Items can be picked up by clicking directly.
@@ -161,7 +159,7 @@ export class LootSystem extends SystemBase {
       Infinity,
     );
 
-    // OSRS-STYLE: Spawn ground items directly (no corpse entity)
+    // classic MMORPG-STYLE: Spawn ground items directly (no corpse entity)
     // Items pile at tile center, stackables merge, 2 minute despawn
     await this.groundItemSystem.spawnGroundItems(
       inventoryItems,
@@ -170,7 +168,7 @@ export class LootSystem extends SystemBase {
         despawnTime: ticksToMs(COMBAT_CONSTANTS.GROUND_ITEM_DESPAWN_TICKS), // 2 minutes
         droppedBy: data.killedBy, // Killer gets loot protection
         lootProtection: ticksToMs(COMBAT_CONSTANTS.LOOT_PROTECTION_TICKS), // 1 minute protection
-        scatter: false, // Items pile at mob position tile center (OSRS-style)
+        scatter: false, // Items pile at mob position tile center (classic MMORPG-style)
       },
     );
 

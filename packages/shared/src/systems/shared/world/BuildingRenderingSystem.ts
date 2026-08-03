@@ -346,7 +346,7 @@ import type { PhysicsHandle } from "../../../types/systems/physics";
 
 /**
  * Building occlusion shader configuration.
- * Uses dithered/stippled effect like RuneScape for seeing character through walls.
+ * Uses dithered/stippled effect like classic fantasy MMORPG for seeing character through walls.
  * Values are intentionally smaller than vegetation for subtle visibility.
  */
 export const BUILDING_OCCLUSION_CONFIG = {
@@ -371,7 +371,7 @@ export const BUILDING_OCCLUSION_CONFIG = {
   /** Occlusion strength (0 = disabled, only near-camera dissolve active) */
   STRENGTH: 0.0,
 
-  // ========== NEAR-CAMERA DISSOLVE (RuneScape-style depth fade) ==========
+  // ========== NEAR-CAMERA DISSOLVE (classic fantasy MMORPG-style depth fade) ==========
   // Prevents hard geometry clipping when camera clips through objects
 
   /** Distance from camera where near-fade begins (meters) - fully opaque beyond this */
@@ -1078,7 +1078,7 @@ export type BuildingOcclusionMaterial = MeshStandardNodeMaterial & {
  * Uses TSL (Three Shading Language) for GPU-accelerated patterns and occlusion.
  *
  * The shader creates a cone-shaped dissolve from camera to player,
- * using a dithered/stippled pattern like classic RuneScape.
+ * using a dithered/stippled pattern reminiscent of classic fantasy MMORPGs.
  *
  * @returns Material with occlusion shader
  */
@@ -1145,7 +1145,7 @@ function createBuildingOcclusionMaterial(): BuildingOcclusionMaterial {
     const camDistSq = add(add(mul(cfX, cfX), mul(cfY, cfY)), mul(cfZ, cfZ));
     const camDist = sqrt(camDistSq);
 
-    // ========== NEAR-CAMERA DISSOLVE (RuneScape-style depth fade) ==========
+    // ========== NEAR-CAMERA DISSOLVE (classic fantasy MMORPG-style depth fade) ==========
     // Prevents hard geometry clipping when camera clips through objects
     // smoothstep returns 0→1 as distance goes from end→start, we invert for fade
     const nearCameraFade = sub(
@@ -1229,7 +1229,7 @@ function createBuildingOcclusionMaterial(): BuildingOcclusionMaterial {
     // - occlusionFade: dissolve when player is behind walls
     const combinedFade = max(max(nearCameraFade, distanceFade), occlusionFade);
 
-    // ========== SCREEN-SPACE 4x4 BAYER DITHERING (RuneScape 3 style) ==========
+    // ========== SCREEN-SPACE 4x4 BAYER DITHERING (modern fantasy MMORPG style) ==========
     // 4x4 Bayer matrix: [ 0, 8, 2,10; 12, 4,14, 6; 3,11, 1, 9; 15, 7,13, 5]/16
     const ix = mod(floor(viewportCoordinate.x), float(4.0));
     const iy = mod(floor(viewportCoordinate.y), float(4.0));
@@ -1257,7 +1257,7 @@ function createBuildingOcclusionMaterial(): BuildingOcclusionMaterial {
     );
     const ditherValue = mul(bayerInt, float(0.0625)); // /16
 
-    // RS3-style: discard when fade >= dither
+    // modern MMORPG-style: discard when fade >= dither
     // step returns 0 or 1, multiply by 2 so threshold > 1.0 causes discard
     // (alphaTest discards when material.alpha (1.0) < threshold)
     // IMPORTANT: Only apply dithering when combinedFade > 0, otherwise step(0,0)=1 causes holes
@@ -2759,7 +2759,7 @@ export class BuildingRenderingSystem extends SystemBase {
   /** Shared uber-material for all batched buildings (with occlusion shader) */
   private batchedMaterial: BuildingOcclusionMaterial;
 
-  /** Shared roof material with per-building visibility (RuneScape-style roof hiding) */
+  /** Shared roof material with per-building visibility (classic fantasy MMORPG-style roof hiding) */
   private roofMaterial: RoofOcclusionMaterial;
 
   /** Shared floor material for all batched building floors (no occlusion needed) */
@@ -2830,7 +2830,7 @@ export class BuildingRenderingSystem extends SystemBase {
     // Create shared material for batched buildings (with occlusion shader)
     this.batchedMaterial = createBuildingOcclusionMaterial();
 
-    // Create shared roof material with per-building visibility (RuneScape-style)
+    // Create shared roof material with per-building visibility (classic fantasy MMORPG-style)
     this.roofMaterial = createBuildingRoofMaterial();
 
     // Create shared floor material (simple, no occlusion - floors are walkable)
@@ -3169,7 +3169,7 @@ export class BuildingRenderingSystem extends SystemBase {
   /**
    * Update roof visibility state.
    *
-   * **RuneScape-Style Per-Building Roof Hiding:**
+   * **classic fantasy MMORPG-Style Per-Building Roof Hiding:**
    * Individual building roofs are now hidden via the roof material's shader,
    * which reads buildingCenter and buildingRadius vertex attributes to determine
    * if the player or camera is close to each specific building. This enables
@@ -3178,7 +3178,7 @@ export class BuildingRenderingSystem extends SystemBase {
    * The shader automatically:
    * - Hides a building's roof when player is within the building's footprint + margin
    * - Hides a building's roof when camera is within the building's footprint + margin
-   * - Uses dithered dissolve effect for smooth transitions (RS3 style)
+   * - Uses dithered dissolve effect for smooth transitions (modern MMORPG style)
    *
    * This method now only handles:
    * - The "always hidden" override (for debugging/special modes)
@@ -4232,7 +4232,7 @@ export class BuildingRenderingSystem extends SystemBase {
       );
     }
 
-    // === ROOF MESH (RuneScape-style per-building roof hiding) ===
+    // === ROOF MESH (classic fantasy MMORPG-style per-building roof hiding) ===
     // Uses roofMaterial which has per-building visibility based on vertex attributes
     // buildingCenter and buildingRadius attributes enable the shader to hide roofs
     // when player/camera is close to that specific building

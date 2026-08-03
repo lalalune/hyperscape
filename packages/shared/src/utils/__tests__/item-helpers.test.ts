@@ -1,7 +1,7 @@
 /**
  * Item Helpers Unit Tests
  *
- * Tests for OSRS-accurate item type detection helpers used for
+ * Tests for rules-accurate item type detection helpers used for
  * context menu ordering and left-click default actions.
  */
 

@@ -1,5 +1,5 @@
 /**
- * MagicDamageCalculator - OSRS-accurate magic damage formulas
+ * MagicDamageCalculator - rules-accurate magic damage formulas
  *
  * Key differences from melee/ranged:
  * - Magic defense for PLAYERS = 0.7 * magicLevel + 0.3 * defenseLevel
@@ -11,8 +11,6 @@
  * Defense Roll (player) = floor(0.7 * magicLevel + 0.3 * defenseLevel + 9) * (magicDefenseBonus + 64)
  * Defense Roll (NPC) = (magicLevel + 9) * (magicDefenseBonus + 64)
  *
- * @see https://oldschool.runescape.wiki/w/Damage_per_second/Magic
- * @see https://oldschool.runescape.wiki/w/Magic_Damage
  */
 
 import {
@@ -145,7 +143,7 @@ function calculateNpcMagicDefenseRoll(
 }
 
 /**
- * Calculate magic damage using OSRS-accurate formulas
+ * Calculate magic damage using rules-accurate formulas
  *
  * @param params - Magic damage calculation parameters
  * @param rng - Optional seeded random number generator

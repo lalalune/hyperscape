@@ -1,9 +1,9 @@
 /**
  * EatDelayManager - Manages eating cooldowns per player
  *
- * Single Responsibility: Track and enforce eat delay timing (OSRS-accurate)
+ * Single Responsibility: Track and enforce eat delay timing (rules-accurate)
  *
- * OSRS Mechanics:
+ * classic MMORPG Mechanics:
  * - Standard food has 3-tick (1.8s) eat delay
  * - Player cannot eat again until delay expires
  * - Delay is per-player, not global

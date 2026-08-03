@@ -90,7 +90,7 @@ export { PlayerMigration } from "./types/core/core";
 // Export enums (these are values, not types)
 export { WeaponType, EquipmentSlotName } from "./types/core/core";
 
-// Weapon style configuration (OSRS-accurate style restrictions per weapon)
+// Weapon style configuration (rules-accurate style restrictions per weapon)
 export {
   WEAPON_STYLE_CONFIG,
   getAvailableStyles,
@@ -132,7 +132,7 @@ export type {
   PendingLootTransaction,
 } from "./types/death";
 
-// Export tile utilities (used for OSRS-style tile-based distance checks)
+// Export tile utilities (used for classic MMORPG-style tile-based distance checks)
 export {
   worldToTile,
   tileToWorld,
@@ -147,7 +147,7 @@ export {
 // Export item helpers used by server network snapshot
 export { ITEMS, getItem } from "./data/items";
 
-// Item type detection helpers (OSRS-accurate inventory actions)
+// Item type detection helpers (rules-accurate inventory actions)
 export {
   isFood,
   isPotion,
@@ -163,7 +163,7 @@ export {
 } from "./utils/item-helpers";
 export type { PrimaryActionType } from "./utils/item-helpers";
 
-// Context menu colors (OSRS-accurate styling)
+// Context menu colors (rules-accurate styling)
 export { CONTEXT_MENU_COLORS } from "./constants/GameConstants";
 
 // Home teleport constants (cooldown, cast time)

@@ -81,7 +81,7 @@ export class MobHealthBarManager {
   /**
    * Register with HealthBars system (client-side only).
    * Uses atlas-based instanced mesh for performance instead of sprite per mob.
-   * Health bar starts hidden (RuneScape pattern: only show during combat).
+   * Health bar starts hidden (classic fantasy MMORPG pattern: only show during combat).
    */
   init(): void {
     if (this.ctx.world.isServer) return;
@@ -96,7 +96,7 @@ export class MobHealthBarManager {
         this.ctx.config.currentHealth,
         this.ctx.config.maxHealth,
       );
-      // Health bar starts hidden (RuneScape pattern: only show during combat)
+      // Health bar starts hidden (classic fantasy MMORPG pattern: only show during combat)
     }
 
     this._lastKnownHealth = this.ctx.config.currentHealth;
@@ -138,7 +138,7 @@ export class MobHealthBarManager {
   // ─── Visibility management ──────────────────────────────────────
 
   /**
-   * Check and hide health bar after combat timeout (RuneScape pattern: 4.8 seconds).
+   * Check and hide health bar after combat timeout (classic fantasy MMORPG pattern: 4.8 seconds).
    * Called every client frame.
    */
   updateVisibilityTimeout(): void {

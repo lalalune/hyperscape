@@ -1,8 +1,8 @@
 /**
- * DamageSplatSystem - RuneScape-style Damage Splats
+ * DamageSplatSystem - classic fantasy MMORPG-style Damage Splats
  *
  * Creates visual damage numbers (hit splats) that appear above entities when they take damage.
- * Mimics Old School RuneScape's iconic damage feedback system.
+ * Mimics classic fantasy MMORPG's iconic damage feedback system.
  *
  * Features:
  * - Red splats for successful hits (damage > 0)
@@ -16,7 +16,6 @@
  * - Animates with fadeout and upward movement
  * - Auto-removes after animation completes
  *
- * @see https://oldschool.runescape.wiki/w/Hitsplat - OSRS hitsplat mechanics and colors
  */
 
 import * as THREE from "../../extras/three/three";
@@ -209,7 +208,7 @@ export class DamageSplatSystem extends System {
     // Clear canvas and redraw
     context.clearRect(0, 0, size, size);
 
-    // Draw OSRS-style hit splat
+    // Draw classic MMORPG-style hit splat
     const isHit = damage > 0;
     const bgColor = isHit ? "#8B0000" : "#000080"; // Dark red or dark blue
     const textColor = "#FFFFFF";

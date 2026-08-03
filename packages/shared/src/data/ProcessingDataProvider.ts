@@ -2220,7 +2220,7 @@ export class ProcessingDataProvider {
    * Calculate the multi-rune multiplier for a given rune type and level.
    * Returns how many runes are produced per essence at the given level.
    *
-   * In OSRS, each threshold in multiRuneLevels grants +1 rune per essence.
+   * In classic MMORPG, each threshold in multiRuneLevels grants +1 rune per essence.
    * e.g., air rune thresholds [11, 22, 33, ...]: at level 22, you get 3 runes per essence.
    */
   public getRunecraftingMultiplier(runeType: string, level: number): number {

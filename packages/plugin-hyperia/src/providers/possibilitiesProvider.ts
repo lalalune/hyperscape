@@ -59,7 +59,7 @@ interface FiremakingRecipe {
   xp: number;
 }
 
-// Core smelting recipes (OSRS-style)
+// Core smelting recipes (classic MMORPG-style)
 const SMELTING_RECIPES: SmeltingRecipe[] = [
   {
     barId: "bronze_bar",
@@ -95,7 +95,7 @@ const SMELTING_RECIPES: SmeltingRecipe[] = [
   },
 ];
 
-// Core smithing recipes (OSRS-style)
+// Core smithing recipes (classic MMORPG-style)
 const SMITHING_RECIPES: SmithingRecipe[] = [
   // Bronze items
   {

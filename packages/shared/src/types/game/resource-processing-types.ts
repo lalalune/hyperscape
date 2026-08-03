@@ -10,16 +10,15 @@ import type { Position3D } from "../core/base-types";
 
 /**
  * Resource footprint - predefined sizes for how many tiles a resource occupies
- * Used for OSRS-accurate tile-based positioning and interaction
+ * Used for rules-accurate tile-based positioning and interaction
  *
  * - standard: 1×1 tile (normal trees, rocks, fishing spots)
  * - large: 2×2 tiles (ancient trees, large ore veins)
  * - massive: 3×3 tiles (world trees, raid objects)
  *
  * Multi-tile resources use the SW (south-west) tile as their anchor,
- * matching OSRS behavior for large objects.
+ * matching classic MMORPG behavior for large objects.
  *
- * @see https://oldschool.runescape.wiki/w/Pathfinding
  */
 export type ResourceFootprint = "standard" | "large" | "massive";
 
@@ -95,13 +94,12 @@ export interface Resource {
 /**
  * Resource drop - what a resource can drop when gathered
  *
- * For fishing with OSRS priority rolling:
+ * For fishing with classic MMORPG priority rolling:
  * - `levelRequired`: Minimum skill level to catch this fish
  * - `catchLow`: Catch rate at level 1 (x/256 numerator)
  * - `catchHigh`: Catch rate at level 99 (x/256 numerator)
  *
  * Fish are rolled in priority order (highest level first).
- * @see https://oldschool.runescape.wiki/w/Catch_rate
  */
 export interface ResourceDrop {
   itemId: string;
@@ -112,9 +110,9 @@ export interface ResourceDrop {
   stackable: boolean;
   /** Skill level required to catch this specific item */
   levelRequired?: number;
-  /** OSRS catch rate numerator at level 1 (x/256) */
+  /** classic MMORPG catch rate numerator at level 1 (x/256) */
   catchLow?: number;
-  /** OSRS catch rate numerator at level 99 (x/256) */
+  /** classic MMORPG catch rate numerator at level 99 (x/256) */
   catchHigh?: number;
 }
 

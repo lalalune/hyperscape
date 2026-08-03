@@ -46,7 +46,7 @@ import {
   MAX_BANK_SLOTS,
 } from "./utils";
 
-// Import coin handler for bank withdraw redirect (coins go to money pouch, RS3-style)
+// Import coin handler for bank withdraw redirect (coins go to money pouch, modern MMORPG-style)
 import { handleBankWithdrawCoins } from "./coins";
 
 /**
@@ -98,7 +98,7 @@ export async function handleBankOpen(
 
   try {
     const bankRepo = new BankRepository(db.drizzle, db.pool);
-    // RS3-style: items includes qty=0 rows (placeholders)
+    // modern MMORPG-style: items includes qty=0 rows (placeholders)
     const items = await bankRepo.getPlayerBank(playerId);
     const tabs = await bankRepo.getPlayerTabs(playerId);
     const alwaysSetPlaceholder =
@@ -107,7 +107,7 @@ export async function handleBankOpen(
     // InteractionSessionManager now tracks targetEntityId as single source of truth
 
     // Send bank state to client (include isOpen and bankId for initial open)
-    // RS3-style: no separate placeholders array - items with qty=0 ARE placeholders
+    // modern MMORPG-style: no separate placeholders array - items with qty=0 ARE placeholders
     sendToSocket(socket, "bankState", {
       playerId,
       bankId: data.bankId,
@@ -318,7 +318,7 @@ export async function handleBankDeposit(
         }
 
         // Add to bank (stacking)
-        // RS3-STYLE: If item exists (even with qty=0 placeholder), add to that slot
+        // modern MMORPG-STYLE: If item exists (even with qty=0 placeholder), add to that slot
         if (bankRows.length > 0) {
           // Works for both normal items and qty=0 placeholders
           // qty=0 + newQty = newQty (placeholder becomes real item)
@@ -329,7 +329,7 @@ export async function handleBankDeposit(
           );
         } else {
           // No existing item - find next available bank slot IN TARGET TAB
-          // RS3-style: New items go to the currently viewed tab
+          // modern MMORPG-style: New items go to the currently viewed tab
           const targetTab = data.targetTabIndex ?? 0;
 
           // Get items in the target tab to find next available slot
@@ -568,11 +568,11 @@ export async function handleBankWithdraw(
         // Remove from bank
         const newBankQty = availableQty - finalWithdrawQty;
         if (newBankQty <= 0) {
-          // RS3-STYLE PLACEHOLDER BEHAVIOR:
+          // modern MMORPG-STYLE PLACEHOLDER BEHAVIOR:
           // If alwaysSetPlaceholder is ON, set qty=0 (item stays as placeholder)
           // If alwaysSetPlaceholder is OFF, delete row and compact slots
           if (alwaysSetPlaceholder) {
-            // RS3-style: Keep row with qty=0 as placeholder
+            // modern MMORPG-style: Keep row with qty=0 as placeholder
             await tx.execute(
               sql`UPDATE bank_storage SET quantity = 0 WHERE id = ${bankRow.id}`,
             );
@@ -880,7 +880,7 @@ export async function handleBankDepositAll(
         }
 
         // Update/insert bank items
-        // RS3-style: New items go to the currently viewed tab
+        // modern MMORPG-style: New items go to the currently viewed tab
         const targetTab = data.targetTabIndex ?? 0;
 
         // Get slots used in target tab for new item placement

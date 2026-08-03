@@ -1,7 +1,7 @@
 /**
  * UnlocksSection - Displays what content is unlocked at a skill level
  *
- * Shows OSRS-style unlock information in the level-up popup:
+ * Shows classic MMORPG-style unlock information in the level-up popup:
  * - New items that can be equipped/used
  * - New abilities unlocked
  * - New areas accessible

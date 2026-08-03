@@ -16,7 +16,7 @@ import { CombatLevel } from "../libraries/CombatLevel.sol";
  * them in a single transaction using updateCombatSkills() or
  * updateGatheringSkills() to minimize gas costs.
  *
- * All level calculations use the OSRS XP formula via XPTable library,
+ * All level calculations use the classic MMORPG XP formula via XPTable library,
  * which must produce identical results to the TypeScript SkillsSystem.
  */
 contract SkillSystem is System {

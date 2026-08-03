@@ -153,7 +153,7 @@ export function calculateNPCDrops(
 }
 
 /**
- * Calculate NPC combat level using OSRS-accurate formula (delegates to CombatLevelCalculator)
+ * Calculate NPC combat level using rules-accurate formula (delegates to CombatLevelCalculator)
  */
 export function calculateNPCCombatLevel(npc: NPCData): number {
   return calculateCombatLevel(

@@ -5,7 +5,7 @@
  * - Configurable slot count (4-12 slots, adjustable via +/- buttons)
  * - Drag items from inventory to action bar
  * - Drag skills/spells/prayers to action bar
- * - RS3-style keyboard shortcuts with modifier support:
+ * - modern MMORPG-style keyboard shortcuts with modifier support:
  *   - Bar 1: 1-9, 0, -, =, Backspace, Insert
  *   - Bar 2: Ctrl+1-9, Ctrl+0, etc.
  *   - Bar 3: Shift+1-9, Shift+0, etc.

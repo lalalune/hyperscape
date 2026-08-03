@@ -2,16 +2,16 @@
  * FollowManager
  *
  * Server-authoritative system for tracking players following other players.
- * Implements OSRS-accurate following behavior.
+ * Implements rules-accurate following behavior.
  *
- * OSRS-style behavior (from wiki):
+ * classic MMORPG-style behavior (from wiki):
  * 1. Player right-clicks another player and selects "Follow"
  * 2. Follower walks behind the leader (not on same tile)
  * 3. When leader moves, follower re-paths to stay behind them
  * 4. Following continues indefinitely until cancelled
  * 5. Cancelled by: clicking to walk, trading, equipping items, target disconnecting
  *
- * @see https://runescape.wiki/w/Follow
+ * @see https://classic.wiki/w/Follow
  */
 
 import type { World, TileCoord } from "@hyperforge/shared";
@@ -55,11 +55,10 @@ export class FollowManager {
    * Start following another player
    * Called when player selects "Follow" from context menu
    *
-   * OSRS-ACCURATE: Does NOT immediately start moving.
+   * RULES-ACCURATE: Does NOT immediately start moving.
    * Movement is deferred to processTick() which runs on the NEXT tick,
    * creating the characteristic 1-tick delay before follower reacts.
    *
-   * @see https://oldschool.runescape.wiki/w/Game_tick - "Each action registered
    *      within one tick will start to take place by the beginning of the next tick"
    */
   startFollowing(followerId: string, targetId: string): void {
@@ -93,7 +92,7 @@ export class FollowManager {
 
     // Set up follow state - DON'T immediately move
     // processTick() will handle path calculation on NEXT tick
-    // This creates the OSRS-accurate 1-tick delay before following starts
+    // This creates the rules-accurate 1-tick delay before following starts
     this.following.set(followerId, {
       followerId,
       targetId,
@@ -134,7 +133,7 @@ export class FollowManager {
   /**
    * Process all following players - called every tick
    *
-   * OSRS-ACCURATE behavior:
+   * RULES-ACCURATE behavior:
    * - Uses PREVIOUS tile (last tile stepped off during movement)
    * - This is 1 tile behind current position, stays unchanged when stopped
    * - Creates proper trailing: follower stops 1 tile behind when target stops
@@ -154,9 +153,9 @@ export class FollowManager {
     }
 
     for (const [followerId, state] of this.following) {
-      // OSRS-ACCURATE: Enforce 1-tick delay before following starts
+      // RULES-ACCURATE: Enforce 1-tick delay before following starts
       // If follow was registered THIS tick, skip processing until NEXT tick
-      // This matches OSRS: "Each action registered within one tick will start
+      // This matches classic MMORPG: "Each action registered within one tick will start
       // to take place by the beginning of the next tick"
       if (state.startTick === this.currentTickNumber) {
         continue;
@@ -187,7 +186,7 @@ export class FollowManager {
       // Zero-allocation: write to pre-allocated tile object
       worldToTileInto(followerPos.x, followerPos.z, this._tempFollowerTile);
 
-      // OSRS-ACCURATE: Get target's PREVIOUS tile (last tile they stepped off)
+      // RULES-ACCURATE: Get target's PREVIOUS tile (last tile they stepped off)
       // This is always 1 tile behind their current position
       // When target stops, previousTile stays at the last stepped-off position
       const previousTile = this.tileMovementManager.getPreviousTile(

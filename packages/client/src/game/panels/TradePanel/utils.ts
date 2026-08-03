@@ -9,7 +9,7 @@
 // ============================================================================
 
 /**
- * Format quantity for OSRS-style display
+ * Format quantity for classic MMORPG-style display
  * Shows K/M suffixes for large numbers with appropriate colors
  */
 export function formatQuantity(qty: number): { text: string; color: string } {
@@ -29,7 +29,7 @@ export function formatQuantity(qty: number): { text: string; color: string } {
 // ============================================================================
 
 /**
- * Format gold value for wealth indicator display (OSRS-style)
+ * Format gold value for wealth indicator display (classic MMORPG-style)
  * Shows K/M/B suffixes with decimal places
  */
 export function formatGoldValue(value: number): string {

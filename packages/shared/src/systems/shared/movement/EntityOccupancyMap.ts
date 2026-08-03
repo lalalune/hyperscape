@@ -1,9 +1,9 @@
 /**
  * EntityOccupancyMap - Tracks entity tile occupancy for collision
  *
- * OSRS-accurate entity collision:
+ * rules-accurate entity collision:
  * - Each tile can be occupied by at most one NPC (for collision purposes)
- * - Players also set occupancy flags (optional - OSRS does this)
+ * - Players also set occupancy flags (optional - classic MMORPG does this)
  * - Bosses/special NPCs can ignore collision (configurable)
  *
  * Memory Hygiene:
@@ -11,14 +11,12 @@
  * - Pre-allocated query buffers to avoid hot path allocations
  * - No closures created during isBlocked/isOccupied checks
  *
- * OSRS Mechanics (verified from osrs-docs.com):
  * - Flags set when entity spawns/moves TO a tile
  * - Flags removed when entity despawns/moves OFF a tile
  * - Pathfinder IGNORES entity collision (checked at movement time)
  * - If blocked, movement fails but path is RETAINED
  *
  * @see NPC_ENTITY_COLLISION_PLAN.md
- * @see https://osrs-docs.com/docs/mechanics/entity-collision/
  */
 
 import type { EntityID } from "../../../types/core/identifiers";
@@ -114,7 +112,7 @@ export interface IEntityOccupancy {
 /**
  * Production implementation of entity occupancy tracking
  *
- * Provides OSRS-accurate entity collision for NPCs and players.
+ * Provides rules-accurate entity collision for NPCs and players.
  * Uses Map-based storage with O(1) lookups.
  */
 export class EntityOccupancyMap implements IEntityOccupancy {
@@ -345,7 +343,7 @@ export class EntityOccupancyMap implements IEntityOccupancy {
   /**
    * Move entity to new tiles (atomic operation with delta-based CollisionMatrix updates)
    *
-   * Follows OSRS flag update order:
+   * Follows classic MMORPG flag update order:
    * 1. Remove flags from old tiles not in new position
    * 2. Add flags on new tiles not in old position
    * 3. Update internal tracking

@@ -312,7 +312,7 @@ const pipelineId = await client.startPipeline({
   type: 'weapon',
   subtype: 'sword',
   description: 'A polished steel longsword',
-  style: 'runescape2007',
+  style: 'classicLowPoly',
   enableRetexturing: true,
   enableSprites: true,
   materialPresets: [

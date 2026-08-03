@@ -1,13 +1,12 @@
 /**
- * OSRS Melee Range Integration Tests
+ * classic MMORPG Melee Range Integration Tests
  *
- * End-to-end tests for OSRS-accurate melee combat range mechanics:
+ * End-to-end tests for rules-accurate melee combat range mechanics:
  * - Range 1 (standard melee): CARDINAL ONLY (N/S/E/W)
  * - Range 2+ (halberd/spear): Allows diagonal (Chebyshev distance)
  * - Walk-to-attack pathing for out-of-range targets
  * - Infinite follow behavior (no timeout)
  *
- * @see https://oldschool.runescape.wiki/w/Attack_range
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
@@ -248,7 +247,7 @@ function createTestWorld(options: { currentTick?: number } = {}) {
   };
 }
 
-describe("OSRS Melee Range Integration", () => {
+describe("classic MMORPG Melee Range Integration", () => {
   let combatSystem: CombatSystem;
   let world: ReturnType<typeof createTestWorld>;
 
@@ -883,7 +882,7 @@ describe("OSRS Melee Range Integration", () => {
     });
   });
 
-  describe("combat timeout behavior (OSRS-style)", () => {
+  describe("combat timeout behavior (classic MMORPG-style)", () => {
     it("combat timeout is extended when follow events are emitted", () => {
       const player = createTestPlayer("player1", {
         position: { x: 5.5, y: 0, z: 5.5 },

@@ -5,7 +5,7 @@
  * and skill unlocks data integrity.
  *
  * All skill unlocks are loaded from skill-unlocks.json manifest.
- * Single source of truth - OSRS accurate data.
+ * Single source of truth - rules-accurate data.
  */
 
 import { describe, it, expect, beforeAll } from "vitest";
@@ -412,15 +412,15 @@ describe("Skill data integrity", () => {
 });
 
 // ============================================================================
-// OSRS-Accurate Skill Unlock Verification
+// Rules-Accurate Skill Unlock Verification
 // ============================================================================
 
-describe("OSRS-accurate skill unlock values", () => {
-  it("attack weapon tiers are OSRS accurate", () => {
+describe("rules-accurate skill unlock values", () => {
+  it("attack weapon tiers are rules-accurate", () => {
     const allUnlocks = getAllSkillUnlocks();
     const attack = allUnlocks.attack;
 
-    // Verify key OSRS attack milestones
+    // Verify key classic MMORPG attack milestones
     expect(attack.find((u) => u.level === 1)?.description).toContain("Bronze");
     expect(attack.find((u) => u.level === 5)?.description).toContain("Steel");
     expect(attack.find((u) => u.level === 20)?.description).toContain(
@@ -433,7 +433,7 @@ describe("OSRS-accurate skill unlock values", () => {
     expect(attack.find((u) => u.level === 60)?.description).toContain("Dragon");
   });
 
-  it("defense armor tiers are OSRS accurate", () => {
+  it("defense armor tiers are rules-accurate", () => {
     const allUnlocks = getAllSkillUnlocks();
     const defense = allUnlocks.defense;
 
@@ -464,7 +464,7 @@ describe("OSRS-accurate skill unlock values", () => {
     expect(prayer.find((u) => u.level === 70)?.description).toContain("Piety");
   });
 
-  it("woodcutting tree types are OSRS accurate", () => {
+  it("woodcutting tree types are rules-accurate", () => {
     const allUnlocks = getAllSkillUnlocks();
     const woodcutting = allUnlocks.woodcutting;
 
@@ -491,7 +491,7 @@ describe("OSRS-accurate skill unlock values", () => {
     );
   });
 
-  it("mining ore types are OSRS accurate", () => {
+  it("mining ore types are rules-accurate", () => {
     const allUnlocks = getAllSkillUnlocks();
     const mining = allUnlocks.mining;
 
@@ -505,7 +505,7 @@ describe("OSRS-accurate skill unlock values", () => {
     expect(mining.find((u) => u.level === 85)?.description).toBe("Runite ore");
   });
 
-  it("fishing levels are OSRS accurate", () => {
+  it("fishing levels are rules-accurate", () => {
     const allUnlocks = getAllSkillUnlocks();
     const fishing = allUnlocks.fishing;
 
@@ -516,7 +516,7 @@ describe("OSRS-accurate skill unlock values", () => {
     expect(fishing.find((u) => u.level === 76)?.description).toBe("Shark");
   });
 
-  it("cooking levels are OSRS accurate", () => {
+  it("cooking levels are rules-accurate", () => {
     const allUnlocks = getAllSkillUnlocks();
     const cooking = allUnlocks.cooking;
 
@@ -551,7 +551,7 @@ describe("OSRS-accurate skill unlock values", () => {
     );
   });
 
-  it("smithing bar levels are OSRS accurate", () => {
+  it("smithing bar levels are rules-accurate", () => {
     const allUnlocks = getAllSkillUnlocks();
     const smithing = allUnlocks.smithing;
 

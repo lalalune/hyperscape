@@ -1,11 +1,11 @@
 /**
  * BFS Pathfinder Unit Tests
  *
- * Tests the BFS pathfinding system with OSRS-style diagonal pathing.
+ * Tests the BFS pathfinding system with classic MMORPG-style diagonal pathing.
  *
  * Key behaviors tested:
  * - Basic straight-line pathfinding
- * - Naive diagonal pathing (OSRS follow-mode style)
+ * - Naive diagonal pathing (classic MMORPG follow-mode style)
  * - BFS fallback when naive path is blocked
  * - Obstacle avoidance
  * - Corner clipping prevention

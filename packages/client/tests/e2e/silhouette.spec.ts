@@ -1,7 +1,7 @@
 /**
  * Player Silhouette E2E Tests
  *
- * Visual verification of RuneScape-style silhouette (depthTest=false, player overwrites).
+ * Visual verification of classic fantasy MMORPG-style silhouette (depthTest=false, player overwrites).
  */
 
 import { test, expect, Page } from "@playwright/test";

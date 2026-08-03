@@ -19,7 +19,7 @@ interface BuildConfigOptions {
   materialPresets: MaterialPreset[];
   materialPromptOverrides: Record<string, string>;
   materialPromptTemplates?: {
-    runescape: string;
+    classic: string;
     generic: string;
   };
   gameStyleConfig?: {
@@ -67,8 +67,8 @@ export function buildGenerationConfig(
   // Prepare material variants
   let materialVariants = [];
 
-  if (gameStyle === "runescape") {
-    // RuneScape material presets
+  if (gameStyle === "classic") {
+    // classic fantasy MMORPG material presets
     materialVariants = selectedMaterials.map((materialId, index) => {
       const preset = materialPresets.find((p) => p.id === materialId);
       return {
@@ -91,8 +91,8 @@ export function buildGenerationConfig(
           materialPromptOverrides[materialId] ||
           preset?.stylePrompt ||
           (
-            materialPromptTemplates?.runescape ||
-            "${materialId} texture, low-poly RuneScape style"
+            materialPromptTemplates?.classic ||
+            "${materialId} texture, low-poly classic fantasy MMORPG style"
           ).replace("${materialId}", materialId),
       };
     });
@@ -128,7 +128,7 @@ export function buildGenerationConfig(
     description,
     style:
       gameStyleConfig?.generation ||
-      (gameStyle === "runescape" ? "runescape2007" : customStyle),
+      (gameStyle === "classic" ? "classicLowPoly" : customStyle),
     assetId: assetName.toLowerCase().replace(/\s+/g, "-"),
     generationType: generationType,
     quality,

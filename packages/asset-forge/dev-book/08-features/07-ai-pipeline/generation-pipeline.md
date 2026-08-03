@@ -83,7 +83,7 @@ interface GenerationConfig {
   type: string              // Asset type: weapon, armor, character
   subtype: string           // Specific category
   description: string       // User description
-  style?: string            // Art style (default: runescape)
+  style?: string            // Art style (default: classic)
   quality?: 'standard' | 'high' | 'ultra'
 
   // Optional configuration
@@ -110,7 +110,7 @@ interface GenerationConfig {
 - `description`: Meaningful text (min 10 characters)
 
 **Optional Fields:**
-- `style`: Defaults to 'runescape' if not provided
+- `style`: Defaults to 'classic' if not provided
 - `quality`: Defaults to 'high'
 - `metadata`: Additional context (creature type, armor slot, etc.)
 
@@ -225,7 +225,7 @@ The blade has a subtle fuller groove running down the center.
 Simple cross-guard with slight downward curve.
 Leather-wrapped wooden grip with visible wrap texture.
 Round pommel with iron finish.
-Low-poly RuneScape style with clean edges and minimal polygons.
+Low-poly classic fantasy MMORPG style with clean edges and minimal polygons.
 The sword should have a slightly weathered iron texture with subtle scratches."
 ```
 
@@ -1016,7 +1016,7 @@ const config: GenerationConfig = {
   type: 'weapon',
   subtype: 'sword',
   description: 'A basic iron sword',
-  style: 'runescape',
+  style: 'classic',
   quality: 'high',
   enableRetexturing: true,
   enableSprites: true,
@@ -1099,7 +1099,7 @@ app.get('/api/generation/pipeline/:id', async (req, res) => {
 {
   "defaults": {
     "quality": "high",
-    "style": "runescape",
+    "style": "classic",
     "enableRetexturing": false,
     "enableSprites": false,
     "enableRigging": false

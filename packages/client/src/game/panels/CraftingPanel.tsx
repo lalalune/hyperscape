@@ -1,5 +1,5 @@
 /**
- * CraftingPanel - OSRS-style crafting interface
+ * CraftingPanel - classic MMORPG-style crafting interface
  *
  * Features:
  * - Shows available items to craft based on player's materials

@@ -1,7 +1,7 @@
 /**
  * Color System - Hyperia UI Theme
  *
- * RuneScape-inspired color palette with modern glass morphism.
+ * classic fantasy MMORPG-inspired color palette with modern glass morphism.
  * All colors meet WCAG 2.1 AA contrast requirements.
  *
  * @see /development-docs/UI_UX_DESIGN_SYSTEM.md

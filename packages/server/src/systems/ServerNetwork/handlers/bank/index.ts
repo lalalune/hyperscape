@@ -7,7 +7,7 @@
  * - coins.ts: Coin deposit/withdraw to money pouch
  * - equipment.ts: Equipment tab interactions
  * - move.ts: Bank rearrangement (swap/insert modes)
- * - placeholders.ts: RS3-style placeholder system
+ * - placeholders.ts: modern MMORPG-style placeholder system
  * - tabs.ts: Custom tab management
  * - utils.ts: Shared utilities (not exported externally)
  */

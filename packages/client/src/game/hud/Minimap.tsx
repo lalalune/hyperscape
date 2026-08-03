@@ -460,7 +460,7 @@ function drawDiamond(
 }
 
 /**
- * Draw a red flag destination marker (RS3-style)
+ * Draw a red flag destination marker (modern MMORPG-style)
  * Simple: thin pole + small filled triangle flag
  */
 function drawFlag(ctx: CanvasRenderingContext2D, cx: number, cy: number): void {
@@ -935,7 +935,7 @@ function MinimapInner({
     setTargetExtent(sizeBasedExtent);
   }, [sizeBasedExtent]);
 
-  // Always rotate with the main camera (RS3-style).
+  // Always rotate with the main camera (modern MMORPG-style).
   const rotateWithCameraRef = useRef<boolean>(true);
   // Direct ref to the collapsed compass SVG — yaw is written via DOM to avoid
   // triggering React reconciliation from inside requestAnimationFrame.
@@ -1380,7 +1380,7 @@ function MinimapInner({
               if (pip.subType && drawMinimapIcon(ctx, x, y, pip.subType)) {
                 // Icon drawn via cached OffscreenCanvas — no path work needed
               } else if (pip.isLocalPlayer) {
-                // RS3/OSRS: local player is a white square (slightly larger than dots)
+                // modern MMORPG/classic MMORPG: local player is a white square (slightly larger than dots)
                 const sqHalf = 2.5;
                 ctx.fillStyle = "#ffffff";
                 ctx.fillRect(x - sqHalf, y - sqHalf, sqHalf * 2, sqHalf * 2);
@@ -1444,7 +1444,7 @@ function MinimapInner({
           // Use refs for width/height to avoid stale closure values during resize
           const sx = (_tempDestVec.x * 0.5 + 0.5) * viewportW;
           const sy = (_tempDestVec.y * -0.5 + 0.5) * viewportH;
-          // RS3-style red flag destination marker
+          // modern MMORPG-style red flag destination marker
           drawFlag(ctx, sx, sy);
         }
       }

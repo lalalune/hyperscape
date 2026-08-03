@@ -2,7 +2,7 @@
  * BankFooter Component
  *
  * Status bar with slot count, Item/Note toggle, and placeholder controls.
- * RS3-style bank footer displaying stats and quick-access toggles.
+ * modern MMORPG-style bank footer displaying stats and quick-access toggles.
  */
 
 import { useState } from "react";
@@ -61,7 +61,7 @@ export function BankFooter({
             : `${filteredItems.length} in tab`}{" "}
           • {items.length}/{maxSlots} slots
         </span>
-        {/* RS3-style: Count items with qty=0 as placeholders */}
+        {/* modern MMORPG-style: Count items with qty=0 as placeholders */}
         {placeholderCount > 0 && (
           <span style={{ opacity: 0.6 }}>
             ({placeholderCount} placeholder
@@ -178,7 +178,7 @@ export function BankFooter({
             Always placeholder
           </span>
         </label>
-        {/* Release All Placeholders (RS3-style: items with qty=0) */}
+        {/* Release All Placeholders (modern MMORPG-style: items with qty=0) */}
         {placeholderCount > 0 && (
           <button
             onClick={onReleaseAllPlaceholders}

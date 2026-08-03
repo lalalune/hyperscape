@@ -1,7 +1,7 @@
 /**
  * FloatingXPDrops - Floating XP numbers that rise toward orbs
  *
- * RS3-style visual feedback:
+ * modern MMORPG-style visual feedback:
  * - Gold text with skill icons
  * - Multiple skills grouped into single floating element (game tick grouping)
  * - Float-up animation with fade-out

@@ -1,7 +1,7 @@
 /**
  * Movement System Module
  *
- * Exports all tile-based movement utilities for RuneScape-style movement.
+ * Exports all tile-based movement utilities for classic fantasy MMORPG-style movement.
  */
 
 export * from "./TileSystem";

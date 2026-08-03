@@ -3,7 +3,7 @@
  *
  * Handles interactions with corpses and headstones/gravestones.
  *
- * OSRS Context Menu Format: "<Action> <TargetName>" with cyan target (scenery color)
+ * classic MMORPG Context Menu Format: "<Action> <TargetName>" with cyan target (scenery color)
  * - "Loot Gravestone" (cyan #00ffff for "Gravestone")
  * - "Examine Gravestone" (cyan #00ffff)
  *
@@ -11,14 +11,13 @@
  * - Player death gravestones (reclaim items)
  * - Mob corpses (loot drops)
  *
- * @see https://oldschool.runescape.wiki/w/Choose_Option for OSRS menu format
  */
 
 import { BaseInteractionHandler } from "./BaseInteractionHandler";
 import type { RaycastTarget, ContextMenuAction } from "../types";
 import { INTERACTION_RANGE } from "../constants";
 
-/** OSRS scenery/object color (cyan) for context menu target names */
+/** classic MMORPG scenery/object color (cyan) for context menu target names */
 const SCENERY_COLOR = "#00ffff";
 
 /** Corpse/Headstone entity interface */
@@ -37,7 +36,7 @@ export class CorpseInteractionHandler extends BaseInteractionHandler {
   /**
    * Right-click: Show loot and examine options
    *
-   * OSRS-accurate format with cyan target names (scenery):
+   * rules-accurate format with cyan target names (scenery):
    * - "Loot Gravestone" (cyan for "Gravestone")
    * - "Examine Gravestone" (cyan)
    */
@@ -45,7 +44,7 @@ export class CorpseInteractionHandler extends BaseInteractionHandler {
     const actions: ContextMenuAction[] = [];
     const targetName = target.name || "Gravestone";
 
-    // Loot action - OSRS: "Loot Gravestone"
+    // Loot action - classic MMORPG: "Loot Gravestone"
     actions.push({
       id: "loot",
       label: `Loot ${targetName}`,
@@ -58,7 +57,7 @@ export class CorpseInteractionHandler extends BaseInteractionHandler {
       handler: () => this.lootCorpse(target),
     });
 
-    // Examine - OSRS: "Examine Gravestone"
+    // Examine - classic MMORPG: "Examine Gravestone"
     const examineText = `The remains of a ${targetName.toLowerCase()}.`;
     actions.push({
       id: "examine",

@@ -3,7 +3,7 @@
  *
  * Handles interactions with town signposts that show directions to nearby towns.
  *
- * OSRS Context Menu Format: "<Action> <TargetName>" with cyan target (scenery color)
+ * classic MMORPG Context Menu Format: "<Action> <TargetName>" with cyan target (scenery color)
  * - "Read Signpost" (cyan #00ffff for target)
  * - "Examine Signpost" (cyan #00ffff for target)
  *
@@ -16,7 +16,7 @@ import type { RaycastTarget, ContextMenuAction } from "../types";
 import { INTERACTION_RANGE } from "../constants";
 import { EventType } from "../../../../types/events/event-types";
 
-/** OSRS scenery/object color (cyan) for context menu target names */
+/** classic MMORPG scenery/object color (cyan) for context menu target names */
 const SCENERY_COLOR = "#00ffff";
 
 export class SignpostInteractionHandler extends BaseInteractionHandler {
@@ -30,7 +30,7 @@ export class SignpostInteractionHandler extends BaseInteractionHandler {
   /**
    * Right-click: Show signpost options
    *
-   * OSRS-accurate format:
+   * rules-accurate format:
    * - "Read Signpost" (action white, target cyan)
    * - "Examine Signpost" (action white, target cyan)
    */

@@ -4,7 +4,6 @@
  * All smithing data (levels, XP, bars required) is manifest-driven:
  * @see packages/server/world/assets/manifests/items.json for recipe data
  * @see ProcessingDataProvider for runtime accessors
- * @see https://oldschool.runescape.wiki/w/Smithing for OSRS reference
  */
 
 /**

@@ -154,7 +154,7 @@ export class CombatTickProcessor {
 
       if (!combatState.inCombat || !combatState.targetId) continue;
 
-      // OSRS-style: Check range EVERY tick and follow if needed
+      // classic MMORPG-style: Check range EVERY tick and follow if needed
       if (combatState.attackerType === "player") {
         this.checkRangeAndFollow(combatState, tickNumber);
       }
@@ -406,7 +406,7 @@ export class CombatTickProcessor {
         this._projectileHitPayload,
       );
 
-      // OSRS arrow recovery: 80% drop to ground, 20% destroyed
+      // classic MMORPG arrow recovery: 80% drop to ground, 20% destroyed
       if (projectile.arrowId && this.ctx.groundItemSystem) {
         const rng = getGameRng();
         if (rng.random() >= 0.2) {

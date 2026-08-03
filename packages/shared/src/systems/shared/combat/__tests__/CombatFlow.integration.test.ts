@@ -364,7 +364,7 @@ describe("CombatFlow Integration", () => {
 
   describe("full player-vs-mob combat cycle", () => {
     it("completes combat from start to mob death", () => {
-      // Setup: Player near a low-health mob (cardinal adjacent for OSRS melee)
+      // Setup: Player near a low-health mob (cardinal adjacent for classic MMORPG melee)
       const player = createTestPlayer("player1", {
         position: { x: 0.5, y: 0, z: 0.5 },
         stats: { attack: 50, strength: 50, defence: 10 },
@@ -996,16 +996,15 @@ describe("CombatFlow Integration", () => {
   });
 
   /**
-   * OSRS-accurate auto-retaliate target persistence tests
+   * rules-accurate auto-retaliate target persistence tests
    *
-   * @see https://oldschool.runescape.wiki/w/Auto_Retaliate
    * @see AUTO_RETALIATE_FIX_PLAN.md
    *
-   * In OSRS, auto-retaliate ONLY triggers when the player has NO current target.
+   * In classic MMORPG, auto-retaliate ONLY triggers when the player has NO current target.
    * When player is already fighting an enemy, getting attacked by another enemy
    * does NOT cause the player to switch targets.
    */
-  describe("OSRS-accurate auto-retaliate target persistence", () => {
+  describe("rules-accurate auto-retaliate target persistence", () => {
     it("does NOT switch targets when attacked by second enemy while fighting", () => {
       // Setup: Player with two mobs at different positions
       const player = createTestPlayer("player1", {
@@ -1045,7 +1044,7 @@ describe("CombatFlow Integration", () => {
       });
 
       // Assert: Player should STILL be targeting mob1, NOT mob2
-      // This is the OSRS-accurate behavior
+      // This is the rules-accurate behavior
       const afterState = combatSystem.getCombatData("player1");
       expect(afterState?.targetId).toBe("mob1");
       expect(afterState?.targetId).not.toBe("mob2");
@@ -1126,7 +1125,7 @@ describe("CombatFlow Integration", () => {
         targetType: "player",
       });
 
-      // STILL targeting mob1 - OSRS accurate
+      // STILL targeting mob1 - rules-accurate
       expect(combatSystem.getCombatData("player1")?.targetId).toBe("mob1");
 
       // Process some combat ticks

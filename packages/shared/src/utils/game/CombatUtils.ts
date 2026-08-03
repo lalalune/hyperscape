@@ -47,7 +47,7 @@ export function isEntityAlive(world: World, entityId: string): boolean {
 /**
  * Check if entity is in melee combat range (MVP: melee-only)
  *
- * OSRS-STYLE: Must be on adjacent tile (Chebyshev distance = 1)
+ * classic MMORPG-STYLE: Must be on adjacent tile (Chebyshev distance = 1)
  */
 export function isInCombatRange(
   world: World,
@@ -325,7 +325,7 @@ export function hasEquippedWeapon(player: Player): boolean {
  * Get player's weapon attack range in tiles
  * Returns weapon's attackRange from manifest, or 1 for unarmed (punching)
  *
- * OSRS-style ranges:
+ * classic MMORPG-style ranges:
  * - 1 = melee (sword, dagger, mace) or unarmed
  * - 2 = halberd, spear (extended melee)
  * - 7+ = ranged weapons (bow, crossbow, magic)

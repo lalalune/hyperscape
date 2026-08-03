@@ -1,9 +1,9 @@
 /**
  * ResourceInteractionHandler
  *
- * Handles interactions with gathering resources using OSRS-accurate context menus.
+ * Handles interactions with gathering resources using rules-accurate context menus.
  *
- * OSRS Context Menu Format: "<Action> <TargetName>" with colored target
+ * classic MMORPG Context Menu Format: "<Action> <TargetName>" with colored target
  *
  * Resource types and their context menu formats:
  * - Trees → "Chop down Oak" (strips "Tree" suffix, cyan target - object color)
@@ -15,7 +15,6 @@
  * - Walk here
  * - Examine
  *
- * @see https://oldschool.runescape.wiki/w/Choose_Option for OSRS menu format
  */
 
 import { BaseInteractionHandler } from "./BaseInteractionHandler";
@@ -57,7 +56,7 @@ export class ResourceInteractionHandler extends BaseInteractionHandler {
   /**
    * Right-click: Show gather action and other options
    *
-   * OSRS-accurate context menu format:
+   * rules-accurate context menu format:
    * - Trees: "Chop down <TreeName>" (e.g., "Chop down Oak")
    * - Rocks: "Mine <RockName>" (e.g., "Mine Copper rocks")
    * - Fishing: Multiple actions per spot (e.g., "Net Fishing spot", "Bait Fishing spot")
@@ -76,7 +75,7 @@ export class ResourceInteractionHandler extends BaseInteractionHandler {
       resourceType.includes("ore") ||
       resourceType.includes("mining")
     ) {
-      // OSRS: "Mine Copper rocks" with cyan target name (object color)
+      // classic MMORPG: "Mine Copper rocks" with cyan target name (object color)
       const rockName = this.getRockDisplayName(target);
       actions.push({
         id: "mine",
@@ -93,7 +92,7 @@ export class ResourceInteractionHandler extends BaseInteractionHandler {
       resourceType === "fishing_spot" ||
       resourceType.includes("fish")
     ) {
-      // OSRS: Multiple actions - "Net Fishing spot", "Bait Fishing spot"
+      // classic MMORPG: Multiple actions - "Net Fishing spot", "Bait Fishing spot"
       const methods = this.getFishingMethods(entity);
       for (const method of methods) {
         actions.push({
@@ -109,7 +108,7 @@ export class ResourceInteractionHandler extends BaseInteractionHandler {
         });
       }
     } else {
-      // Default: Trees - OSRS: "Chop down Oak" with cyan target name (object color)
+      // Default: Trees - classic MMORPG: "Chop down Oak" with cyan target name (object color)
       const treeName = this.getTreeDisplayName(target);
       actions.push({
         id: "chop",
@@ -271,14 +270,14 @@ export class ResourceInteractionHandler extends BaseInteractionHandler {
   }
 
   // ==========================================================================
-  // OSRS-ACCURATE DISPLAY NAME HELPERS
+  // RULES-ACCURATE DISPLAY NAME HELPERS
   // ==========================================================================
 
   /**
-   * Get OSRS-style tree display name.
+   * Get classic MMORPG-style tree display name.
    * Strips "Tree" suffix for named trees (Oak, Willow) but keeps it for basic trees.
    *
-   * OSRS Wiki object names:
+   * Reference object names:
    * - "Tree" (basic tree)
    * - "Oak" (not "Oak Tree")
    * - "Yew" (not "Yew Tree")
@@ -292,7 +291,7 @@ export class ResourceInteractionHandler extends BaseInteractionHandler {
       return "Tree";
     }
 
-    // "Magic Tree" -> "Magic tree" (OSRS uses lowercase 't')
+    // "Magic Tree" -> "Magic tree" (classic MMORPG uses lowercase 't')
     if (name.toLowerCase() === "magic tree") {
       return "Magic tree";
     }
@@ -306,10 +305,10 @@ export class ResourceInteractionHandler extends BaseInteractionHandler {
   }
 
   /**
-   * Get OSRS-style rock display name.
+   * Get classic MMORPG-style rock display name.
    * Converts "Copper Rock" -> "Copper rocks" (lowercase, plural).
    *
-   * OSRS Wiki object names:
+   * Reference object names:
    * - "Copper rocks" (not "Copper Rock")
    * - "Iron rocks" (not "Iron Rock")
    * - "Coal rocks" (not "Coal Rock")

@@ -10,7 +10,7 @@ import { INVENTORY_CONSTANTS } from "@hyperforge/shared";
 // Grid Layout
 // ============================================================================
 
-/** Number of columns in trade grid (OSRS style) */
+/** Number of columns in trade grid (classic MMORPG style) */
 export const TRADE_GRID_COLS = 4;
 
 /** Number of rows in trade grid */

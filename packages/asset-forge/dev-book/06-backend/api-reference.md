@@ -524,7 +524,7 @@ Content-Type: application/json
   "type": "character",
   "subtype": "humanoid",
   "generationType": "avatar",
-  "style": "low-poly RuneScape",
+  "style": "low-poly classic fantasy MMORPG",
   "quality": "high",
   "enableRigging": true,
   "enableRetexturing": true,
@@ -541,7 +541,7 @@ Content-Type: application/json
     "characterHeight": 1.83
   },
   "customPrompts": {
-    "gameStyle": "low-poly RuneScape style, blocky geometry"
+    "gameStyle": "low-poly classic fantasy MMORPG style, blocky geometry"
   }
 }
 ```
@@ -623,7 +623,7 @@ Host: localhost:3004
       "progress": 100,
       "result": {
         "originalPrompt": "A fierce goblin warrior",
-        "optimizedPrompt": "A menacing goblin warrior character in T-pose, wearing rugged leather armor with bronze accents, low-poly RuneScape style"
+        "optimizedPrompt": "A menacing goblin warrior character in T-pose, wearing rugged leather armor with bronze accents, low-poly classic fantasy MMORPG style"
       }
     },
     "imageGeneration": {
@@ -908,8 +908,8 @@ Host: localhost:3004
 {
   "version": "1.0.0",
   "default": {
-    "runescape": {
-      "base": "low-poly RuneScape style",
+    "classic": {
+      "base": "low-poly classic fantasy MMORPG style",
       "description": "Blocky, stylized geometry with flat textures"
     },
     "skyrim": {
@@ -943,8 +943,8 @@ Content-Type: application/json
 {
   "version": "1.0.0",
   "default": {
-    "runescape": {
-      "base": "low-poly RuneScape style",
+    "classic": {
+      "base": "low-poly classic fantasy MMORPG style",
       "description": "Blocky geometry"
     }
   },

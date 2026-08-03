@@ -1,7 +1,7 @@
 /**
- * Tile Interpolator - RuneScape-Style Movement
+ * Tile Interpolator - classic fantasy MMORPG-Style Movement
  *
- * OSRS Movement Model (from research):
+ * classic MMORPG Movement Model (from research):
  * 1. Server calculates full BFS path
  * 2. Server sends FULL PATH to client in tileMovementStart
  * 3. Client walks through path at FIXED SPEED (doesn't wait for individual updates)
@@ -177,7 +177,7 @@ interface EntityMovementState {
 }
 
 /**
- * Client-side tile interpolator using OSRS's full-path prediction model
+ * Client-side tile interpolator using classic MMORPG's full-path prediction model
  *
  * The client receives the full path and walks through it at fixed speed.
  * Server updates are used for verification/sync only, not for driving movement.
@@ -316,7 +316,7 @@ export class TileInterpolator {
    * @param startTile Server's authoritative starting tile (where server knows entity IS)
    * @param destinationTile Final target tile for verification
    * @param moveSeq Movement sequence number for packet ordering
-   * @param emote Optional emote bundled with movement (OSRS-style)
+   * @param emote Optional emote bundled with movement (classic MMORPG-style)
    * @param tilesPerTick Optional per-entity speed (tiles per server tick)
    */
   onMovementStart(
@@ -429,7 +429,7 @@ export class TileInterpolator {
     // Calculate rotation to face DESTINATION (not first tile in path)
     // When spam clicking, server's path starts from its known position which may be
     // behind the client's visual position. Using first tile could cause facing backward.
-    // Instead, face the destination - this matches OSRS behavior (face where you clicked).
+    // Instead, face the destination - this matches classic MMORPG behavior (face where you clicked).
     const firstTileWorld = tileToWorld(finalPath[0]);
     const rotationTargetTile =
       destinationTile || finalPath[finalPath.length - 1];
@@ -1453,7 +1453,7 @@ export class TileInterpolator {
       // Mark entity as controlled by tile interpolator to prevent other systems from overwriting
       entity.data.tileInterpolatorControlled = true;
       // Expose isMoving so PlayerLocal/PlayerRemote can check for combat rotation
-      // OSRS behavior: only face combat target when standing still, not while moving
+      // classic MMORPG behavior: only face combat target when standing still, not while moving
       entity.data.tileMovementActive = state.isMoving;
       // Set rotation: Use base for players (VRM has 180° rotation baked in),
       // fall back to node for mobs/other entities that don't have base
@@ -1551,7 +1551,7 @@ export class TileInterpolator {
    * 2. Entity is NOT currently moving (standing still in combat)
    *
    * Combat rotation is now applied even during movement - the entity will
-   * face their combat target while moving (OSRS PvP behavior).
+   * face their combat target while moving (classic MMORPG PvP behavior).
    *
    * @param entityId - Entity to update
    * @param quaternion - Combat rotation as [x, y, z, w] array or THREE.Quaternion
@@ -1606,7 +1606,7 @@ export class TileInterpolator {
     }
 
     // Apply combat rotation ONLY if not currently moving
-    // Movement direction takes priority over combat rotation (OSRS-accurate)
+    // Movement direction takes priority over combat rotation (rules-accurate)
     if (state.isMoving) {
       return false; // Ignored while moving
     }

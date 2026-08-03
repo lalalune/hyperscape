@@ -109,7 +109,7 @@ export function formatItemName(itemId: string): string {
 }
 
 /**
- * Format quantity with K/M abbreviations (OSRS-style)
+ * Format quantity with K/M abbreviations (classic MMORPG-style)
  *
  * @param quantity - The quantity to format
  * @returns Formatted string (e.g., "1.5K", "10M")
@@ -135,7 +135,7 @@ export function formatPrice(price: number): string {
 }
 
 /**
- * Get quantity text color based on OSRS thresholds
+ * Get quantity text color based on classic MMORPG thresholds
  *
  * @param quantity - The quantity to check
  * @returns CSS color string

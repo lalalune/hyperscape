@@ -1,12 +1,11 @@
 /**
  * WeaponStyleConfig Unit Tests
  *
- * Tests for OSRS-accurate weapon-to-combat-style mapping:
+ * Tests for rules-accurate weapon-to-combat-style mapping:
  * - getAvailableStyles: Returns valid styles per weapon type
  * - isStyleValidForWeapon: Validates style availability
  * - getDefaultStyleForWeapon: Returns correct default style
  *
- * @see https://oldschool.runescape.wiki/w/Combat_Options
  */
 
 import { describe, it, expect } from "vitest";
@@ -58,8 +57,8 @@ describe("WeaponStyleConfig", () => {
       expect(styles).not.toContain("controlled");
     });
 
-    it("returns OSRS-accurate styles for ranged weapons", () => {
-      // Bows and crossbows have accurate, rapid, and longrange in OSRS
+    it("returns rules-accurate styles for ranged weapons", () => {
+      // Bows and crossbows have accurate, rapid, and longrange in classic MMORPG
       expect(getAvailableStyles(WeaponType.BOW)).toEqual([
         "accurate",
         "rapid",
@@ -72,9 +71,8 @@ describe("WeaponStyleConfig", () => {
       ]);
     });
 
-    it("returns OSRS-accurate styles for magic weapons", () => {
-      // Staves and wands have melee bash styles PLUS autocast in OSRS
-      // @see https://oldschool.runescape.wiki/w/Staff (Bash=accurate, Pound=aggressive, Focus=defensive)
+    it("returns rules-accurate styles for magic weapons", () => {
+      // Staves and wands have melee bash styles PLUS autocast in classic MMORPG
       expect(getAvailableStyles(WeaponType.STAFF)).toEqual([
         "accurate",
         "aggressive",

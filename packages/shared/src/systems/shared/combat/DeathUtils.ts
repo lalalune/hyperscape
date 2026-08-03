@@ -53,8 +53,7 @@ export function sanitizeKilledBy(killedBy: unknown): string {
 }
 
 /**
- * OSRS-style: In safe zones, player keeps their 3 most valuable items on death.
- * @see https://oldschool.runescape.wiki/w/Items_Kept_on_Death
+ * classic MMORPG-style: In safe zones, player keeps their 3 most valuable items on death.
  */
 export const ITEMS_KEPT_ON_DEATH = 3;
 
@@ -68,7 +67,7 @@ export function getItemValue(itemId: string): number {
 }
 
 /**
- * Split items into "kept" and "dropped" lists for safe zone deaths (OSRS-style).
+ * Split items into "kept" and "dropped" lists for safe zone deaths (classic MMORPG-style).
  * Keeps the N most valuable individual items. For stacked items (quantity > 1),
  * each unit counts as one item but only the top N units across all stacks are kept.
  *

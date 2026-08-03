@@ -4,7 +4,7 @@
  * Renders health bars for all entities (players and mobs) using a single
  * instanced mesh for optimal performance with TSL Node Materials.
  *
- * Names are shown in right-click context menus only (OSRS pattern).
+ * Names are shown in right-click context menus only (classic MMORPG pattern).
  *
  * @see HealthBarRenderer for the drawing logic
  */

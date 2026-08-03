@@ -1,7 +1,7 @@
 /**
  * RangedDamageCalculator Unit Tests
  *
- * Tests OSRS-accurate ranged damage formulas:
+ * Tests rules-accurate ranged damage formulas:
  * - Effective level calculation with style bonuses
  * - Attack roll formula
  * - Defense roll formula

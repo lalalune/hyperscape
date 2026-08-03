@@ -204,7 +204,7 @@ import type {
  * Gathering Tool Data - derived from items.json where item.tool is defined
  * Defines tool properties for gathering skills (woodcutting, mining, fishing)
  *
- * OSRS Mechanics:
+ * classic MMORPG Mechanics:
  * - Woodcutting: tier used for success rate lookup, roll frequency is fixed (4 ticks)
  * - Mining: rollTicks defines time between attempts, success is level-only
  * - Fishing: equipment doesn't affect speed or success
@@ -218,16 +218,16 @@ export interface GatheringToolData {
   tier: string;
   /** Skill level required to use this tool (derived from tier or explicit) */
   levelRequired: number;
-  /** For mining: ticks between roll attempts (OSRS-accurate) */
+  /** For mining: ticks between roll attempts (rules-accurate) */
   rollTicks?: number;
   /**
    * For mining (dragon/crystal pickaxe): Chance for bonus speed roll.
-   * OSRS: Dragon has 1/6 (0.167), Crystal has 1/4 (0.25) chance for 2-tick roll.
+   * classic MMORPG: Dragon has 1/6 (0.167), Crystal has 1/4 (0.25) chance for 2-tick roll.
    */
   bonusTickChance?: number;
   /**
    * For mining (dragon/crystal pickaxe): Tick count when bonus triggers.
-   * OSRS: Both use 2 ticks when bonus triggers (vs normal 3).
+   * classic MMORPG: Both use 2 ticks when bonus triggers (vs normal 3).
    */
   bonusRollTicks?: number;
   /** Priority for best tool selection (lower = better, 1 = best) */
@@ -283,11 +283,11 @@ export interface ExternalResourceData {
     chance: number;
     xpAmount: number;
     stackable: boolean;
-    /** Level required to catch this specific fish (OSRS-accurate) */
+    /** Level required to catch this specific fish (rules-accurate) */
     levelRequired?: number;
-    /** OSRS catch rate at level 1 (x/256) - for priority rolling */
+    /** classic MMORPG catch rate at level 1 (x/256) - for priority rolling */
     catchLow?: number;
-    /** OSRS catch rate at level 99 (x/256) - for priority rolling */
+    /** classic MMORPG catch rate at level 99 (x/256) - for priority rolling */
     catchHigh?: number;
   }>;
 }
@@ -1744,7 +1744,7 @@ export class DataManager {
       levelRange,
       stats: {
         level: npc.stats?.level ?? 1,
-        health: npc.stats?.health ?? 10, // OSRS: hitpoints = max HP directly
+        health: npc.stats?.health ?? 10, // classic MMORPG: hitpoints = max HP directly
         attack: npc.stats?.attack ?? 1,
         strength: npc.stats?.strength ?? 1,
         defense: npc.stats?.defense ?? 1,

@@ -202,14 +202,14 @@ const rpgSystems: IGameSystem[] = [
 ];
 
 /**
- * Runescape-Style RPG Content Pack
+ * Classic Fantasy RPG Content Pack
  *
  * This content pack connects ElizaOS agents to our polished RPG systems,
  * enabling AI agents to play in our RPG world with full system integration.
  */
-export const RunescapeRPGPack: IContentPack = {
-  id: "runescape-rpg",
-  name: "Runescape RPG Pack",
+export const ClassicRPGPack: IContentPack = {
+  id: "classic-rpg",
+  name: "Classic RPG Pack",
   description:
     "Complete RPG experience with 54+ polished systems integrated for AI agents",
   version: "1.0.0",
@@ -254,4 +254,4 @@ export const RunescapeRPGPack: IContentPack = {
   },
 };
 
-export default RunescapeRPGPack;
+export default ClassicRPGPack;

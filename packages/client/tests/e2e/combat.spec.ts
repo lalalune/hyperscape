@@ -737,7 +737,7 @@ describeCombat("Combat Interactions", () => {
       const skills = win.world?.entities?.player?.data?.skills;
       if (!skills) return null;
 
-      // Calculate combat level using OSRS formula
+      // Calculate combat level using classic combat formula
       const attack = skills.attack?.level ?? 1;
       const strength = skills.strength?.level ?? 1;
       const defence = skills.defence?.level ?? 1;

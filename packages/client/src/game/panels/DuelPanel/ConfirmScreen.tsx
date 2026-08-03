@@ -4,7 +4,7 @@
  * Final read-only review before duel combat begins.
  * Shows summary of rules, equipment restrictions, and stakes.
  *
- * OSRS-style features:
+ * classic MMORPG-style features:
  * - Cannot modify settings on this screen
  * - Both players must accept for duel to begin
  * - Clear display of what each player risks

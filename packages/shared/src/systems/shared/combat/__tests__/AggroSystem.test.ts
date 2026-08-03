@@ -216,7 +216,7 @@ describe("AggroSystem", () => {
   });
 
   describe("DEFAULTS.NPC constants", () => {
-    it("has OSRS-accurate aggroRange of 4", () => {
+    it("has rules-accurate aggroRange of 4", () => {
       expect(COMBAT_CONSTANTS.DEFAULTS.NPC.AGGRO_RANGE).toBe(4);
     });
 
@@ -224,11 +224,11 @@ describe("AggroSystem", () => {
       expect(COMBAT_CONSTANTS.DEFAULTS.NPC.LEASH_RANGE).toBe(42);
     });
 
-    it("has OSRS-accurate attackSpeedTicks of 4", () => {
+    it("has rules-accurate attackSpeedTicks of 4", () => {
       expect(COMBAT_CONSTANTS.DEFAULTS.NPC.ATTACK_SPEED_TICKS).toBe(4);
     });
 
-    it("has OSRS-accurate respawnTicks of 25", () => {
+    it("has rules-accurate respawnTicks of 25", () => {
       expect(COMBAT_CONSTANTS.DEFAULTS.NPC.RESPAWN_TICKS).toBe(25);
     });
   });
@@ -262,7 +262,7 @@ describe("AggroSystem", () => {
       expect(skills.constitution).toBe(55);
     });
 
-    it("returns OSRS default skills when player not cached", () => {
+    it("returns classic MMORPG default skills when player not cached", () => {
       const privateSystem = system as unknown as {
         getPlayerSkills: (playerId: string) => {
           attack: number;
@@ -276,13 +276,13 @@ describe("AggroSystem", () => {
       expect(skills.attack).toBe(1);
       expect(skills.strength).toBe(1);
       expect(skills.defense).toBe(1);
-      // OSRS: Hitpoints starts at 10, not 1
+      // classic MMORPG: Hitpoints starts at 10, not 1
       expect(skills.constitution).toBe(10);
     });
   });
 
   describe("combat level calculation", () => {
-    it("calculates combat level using OSRS formula", () => {
+    it("calculates combat level using classic combat formula", () => {
       const privateSystem = system as unknown as {
         playerSkills: Map<
           string,
@@ -291,8 +291,8 @@ describe("AggroSystem", () => {
         getPlayerCombatLevel: (playerId: string) => number;
       };
 
-      // Set skills for OSRS formula test
-      // OSRS Combat Level = floor(Base + max(Melee, Ranged, Magic))
+      // Set skills for classic combat formula test
+      // classic MMORPG Combat Level = floor(Base + max(Melee, Ranged, Magic))
       // Base = 0.25 * (Defence + Hitpoints + floor(Prayer / 2))
       // Melee = 0.325 * (Attack + Strength)
       //
@@ -311,7 +311,7 @@ describe("AggroSystem", () => {
       expect(combatLevel).toBe(54);
     });
 
-    it("returns minimum level 3 for new players (OSRS-accurate)", () => {
+    it("returns minimum level 3 for new players (rules-accurate)", () => {
       const privateSystem = system as unknown as {
         playerSkills: Map<
           string,
@@ -320,7 +320,7 @@ describe("AggroSystem", () => {
         getPlayerCombatLevel: (playerId: string) => number;
       };
 
-      // OSRS fresh character: All skills at 1, Hitpoints at 10
+      // classic MMORPG fresh character: All skills at 1, Hitpoints at 10
       // Base = 0.25 * (1 + 10 + 0) = 2.75
       // Melee = 0.325 * (1 + 1) = 0.65
       // Combat Level = floor(2.75 + 0.65) = 3
@@ -328,20 +328,20 @@ describe("AggroSystem", () => {
         attack: { level: 1, xp: 0 },
         strength: { level: 1, xp: 0 },
         defense: { level: 1, xp: 0 },
-        constitution: { level: 10, xp: 0 }, // OSRS: Hitpoints starts at 10
+        constitution: { level: 10, xp: 0 }, // classic MMORPG: Hitpoints starts at 10
       });
 
       const combatLevel = privateSystem.getPlayerCombatLevel("player1");
       expect(combatLevel).toBe(3);
     });
 
-    it("returns level 3 for unknown player (OSRS default)", () => {
+    it("returns level 3 for unknown player (classic MMORPG default)", () => {
       const privateSystem = system as unknown as {
         getPlayerCombatLevel: (playerId: string) => number;
       };
 
-      // Unknown player uses OSRS defaults: all 1 except Hitpoints=10
-      // Combat level = 3 (OSRS starting combat level)
+      // Unknown player uses classic MMORPG defaults: all 1 except Hitpoints=10
+      // Combat level = 3 (classic MMORPG starting combat level)
       const combatLevel = privateSystem.getPlayerCombatLevel("unknown_player");
       expect(combatLevel).toBe(3);
     });
@@ -399,7 +399,7 @@ describe("AggroSystem", () => {
       });
 
       // With levelIgnore 999 (toleranceImmune), mob always aggros
-      // Note: actual result depends on OSRS double-level rule and tolerance timer
+      // Note: actual result depends on classic MMORPG double-level rule and tolerance timer
       // This test verifies the toleranceImmune check works
       const shouldAggro = privateSystem.shouldMobAggroPlayer(
         mobState,
@@ -885,7 +885,7 @@ describe("AggroSystem", () => {
   });
 
   describe("combat level boundary conditions", () => {
-    it("handles all skills at level 1 (minimum OSRS state)", () => {
+    it("handles all skills at level 1 (minimum classic MMORPG state)", () => {
       const privateSystem = system as unknown as {
         playerSkills: Map<
           string,
@@ -894,7 +894,7 @@ describe("AggroSystem", () => {
         getPlayerCombatLevel: (playerId: string) => number;
       };
 
-      // All skills at 1 except constitution at 10 (OSRS starting state)
+      // All skills at 1 except constitution at 10 (classic MMORPG starting state)
       privateSystem.playerSkills.set("player1", {
         attack: { level: 1, xp: 0 },
         strength: { level: 1, xp: 0 },
@@ -906,10 +906,10 @@ describe("AggroSystem", () => {
       });
 
       const level = privateSystem.getPlayerCombatLevel("player1");
-      expect(level).toBe(3); // OSRS minimum combat level
+      expect(level).toBe(3); // classic MMORPG minimum combat level
     });
 
-    it("handles all skills at level 99 (maximum OSRS state)", () => {
+    it("handles all skills at level 99 (maximum classic MMORPG state)", () => {
       const privateSystem = system as unknown as {
         playerSkills: Map<
           string,
@@ -929,7 +929,7 @@ describe("AggroSystem", () => {
       });
 
       const level = privateSystem.getPlayerCombatLevel("player1");
-      expect(level).toBe(126); // OSRS maximum combat level
+      expect(level).toBe(126); // classic MMORPG maximum combat level
     });
 
     it("handles ranged-based combat level correctly", () => {
@@ -1101,7 +1101,7 @@ describe("AggroSystem", () => {
       expect(skills.attack).toBe(50);
       expect(skills.strength).toBe(1); // Default
       expect(skills.defense).toBe(1); // Default
-      expect(skills.constitution).toBe(10); // OSRS default for hitpoints
+      expect(skills.constitution).toBe(10); // classic MMORPG default for hitpoints
     });
 
     it("handles updateMobPosition with invalid data", () => {

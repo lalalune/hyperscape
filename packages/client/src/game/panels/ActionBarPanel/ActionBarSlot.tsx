@@ -121,7 +121,7 @@ export interface ActionBarSlotProps {
   isHovered: boolean;
   isActive: boolean;
   isLocked: boolean;
-  /** RS3-style: Whether item is available in inventory (for item slots) */
+  /** modern MMORPG-style: Whether item is available in inventory (for item slots) */
   isAvailable?: boolean;
   /** Current quantity in inventory (for item slots) */
   inventoryQuantity?: number;
@@ -154,7 +154,7 @@ export const ActionBarSlot = memo(function ActionBarSlot({
   const isPrayer = slot.type === "prayer";
   const isCombatStyle = slot.type === "combatstyle";
   const isItem = slot.type === "item";
-  // RS3 behavior: Items are dimmed when not available in inventory
+  // modern MMORPG behavior: Items are dimmed when not available in inventory
   const isUnavailable = isItem && !isAvailable;
   // Combat styles and prayers both have active states
   const hasActiveState = isPrayer || isCombatStyle;
@@ -282,7 +282,7 @@ export const ActionBarSlot = memo(function ActionBarSlot({
           : undefined,
       cursor:
         isEmpty || isLocked ? "default" : isDragging ? "grabbing" : "grab",
-      // RS3 behavior: dim unavailable items
+      // modern MMORPG behavior: dim unavailable items
       opacity: isDragging ? 0.3 : isUnavailable ? 0.5 : 1,
       transform: isOver
         ? "scale(1.05)"
@@ -360,7 +360,7 @@ export const ActionBarSlot = memo(function ActionBarSlot({
           </div>
         )}
 
-        {/* Quantity Badge - RS3 style: shows actual inventory quantity */}
+        {/* Quantity Badge - modern MMORPG style: shows actual inventory quantity */}
         {slot.type === "item" &&
           (() => {
             // Use inventory quantity if provided, otherwise fall back to slot quantity

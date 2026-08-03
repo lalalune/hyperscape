@@ -164,7 +164,7 @@ export class CombatSystem extends SystemBase {
       rangedStrength: number;
       magicAttack: number;
       magicDefense: number;
-      // Per-style melee defence bonuses (OSRS combat triangle)
+      // Per-style melee defence bonuses (classic MMORPG combat triangle)
       defenseStab: number;
       defenseSlash: number;
       defenseCrush: number;
@@ -185,12 +185,12 @@ export class CombatSystem extends SystemBase {
   private readonly _attackerTile: PooledTile = tilePool.acquire();
   private readonly _targetTile: PooledTile = tilePool.acquire();
 
-  // OSRS-accurate: Track last known target tile per attacker for persistent combat follow.
-  // In OSRS, the player continuously follows the target while in combat — not just when
+  // rules-accurate: Track last known target tile per attacker for persistent combat follow.
+  // In classic MMORPG, the player continuously follows the target while in combat — not just when
   // out of range. This map lets us detect when the target has moved and re-path accordingly.
   private lastCombatTargetTile = new Map<string, { x: number; z: number }>();
 
-  // Auto-retaliate disabled after 20 minutes of no input (OSRS behavior)
+  // Auto-retaliate disabled after 20 minutes of no input (classic MMORPG behavior)
   private lastInputTick = new Map<string, number>();
 
   private damageHandlers: Map<"player" | "mob", DamageHandler>;
@@ -496,8 +496,8 @@ export class CombatSystem extends SystemBase {
       },
     );
 
-    // OSRS-accurate: Player clicked to move = cancel their attacking combat
-    // In OSRS, clicking anywhere else cancels your current action including combat
+    // rules-accurate: Player clicked to move = cancel their attacking combat
+    // In classic MMORPG, clicking anywhere else cancels your current action including combat
     // SERVER-ONLY: Combat state changes must happen on server
     this.subscribe(
       EventType.COMBAT_PLAYER_DISENGAGE,
@@ -625,7 +625,7 @@ export class CombatSystem extends SystemBase {
           rangedStrength?: number;
           magicAttack?: number;
           magicDefense?: number;
-          // Optional per-style bonuses (OSRS combat triangle)
+          // Optional per-style bonuses (classic MMORPG combat triangle)
           defenseStab?: number;
           defenseSlash?: number;
           defenseCrush?: number;
@@ -660,7 +660,7 @@ export class CombatSystem extends SystemBase {
    * Get attack type from equipped weapon or selected spell
    * Returns AttackType based on weapon's attackType property, or MAGIC if spell selected
    *
-   * OSRS-accurate: You can cast spells without a staff - the staff just provides
+   * rules-accurate: You can cast spells without a staff - the staff just provides
    * magic attack bonus and elemental staves give infinite runes
    */
   private getAttackTypeFromWeapon(attackerId: string): AttackType {
@@ -692,7 +692,7 @@ export class CombatSystem extends SystemBase {
       return AttackType.RANGED;
     }
 
-    // Default to melee (includes staffs/wands without autocast - OSRS accurate)
+    // Default to melee (includes staffs/wands without autocast - rules-accurate)
     return AttackType.MELEE;
   }
 
@@ -912,11 +912,10 @@ export class CombatSystem extends SystemBase {
   /**
    * Check if attacker is within combat range of target
    *
-   * OSRS melee rules (from wiki):
+   * classic MMORPG melee rules (from wiki):
    * - Range 1 (standard melee): Cardinal only (N/S/E/W) - NO diagonal attacks
    * - Range 2+ (halberd): Allows diagonal attacks
    *
-   * @see https://oldschool.runescape.wiki/w/Attack_range
    */
   private isWithinCombatRange(
     attacker: Entity | MobEntity,
@@ -937,7 +936,7 @@ export class CombatSystem extends SystemBase {
       attackerType,
     );
 
-    // OSRS-accurate melee range check:
+    // rules-accurate melee range check:
     // - Range 1: Cardinal only (N/S/E/W)
     // - Range 2+: Allows diagonal (Chebyshev distance)
     if (
@@ -1014,7 +1013,7 @@ export class CombatSystem extends SystemBase {
       attackSpeedTicks,
     );
 
-    // Get player's combat style for OSRS-accurate damage bonuses
+    // Get player's combat style for rules-accurate damage bonuses
     let combatStyle: CombatStyle = "accurate";
     if (attackerType === "player") {
       const playerSystem = this.world.getSystem(
@@ -1843,7 +1842,7 @@ export class CombatSystem extends SystemBase {
         ? target.getMobData().defense
         : this.getPlayerSkillLevel(String(target.id), "defense");
 
-    // Use per-style defenseRanged from equipment (OSRS combat triangle).
+    // Use per-style defenseRanged from equipment (classic MMORPG combat triangle).
     // Falls back to generic ranged bonus for backward compatibility.
     const targetEquipStats = this.playerEquipmentStats.get(String(target.id));
     const targetRangedDefense =
@@ -1863,7 +1862,7 @@ export class CombatSystem extends SystemBase {
     // Do NOT add arrowStrength separately as that would double-count it
     const rangedStrengthBonus = equipmentStats?.rangedStrength ?? arrowStrength;
 
-    // Get player's combat style for OSRS-accurate damage bonuses
+    // Get player's combat style for rules-accurate damage bonuses
     let rangedStyle: RangedCombatStyle = "accurate";
     const playerSystem = this.world.getSystem("player") as PlayerSystem | null;
     const styleData = playerSystem?.getPlayerAttackStyle?.(attackerId);
@@ -1967,7 +1966,7 @@ export class CombatSystem extends SystemBase {
         ? prayerSystem?.getCombinedBonuses(String(target.id))
         : undefined;
 
-    // Get player's combat style for OSRS-accurate damage bonuses
+    // Get player's combat style for rules-accurate damage bonuses
     let magicStyle: MagicCombatStyle = "accurate";
     const playerSystem = this.world.getSystem("player") as PlayerSystem | null;
     const styleData = playerSystem?.getPlayerAttackStyle?.(attackerId);
@@ -2082,7 +2081,7 @@ export class CombatSystem extends SystemBase {
 
   /**
    * Handle auto-retaliate being toggled ON while being attacked
-   * OSRS behavior: Player should start fighting back immediately
+   * classic MMORPG behavior: Player should start fighting back immediately
    *
    * Supports both PvE (mob attacker) and PvP (player attacker) scenarios.
    */
@@ -2133,18 +2132,16 @@ export class CombatSystem extends SystemBase {
   }
 
   /**
-   * OSRS-accurate: Handle player clicking to move (disengage from combat)
-   * In OSRS, clicking anywhere else cancels YOUR current action including combat.
+   * rules-accurate: Handle player clicking to move (disengage from combat)
+   * In classic MMORPG, clicking anywhere else cancels YOUR current action including combat.
    *
    * CRITICAL: This only affects the DISENGAGING player's combat state.
    * The player who was attacking them (their target) keeps their combat state
-   * and continues chasing. This is correct OSRS behavior:
+   * and continues chasing. This is correct classic MMORPG behavior:
    * - "Deliberate movement out of the opponent's weapon range to force them to follow
-   *    is called dragging." - OSRS Wiki (Free-to-play PvP techniques)
+   *    is called dragging."
    * - Pathfinding recalculates every tick when targeting a moving entity
    *
-   * @see https://oldschool.runescape.wiki/w/Free-to-play_PvP_techniques
-   * @see https://oldschool.runescape.wiki/w/Pathfinding
    */
   private handlePlayerDisengage(playerId: string): void {
     const combatState = this.stateService.getCombatData(playerId);
@@ -2155,7 +2152,7 @@ export class CombatSystem extends SystemBase {
     const targetId = String(combatState.targetId);
     const typedPlayerId = createEntityID(playerId);
 
-    // OSRS-ACCURATE: Only remove THIS player's combat state
+    // RULES-ACCURATE: Only remove THIS player's combat state
     // DO NOT call forceEndCombat() as it removes BOTH players' states!
     // The target (who may be attacking this player) keeps their combat state
     // and continues chasing this player. This enables the "dragging" PvP technique.
@@ -2177,7 +2174,7 @@ export class CombatSystem extends SystemBase {
     // If auto-retaliate is ON and attacker catches up and hits, player will start fighting again
     this.stateService.markInCombatWithoutTarget(playerId, targetId);
 
-    // OSRS-ACCURATE: Do NOT face the target when walking away
+    // RULES-ACCURATE: Do NOT face the target when walking away
     // Player should face their walking direction (handled by tile movement)
     // Only face target when auto-retaliate triggers (handled by enterCombat)
   }
@@ -2233,7 +2230,7 @@ export class CombatSystem extends SystemBase {
       }
     }
 
-    // Determine melee attack style from weapon type (OSRS combat triangle)
+    // Determine melee attack style from weapon type (classic MMORPG combat triangle)
     let meleeAttackStyle: MeleeAttackStyle | undefined;
     if (!(attacker instanceof MobEntity)) {
       const weapon = this.getEquippedWeapon(attacker.id);
@@ -2416,8 +2413,7 @@ export class CombatSystem extends SystemBase {
       attackerWeaponType,
     );
 
-    // OSRS Retaliation: Target retaliates after ceil(speed/2) + 1 ticks
-    // @see https://oldschool.runescape.wiki/w/Auto_Retaliate
+    // classic MMORPG Retaliation: Target retaliates after ceil(speed/2) + 1 ticks
     // Check if target can retaliate (mobs have retaliates flag, players check auto-retaliate setting)
     let canRetaliate = true;
     if (targetType === "mob" && targetEntity) {
@@ -2426,13 +2422,13 @@ export class CombatSystem extends SystemBase {
     } else if (targetType === "player") {
       // Check player's auto-retaliate setting
       // Uses cached reference (no getSystem() call in hot path)
-      // Defaults to true if PlayerSystem unavailable (fail-safe, OSRS default)
+      // Defaults to true if PlayerSystem unavailable (fail-safe, classic MMORPG default)
       if (this.playerSystem) {
         canRetaliate = this.playerSystem.getPlayerAutoRetaliate(
           String(targetId),
         );
       }
-      // Note: If playerSystem is null, canRetaliate stays true (default OSRS behavior)
+      // Note: If playerSystem is null, canRetaliate stays true (default classic MMORPG behavior)
 
       // 20 min AFK disables auto-retaliate
       if (canRetaliate && this.isAFKTooLong(String(targetId), currentTick)) {
@@ -2472,7 +2468,7 @@ export class CombatSystem extends SystemBase {
       );
 
       if (!targetHasValidTarget) {
-        // Target has no valid target - schedule retaliation (normal OSRS auto-retaliate)
+        // Target has no valid target - schedule retaliation (normal classic MMORPG auto-retaliate)
         const retaliationDelay = calculateRetaliationDelay(
           targetAttackSpeedTicks,
         );
@@ -2487,7 +2483,7 @@ export class CombatSystem extends SystemBase {
           targetAttackSpeedTicks,
         );
 
-        // OSRS-ACCURATE: Auto-retaliate ALWAYS redirects player toward attacker
+        // RULES-ACCURATE: Auto-retaliate ALWAYS redirects player toward attacker
         // When hit with auto-retaliate ON, player stops any current movement and turns to fight
         // The COMBAT_FOLLOW_TARGET event replaces any existing movement destination
         // Wiki: "the player's character walks/runs towards the monster attacking and fights back"
@@ -2546,7 +2542,7 @@ export class CombatSystem extends SystemBase {
         }
       } else {
         // Target already has valid target - just extend their combat timer
-        // They stay locked on their current target (OSRS-accurate)
+        // They stay locked on their current target (rules-accurate)
         this.stateService.extendCombatTimer(targetId, currentTick);
       }
     }
@@ -2561,7 +2557,7 @@ export class CombatSystem extends SystemBase {
 
     // Target only gets NEW combat target if:
     // 1. They will retaliate (auto-retaliate ON), AND
-    // 2. They don't already have a valid target (OSRS-accurate)
+    // 2. They don't already have a valid target (rules-accurate)
     //
     // If target already has a valid target, we don't overwrite their target state.
     // They stay locked on their current enemy.
@@ -2871,7 +2867,7 @@ export class CombatSystem extends SystemBase {
       attacker,
       opts.attackerType,
     );
-    // OSRS-accurate melee range check (cardinal-only for range 1)
+    // rules-accurate melee range check (cardinal-only for range 1)
     if (
       !tilesWithinMeleeRange(
         this._attackerTile,
@@ -2904,7 +2900,7 @@ export class CombatSystem extends SystemBase {
    * Check if player is on attack cooldown
    * Used by eating system to determine if eat should add attack delay
    *
-   * OSRS Rule: Foods only add to EXISTING attack delay.
+   * classic MMORPG Rule: Foods only add to EXISTING attack delay.
    * If weapon is ready to attack (cooldown expired), eating does NOT add delay.
    *
    * @param playerId - Player to check
@@ -2922,9 +2918,9 @@ export class CombatSystem extends SystemBase {
 
   /**
    * Add delay ticks to player's next attack
-   * Used by eating system (OSRS: eating during combat adds 3 tick delay)
+   * Used by eating system (classic MMORPG: eating during combat adds 3 tick delay)
    *
-   * OSRS-Accurate: Only called when player is ALREADY on cooldown.
+   * Rules-Accurate: Only called when player is ALREADY on cooldown.
    * If weapon is ready, eating does not add delay.
    *
    * @param playerId - Player to modify
@@ -2944,7 +2940,7 @@ export class CombatSystem extends SystemBase {
         combatData.nextAttackTick += delayTicks;
       }
     }
-    // If no current cooldown, do nothing (OSRS-accurate: no delay if weapon ready)
+    // If no current cooldown, do nothing (rules-accurate: no delay if weapon ready)
   }
 
   public forceEndCombat(
@@ -2963,7 +2959,7 @@ export class CombatSystem extends SystemBase {
 
   /**
    * Check if a player can logout based on combat state
-   * OSRS-accurate: Cannot logout while actively in combat
+   * rules-accurate: Cannot logout while actively in combat
    * Uses the combat timeout window to determine if player is in active combat
    *
    * @param playerId - The player's entity ID
@@ -2992,7 +2988,7 @@ export class CombatSystem extends SystemBase {
   /**
    * Update the last input tick for a player
    * Called by PlayerSystem when player performs any action
-   * OSRS: Auto-retaliate disabled after 20 minutes of no input
+   * classic MMORPG: Auto-retaliate disabled after 20 minutes of no input
    *
    * @param playerId - The player's entity ID
    * @param currentTick - The current game tick
@@ -3003,7 +2999,7 @@ export class CombatSystem extends SystemBase {
 
   /**
    * Check if a player has been AFK too long (20 minutes)
-   * OSRS-accurate: Auto-retaliate disabled after 2000 ticks of no input
+   * rules-accurate: Auto-retaliate disabled after 2000 ticks of no input
    *
    * @param playerId - The player's entity ID
    * @param currentTick - The current game tick
@@ -3083,7 +3079,7 @@ export class CombatSystem extends SystemBase {
   // Combat update loop - DEPRECATED: Combat logic now handled by processCombatTick() via TickSystem
   // This method is kept for compatibility but does nothing - all combat runs through tick system
   update(_dt: number): void {
-    // Combat logic moved to processCombatTick() for OSRS-accurate tick-based timing
+    // Combat logic moved to processCombatTick() for rules-accurate tick-based timing
     // This is called by TickSystem at TickPriority.COMBAT
   }
 
@@ -3092,7 +3088,7 @@ export class CombatSystem extends SystemBase {
   private _lastSortedCombatCount = 0;
 
   /**
-   * Process combat on each server tick (OSRS-accurate)
+   * Process combat on each server tick (rules-accurate)
    * Called by TickSystem at COMBAT priority (after movement, before AI)
    */
   public processCombatTick(tickNumber: number): void {
@@ -3160,8 +3156,8 @@ export class CombatSystem extends SystemBase {
 
       if (!combatState.inCombat || !combatState.targetId) continue;
 
-      // OSRS-style: Check range EVERY tick and follow if needed (not just on attack ticks)
-      // In OSRS, you continuously pursue your target while in combat
+      // classic MMORPG-style: Check range EVERY tick and follow if needed (not just on attack ticks)
+      // In classic MMORPG, you continuously pursue your target while in combat
       if (combatState.attackerType === "player") {
         this.checkRangeAndFollow(combatState, tickNumber);
       }
@@ -3185,7 +3181,7 @@ export class CombatSystem extends SystemBase {
   /**
    * Process combat for a specific NPC on this tick
    *
-   * OSRS-ACCURATE: Called by GameTickProcessor during NPC phase
+   * RULES-ACCURATE: Called by GameTickProcessor during NPC phase
    * NPCs process BEFORE players, creating the damage asymmetry:
    * - NPC → Player damage: Applied same tick
    * - Player → NPC damage: Applied next tick
@@ -3228,7 +3224,7 @@ export class CombatSystem extends SystemBase {
   /**
    * Process combat for a specific player on this tick
    *
-   * OSRS-ACCURATE: Called by GameTickProcessor during Player phase
+   * RULES-ACCURATE: Called by GameTickProcessor during Player phase
    * Players process AFTER NPCs, creating the damage asymmetry:
    * - Player → NPC damage: Applied next tick (queued by GameTickProcessor)
    * - NPC → Player damage: Applied same tick
@@ -3252,7 +3248,7 @@ export class CombatSystem extends SystemBase {
     // Only process player attackers (not players being attacked)
     if (combatState.attackerType !== "player") return;
 
-    // OSRS-ACCURATE: No movement suppression needed
+    // RULES-ACCURATE: No movement suppression needed
     // If player has combat state, they're either:
     // 1. Standing still fighting
     // 2. Combat following (chasing their target)
@@ -3263,7 +3259,7 @@ export class CombatSystem extends SystemBase {
     // Process emote resets for this player
     this.animationManager.processEntityEmoteReset(playerId, tickNumber);
 
-    // OSRS-style: Check range EVERY tick and follow if needed
+    // classic MMORPG-style: Check range EVERY tick and follow if needed
     this.checkRangeAndFollow(combatState, tickNumber);
 
     if (tickNumber >= combatState.nextAttackTick) {
@@ -3280,7 +3276,7 @@ export class CombatSystem extends SystemBase {
   }
 
   /**
-   * OSRS-style: Check if player is in range of target, emit follow event if not
+   * classic MMORPG-style: Check if player is in range of target, emit follow event if not
    * Called EVERY tick to ensure continuous pursuit of moving targets
    *
    * CRITICAL: This method must NOT extend combat timeout for invalid targets.
@@ -3294,7 +3290,7 @@ export class CombatSystem extends SystemBase {
     const attackerId = String(combatState.attackerId);
     const targetId = String(combatState.targetId);
 
-    // OSRS-ACCURATE: No movement suppression for following
+    // RULES-ACCURATE: No movement suppression for following
     // If player has combat state, they should continuously pursue their target
     // Wiki: "follow and attack while chasing it"
     // Movement during combat follow is normal - player is chasing their target
@@ -3372,7 +3368,7 @@ export class CombatSystem extends SystemBase {
         ? this.getAttackTypeFromWeapon(attackerId)
         : AttackType.MELEE;
 
-    // OSRS-accurate range check:
+    // rules-accurate range check:
     // - MELEE: Cardinal-only for range 1 (using tilesWithinMeleeRange)
     // - RANGED/MAGIC: Chebyshev distance (can attack diagonally)
     const inRange =
@@ -3388,8 +3384,8 @@ export class CombatSystem extends SystemBase {
             combatRangeTiles,
           );
 
-    // OSRS-accurate: Continuously follow the target while in combat.
-    // In OSRS, the player follows the target every tick — not just when out of range.
+    // rules-accurate: Continuously follow the target while in combat.
+    // In classic MMORPG, the player follows the target every tick — not just when out of range.
     // movePlayerToward() already returns early if already in range, so this is safe.
     // This prevents the stutter pattern where the player stands still until the target
     // leaves range, then chases, then stops again.
@@ -3488,7 +3484,7 @@ export class CombatSystem extends SystemBase {
     if (!attackerPos || !targetPos) return false;
 
     // MELEE: Must be within attacker's combat range (configurable per mob, minimum 1 tile)
-    // OSRS-style: range 1 = cardinal only (N/S/E/W), range 2+ = diagonal allowed
+    // classic MMORPG-style: range 1 = cardinal only (N/S/E/W), range 2+ = diagonal allowed
     // Use pre-allocated pooled tiles (zero GC)
     tilePool.setFromPosition(this._attackerTile, attackerPos);
     tilePool.setFromPosition(this._targetTile, targetPos);
@@ -3497,7 +3493,7 @@ export class CombatSystem extends SystemBase {
       attackerType,
     );
 
-    // OSRS-accurate melee range check (cardinal-only for range 1)
+    // rules-accurate melee range check (cardinal-only for range 1)
     return tilesWithinMeleeRange(
       this._attackerTile,
       this._targetTile,
@@ -3517,7 +3513,7 @@ export class CombatSystem extends SystemBase {
     combatState: CombatData,
     tickNumber: number,
   ): number {
-    // OSRS-STYLE: Update entity facing to face target
+    // classic MMORPG-STYLE: Update entity facing to face target
     this.rotationManager.rotateTowardsTarget(
       attackerId,
       targetId,
@@ -3533,7 +3529,7 @@ export class CombatSystem extends SystemBase {
       combatState.attackSpeedTicks,
     );
 
-    // Get player's combat style for OSRS-accurate damage bonuses
+    // Get player's combat style for rules-accurate damage bonuses
     let combatStyle: CombatStyle = "accurate";
     if (combatState.attackerType === "player") {
       const playerSystem = this.world.getSystem(
@@ -3548,7 +3544,7 @@ export class CombatSystem extends SystemBase {
     // MVP: Melee-only damage calculation
     const rawDamage = this.calculateMeleeDamage(attacker, target, combatStyle);
 
-    // OSRS-STYLE: Cap damage at target's current health (no overkill)
+    // classic MMORPG-STYLE: Cap damage at target's current health (no overkill)
     const currentHealth = this.entityResolver.getHealth(target);
     const damage = Math.min(rawDamage, currentHealth);
 

@@ -1,7 +1,7 @@
 /**
  * useDragDrop Hook
  *
- * Manages drag-drop state for OSRS-style bank reorganization.
+ * Manages drag-drop state for classic MMORPG-style bank reorganization.
  * Provides stable callbacks for memoized slot components and
  * exposes state setters for tab-specific drag handling.
  *

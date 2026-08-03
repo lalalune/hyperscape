@@ -32,7 +32,7 @@ export interface GatheringDebugInfo {
 /**
  * Active gathering session data.
  *
- * Sessions are tick-based (OSRS-accurate timing):
+ * Sessions are tick-based (rules-accurate timing):
  * - startTick: When gathering started
  * - nextAttemptTick: Next tick to roll for success
  * - cycleTickInterval: Ticks between attempts (skill-specific)
@@ -56,7 +56,7 @@ export interface GatheringSession {
   cachedDrops: ResourceDrop[];
   cachedResourceName: string;
 
-  // OSRS-ACCURACY: Store start position to detect movement (cancels gathering)
+  // RULES ACCURACY: Store start position to detect movement (cancels gathering)
   cachedStartPosition: { x: number; y: number; z: number };
 
   // DEBUG: Cached for logging (only used when DEBUG_GATHERING=true)
@@ -66,7 +66,7 @@ export interface GatheringSession {
 /**
  * Resource timer data for Forestry-style mechanics.
  *
- * OSRS Forestry mechanics:
+ * classic MMORPG Forestry mechanics:
  * - Timer starts on FIRST LOG (not first interaction)
  * - Counts down while anyone is gathering
  * - Regenerates when no one is gathering
@@ -84,7 +84,7 @@ export interface ResourceTimer {
 /**
  * Fishing spot movement timer data.
  *
- * OSRS-ACCURATE: Fishing spots don't deplete - they periodically move.
+ * RULES-ACCURATE: Fishing spots don't deplete - they periodically move.
  * Each spot has a random timer (280-530 ticks, ~2.8-5.3 min) that triggers relocation.
  */
 export interface FishingSpotTimer {
@@ -95,7 +95,7 @@ export interface FishingSpotTimer {
 }
 
 /**
- * Success rate values for OSRS LERP formula.
+ * Success rate values for classic MMORPG LERP formula.
  * low = numerator at level 1, high = numerator at level 99
  */
 export interface SuccessRateValues {

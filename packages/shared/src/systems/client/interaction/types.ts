@@ -95,7 +95,7 @@ export interface QueuedAction {
   maxWaitFrames: number;
   /** Last tile we sent a walk request toward (for following moving targets) */
   lastWalkTargetTile?: { x: number; z: number };
-  /** Optional footprint for multi-tile entities (enables OSRS-style interaction from any adjacent tile) */
+  /** Optional footprint for multi-tile entities (enables classic MMORPG-style interaction from any adjacent tile) */
   footprint?: EntityFootprint;
 }
 
@@ -105,7 +105,7 @@ export interface QueuedAction {
  * Used for rich text rendering in context menus, such as
  * combat level colors (green/yellow/red based on relative level).
  *
- * @see getCombatLevelColor for OSRS-accurate level coloring
+ * @see getCombatLevelColor for rules-accurate level coloring
  */
 export interface LabelSegment {
   /** Text content of this segment */
@@ -178,6 +178,6 @@ export interface QueueActionParams {
   onCancel?: () => void;
   /** Optional max frames to wait (default from constants) */
   maxWaitFrames?: number;
-  /** Optional footprint for multi-tile entities (enables OSRS-style interaction from any adjacent tile) */
+  /** Optional footprint for multi-tile entities (enables classic MMORPG-style interaction from any adjacent tile) */
   footprint?: EntityFootprint;
 }

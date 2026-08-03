@@ -232,7 +232,7 @@ export function handleDuelChallenge(
       targetId: targetPlayerId,
     });
 
-    // Send notification to target player as OSRS-style chat message
+    // Send notification to target player as classic MMORPG-style chat message
     const targetSocket = getSocketByPlayerId(world, targetPlayerId);
     if (targetSocket) {
       // Send as clickable chat message (like trade requests)

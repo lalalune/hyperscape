@@ -1,5 +1,5 @@
 /**
- * QuestJournalPanel - OSRS-style quest tracking interface
+ * QuestJournalPanel - classic MMORPG-style quest tracking interface
  *
  * Features:
  * - Quest list with color-coded status (red/yellow/green)
@@ -53,7 +53,7 @@ interface QuestDetail {
   }>;
 }
 
-// Status colors matching OSRS
+// Status colors matching classic MMORPG
 const STATUS_COLORS = {
   not_started: "#ff4444", // Red
   in_progress: "#ffff00", // Yellow

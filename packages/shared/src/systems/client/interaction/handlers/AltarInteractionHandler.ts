@@ -3,21 +3,20 @@
  *
  * Handles interactions with prayer altars.
  *
- * OSRS Context Menu Format: "<Action> <TargetName>" with cyan target (scenery color)
+ * classic MMORPG Context Menu Format: "<Action> <TargetName>" with cyan target (scenery color)
  * - "Pray Altar" (cyan #00ffff for target)
  * - "Examine Altar" (cyan #00ffff for target)
  *
  * Regular altars only recharge prayer points to full.
  * Gilded altars (not implemented) would also offer bone burning with XP multipliers.
  *
- * @see https://oldschool.runescape.wiki/w/Altar for OSRS altar mechanics
  */
 
 import { BaseInteractionHandler } from "./BaseInteractionHandler";
 import type { RaycastTarget, ContextMenuAction } from "../types";
 import { INTERACTION_RANGE, MESSAGE_TYPES } from "../constants";
 
-/** OSRS scenery/object color (cyan) for context menu target names */
+/** classic MMORPG scenery/object color (cyan) for context menu target names */
 const SCENERY_COLOR = "#00ffff";
 
 export class AltarInteractionHandler extends BaseInteractionHandler {
@@ -31,7 +30,7 @@ export class AltarInteractionHandler extends BaseInteractionHandler {
   /**
    * Right-click: Show altar options
    *
-   * OSRS-accurate format:
+   * rules-accurate format:
    * - "Pray Altar" (action white, target cyan)
    * - "Examine Altar" (action white, target cyan)
    */
@@ -39,7 +38,7 @@ export class AltarInteractionHandler extends BaseInteractionHandler {
     const actions: ContextMenuAction[] = [];
     const targetName = target.name || "Altar";
 
-    // Pray action (primary) - OSRS: "Pray Altar"
+    // Pray action (primary) - classic MMORPG: "Pray Altar"
     actions.push({
       id: "pray-altar",
       label: `Pray ${targetName}`,
@@ -52,7 +51,7 @@ export class AltarInteractionHandler extends BaseInteractionHandler {
       handler: () => this.prayAtAltar(target),
     });
 
-    // Examine - OSRS: "Examine Altar"
+    // Examine - classic MMORPG: "Examine Altar"
     actions.push({
       id: "examine",
       label: `Examine ${targetName}`,

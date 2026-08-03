@@ -203,7 +203,7 @@ export class ResourceEntity extends InteractableEntity {
     }
 
     // Respawn is handled by ResourceSystem.processRespawns() via tick-based timing.
-    // No setTimeout here — tick-based respawn is deterministic and OSRS-accurate.
+    // No setTimeout here — tick-based respawn is deterministic and rules-accurate.
   }
 
   public respawn(): void {

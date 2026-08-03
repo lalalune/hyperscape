@@ -31,7 +31,7 @@ export function ActionProgressBar({ world }: { world: ClientWorld }) {
         resourceId: string;
         action?: string;
         duration?: number;
-        cycleTicks?: number; // OSRS-style tick count
+        cycleTicks?: number; // classic MMORPG-style tick count
         tickDurationMs?: number; // 600ms per tick
       };
       const localPlayer = world.entities?.player;
@@ -49,9 +49,9 @@ export function ActionProgressBar({ world }: { world: ClientWorld }) {
             : "Resource";
 
       // Calculate duration from tick-based timing if available
-      // OSRS standard: 4 ticks per attempt = 2.4 seconds
+      // classic MMORPG standard: 4 ticks per attempt = 2.4 seconds
       const tickDuration = d.tickDurationMs || 600;
-      const cycleTicks = d.cycleTicks || 4; // Default to OSRS standard 4 ticks
+      const cycleTicks = d.cycleTicks || 4; // Default to classic MMORPG standard 4 ticks
       const duration = d.duration || cycleTicks * tickDuration;
 
       setCurrentAction({

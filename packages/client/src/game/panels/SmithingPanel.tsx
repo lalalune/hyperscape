@@ -1,5 +1,5 @@
 /**
- * SmithingPanel - OSRS-style smithing interface
+ * SmithingPanel - classic MMORPG-style smithing interface
  *
  * Features:
  * - Shows available items to smith based on player's bars
@@ -120,7 +120,7 @@ export function SmithingPanel({
   const [showQuantityInput, setShowQuantityInput] = useState(false);
   const [customQuantity, setCustomQuantity] = useState("");
 
-  // Make X memory - remember last custom quantity (OSRS feature)
+  // Make X memory - remember last custom quantity (classic MMORPG feature)
   const [lastCustomQuantity, setLastCustomQuantity] = useState(() => {
     try {
       const stored = localStorage.getItem(SMITHING_LAST_X_KEY);
@@ -171,7 +171,7 @@ export function SmithingPanel({
   };
 
   const handleCustomQuantitySubmit = () => {
-    // Use entered quantity, or fall back to last X if empty (OSRS behavior)
+    // Use entered quantity, or fall back to last X if empty (classic MMORPG behavior)
     const qty = customQuantity.trim()
       ? parseInt(customQuantity, 10)
       : lastCustomQuantity;

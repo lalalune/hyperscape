@@ -148,7 +148,7 @@ function createMockPlayer(
 
 // Mock mob entity
 // NOTE: Default position (1, 0, 0) is CARDINAL adjacent to player at (0, 0, 0)
-// OSRS melee range 1 requires cardinal adjacency (no diagonal attacks)
+// classic MMORPG melee range 1 requires cardinal adjacency (no diagonal attacks)
 function createMockMob(
   id: string,
   health: number = 50,
@@ -596,7 +596,7 @@ describe("CombatSystem", () => {
       });
 
       const states = combatSystem.stateService.getAllCombatStates();
-      // OSRS-style: Both attacker and target enter combat (mutual combat)
+      // classic MMORPG-style: Both attacker and target enter combat (mutual combat)
       expect(states.length).toBeGreaterThanOrEqual(1);
       // Verify player is in combat
       expect(combatSystem.isInCombat("player1")).toBe(true);

@@ -42,7 +42,6 @@ import {
 /**
  * Orchestrates player death via modular handlers (zone detection, safe area, wilderness).
  * Safe zones: gravestone (5min) → ground (2min). Wilderness: ground immediately (2min).
- * @see https://oldschool.runescape.wiki/w/Death
  */
 export class PlayerDeathSystem extends SystemBase {
   private deathLocations = new Map<string, DeathLocationData>();
@@ -65,7 +64,7 @@ export class PlayerDeathSystem extends SystemBase {
     }
   >();
 
-  // OSRS-style: Items kept on death (top 3 most valuable) — returned on respawn.
+  // classic MMORPG-style: Items kept on death (top 3 most valuable) — returned on respawn.
   // In-memory for fast access; also persisted in death lock (keptItems field) for
   // crash recovery. On respawn, in-memory is preferred; on reconnect after crash,
   // DeathStateManager loads keptItems from DB.
@@ -393,7 +392,7 @@ export class PlayerDeathSystem extends SystemBase {
         });
       }
 
-      // Award combat XP to the killer - duels should grant XP (OSRS-accurate)
+      // Award combat XP to the killer - duels should grant XP (rules-accurate)
       // Pass killedBy directly since CombatSystem clears attacker states on ENTITY_DEATH
       // before PlayerDeathSystem runs, making stateService queries unreliable
       this.emitCombatKillForPvP(playerId, data.killedBy);
@@ -564,7 +563,7 @@ export class PlayerDeathSystem extends SystemBase {
     }
 
     // Check for existing death lock - if player dies again before looting, clear old one
-    // This matches OSRS behavior where dying again replaces your old gravestone
+    // This matches classic MMORPG behavior where dying again replaces your old gravestone
     const existingDeathLock =
       await this.deathStateManager.getDeathLock(playerId);
     if (existingDeathLock) {
@@ -654,7 +653,7 @@ export class PlayerDeathSystem extends SystemBase {
         const allItems = [...inventoryItems, ...equipmentItems];
         const zoneType = this.zoneDetection.getZoneType(deathPosition);
 
-        // OSRS-style: In safe zones, keep 3 most valuable items
+        // classic MMORPG-style: In safe zones, keep 3 most valuable items
         if (zoneType === ZoneType.SAFE_AREA) {
           const split = splitItemsForSafeDeath(allItems, ITEMS_KEPT_ON_DEATH);
           itemsToDrop = split.dropped;
@@ -769,7 +768,7 @@ export class PlayerDeathSystem extends SystemBase {
     killedBy: string,
     keptItems?: InventoryItem[],
   ): void {
-    // Store items to return on respawn (OSRS keep-3)
+    // Store items to return on respawn (classic MMORPG keep-3)
     if (keptItems && keptItems.length > 0) {
       this.itemsKeptOnDeath.set(playerId, keptItems);
     }
@@ -1184,7 +1183,7 @@ export class PlayerDeathSystem extends SystemBase {
       playerId,
     });
 
-    // OSRS-style: Return kept items to inventory after respawn.
+    // classic MMORPG-style: Return kept items to inventory after respawn.
     // Prefer in-memory (fast path), fall back to death lock DB (crash recovery).
     let keptItems = this.itemsKeptOnDeath.get(playerId);
     if (!keptItems || keptItems.length === 0) {
@@ -1372,7 +1371,7 @@ export class PlayerDeathSystem extends SystemBase {
         });
       }
 
-      // Immediately trigger respawn (RuneScape-style - no waiting, no screen)
+      // Immediately trigger respawn (classic fantasy MMORPG-style - no waiting, no screen)
       // Very short delay, then auto-respawn (just enough for world to load)
       const reconnectTimer = setTimeout(() => {
         this.respawnTimers.delete(playerId);

@@ -376,14 +376,14 @@ interface AssetDetailsCardProps {
   assetName: string
   assetType: string
   description: string
-  gameStyle: 'runescape' | 'custom'
+  gameStyle: 'classic' | 'custom'
   customStyle: string
   customAssetTypes: CustomAssetType[]
   customGameStyles: Record<string, GameStyleConfig>
   onAssetNameChange: (name: string) => void
   onAssetTypeChange: (type: string) => void
   onDescriptionChange: (desc: string) => void
-  onGameStyleChange: (style: 'runescape' | 'custom') => void
+  onGameStyleChange: (style: 'classic' | 'custom') => void
   onCustomStyleChange: (style: string) => void
   onBack: () => void
   onSaveCustomGameStyle: (name: string, config: GameStyleConfig) => void
@@ -393,7 +393,7 @@ interface AssetDetailsCardProps {
 **Features**:
 - Asset name and description input
 - Asset type selection (weapon, armor, character, etc.)
-- Game style presets (RuneScape, custom)
+- Game style presets (classic fantasy MMORPG, custom)
 - Custom style creation and management
 
 #### 3. PipelineOptionsCard (`PipelineOptionsCard.tsx`)

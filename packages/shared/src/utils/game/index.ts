@@ -35,5 +35,5 @@ export {
 
 export * from "./ComponentUtils";
 
-// Combat level calculation (OSRS-accurate)
+// Combat level calculation (rules-accurate)
 export * from "./CombatLevelCalculator";

@@ -1,7 +1,6 @@
 /**
  * Combat Spells Manifest
  * Defines all F2P combat spells (Strike and Bolt tiers).
- * @see https://oldschool.runescape.wiki/w/Spells
  */
 
 import type { RuneRequirement } from "../systems/shared/combat/RuneService";

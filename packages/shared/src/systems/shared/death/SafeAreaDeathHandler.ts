@@ -1,17 +1,16 @@
 /**
  * SafeAreaDeathHandler (TICK-BASED)
  *
- * Handles player death in safe zones (RuneScape-style):
+ * Handles player death in safe zones (classic fantasy MMORPG-style):
  * 1. Items → gravestone (1500 ticks = 15 minutes)
  * 2. Gravestone expires → ground items (6000 ticks = 60 minutes)
  * 3. Ground items despawn via GroundItemSystem tick processing
  *
- * TICK-BASED TIMING (OSRS-accurate):
+ * TICK-BASED TIMING (rules-accurate):
  * - Gravestone expiration tracked in ticks
  * - processTick() called once per tick by TickSystem
  * - Uses constants from COMBAT_CONSTANTS
  *
- * @see https://oldschool.runescape.wiki/w/Gravestone
  */
 
 import type { World } from "../../../core/World";

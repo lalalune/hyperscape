@@ -1,9 +1,9 @@
 /**
  * PlayerInteractionHandler
  *
- * Handles interactions with other players (OSRS-accurate).
+ * Handles interactions with other players (rules-accurate).
  *
- * Menu order (matches OSRS):
+ * Menu order (matches classic MMORPG):
  * 1. Attack PlayerName (Level: XX) - ONLY APPEARS in PvP zones (not shown elsewhere)
  * 2. Trade with PlayerName - disabled until trading implemented
  * 3. Follow PlayerName
@@ -11,10 +11,9 @@
  * 5. Walk here
  * 6. Examine
  *
- * Note: Left-click on players does nothing by default (OSRS behavior).
+ * Note: Left-click on players does nothing by default (classic MMORPG behavior).
  * All player interactions require right-click context menu.
  *
- * @see https://oldschool.runescape.wiki/w/Player_killing - Attack only in PvP areas
  */
 
 import { BaseInteractionHandler } from "./BaseInteractionHandler";
@@ -26,7 +25,7 @@ import type { ZoneDetectionSystem } from "../../../shared/death/ZoneDetectionSys
 
 export class PlayerInteractionHandler extends BaseInteractionHandler {
   /**
-   * Left-click: Attack in active duel only (OSRS behavior)
+   * Left-click: Attack in active duel only (classic MMORPG behavior)
    *
    * In normal gameplay, players require right-click to interact.
    * Exception: During active duel combat, left-click attacks your opponent.
@@ -41,7 +40,7 @@ export class PlayerInteractionHandler extends BaseInteractionHandler {
   }
 
   /**
-   * Right-click: Show player interaction options (OSRS order)
+   * Right-click: Show player interaction options (classic MMORPG order)
    *
    * Combat levels are colored based on relative level difference:
    * - Green: Target is lower level
@@ -56,7 +55,7 @@ export class PlayerInteractionHandler extends BaseInteractionHandler {
     const inPvPZone = this.isInPvPZone();
     const inActiveDuel = this.isInActiveDuelWith(target.entityId);
 
-    // 1. Attack (OSRS-accurate: only APPEARS in PvP zones OR during active duel)
+    // 1. Attack (rules-accurate: only APPEARS in PvP zones OR during active duel)
     if (inPvPZone || inActiveDuel) {
       actions.push({
         id: "attack",
@@ -237,7 +236,7 @@ export class PlayerInteractionHandler extends BaseInteractionHandler {
 
   /**
    * Get target player's combat level.
-   * Falls back to 3 (OSRS minimum) if unknown.
+   * Falls back to 3 (classic MMORPG minimum) if unknown.
    *
    * Checks multiple property paths to handle different player entity types:
    * - PlayerRemote: has `combatLevel` getter
@@ -282,14 +281,14 @@ export class PlayerInteractionHandler extends BaseInteractionHandler {
       return combat.combatLevel;
     }
 
-    // Fallback: OSRS minimum combat level
+    // Fallback: classic MMORPG minimum combat level
     return 3;
   }
 
   /**
    * Get local player's combat level.
    * Used for relative color calculation (green/yellow/red).
-   * Falls back to 3 (OSRS minimum) if unknown.
+   * Falls back to 3 (classic MMORPG minimum) if unknown.
    *
    * Checks multiple property paths to handle different player entity types:
    * - PlayerRemote: has `combatLevel` getter
@@ -335,7 +334,7 @@ export class PlayerInteractionHandler extends BaseInteractionHandler {
       return combat.combatLevel;
     }
 
-    // Fallback: OSRS minimum combat level
+    // Fallback: classic MMORPG minimum combat level
     return 3;
   }
 

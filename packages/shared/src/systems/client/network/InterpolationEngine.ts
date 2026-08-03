@@ -222,7 +222,7 @@ export class InterpolationEngine {
       }
 
       // CRITICAL: Skip interpolation for dead mobs to prevent death animation sliding
-      // Dead mobs lock their position client-side for RuneScape-style stationary death
+      // Dead mobs lock their position client-side for classic fantasy MMORPG-style stationary death
       // Access entity.data directly (avoid entity.serialize() which copies all fields)
       const entityData = entity.data as { aiState?: string } | null | undefined;
       if (entityData?.aiState === "dead") {

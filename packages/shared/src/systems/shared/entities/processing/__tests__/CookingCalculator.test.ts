@@ -1,15 +1,13 @@
 /**
  * Cooking Calculator Tests
  *
- * Verifies OSRS-accurate cooking calculations:
+ * Verifies rules-accurate cooking calculations:
  * - Burn chance formula (linear interpolation)
  * - Stop-burn levels per food type (fire vs range)
  * - XP values per food type
  * - Level requirements
  * - Cooked/burnt item mappings
  *
- * @see https://oldschool.runescape.wiki/w/Cooking
- * @see https://oldschool.runescape.wiki/w/Cooking/Burn_level
  */
 
 import { describe, it, expect, beforeAll } from "vitest";
@@ -303,7 +301,7 @@ describe("CookingCalculator", () => {
 
     it("returns MAX_BURN_CHANCE at exact level requirement (highest burn rate)", () => {
       // At exactly level 1 for shrimp, burn chance is capped at MAX_BURN_CHANCE (0.55)
-      // (OSRS-like: meeting the requirement guarantees some chance of success)
+      // (classic MMORPG-like: meeting the requirement guarantees some chance of success)
       expect(calculateBurnChance(1, "raw_shrimp", "fire")).toBe(0.55);
       // Well above requirement, burn chance drops below the cap
       // rawBurn < 0.55 when progress/range > 0.45, i.e. level >= 16 for shrimp
@@ -526,8 +524,8 @@ describe("CookingCalculator", () => {
     });
   });
 
-  describe("OSRS Wiki verification", () => {
-    // These tests verify specific values from the OSRS Wiki
+  describe("reference-rules verification", () => {
+    // These tests verify specific values from the reference ruleset
 
     it("raw_shrimp: level 1, 30 XP, stop burn 34 fire / 33 range", () => {
       expect(getCookingLevelRequired("raw_shrimp")).toBe(1);

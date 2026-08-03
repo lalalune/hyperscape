@@ -33,7 +33,7 @@ export interface PromptsResponse<T> {
 }
 
 export type MaterialPromptTemplate = {
-  templates: { runescape: string; generic: string } & Record<string, string>;
+  templates: { classic: string; generic: string } & Record<string, string>;
   customOverrides: Record<string, string>;
 };
 
@@ -119,9 +119,9 @@ class PromptServiceClass {
     const data = await response.json();
     // Ensure required keys exist for consumers expecting defaults
     const templates = {
-      runescape:
-        data.templates?.runescape ??
-        "${materialId} texture, low-poly RuneScape style",
+      classic:
+        data.templates?.classic ??
+        "${materialId} texture, low-poly classic fantasy MMORPG style",
       generic: data.templates?.generic ?? "${materialId} texture",
       ...data.templates,
     };

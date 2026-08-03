@@ -815,7 +815,7 @@ interface BuildConfigOptions {
   materialPresets: MaterialPreset[]
   materialPromptOverrides: Record<string, string>
   materialPromptTemplates?: {
-    runescape: string
+    classic: string
     generic: string
   }
   gameStyleConfig?: {
@@ -840,7 +840,7 @@ const config = buildGenerationConfig({
   assetType: 'weapon',
   description: 'A polished steel longsword',
   generationType: 'item',
-  gameStyle: 'runescape',
+  gameStyle: 'classic',
   enableRetexturing: true,
   enableSprites: true,
   enableRigging: false,

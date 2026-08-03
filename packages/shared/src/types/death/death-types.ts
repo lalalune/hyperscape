@@ -82,7 +82,7 @@ export interface DeathLock {
   itemCount: number;
   // Crash recovery fields (optional for backwards compatibility)
   items?: DeathItemData[]; // Dropped items for recovery (gravestone/ground)
-  keptItems?: DeathItemData[]; // OSRS keep-3 items returned on respawn
+  keptItems?: DeathItemData[]; // classic MMORPG keep-3 items returned on respawn
   killedBy?: string; // What killed the player
   recovered?: boolean; // Whether death was processed during crash recovery
 }
@@ -102,7 +102,7 @@ export interface GroundItemOptions {
 
 /**
  * Ground item data tracked by GroundItemSystem (TICK-BASED)
- * Uses tick numbers for OSRS-accurate despawn timing
+ * Uses tick numbers for rules-accurate despawn timing
  */
 export interface GroundItemData {
   entityId: string;
@@ -117,7 +117,7 @@ export interface GroundItemData {
 
 /**
  * Ground item pile data - tracks all items at a single tile
- * Used for OSRS-style item stacking where only top item is visible
+ * Used for classic MMORPG-style item stacking where only top item is visible
  */
 export interface GroundItemPileData {
   tileKey: string; // "x_z" format for Map key

@@ -1,7 +1,7 @@
 /**
  * Bank Tabs Unit Tests
  *
- * Tests for RS3-style bank tab management logic.
+ * Tests for modern MMORPG-style bank tab management logic.
  * Uses mock classes following the existing codebase pattern.
  */
 

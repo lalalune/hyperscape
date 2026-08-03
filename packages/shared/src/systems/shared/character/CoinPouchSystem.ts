@@ -1,5 +1,5 @@
 /**
- * CoinPouchSystem - Manages player coin balances (OSRS-style Money Pouch)
+ * CoinPouchSystem - Manages player coin balances (classic MMORPG-style Money Pouch)
  *
  * Server-authoritative system that handles all coin operations:
  * - Adding coins (loot, store sales, trades)
@@ -7,7 +7,7 @@
  * - Querying coin balances
  * - Persisting to database
  *
- * Coins are stored separately from inventory (like OSRS money pouch):
+ * Coins are stored separately from inventory (like classic MMORPG money pouch):
  * - Protected on death (coins stay with player)
  * - No slot usage
  * - Unlimited stacking
@@ -33,7 +33,7 @@ import type { DatabaseSystem } from "../../../types/systems/system-interfaces";
 const DEFAULT_STARTING_COINS = 100;
 
 /** Maximum coins a player can hold (prevent overflow) */
-const MAX_COINS = 2147483647; // Max 32-bit signed integer (OSRS cap)
+const MAX_COINS = 2147483647; // Max 32-bit signed integer (classic MMORPG cap)
 
 /**
  * CoinPouchSystem - Manages player coin balances

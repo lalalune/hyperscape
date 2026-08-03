@@ -15,7 +15,6 @@
  * 4. If valid, creates session in FiremakingSessionManager
  * 5. On success, creates fire and triggers walk-west
  *
- * @see https://oldschool.runescape.wiki/w/Firemaking
  */
 
 import { PROCESSING_CONSTANTS } from "../../../../constants/ProcessingConstants";
@@ -116,7 +115,7 @@ export class PendingFiremakingManager {
         this.handleFireLit(playerId, logId, xp, position);
       },
       onAttemptFailed: (playerId, _logId) => {
-        // No message on fail (OSRS behavior)
+        // No message on fail (classic MMORPG behavior)
         if (DEBUG_PROCESSING) {
           console.log(`[PendingFiremaking] ${playerId} failed attempt`);
         }

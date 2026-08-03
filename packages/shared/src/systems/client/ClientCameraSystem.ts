@@ -91,13 +91,13 @@ export class ClientCameraSystem extends SystemBase {
 
   // Control settings
   private readonly settings = {
-    // RS3-like zoom bounds (further min to avoid getting too close)
+    // modern MMORPG-like zoom bounds (further min to avoid getting too close)
     minDistance: 2.0,
     maxDistance: 15.0,
     // Pitch limits: allow higher arc for more overhead viewing
     minPolarAngle: Math.PI * 0.15,
     maxPolarAngle: Math.PI * 0.48,
-    // RS3-like feel
+    // modern MMORPG-like feel
     rotateSpeed: 0.9,
     zoomSpeed: 1.2,
     panSpeed: 2.0,
@@ -632,7 +632,7 @@ export class ClientCameraSystem extends SystemBase {
         event.stopPropagation();
 
         const invert = this.settings.invertY === true ? -1 : 1;
-        // RS3-like: keep rotation responsive when fully zoomed out
+        // modern MMORPG-like: keep rotation responsive when fully zoomed out
         const minR = this.settings.minDistance;
         const maxR = this.settings.maxDistance;
         const r = THREE.MathUtils.clamp(this.spherical.radius, minR, maxR);
@@ -718,7 +718,7 @@ export class ClientCameraSystem extends SystemBase {
       this.settings.minDistance,
       this.settings.maxDistance,
     );
-    // RS-style: snap zoom immediately (no swooping)
+    // Snap zoom immediately (no swooping)
     this.spherical.radius = this.targetSpherical.radius;
     this.effectiveRadius = this.targetSpherical.radius;
     this.zoomDirty = true;
@@ -769,7 +769,7 @@ export class ClientCameraSystem extends SystemBase {
   }
 
   private onKeyDown(event: KeyboardEvent): void {
-    // RS-style camera control via arrow keys: rotate around character only
+    // Arrow-key camera control: rotate around character only
     const rotateStep = 0.06;
     if (event.code === "ArrowLeft") {
       event.preventDefault();
@@ -2674,7 +2674,7 @@ export class ClientCameraSystem extends SystemBase {
       this.targetPosition.copy(_v3_1);
       this.targetPosition.add(this.cameraOffset);
 
-      // RS3: no target smoothing; follow the player position directly to avoid any lag/jitter
+      // modern MMORPG: no target smoothing; follow the player position directly to avoid any lag/jitter
       this.smoothedTarget.copy(this.targetPosition);
     }
 
@@ -2722,7 +2722,7 @@ export class ClientCameraSystem extends SystemBase {
       this.spherical.radius = this.targetSpherical.radius;
     }
 
-    // Hard clamp after smoothing to enforce strict RS3-like limits
+    // Hard clamp after smoothing to enforce strict modern MMORPG-like limits
     this.spherical.radius = clamp(
       this.spherical.radius,
       this.settings.minDistance,
@@ -2794,7 +2794,7 @@ export class ClientCameraSystem extends SystemBase {
     }
 
     // Follow target. If zoom changed this frame, snap position instantly for straight-in/out motion
-    // RS3: move camera directly with no positional lerp to avoid swoop or lag
+    // modern MMORPG: move camera directly with no positional lerp to avoid swoop or lag
     this.camera.position.copy(this.cameraPosition);
     if (cinematicFrame) {
       this.camera.position.add(this.computeCameraShake(frameDt));

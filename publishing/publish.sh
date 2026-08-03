@@ -109,7 +109,7 @@ if [ -n "$APP_ADDRESS" ]; then
         --banner "assets/banner.png" \
         --screenshots "assets/screenshot_1.png,assets/screenshot_2.png,assets/screenshot_3.png,assets/screenshot_4.png" \
         --short-description "An AI-native MMORPG built on Solana" \
-        --long-description "Hyperia is an AI-native MMORPG combining classic RuneScape-style gameplay with AI technology and Solana blockchain integration." \
+        --long-description "Hyperia is an AI-native MMORPG combining classic fantasy MMORPG gameplay with AI technology and Solana blockchain integration." \
         --category "games"
     echo ""
     echo "✅ Release NFT created!"

@@ -8,7 +8,7 @@ import type { PlayerRow } from "../network/database";
 import type { Item, EquipmentSlot } from "../game/item-types";
 import type { Skills } from "./entity-types";
 import {
-  calculateCombatLevel as osrsCombatLevel,
+  calculateCombatLevel as classicCombatLevel,
   normalizeCombatSkills,
 } from "../../utils/game/CombatLevelCalculator";
 
@@ -48,7 +48,7 @@ export interface PlayerCombatData {
   trainingSkill?: "attack" | "strength" | "defense" | "ranged";
   inCombat: boolean;
   combatTarget: string | null;
-  autoRetaliate: boolean; // OSRS-style auto-retaliate setting (default: true)
+  autoRetaliate: boolean; // classic MMORPG-style auto-retaliate setting (default: true)
 }
 
 // Stamina system
@@ -136,9 +136,8 @@ export interface Player {
   // Auto-retaliate initialization - top-level for entity creation, used to initialize combat.autoRetaliate
   autoRetaliate?: boolean;
 
-  // === OSRS-Accurate Face Direction System ===
+  // === Rules-Accurate Face Direction System ===
   // Face target is set when interacting with objects/NPCs, processed at end of tick
-  // @see https://osrs-docs.com/docs/packets/outgoing/updating/masks/face-direction/
   faceTarget?: {
     /** Target coordinates to face (tile position) */
     x: number;
@@ -218,7 +217,7 @@ export class PlayerMigration {
         trainingSkill: "attack",
         inCombat: false,
         combatTarget: null,
-        autoRetaliate: true, // OSRS default: ON
+        autoRetaliate: true, // classic MMORPG default: ON
       },
       death: {
         deathLocation: null,
@@ -273,7 +272,7 @@ export class PlayerMigration {
         trainingSkill: "attack",
         inCombat: old.inCombat || false,
         combatTarget: old.combatTarget || null,
-        autoRetaliate: true, // OSRS default: ON
+        autoRetaliate: true, // classic MMORPG default: ON
       },
       coins: old.coins,
       death: {
@@ -312,10 +311,10 @@ export class PlayerMigration {
   }
 
   /**
-   * Calculate combat level from skills (delegates to OSRS-accurate CombatLevelCalculator)
+   * Calculate combat level from skills (delegates to rules-accurate CombatLevelCalculator)
    */
   static calculateCombatLevel(skills: Skills): number {
-    return osrsCombatLevel(
+    return classicCombatLevel(
       normalizeCombatSkills({
         attack: skills.attack?.level || 1,
         strength: skills.strength?.level || 1,
@@ -367,7 +366,7 @@ export class PlayerMigration {
         trainingSkill: "attack",
         inCombat: false,
         combatTarget: null,
-        autoRetaliate: true, // OSRS default: ON
+        autoRetaliate: true, // classic MMORPG default: ON
       },
       death: {
         deathLocation: null,
@@ -543,7 +542,7 @@ export interface PlayerEquipment {
     rangedStrength: number;
     magicAttack: number;
     magicDefense: number;
-    // Per-style melee defence bonuses (OSRS combat triangle)
+    // Per-style melee defence bonuses (classic MMORPG combat triangle)
     defenseStab: number;
     defenseSlash: number;
     defenseCrush: number;

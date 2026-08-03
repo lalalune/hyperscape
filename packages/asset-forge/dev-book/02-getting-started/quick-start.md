@@ -66,7 +66,7 @@ A medieval bronze sword with leather-wrapped grip and ornate crossguard
 
 **Game Style:**
 ```
-Select: RuneScape 2007
+Select: classic low-poly fantasy
 ```
 *Or choose "Custom" and write your own style*
 
@@ -125,7 +125,7 @@ The pipeline goes through several stages:
 ```
 "Medieval bronze sword with leather-wrapped grip, detailed ornate
 crossguard with Celtic patterns, straight double-edged blade,
-pommel for balance, low-poly RuneScape 2007 style, game-ready
+pommel for balance, classic low-poly fantasy style, game-ready
 geometry, handle at bottom, blade pointing upward"
 ```
 

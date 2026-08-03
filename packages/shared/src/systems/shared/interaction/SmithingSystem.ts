@@ -1,7 +1,7 @@
 /**
  * SmithingSystem - Handles Smithing at Anvils
  *
- * OSRS-accurate smithing implementation:
+ * rules-accurate smithing implementation:
  * - Use bars on anvil to smith items
  * - Requires hammer in inventory (not consumed)
  * - Consumes bars based on recipe
@@ -9,7 +9,6 @@
  * - Grants smithing XP per item made
  * - Auto-smithing continues until out of bars
  *
- * @see https://oldschool.runescape.wiki/w/Smithing
  * @see ProcessingDataProvider for smithing recipes from manifest
  */
 
@@ -327,7 +326,7 @@ export class SmithingSystem extends SystemBase {
       return;
     }
 
-    // Play smithing animation (OSRS-style)
+    // Play smithing animation (classic MMORPG-style)
     this.emitTypedEvent(EventType.ANIMATION_PLAY, {
       entityId: playerId,
       animation: "smithing",
@@ -363,7 +362,7 @@ export class SmithingSystem extends SystemBase {
 
     session.smithed++;
 
-    // Success message (OSRS style - shows item name)
+    // Success message (classic MMORPG style - shows item name)
     const qtyText = qty > 1 ? `${qty} ${recipe.name}` : `a ${recipe.name}`;
     this.emitTypedEvent(EventType.UI_MESSAGE, {
       playerId,

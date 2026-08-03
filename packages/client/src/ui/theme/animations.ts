@@ -2,7 +2,7 @@
  * Animation Library
  *
  * Standard animation definitions for UI components.
- * Based on RS3/MMO interface design patterns.
+ * Based on modern MMORPG/MMO interface design patterns.
  *
  * @packageDocumentation
  */

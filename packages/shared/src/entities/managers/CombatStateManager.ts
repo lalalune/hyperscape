@@ -1,7 +1,6 @@
 /**
  * Tracks mob combat state and attack timing.
  * First attack delayed one tick after entering range.
- * @see https://oldschool.runescape.wiki/w/Attack_speed
  */
 
 export interface CombatStateConfig {
@@ -56,7 +55,7 @@ export class CombatStateManager {
   }
 
   /**
-   * First attack happens next tick, not immediately (OSRS-accurate)
+   * First attack happens next tick, not immediately (rules-accurate)
    *
    * Guard: Only sets up timing if NOT already in combat. This is intentional:
    * - Prevents resetting timing on rapid CHASE→ATTACK→CHASE→ATTACK transitions
@@ -108,7 +107,6 @@ export class CombatStateManager {
     return true;
   }
 
-  /** Retaliate timing: ceil(speed/2)+1 ticks. @see https://oldschool.runescape.wiki/w/Auto_Retaliate */
   onReceiveAttack(currentTick: number): void {
     const retaliationDelay = Math.ceil(this.config.attackSpeedTicks / 2) + 1;
     const retaliationTick = currentTick + retaliationDelay;

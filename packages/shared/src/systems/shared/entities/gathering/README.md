@@ -1,10 +1,10 @@
 # Gathering System Architecture
 
-OSRS-accurate resource gathering system for woodcutting, mining, and fishing.
+rules-accurate resource gathering system for woodcutting, mining, and fishing.
 
 ## Overview
 
-The gathering system implements authentic Old School RuneScape mechanics including:
+The gathering system implements authentic classic fantasy MMORPG mechanics including:
 - 600ms tick-based timing
 - LERP success rate interpolation
 - Priority-based fish rolling
@@ -19,9 +19,9 @@ gathering/
 ├── index.ts              # Module exports
 ├── debug.ts              # Environment-based debug configuration
 ├── types.ts              # Type definitions (GatheringSession, etc.)
-├── DropRoller.ts         # OSRS drop mechanics & fish priority rolling
+├── DropRoller.ts         # classic MMORPG drop mechanics & fish priority rolling
 ├── ToolUtils.ts          # Tool validation & category mapping
-├── SuccessRateCalculator.ts  # OSRS LERP formula implementation
+├── SuccessRateCalculator.ts  # classic MMORPG LERP formula implementation
 └── README.md             # This file
 ```
 
@@ -30,9 +30,9 @@ gathering/
 | File | Purpose |
 |------|---------|
 | `ResourceSystem.ts` | Main orchestrator - session management, tick processing, event handling |
-| `DropRoller.ts` | Roll drops using OSRS chance distribution, priority fish rolling |
+| `DropRoller.ts` | Roll drops using classic MMORPG chance distribution, priority fish rolling |
 | `ToolUtils.ts` | Map item IDs to tool categories, validate tool requirements |
-| `SuccessRateCalculator.ts` | Calculate success rates using OSRS LERP formula |
+| `SuccessRateCalculator.ts` | Calculate success rates using classic MMORPG LERP formula |
 | `types.ts` | TypeScript interfaces for sessions, timers, tuning data |
 | `debug.ts` | Environment-based debug flag (`HYPERIA_DEBUG_GATHERING`) |
 
@@ -41,9 +41,9 @@ gathering/
 | File | Purpose |
 |------|---------|
 | `PendingGatherManager.ts` | Path player to cardinal tile before gathering starts |
-| `FaceDirectionManager.ts` | OSRS-accurate deferred face direction at tick end |
+| `FaceDirectionManager.ts` | rules-accurate deferred face direction at tick end |
 
-## OSRS Mechanics Implemented
+## classic MMORPG Mechanics Implemented
 
 ### Success Rate (LERP Formula)
 ```
@@ -55,7 +55,7 @@ rate = low + (high - low) * (level - 1) / 98
 - Mining uses variable roll frequency instead
 
 ### Tick System
-- All gathering runs on 600ms ticks (OSRS standard)
+- All gathering runs on 600ms ticks (classic MMORPG standard)
 - Woodcutting: Fixed 4-tick rolls, tool affects success rate
 - Mining: Variable tick rolls based on pickaxe tier
 - Fishing: Fixed 5-tick rolls, equipment doesn't affect speed
@@ -106,7 +106,7 @@ rate = low + (high - low) * (level - 1) / 98
 
 ## Security Features
 
-- **600ms rate limit**: Silently drops requests faster than 1 tick (matches OSRS)
+- **600ms rate limit**: Silently drops requests faster than 1 tick (matches classic MMORPG)
 - **Resource ID validation**: Alphanumeric only, length limits
 - **Server-authoritative position**: Client position ignored
 - **Disconnect tracking**: Logs suspicious rapid disconnects during gathering

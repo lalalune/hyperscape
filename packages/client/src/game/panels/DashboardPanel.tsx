@@ -1,6 +1,6 @@
 /**
  * Dashboard Panel
- * RuneScape-style unified UI with vertical tabs on the right side (desktop)
+ * classic fantasy MMORPG-style unified UI with vertical tabs on the right side (desktop)
  * or horizontal tabs at the bottom (mobile)
  * Combines all panels into one interface with consistent UI
  */

@@ -25,7 +25,7 @@ export interface EquipmentStats {
   strength: number;
   defense: number;
   ranged: number;
-  // Per-style melee defence bonuses (OSRS combat triangle)
+  // Per-style melee defence bonuses (classic MMORPG combat triangle)
   defenseStab?: number;
   defenseSlash?: number;
   defenseCrush?: number;
@@ -106,7 +106,7 @@ export class DamageCalculator {
    * Calculate melee damage for an attack
    * @param attacker - The attacking entity
    * @param target - The target entity
-   * @param style - Combat style for OSRS-accurate stat bonuses (default: "accurate")
+   * @param style - Combat style for rules-accurate stat bonuses (default: "accurate")
    * @param attackerPrayerBonuses - Prayer multipliers for attacker (optional)
    * @param defenderPrayerBonuses - Prayer multipliers for defender (optional)
    * @param meleeAttackStyle - Weapon attack style (stab/slash/crush) for per-style bonus lookup

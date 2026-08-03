@@ -27,7 +27,7 @@ Asset Forge uses a sophisticated prompt engineering system to generate high-qual
                ↓
 ┌─────────────────────────────────────┐
 │   Game Style Prompt                 │
-│   + "low-poly RuneScape style"      │
+│   + "low-poly classic fantasy MMORPG style"      │
 └──────────────┬──────────────────────┘
                ↓
 ┌─────────────────────────────────────┐
@@ -45,7 +45,7 @@ Asset Forge uses a sophisticated prompt engineering system to generate high-qual
 
 1. **Base Description**: User's input text
 2. **Asset Type Context**: Type-specific requirements (T-pose, armor shape, etc.)
-3. **Style Modifier**: Game art style (RuneScape, realistic, stylized)
+3. **Style Modifier**: Game art style (classic fantasy MMORPG, realistic, stylized)
 4. **Enhancement**: GPT-4 added visual details
 5. **Critical Requirements**: Hard constraints (pose, orientation)
 
@@ -63,15 +63,15 @@ Define the visual style and art direction for generated assets.
 
 ### Default Styles
 
-#### RuneScape 2007
+#### Classic Low-Poly Fantasy
 
 ```json
 {
-  "runescape": {
-    "name": "RuneScape 2007",
-    "base": "Low-poly RuneScape 2007",
-    "enhanced": "low-poly RuneScape style",
-    "generation": "runescape2007"
+  "classic": {
+    "name": "Classic Low-Poly Fantasy",
+    "base": "Classic low-poly fantasy",
+    "enhanced": "low-poly classic fantasy MMORPG style",
+    "generation": "classicLowPoly"
   }
 }
 ```
@@ -87,7 +87,7 @@ Define the visual style and art direction for generated assets.
 **Example Enhanced Prompt:**
 ```
 "Iron sword with straight blade and crossguard,
-low-poly RuneScape style with simple geometry and vibrant metallic sheen"
+low-poly classic fantasy MMORPG style with simple geometry and vibrant metallic sheen"
 ```
 
 #### Generic Low-Poly
@@ -200,8 +200,8 @@ function buildStylePrompt(userDescription: string, style: string): string {
 }
 
 // Example:
-buildStylePrompt('iron sword', 'runescape')
-// → "iron sword, low-poly RuneScape style"
+buildStylePrompt('iron sword', 'classic')
+// → "iron sword, low-poly classic fantasy MMORPG style"
 ```
 
 ---
@@ -257,7 +257,7 @@ Prompts are separated by **generation type**:
 **Example Usage:**
 ```
 "Medieval knight, show the full character in T-pose,
-front view on neutral background, low-poly RuneScape style"
+front view on neutral background, low-poly classic fantasy MMORPG style"
 ```
 
 #### Humanoid
@@ -327,7 +327,7 @@ front view on neutral background, low-poly RuneScape style"
 **Example:**
 ```
 "Bronze sword, show the full weapon clearly on neutral background,
-low-poly RuneScape style with simple crossguard and leather-wrapped handle"
+low-poly classic fantasy MMORPG style with simple crossguard and leather-wrapped handle"
 ```
 
 #### Armor
@@ -353,7 +353,7 @@ low-poly RuneScape style with simple crossguard and leather-wrapped handle"
 ```
 "Iron chest plate, show armor piece shaped for T-pose fitting,
 shoulder openings pointing straight sideways,
-hollow interior, no armor stand, low-poly RuneScape style"
+hollow interior, no armor stand, low-poly classic fantasy MMORPG style"
 ```
 
 #### Tool
@@ -429,7 +429,7 @@ Generate material-specific variations during retexturing.
 ```json
 {
   "templates": {
-    "runescape": "${materialId} texture, low-poly RuneScape style",
+    "classic": "${materialId} texture, low-poly classic fantasy MMORPG style",
     "generic": "${materialId} texture"
   },
   "customOverrides": {}
@@ -447,12 +447,12 @@ Generate material-specific variations during retexturing.
 **Weapon Materials:**
 ```typescript
 const weaponMaterials = [
-  { id: 'bronze', name: 'Bronze', stylePrompt: 'bronze texture, low-poly RuneScape style' },
-  { id: 'iron', name: 'Iron', stylePrompt: 'iron texture, low-poly RuneScape style' },
-  { id: 'steel', name: 'Steel', stylePrompt: 'steel texture, low-poly RuneScape style' },
-  { id: 'mithril', name: 'Mithril', stylePrompt: 'mithril texture, low-poly RuneScape style' },
-  { id: 'adamant', name: 'Adamant', stylePrompt: 'adamant texture, low-poly RuneScape style' },
-  { id: 'rune', name: 'Rune', stylePrompt: 'rune texture, low-poly RuneScape style' }
+  { id: 'bronze', name: 'Bronze', stylePrompt: 'bronze texture, low-poly classic fantasy MMORPG style' },
+  { id: 'iron', name: 'Iron', stylePrompt: 'iron texture, low-poly classic fantasy MMORPG style' },
+  { id: 'steel', name: 'Steel', stylePrompt: 'steel texture, low-poly classic fantasy MMORPG style' },
+  { id: 'mithril', name: 'Mithril', stylePrompt: 'mithril texture, low-poly classic fantasy MMORPG style' },
+  { id: 'adamant', name: 'Adamant', stylePrompt: 'adamant texture, low-poly classic fantasy MMORPG style' },
+  { id: 'rune', name: 'Rune', stylePrompt: 'rune texture, low-poly classic fantasy MMORPG style' }
 ]
 ```
 
@@ -472,7 +472,7 @@ Override specific material prompts:
 ```json
 {
   "customOverrides": {
-    "mithril": "Mithril texture with blue-silver sheen and magical glow, RuneScape style"
+    "mithril": "Mithril texture with blue-silver sheen and magical glow, classic fantasy MMORPG style"
   }
 }
 ```
@@ -531,7 +531,7 @@ Use GPT-4 to intelligently enhance user descriptions with visual details.
 wearing leather armor and fur accessories.
 Standing in T-pose with arms stretched horizontally and empty hands.
 Legs slightly apart, facing forward.
-Low-poly RuneScape style with simple geometry and vibrant colors."
+Low-poly classic fantasy MMORPG style with simple geometry and vibrant colors."
 ```
 
 #### Armor Enhancement
@@ -569,7 +569,7 @@ forming a wide T-shape when viewed from above.
 Hollow interior with no mannequin or armor stand.
 Simple bronze plates with rivets and leather straps.
 Ends at shoulders with no arm extensions.
-Low-poly RuneScape style with clean geometry."
+Low-poly classic fantasy MMORPG style with clean geometry."
 ```
 
 #### Item Enhancement
@@ -591,7 +591,7 @@ Cork stopper at the top with wax seal.
 Cylindrical bottle with rounded bottom.
 Red liquid has subtle glow effect.
 Simple label with health symbol.
-Low-poly RuneScape style with vibrant red color and minimal geometry."
+Low-poly classic fantasy MMORPG style with vibrant red color and minimal geometry."
 ```
 
 ### GPT-4 API Call
@@ -748,7 +748,7 @@ function buildFinalPrompt(config: GenerationConfig, enhanced: string): string {
 "Muscular orc warrior with green skin, leather armor, and fur accessories,
 standing in T-pose with arms extended horizontally and empty hands,
 legs slightly apart, facing forward,
-low-poly RuneScape style with simple geometry and vibrant colors,
+low-poly classic fantasy MMORPG style with simple geometry and vibrant colors,
 on neutral background, evenly lit from multiple angles, front view"
 ```
 
@@ -759,7 +759,7 @@ on neutral background, evenly lit from multiple angles, front view"
 simple crossguard with slight downward curve,
 leather-wrapped wooden grip with visible wrap texture,
 round iron pommel, slightly weathered with subtle scratches,
-low-poly RuneScape style with clean edges and minimal polygons,
+low-poly classic fantasy MMORPG style with clean edges and minimal polygons,
 on neutral background, evenly lit from multiple angles, front view"
 ```
 
@@ -772,7 +772,7 @@ forming wide T-shape when viewed from above,
 hollow interior with no mannequin or armor stand,
 bronze plates with rivets and leather straps,
 ends at shoulders with no arm extensions,
-low-poly RuneScape style with clean geometry,
+low-poly classic fantasy MMORPG style with clean geometry,
 on neutral background, evenly lit from multiple angles, front view"
 ```
 
@@ -818,7 +818,7 @@ const allGameStyles = PromptService.mergePrompts(
 )
 
 // Get specific style
-const runescapeStyle = allGameStyles.runescape
+const classicStyle = allGameStyles.classic
 ```
 
 ### Caching Strategy
@@ -929,7 +929,7 @@ async function createMaterialOverride(
 // Example
 await createMaterialOverride(
   'dragon',
-  'Dragon scale texture with iridescent sheen and mystical glow, RuneScape style'
+  'Dragon scale texture with iridescent sheen and mystical glow, classic fantasy MMORPG style'
 )
 ```
 
@@ -960,7 +960,7 @@ await createMaterialOverride(
 ### 5. Add Style Consistently
 
 **Bad**: "Wooden bow"
-**Good**: "Wooden longbow, low-poly RuneScape style with simple geometry"
+**Good**: "Wooden longbow, low-poly classic fantasy MMORPG style with simple geometry"
 
 ### 6. Use Visual References
 
@@ -1001,7 +1001,7 @@ async function testPromptVariants(
       description: variant,
       type: 'weapon',
       subtype: 'sword',
-      style: 'runescape'
+      style: 'classic'
     })
 
     results.push({
@@ -1125,7 +1125,7 @@ across when viewed from above, like the letter T, NOT angled downward"
 
 **Solution**: Be more explicit about style
 ```
-"Low-poly RuneScape 2007 style with SIMPLE GEOMETRY (under 500 polygons),
+"Classic low-poly fantasy style with SIMPLE GEOMETRY (under 500 polygons),
 FLAT SHADING, VIBRANT COLORS, chunky proportions, early 2000s game aesthetic"
 ```
 
@@ -1152,7 +1152,7 @@ interface AssetTypePrompt {
 }
 
 interface MaterialPromptTemplate {
-  templates: { runescape: string; generic: string } & Record<string, string>
+  templates: { classic: string; generic: string } & Record<string, string>
   customOverrides: Record<string, string>
 }
 

@@ -219,7 +219,7 @@ export interface MobEntityConfig extends EntityConfig<MobEntityProperties> {
   level: number;
   maxHealth: number;
   currentHealth: number;
-  attack: number; // Attack level for accuracy calculations (OSRS-style)
+  attack: number; // Attack level for accuracy calculations (classic MMORPG-style)
   attackPower: number; // Strength-based, determines max hit
   defense: number;
   defenseBonus: number; // Equipment/armor defense bonus
@@ -231,8 +231,8 @@ export interface MobEntityConfig extends EntityConfig<MobEntityProperties> {
   movementType: "stationary" | "wander" | "patrol"; // Controls idle movement behavior
   aggroRange: number;
   combatRange: number;
-  wanderRadius: number; // Fixed distance from spawn point (RuneScape-style)
-  leashRange?: number; // Max chase distance from spawn (defaults to 10, OSRS-style two-tier range)
+  wanderRadius: number; // Fixed distance from spawn point (classic fantasy MMORPG-style)
+  leashRange?: number; // Max chase distance from spawn (defaults to 10, classic MMORPG-style two-tier range)
   respawnTime: number;
   xpReward: number;
   lootTable: Array<{
@@ -255,7 +255,7 @@ export interface MobEntityConfig extends EntityConfig<MobEntityProperties> {
   arrowId?: string;
 
   /**
-   * If true, this NPC walks through other NPCs (OSRS boss behavior)
+   * If true, this NPC walks through other NPCs (classic MMORPG boss behavior)
    *
    * Used for: GWD generals, Dagannoth Kings, raid bosses, etc.
    * When true, the NPC's tiles don't block other entities from moving.

@@ -248,7 +248,7 @@ export function hasWeapon(
 
 /**
  * Check if player has a combat-capable item (equipped OR in inventory)
- * In OSRS, hatchets and pickaxes can be equipped and used as melee weapons.
+ * In classic MMORPG, hatchets and pickaxes can be equipped and used as melee weapons.
  *
  * @param player - Player entity with items and equipment
  * @returns true if player has any combat-capable item

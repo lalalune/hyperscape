@@ -1,12 +1,12 @@
 /**
  * Prayer Panel
- * RuneScape-inspired prayer interface with adaptive grid layout
- * Authentic OSRS/RS3 style design
+ * classic fantasy MMORPG-inspired prayer interface with adaptive grid layout
+ * Classic fantasy MMORPG interface with a modern presentation
  * Supports drag-drop to action bar
  * Syncs with server prayer state
  *
  * Layout adapts based on panel size:
- * - Wide: 5 columns (default OSRS style)
+ * - Wide: 5 columns (default classic MMORPG style)
  * - Medium: 4 columns
  * - Narrow: 3 columns
  * - Very narrow: 2 columns (vertical layout)
@@ -228,7 +228,7 @@ function getPrayerDisplayIcon(iconId: string): string {
   return PRAYER_ICON_MAP[iconId] ?? "✨";
 }
 
-/** Prayer icon component with OSRS-style glow effect and drag support */
+/** Prayer icon component with classic MMORPG-style glow effect and drag support */
 function PrayerIcon({
   prayer,
   playerLevel,
@@ -332,7 +332,7 @@ function PrayerIcon({
       borderColor: isActive
         ? theme.colors.accent.secondary
         : isHovered && isUnlocked
-          ? "rgba(183, 140, 76, 0.4)" // RS3/OSRS gold tint on hover
+          ? "rgba(183, 140, 76, 0.4)" // modern MMORPG/classic MMORPG gold tint on hover
           : "rgba(8, 8, 10, 0.6)",
       borderWidth: "1px",
       borderRadius: 4, // Square slots

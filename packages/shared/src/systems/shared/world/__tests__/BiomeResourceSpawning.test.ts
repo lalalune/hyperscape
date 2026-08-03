@@ -418,7 +418,7 @@ describe("BiomeResourceGenerator", () => {
       );
     });
 
-    it("ore level requirements match OSRS progression", () => {
+    it("ore level requirements match classic MMORPG progression", () => {
       expect(getOreLevelRequirement("copper")).toBe(1);
       expect(getOreLevelRequirement("tin")).toBe(1);
       expect(getOreLevelRequirement("iron")).toBe(15);

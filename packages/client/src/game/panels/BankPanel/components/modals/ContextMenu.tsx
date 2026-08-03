@@ -2,7 +2,7 @@
  * Bank Context Menu Component
  *
  * Right-click context menu for bank items with withdraw/deposit options.
- * RS3-style: Shows different options for placeholders (qty=0) vs items.
+ * modern MMORPG-style: Shows different options for placeholders (qty=0) vs items.
  * Uses theme system for consistent styling.
  */
 
@@ -39,11 +39,11 @@ export function ContextMenu({
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // RS3-style: Items with qty=0 are placeholders
+  // modern MMORPG-style: Items with qty=0 are placeholders
   const isPlaceholder = menu.type === "bank" && menu.quantity === 0;
   const actionLabel = menu.type === "bank" ? "Withdraw" : "Deposit";
 
-  // RS3-style: Check if item is equipable for "Equip" option
+  // modern MMORPG-style: Check if item is equipable for "Equip" option
   const itemData = menu.itemId ? getItem(menu.itemId) : null;
   const isEquipable = itemData?.equipSlot || itemData?.equipable;
 
@@ -121,7 +121,7 @@ export function ContextMenu({
     whiteSpace: "nowrap",
   });
 
-  // RS3-style: Handle placeholder-only context menu (qty=0 bank items)
+  // modern MMORPG-style: Handle placeholder-only context menu (qty=0 bank items)
   if (isPlaceholder) {
     return createPortal(
       <div
@@ -157,7 +157,7 @@ export function ContextMenu({
   const menuOptions: Array<{ label: string; amount: number; action: string }> =
     [];
 
-  // RS3-style: "Equip" option position depends on rightPanelMode
+  // modern MMORPG-style: "Equip" option position depends on rightPanelMode
   const canEquip = menu.type === "bank" && isEquipable && menu.quantity > 0;
 
   if (canEquip && rightPanelMode === "equipment") {

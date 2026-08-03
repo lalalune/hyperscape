@@ -849,7 +849,7 @@ describe("PvP Death Integration", () => {
     });
 
     it("handles high-value inventory (many items)", async () => {
-      // Create inventory with 28 items (full OSRS inventory)
+      // Create inventory with 28 items (full classic MMORPG inventory)
       const largeInventory: MockInventoryItem[] = [];
       for (let i = 0; i < 28; i++) {
         largeInventory.push({
@@ -887,7 +887,7 @@ describe("PvP Death Integration", () => {
     });
   });
 
-  describe("timing accuracy (OSRS compliance)", () => {
+  describe("timing accuracy (classic MMORPG compliance)", () => {
     it("uses correct despawn time for ground items (300 ticks = 3 minutes)", async () => {
       const victim = createMockPlayer("victim", {
         health: 1,

@@ -1,14 +1,13 @@
 /**
  * Combat Level Calculator Tests
  *
- * Verifies OSRS-accurate combat level calculation:
+ * Verifies rules-accurate combat level calculation:
  * - Level 3 minimum (fresh character)
  * - Level 126 maximum (all 99s)
  * - Correct formula application
  * - Combat type detection
  * - Double-level aggro rule
  *
- * @see https://oldschool.runescape.wiki/w/Combat_level
  */
 
 import { describe, it, expect } from "vitest";
@@ -358,9 +357,8 @@ describe("CombatLevelCalculator", () => {
     });
   });
 
-  describe("OSRS Wiki verification examples", () => {
-    // These test cases are derived from the OSRS Wiki combat level formula
-    // https://oldschool.runescape.wiki/w/Combat_level
+  describe("reference-rules verification examples", () => {
+    // These test cases verify the configured combat-level formula
 
     it("tutorial island character (level 3)", () => {
       // Fresh out of tutorial island: all 1s except HP = 10

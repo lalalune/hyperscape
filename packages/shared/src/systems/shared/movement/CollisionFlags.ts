@@ -1,17 +1,16 @@
 /**
- * CollisionFlags - OSRS-accurate collision bitmask flags
+ * CollisionFlags - rules-accurate collision bitmask flags
  *
  * Each tile has an int32 bitmask combining these flags.
  * Bitwise operations allow efficient queries:
  *   if (flags & CollisionFlag.BLOCKED) { // can't walk }
  *
- * Flag values match OSRS conventions where possible:
+ * Flag values match classic MMORPG conventions where possible:
  * - Wall flags: 0x1 - 0x80 (directional)
  * - Occupied: 0x100 - 0x200 (entities)
  * - Blocked: 0x200000 (full tile block)
  * - LoS block: 0x400000 (ranged combat)
  *
- * @see https://osrs-docs.com/docs/mechanics/entity-collision/
  * @see https://rune-server.org/threads/collision-flags-map-rendering.620525/
  */
 

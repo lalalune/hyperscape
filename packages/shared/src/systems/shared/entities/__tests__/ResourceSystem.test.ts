@@ -5,7 +5,7 @@
  * - Drop rolling with probability distribution
  * - Resource ID validation (security)
  * - Tool category extraction
- * - Success rate calculation (OSRS-style)
+ * - Success rate calculation (classic MMORPG-style)
  * - Cycle time calculation
  *
  * Note: Some tests access private methods via bracket notation for unit testing.
@@ -198,8 +198,8 @@ describe("ResourceSystem", () => {
       expect(getToolCategory(system, "rune_pickaxe")).toBe("pickaxe");
     });
 
-    it("should return exact tool ID for fishing equipment (OSRS-accurate)", () => {
-      // OSRS-ACCURACY: Fishing tools require exact matching, not interchangeable
+    it("should return exact tool ID for fishing equipment (rules-accurate)", () => {
+      // RULES ACCURACY: Fishing tools require exact matching, not interchangeable
       expect(getToolCategory(system, "fishing_rod")).toBe("fishing_rod");
       expect(getToolCategory(system, "small_fishing_net")).toBe(
         "small_fishing_net",
@@ -223,7 +223,7 @@ describe("ResourceSystem", () => {
     it("should return friendly names for known categories", () => {
       expect(getToolDisplayName(system, "hatchet")).toBe("hatchet");
       expect(getToolDisplayName(system, "pickaxe")).toBe("pickaxe");
-      // OSRS-accurate: fishing tools use exact IDs, not "fishing equipment"
+      // rules-accurate: fishing tools use exact IDs, not "fishing equipment"
       expect(getToolDisplayName(system, "fishing_rod")).toBe("fishing rod");
       expect(getToolDisplayName(system, "small_fishing_net")).toBe(
         "small fishing net",
@@ -237,7 +237,7 @@ describe("ResourceSystem", () => {
   });
 
   // ===== SUCCESS RATE CALCULATION TESTS =====
-  // NOTE: computeSuccessRate now uses OSRS lerpSuccessRate formula internally.
+  // NOTE: computeSuccessRate now uses classic MMORPG lerpSuccessRate formula internally.
   // Detailed formula tests are in the lerpSuccessRate test suite.
   // These tests verify the integration works correctly.
   describe("computeSuccessRate", () => {
@@ -283,7 +283,7 @@ describe("ResourceSystem", () => {
       expect(highRate).toBeGreaterThan(lowRate);
     });
 
-    it("should cap at maximum rate (OSRS formula bounds)", () => {
+    it("should cap at maximum rate (classic combat formula bounds)", () => {
       const rate = computeSuccessRate(
         system,
         99,
@@ -354,7 +354,7 @@ describe("ResourceSystem", () => {
     });
   });
 
-  // ===== OSRS CATCH RATE FORMULA TESTS =====
+  // ===== classic MMORPG CATCH RATE FORMULA TESTS =====
   // Tests the module function directly (no ResourceSystem dependency)
   describe("lerpSuccessRate", () => {
     it("should use low value at level 1", () => {
@@ -401,10 +401,10 @@ describe("ResourceSystem", () => {
     });
   });
 
-  // ===== OSRS PRIORITY FISH ROLLING TESTS =====
+  // ===== classic MMORPG PRIORITY FISH ROLLING TESTS =====
   // Tests the module function directly (no ResourceSystem dependency)
   describe("rollFishDrop", () => {
-    // Test drops ordered by level requirement (highest first, like OSRS)
+    // Test drops ordered by level requirement (highest first, like classic MMORPG)
     const fishDrops: ResourceDrop[] = [
       {
         itemId: "swordfish",

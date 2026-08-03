@@ -1,7 +1,6 @@
 /**
  * Rune Data Manifest
  * Defines elemental staff mappings and rune metadata for magic combat.
- * @see https://oldschool.runescape.wiki/w/Rune
  */
 
 /**

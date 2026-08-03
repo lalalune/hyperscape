@@ -1,16 +1,15 @@
 /**
  * ChasePathfinding Unit Tests
  *
- * Tests the OSRS "dumb pathfinder" algorithm for NPC chasing behavior.
+ * Tests the classic MMORPG "dumb pathfinder" algorithm for NPC chasing behavior.
  *
  * Key behaviors tested:
  * - Basic movement toward target
- * - Corner-cutting prevention (OSRS rule)
+ * - Corner-cutting prevention (classic MMORPG rule)
  * - Cardinal priority when diagonal blocked
  * - Safespot detection (all directions blocked)
  * - Zero-allocation ChasePathfinder class
  *
- * @see https://oldschool.runescape.wiki/w/Pathfinding
  * @see MOB_AGGRO_IMPLEMENTATION_PLAN.md Phase 1.4, 4.1
  */
 
@@ -76,7 +75,7 @@ describe("ChasePathfinding", () => {
       });
     });
 
-    describe("diagonal movement (OSRS corner-cutting rule)", () => {
+    describe("diagonal movement (classic MMORPG corner-cutting rule)", () => {
       it("allows diagonal when both cardinal tiles are walkable", () => {
         const current = { x: 0, z: 0 };
         const target = { x: 1, z: 1 };
@@ -423,7 +422,7 @@ describe("ChasePathfinding", () => {
     });
   });
 
-  describe("OSRS safespot scenarios", () => {
+  describe("classic MMORPG safespot scenarios", () => {
     it("should get stuck behind rock (classic safespot)", () => {
       // Player behind rock, NPC can't path around
       //   [P] ← Player

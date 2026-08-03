@@ -1,7 +1,7 @@
 /**
  * Item Slot Component
  *
- * RS3-style inventory/equipment slot with drag-drop support.
+ * modern MMORPG-style inventory/equipment slot with drag-drop support.
  * Used for inventory grids, equipment slots, and action bars.
  *
  * @packageDocumentation

@@ -1,7 +1,7 @@
 /**
  * Mob Aggro Integration Tests
  *
- * End-to-end tests for OSRS-accurate mob aggro, pathfinding, and combat mechanics:
+ * End-to-end tests for rules-accurate mob aggro, pathfinding, and combat mechanics:
  * - Safespot mechanics (dumb pathfinder getting stuck)
  * - Corner-cutting prevention
  * - Large NPC (2x2, 3x3) attack range from all occupied tiles
@@ -10,7 +10,6 @@
  * - Hunt range vs attack range distinction
  *
  * @see MOB_AGGRO_IMPLEMENTATION_PLAN.md Phase 5.2
- * @see https://oldschool.runescape.wiki/w/Pathfinding
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
@@ -137,7 +136,7 @@ describe("Mob Aggro Integration", () => {
     });
 
     /**
-     * OSRS corner-cutting rule:
+     * classic MMORPG corner-cutting rule:
      * To move diagonally, BOTH adjacent cardinal tiles must be walkable.
      *
      *   [ ][B]
@@ -388,7 +387,7 @@ describe("Mob Aggro Integration", () => {
 
   describe("first-attack timing", () => {
     /**
-     * OSRS: When NPC enters combat range, first attack is on NEXT tick.
+     * classic MMORPG: When NPC enters combat range, first attack is on NEXT tick.
      */
     it("first attack delayed by 1 tick after entering combat range", () => {
       const combatManager = new CombatStateManager({

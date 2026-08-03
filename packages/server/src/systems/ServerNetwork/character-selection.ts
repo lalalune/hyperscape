@@ -819,7 +819,7 @@ export async function handleEnterWorld(
   // Load full character data from DB (position, skills, AND combat preferences)
   // Skip for load test bots - they use default values for performance
   let savedSkills: Record<string, { level: number; xp: number }> | undefined;
-  let savedAutoRetaliate = true; // Default ON (OSRS behavior)
+  let savedAutoRetaliate = true; // Default ON (classic MMORPG behavior)
   if (characterId && accountId && !isLoadTestBot) {
     try {
       const databaseSystem = world.getSystem("database") as

@@ -1,5 +1,5 @@
 /**
- * SeededRandom - Deterministic PRNG for OSRS-Accurate Combat
+ * SeededRandom - Deterministic PRNG for Rules-Accurate Combat
  *
  * Uses xorshift128+ algorithm for fast, high-quality random numbers.
  * Same seed always produces the same sequence on all platforms.
@@ -37,7 +37,7 @@ export interface SeededRandomState {
  * // Get random values
  * const float = rng.random();      // 0.0 to 1.0
  * const int = rng.nextInt(100);    // 0 to 99
- * const roll = rng.nextInt(256);   // OSRS accuracy roll
+ * const roll = rng.nextInt(256);   // classic MMORPG accuracy roll
  *
  * // Save/restore state
  * const state = rng.getState();
@@ -133,7 +133,7 @@ export class SeededRandom {
   }
 
   /**
-   * OSRS-style accuracy roll
+   * classic MMORPG-style accuracy roll
    * Compares attack roll vs defense roll
    *
    * @param attackRoll - Attacker's accuracy roll (0 to maxRoll)
@@ -141,7 +141,7 @@ export class SeededRandom {
    * @returns true if attack hits, false if it misses
    */
   accuracyRoll(attackRoll: number, defenseRoll: number): boolean {
-    // OSRS formula: if attack > defense, hit chance = 1 - (def+2)/(2*(atk+1))
+    // classic combat formula: if attack > defense, hit chance = 1 - (def+2)/(2*(atk+1))
     // if attack <= defense, hit chance = atk / (2*(def+1))
     // We simulate this by rolling both and comparing
 
@@ -152,7 +152,7 @@ export class SeededRandom {
   }
 
   /**
-   * OSRS-style damage roll
+   * classic MMORPG-style damage roll
    * Generates damage from 0 to maxHit (inclusive)
    *
    * @param maxHit - Maximum possible damage

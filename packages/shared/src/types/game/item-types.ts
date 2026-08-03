@@ -41,7 +41,6 @@ export enum ItemType {
 // Combat related enums
 /**
  * Combat attack types. Discriminated union for exhaustive switch handling.
- * @see https://oldschool.runescape.wiki/w/Combat
  */
 export enum AttackType {
   MELEE = "melee",
@@ -156,7 +155,7 @@ export interface Item {
   weaponType?: WeaponType | null; // Default: null
   equipable?: boolean; // Default: false (derived from equipSlot if not specified)
   attackType?: AttackType | null; // Default: null
-  attackSpeed?: number; // Attack speed in game ticks (OSRS-style: 4 = standard sword)
+  attackSpeed?: number; // Attack speed in game ticks (classic MMORPG-style: 4 = standard sword)
   attackRange?: number; // Attack range in tiles (1 = adjacent melee, 2 = halberd, 7+ = ranged)
   is2h?: boolean; // Explicit flag for 2-handed weapons (alternative to equipSlot: '2h')
 
@@ -322,16 +321,16 @@ export interface Item {
     skill: "woodcutting" | "mining" | "fishing";
     /** Priority for best tool selection (lower = better, 1 = best) */
     priority: number;
-    /** For mining: ticks between roll attempts (OSRS-accurate) */
+    /** For mining: ticks between roll attempts (rules-accurate) */
     rollTicks?: number;
   };
 
-  // === OSRS-ACCURATE INVENTORY ACTIONS ===
+  // === RULES-ACCURATE INVENTORY ACTIONS ===
   /**
-   * Explicit inventory context menu actions (OSRS-accurate).
+   * Explicit inventory context menu actions (rules-accurate).
    * First action is the left-click default.
    *
-   * OSRS stores this per-item, NOT derived from properties.
+   * classic MMORPG stores this per-item, NOT derived from properties.
    * Common actions: "Eat", "Drink", "Wield", "Wear", "Bury", "Use", "Drop", "Examine"
    *
    * If not specified, falls back to type-based detection for compatibility.

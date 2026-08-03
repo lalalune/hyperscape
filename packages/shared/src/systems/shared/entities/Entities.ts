@@ -370,7 +370,7 @@ export class Entities extends SystemBase implements IEntities {
         movementType: "wander", // Default to wander for backwards compatibility
         aggroRange: 15.0, // 15 meters detection range
         combatRange: 1.5, // 1.5 meters melee range
-        wanderRadius: 10, // 10 meter wander radius from spawn (RuneScape-style)
+        wanderRadius: 10, // 10 meter wander radius from spawn (classic fantasy MMORPG-style)
         xpReward: 10,
         lootTable: [],
         respawnTime: 300000,

@@ -1,7 +1,7 @@
 /**
  * Gathering Calculations
  *
- * OSRS-style tick-based timing utilities for resource gathering.
+ * classic MMORPG-style tick-based timing utilities for resource gathering.
  * All gathering actions operate on 600ms game ticks.
  */
 

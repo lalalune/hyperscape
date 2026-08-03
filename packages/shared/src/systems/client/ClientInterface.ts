@@ -42,7 +42,7 @@ export interface ClientPrefsData {
   bloom?: boolean;
   colorGrading?: string;
   colorGradingIntensity?: number;
-  /** Depth-based camera blur (RuneScape-style DoF) */
+  /** Depth-based camera blur (classic fantasy MMORPG-style DoF) */
   depthBlur?: boolean;
   /** Depth blur intensity 0-1 */
   depthBlurIntensity?: number;
@@ -87,9 +87,9 @@ export class ClientInterface extends SystemBase {
   bloom: boolean = true;
   colorGrading: string = "none";
   colorGradingIntensity: number = 1;
-  /** Depth-based camera blur (RuneScape-style DoF) - enabled by default */
+  /** Depth-based camera blur (classic fantasy MMORPG-style DoF) - enabled by default */
   depthBlur: boolean = true;
-  /** Depth blur intensity 0-1, default 0.85 for RuneScape-style heavy blur */
+  /** Depth blur intensity 0-1, default 0.85 for classic fantasy MMORPG-style heavy blur */
   depthBlurIntensity: number = 0.85;
   /** Depth blur focus distance in world units - how far before blur starts */
   depthBlurDistance: number = 60;

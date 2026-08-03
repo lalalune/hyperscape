@@ -1,5 +1,5 @@
 /**
- * XPProgressOrbs - RuneLite-style XP progress orbs
+ * XPProgressOrbs - third-party-client-style XP progress orbs
  *
  * Circular progress indicators at top of screen:
  * - One orb per active skill

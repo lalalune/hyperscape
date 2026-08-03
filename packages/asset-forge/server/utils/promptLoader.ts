@@ -270,8 +270,8 @@ export async function getMaterialPromptTemplate(
   )) as MaterialPrompts | null;
   if (!prompts) {
     // Fallback templates
-    return gameStyle === "runescape"
-      ? "${materialId} texture, low-poly RuneScape style"
+    return gameStyle === "classic"
+      ? "${materialId} texture, low-poly classic fantasy MMORPG style"
       : "${materialId} texture";
   }
 

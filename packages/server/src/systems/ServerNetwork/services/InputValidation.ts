@@ -91,7 +91,7 @@ export function isValidBankMoveMode(
 
 /**
  * Validate bank tab index - 0 (main) or 1-9 (custom tabs)
- * OSRS allows up to 9 custom tabs plus the main tab
+ * classic MMORPG allows up to 9 custom tabs plus the main tab
  */
 export function isValidBankTabIndex(value: unknown): value is number {
   return (
@@ -130,7 +130,7 @@ export function isValidNpcId(value: unknown): value is string {
 
 /**
  * Validate dialogue responseIndex - must be non-negative integer
- * Max 10 responses per dialogue node (generous limit for OSRS-style dialogues)
+ * Max 10 responses per dialogue node (generous limit for classic MMORPG-style dialogues)
  */
 export function isValidResponseIndex(value: unknown): value is number {
   return (

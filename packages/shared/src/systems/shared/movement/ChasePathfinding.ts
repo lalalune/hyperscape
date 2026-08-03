@@ -1,5 +1,5 @@
 /**
- * Chase Pathfinding (OSRS "Dumb Pathfinder")
+ * Chase Pathfinding (classic MMORPG "Dumb Pathfinder")
  *
  * Simple greedy pathfinding algorithm for NPC chasing behavior.
  * Unlike BFS which searches for optimal paths around obstacles,
@@ -8,7 +8,7 @@
  * This is intentionally simple - NPCs don't navigate around obstacles,
  * which enables "safespotting" gameplay where players can hide behind objects.
  *
- * OSRS-Accurate Algorithm:
+ * Rules-Accurate Algorithm:
  * 1. Calculate direction to target (normalized to -1, 0, or 1)
  * 2. Try diagonal step FIRST (if moving on both axes AND corner-cut is valid)
  * 3. If diagonal blocked, try cardinal steps (prioritize axis with greater distance)
@@ -22,7 +22,6 @@
  * - chaseStep() allocates objects per call (for backwards compatibility)
  * - ChasePathfinder class provides zero-allocation alternative for hot paths
  *
- * @see https://oldschool.runescape.wiki/w/Pathfinding
  */
 
 import type { TileCoord } from "./TileSystem";
@@ -57,7 +56,7 @@ export function chaseStep(
   const candidates: TileCoord[] = [];
 
   // Priority 1: Diagonal (if moving on both axes AND corner-cut is valid)
-  // OSRS corner-cutting rule: Both adjacent cardinal tiles must be walkable
+  // classic MMORPG corner-cutting rule: Both adjacent cardinal tiles must be walkable
   // to move diagonally. This prevents cutting through wall corners.
   if (dx !== 0 && dz !== 0) {
     const cardinalX: TileCoord = { x: current.x + dx, z: current.z };

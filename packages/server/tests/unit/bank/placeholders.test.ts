@@ -1,7 +1,7 @@
 /**
  * Bank Placeholders Unit Tests
  *
- * Tests for RS3-style placeholder system logic.
+ * Tests for modern MMORPG-style placeholder system logic.
  * Uses mock classes following the existing codebase pattern.
  */
 
@@ -36,7 +36,7 @@ const MAX_INVENTORY_SLOTS = 28;
 
 /**
  * Mock bank placeholder manager that tests the ALGORITHM logic
- * for RS3-style placeholder operations.
+ * for modern MMORPG-style placeholder operations.
  */
 class MockBankPlaceholderManager {
   private bankData: BankSlot[] = [];
@@ -65,7 +65,7 @@ class MockBankPlaceholderManager {
   /**
    * Withdraw-placeholder: Withdraw all, leave qty=0 placeholder
    *
-   * RS3-style: Withdraws all of an item to inventory and leaves qty=0
+   * modern MMORPG-style: Withdraws all of an item to inventory and leaves qty=0
    */
   withdrawPlaceholder(
     playerId: string,

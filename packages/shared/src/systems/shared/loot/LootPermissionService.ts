@@ -4,7 +4,7 @@
  * Pure function for loot permission checks.
  * Shared by HeadstoneEntity (interaction gating) and GravestoneLootSystem (loot processing).
  *
- * Rules (OSRS-style):
+ * Rules (classic MMORPG-style):
  * - Owner can always loot their own gravestone
  * - Safe area deaths (lootProtectionUntil=0): owner-only, no expiration
  * - Wilderness/PvP deaths: protectedFor (killer) can loot during protection period

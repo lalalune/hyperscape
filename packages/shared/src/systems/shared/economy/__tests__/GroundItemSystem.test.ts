@@ -3,7 +3,7 @@
  *
  * Tests the ground item management system:
  * - Item spawning and tracking
- * - Tile-based piling (OSRS-style)
+ * - Tile-based piling (classic MMORPG-style)
  * - Stackable item merging
  * - Loot protection (canPickup enforcement)
  * - Tick-based despawn
@@ -58,7 +58,7 @@ class MockGroundItemManager {
   private nextId = 1;
   private currentTick = 0;
 
-  // OSRS constants
+  // classic MMORPG constants
   private readonly TICK_MS = 600;
   private readonly DEFAULT_DESPAWN_TICKS = 200; // 2 minutes (tradeable)
   private readonly UNTRADEABLE_DESPAWN_TICKS = 300; // 3 minutes (untradeable)
@@ -104,7 +104,7 @@ class MockGroundItemManager {
 
     const id = `ground_item_${this.nextId++}`;
 
-    // OSRS: Untradeable items ALWAYS get 3 min despawn
+    // classic MMORPG: Untradeable items ALWAYS get 3 min despawn
     const tradeable = options.tradeable !== false; // Default true
     const baseDespawnTicks = tradeable
       ? this.DEFAULT_DESPAWN_TICKS
@@ -189,7 +189,7 @@ class MockGroundItemManager {
   }
 
   /**
-   * Check if an item is visible to a specific player (OSRS visibility phases)
+   * Check if an item is visible to a specific player (classic MMORPG visibility phases)
    * - Private phase: Only dropper/killer sees item
    * - Public phase: Everyone sees item
    */

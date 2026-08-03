@@ -123,7 +123,7 @@ export abstract class BaseInteractionHandler {
 
       if (footprint) {
         // Multi-tile entity: Check if player is in range of ANY occupied tile
-        // This enables OSRS-style interaction from any side of a 2x2 furnace, etc.
+        // This enables classic MMORPG-style interaction from any side of a 2x2 furnace, etc.
         inRange = tilesWithinRangeOfFootprint(
           playerTile,
           targetTile,
@@ -159,7 +159,7 @@ export abstract class BaseInteractionHandler {
 
       if (params.range === 0) {
         // Range 0 (items): Walk directly TO the target's tile
-        // OSRS behavior: Must stand ON item to pick it up
+        // classic MMORPG behavior: Must stand ON item to pick it up
         const targetTileWorld = tileToWorld(targetTile);
         walkTarget = {
           x: targetTileWorld.x,
@@ -168,7 +168,7 @@ export abstract class BaseInteractionHandler {
         };
       } else {
         // Range 1+ (combat/resources): Walk to ADJACENT tile
-        // OSRS behavior: Can't attack from same tile as target
+        // classic MMORPG behavior: Can't attack from same tile as target
         walkTarget = this.getAdjacentCombatPosition(
           player.position,
           params.target.position,
@@ -181,7 +181,7 @@ export abstract class BaseInteractionHandler {
   }
 
   /**
-   * Calculate the best adjacent tile for combat (OSRS-style)
+   * Calculate the best adjacent tile for combat (classic MMORPG-style)
    *
    * Finds a tile that is:
    * 1. Within combat range of the target (but not same tile)
@@ -277,7 +277,7 @@ export abstract class BaseInteractionHandler {
   /**
    * Show examine message (common to all entities)
    *
-   * Displays as toast and adds to chat log (OSRS-style).
+   * Displays as toast and adds to chat log (classic MMORPG-style).
    */
   protected showExamineMessage(message: string): void {
     // Show toast notification
@@ -286,7 +286,7 @@ export abstract class BaseInteractionHandler {
       type: "info",
     });
 
-    // Add to chat (OSRS-style game message with no sender)
+    // Add to chat (classic MMORPG-style game message with no sender)
     this.addChatMessage(message);
   }
 

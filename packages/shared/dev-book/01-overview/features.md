@@ -668,12 +668,12 @@ world.ui.appendChild(healthBar);
 - Instanced mesh rendering for performance
 - Always face camera (billboarding)
 - Distance scaling
-- Shown during combat (RuneScape pattern)
+- Shown during combat (classic fantasy MMORPG pattern)
 
 **Usage:**
 ```typescript
 // Health bars managed by HealthBars system
-// Names shown in right-click context menu only (OSRS pattern)
+// Names shown in right-click context menu only (classic MMORPG pattern)
 entity.createHealthBar();  // Shows current/max health
 ```
 

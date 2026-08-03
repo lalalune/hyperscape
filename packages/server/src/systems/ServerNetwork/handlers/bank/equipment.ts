@@ -1,5 +1,5 @@
 /**
- * Bank Equipment Handlers (RS3-style equipment tab)
+ * Bank Equipment Handlers (modern MMORPG-style equipment tab)
  *
  * Handles withdraw-to-equipment, deposit-from-equipment operations.
  * These allow equipping/unequipping directly from bank without using inventory.
@@ -44,7 +44,7 @@ import {
 /**
  * Handle withdraw item directly to equipment
  *
- * RS3-style bank equipment tab feature:
+ * modern MMORPG-style bank equipment tab feature:
  * - When "equipment" view is active, withdrawing equipable items goes directly to equipment slot
  * - Handles 2h weapon/shield conflicts
  * - Displaced items go to bank (not inventory)
@@ -286,7 +286,7 @@ export async function handleBankWithdrawToEquipment(
 /**
  * Handle deposit single equipment slot to bank
  *
- * RS3-style bank equipment tab feature:
+ * modern MMORPG-style bank equipment tab feature:
  * - Click on equipment slot in bank to deposit directly to bank
  * - Does not go through inventory
  *
@@ -434,7 +434,7 @@ export async function handleBankDepositEquipment(
 /**
  * Handle deposit all worn equipment to bank
  *
- * RS3-style "Deposit Worn Items" button:
+ * modern MMORPG-style "Deposit Worn Items" button:
  * - One-click deposit all equipped items to bank
  * - Does not go through inventory
  *

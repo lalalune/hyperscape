@@ -5,9 +5,9 @@
     "base": "You are an expert at optimizing prompts for 3D asset generation. \nYour task is to enhance the user's description to create better results with image generation and 3D conversion.",
     "focusPoints": [
       "Clear, specific visual details",
-      "Material and texture descriptions", 
+      "Material and texture descriptions",
       "Geometric shape and form",
-      "Style consistency (especially for ${config.style || 'low-poly RuneScape'} style)"
+      "Style consistency (especially for ${config.style || 'low-poly classic fantasy MMORPG'} style)"
     ],
     "closingInstruction": "Keep the enhanced prompt concise but detailed."
   },

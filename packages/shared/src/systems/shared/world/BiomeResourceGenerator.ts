@@ -290,7 +290,7 @@ export function getTreeProcgenPreset(subType: string): string {
 }
 
 /**
- * Level requirements for ore types (OSRS mining levels).
+ * Level requirements for ore types (classic MMORPG mining levels).
  * Single source of truth - used by both generation and tests.
  */
 export const ORE_LEVEL_REQUIREMENTS: Record<string, number> = {

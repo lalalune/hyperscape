@@ -1,7 +1,7 @@
 /**
  * EatDelayManager Unit Tests
  *
- * Tests for OSRS-accurate eating cooldown functionality:
+ * Tests for rules-accurate eating cooldown functionality:
  * - 3-tick (1.8s) eat delay between foods
  * - Cooldown state management per player
  * - Player cleanup on death/disconnect
@@ -41,10 +41,10 @@ describe("EatDelayManager", () => {
       expect(eatDelayManager.canEat("player-1", 104)).toBe(true);
     });
 
-    it("returns true exactly at 3 tick boundary (OSRS-accurate)", () => {
+    it("returns true exactly at 3 tick boundary (rules-accurate)", () => {
       eatDelayManager.recordEat("player-1", 100);
 
-      // OSRS behavior: can eat exactly at 3 ticks elapsed
+      // classic MMORPG behavior: can eat exactly at 3 ticks elapsed
       // elapsed = current - last = 103 - 100 = 3
       // 3 >= EAT_DELAY_TICKS (3) = true
       expect(eatDelayManager.canEat("player-1", 103)).toBe(true);
@@ -176,9 +176,9 @@ describe("EatDelayManager", () => {
     });
   });
 
-  describe("OSRS timing accuracy", () => {
+  describe("classic MMORPG timing accuracy", () => {
     it("uses exactly 3 ticks for eat delay (1.8 seconds)", () => {
-      // Verify constant matches OSRS wiki
+      // Verify constant matches classic MMORPG wiki
       expect(COMBAT_CONSTANTS.EAT_DELAY_TICKS).toBe(3);
     });
 

@@ -7,7 +7,7 @@
  * - generateAllNotedItems: Batch generation with cross-linking
  * - Helper functions: isNotedItemId, getBaseItemId, getNotedItemId
  *
- * OSRS Rules enforced:
+ * classic MMORPG Rules enforced:
  * - Only tradeable, non-stackable items can be noted
  * - Stackable items (arrows, runes, coins) cannot be noted
  * - Untradeable/quest items cannot be noted

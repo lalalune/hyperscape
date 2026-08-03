@@ -1,7 +1,7 @@
 /**
  * MagicDamageCalculator Unit Tests
  *
- * Tests OSRS-accurate magic damage formulas:
+ * Tests rules-accurate magic damage formulas:
  * - Player defense: 0.7 * magicLevel + 0.3 * defenseLevel
  * - NPC defense: uses only magic level
  * - Max hit determined by spell

@@ -2,25 +2,19 @@
  * Gathering Constants
  *
  * Centralized constants for the resource gathering system.
- * OSRS-accurate timing and gathering values.
+ * rules-accurate timing and gathering values.
  *
- * @see https://oldschool.runescape.wiki/w/Woodcutting
- * @see https://oldschool.runescape.wiki/w/Mining
- * @see https://oldschool.runescape.wiki/w/Fishing
  */
 
 export const GATHERING_CONSTANTS = {
-  // === Skill-Specific Mechanics (OSRS-accurate) ===
+  // === Skill-Specific Mechanics (rules-accurate) ===
   /**
-   * Different gathering skills have fundamentally different mechanics in OSRS.
+   * Different gathering skills have fundamentally different mechanics in classic MMORPG.
    *
    * WOODCUTTING: Fixed roll frequency (4 ticks), tool tier affects SUCCESS RATE
    * MINING: Variable roll frequency (tool-dependent), tool does NOT affect success rate
    * FISHING: Fixed roll frequency (5 ticks), equipment doesn't affect anything
    *
-   * @see https://oldschool.runescape.wiki/w/Woodcutting
-   * @see https://oldschool.runescape.wiki/w/Mining
-   * @see https://x.com/JagexAsh/status/1215007439692730370
    */
   SKILL_MECHANICS: {
     woodcutting: {
@@ -57,10 +51,9 @@ export const GATHERING_CONSTANTS = {
    * Gathering interaction range in tiles.
    * Uses cardinal-only adjacent tiles (N/S/E/W) like standard melee combat.
    *
-   * OSRS: Players must stand on a cardinal adjacent tile to gather resources.
+   * classic MMORPG: Players must stand on a cardinal adjacent tile to gather resources.
    * This is equivalent to COMBAT_CONSTANTS.MELEE_RANGE_STANDARD.
    *
-   * @see https://oldschool.runescape.wiki/w/Pathfinding
    */
   GATHERING_RANGE: 1,
 
@@ -69,7 +62,7 @@ export const GATHERING_CONSTANTS = {
   PROXIMITY_SEARCH_RADIUS: 15,
   /** Default interaction range for gathering (world units, legacy) */
   DEFAULT_INTERACTION_RANGE: 4.0,
-  /** Floating point tolerance for position comparison (OSRS: any movement cancels) */
+  /** Floating point tolerance for position comparison (classic MMORPG: any movement cancels) */
   POSITION_EPSILON: 0.01,
 
   // === Timing (ticks/ms) ===
@@ -82,20 +75,19 @@ export const GATHERING_CONSTANTS = {
   /** Rate limit cleanup interval (60 seconds) */
   RATE_LIMIT_CLEANUP_INTERVAL_MS: 60000,
 
-  // === OSRS Success Rate Formula (LERP Interpolation) ===
+  // === classic MMORPG Success Rate Formula (LERP Interpolation) ===
   /**
-   * OSRS uses linear interpolation between low (level 1) and high (level 99) values.
+   * classic MMORPG uses linear interpolation between low (level 1) and high (level 99) values.
    *
    * Formula: P(Level) = (1 + floor(low × (99 - L) / 98 + high × (L - 1) / 98 + 0.5)) / 256
    *
-   * @see https://oldschool.runescape.wiki/w/Skilling_success_rate
    */
 
   /**
    * Woodcutting success rates by tree type and axe tier.
    * Values are x/256 (success numerator).
    *
-   * OSRS: Axe tier significantly affects success rate.
+   * classic MMORPG: Axe tier significantly affects success rate.
    * - Bronze axe at level 1 on regular tree: ~25% (64/256)
    * - Bronze axe at level 99 on regular tree: ~78% (200/256)
    * - Iron axe reaches 100% at level 78 on regular trees
@@ -103,7 +95,6 @@ export const GATHERING_CONSTANTS = {
    *
    * Higher tier trees (oak, willow) have lower success rates.
    *
-   * @see https://oldschool.runescape.wiki/w/Tree
    */
   WOODCUTTING_SUCCESS_RATES: {
     // Regular tree (level 1) - easiest
@@ -142,15 +133,15 @@ export const GATHERING_CONSTANTS = {
   } as const,
 
   /**
-   * Mining success rates by ore type (OSRS-accurate).
+   * Mining success rates by ore type (rules-accurate).
    * Values are x/256 (success numerator) for the LERP formula.
    *
-   * OSRS: Pickaxe tier does NOT affect success rate, only roll frequency.
+   * classic MMORPG: Pickaxe tier does NOT affect success rate, only roll frequency.
    * Success rate depends only on Mining level.
    *
    * Formula: P(Level) = (1 + floor(low × (99 - L) / 98 + high × (L - 1) / 98 + 0.5)) / 256
    *
-   * OSRS Wiki Data:
+   * Reference gathering data:
    * - Copper/Tin: ~39.5% at L1, 100% at L62
    * - Iron: ~52% at L15, 100% at L63
    * - Coal: ~16.4% at L30, ~39.5% at L99
@@ -158,8 +149,6 @@ export const GATHERING_CONSTANTS = {
    * - Adamantite: ~7.4% at L70, ~10.2% at L99
    * - Runite: 17/256 (~6.64%) at L85, 19/256 (~7.42%) at L97+ (confirmed by Mod Ash)
    *
-   * @see https://oldschool.runescape.wiki/w/Mining
-   * @see https://oldschool.runescape.wiki/w/Skilling_success_rate
    */
   MINING_SUCCESS_RATES: {
     // Copper ore (level 1) - 39.5% at L1, 100% at L62
@@ -183,10 +172,9 @@ export const GATHERING_CONSTANTS = {
    * Fishing success rates by spot type.
    * Values are x/256 (success numerator).
    *
-   * OSRS: Equipment does NOT affect success rate.
+   * classic MMORPG: Equipment does NOT affect success rate.
    * Success rate depends only on Fishing level.
    *
-   * @see https://oldschool.runescape.wiki/w/Fishing
    */
   FISHING_SUCCESS_RATES: {
     // Net fishing - Shrimp/Anchovies (level 1+)
@@ -213,12 +201,10 @@ export const GATHERING_CONSTANTS = {
 
   // === Tree Despawn Times (ticks) - Forestry System ===
   /**
-   * OSRS Forestry-style tree depletion timer.
+   * classic MMORPG Forestry-style tree depletion timer.
    * Timer starts on FIRST LOG, counts down while chopping, regenerates when idle.
    * Tree only depletes when timer=0 AND player receives a log.
    *
-   * @see https://oldschool.runescape.wiki/w/Forestry
-   * @see https://github.com/runelite/runelite/discussions/16894
    */
   TREE_DESPAWN_TICKS: {
     tree: 0, // Regular trees use 1/8 chance, not timer
@@ -235,7 +221,6 @@ export const GATHERING_CONSTANTS = {
   /**
    * Time for depleted trees to respawn.
    *
-   * @see https://oldschool.runescape.wiki/w/Tree
    */
   TREE_RESPAWN_TICKS: {
     tree: 10, // ~6 seconds
@@ -251,17 +236,16 @@ export const GATHERING_CONSTANTS = {
   // === Timer Regeneration ===
   /**
    * Rate at which tree timers regenerate when no one is gathering.
-   * OSRS: 1 tick of regeneration per 1 tick of not being gathered.
+   * classic MMORPG: 1 tick of regeneration per 1 tick of not being gathered.
    */
   TIMER_REGEN_PER_TICK: 1,
 
-  // === Fishing Spot Movement (OSRS-accurate) ===
+  // === Fishing Spot Movement (rules-accurate) ===
   /**
    * Fishing spots don't deplete - they periodically move to a nearby tile.
-   * In OSRS, spots move randomly every ~4-12 minutes.
+   * In classic MMORPG, spots move randomly every ~4-12 minutes.
    * Using 300 ticks (3 minutes) as base with ±100 tick variance for gameplay.
    *
-   * @see https://oldschool.runescape.wiki/w/Fishing
    */
   FISHING_SPOT_MOVE: {
     /** Base ticks before spot moves (300 ticks = 3 minutes) */

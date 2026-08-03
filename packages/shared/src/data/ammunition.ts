@@ -1,7 +1,6 @@
 /**
  * Ammunition Manifest
  * Defines bow tiers and arrow data for ranged combat.
- * @see https://oldschool.runescape.wiki/w/Ammunition
  */
 
 export interface ArrowData {

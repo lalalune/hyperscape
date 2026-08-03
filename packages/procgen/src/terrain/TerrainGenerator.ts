@@ -27,7 +27,7 @@ import type {
 // ============== DEFAULT CONFIGURATIONS ==============
 
 /**
- * Default noise configuration for OSRS-style gentle rolling terrain
+ * Default noise configuration for classic MMORPG-style gentle rolling terrain
  */
 export const DEFAULT_NOISE_CONFIG: TerrainNoiseConfig = {
   continent: {
@@ -230,7 +230,7 @@ export class TerrainGenerator {
     height = (height + 1) * 0.5;
     height = Math.max(0, Math.min(1, height));
 
-    // Apply gentle power curve for OSRS-style terrain
+    // Apply gentle power curve for classic MMORPG-style terrain
     height = Math.pow(height, 1.1);
 
     // Apply island shaping if enabled

@@ -1267,7 +1267,7 @@ Your task is to enhance the user's description to create better results with ima
       "Clear, specific visual details",
       "Material and texture descriptions",
       "Geometric shape and form",
-      `Style consistency (especially for ${config.style || "low-poly RuneScape"} style)`,
+      `Style consistency (especially for ${config.style || "low-poly classic fantasy MMORPG"} style)`,
     ];
 
     systemPrompt +=
@@ -1277,8 +1277,8 @@ Your task is to enhance the user's description to create better results with ima
           (point) =>
             "- " +
             point.replace(
-              "${config.style || 'low-poly RuneScape'}",
-              config.style || "low-poly RuneScape",
+              "${config.style || 'low-poly classic fantasy MMORPG'}",
+              config.style || "low-poly classic fantasy MMORPG",
             ),
         )
         .join("\n");

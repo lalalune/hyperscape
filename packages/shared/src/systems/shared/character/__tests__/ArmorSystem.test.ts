@@ -5,7 +5,7 @@
  * - Manifest validation (32 items, no duplicates, valid fields)
  * - Per-style defence bonus summation
  * - Armor equip to correct slot with defence requirements
- * - Weapon attack style mapping (OSRS combat triangle)
+ * - Weapon attack style mapping (classic MMORPG combat triangle)
  * - Defense bonus helper functions
  */
 
@@ -357,7 +357,7 @@ function getDefenseBonusForStyle(
 }
 
 // ============================================================================
-// Test Fixtures: OSRS-Accurate Armor Items
+// Test Fixtures: Rules-Accurate Armor Items
 // ============================================================================
 
 /** Rune platebody (tier 5 melee body — requires 40 defence) */
@@ -1023,7 +1023,7 @@ describe("ArmorSystem", () => {
       }
     });
 
-    it("all defence values are within OSRS range (0-200)", () => {
+    it("all defence values are within classic MMORPG range (0-200)", () => {
       const defenseKeys = [
         "defenseStab",
         "defenseSlash",

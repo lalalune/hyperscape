@@ -601,7 +601,7 @@ export class BridgeSystem extends SystemBase {
       const isEndpoint = tile.minS === 0 || tile.maxS === steps;
 
       // Cardinal walls — at endpoints, skip walls in bridge direction.
-      // OSRS dual-tile pattern: set wall on bridge tile AND opposite wall on neighbor.
+      // classic MMORPG dual-tile pattern: set wall on bridge tile AND opposite wall on neighbor.
       // This ensures both isBlocked() check directions catch the wall.
       if (this.getDeckHeightAt(tile.x + 1, tile.z) === null) {
         if (!isEndpoint || Math.abs(normDirX) < 0.5) {

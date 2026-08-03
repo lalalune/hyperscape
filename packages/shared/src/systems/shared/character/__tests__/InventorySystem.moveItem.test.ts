@@ -1,7 +1,7 @@
 /**
  * InventorySystem.moveItem Unit Tests
  *
- * Tests the OSRS-style slot swap functionality:
+ * Tests the classic MMORPG-style slot swap functionality:
  * - Basic swap between two occupied slots
  * - Move to empty slot
  * - Same-slot no-op
@@ -149,7 +149,7 @@ class MockInventoryManager {
       return;
     }
 
-    // OSRS-style swap
+    // classic MMORPG-style swap
     if (toItem) {
       // Both slots occupied - swap
       fromItem.slot = toSlot;

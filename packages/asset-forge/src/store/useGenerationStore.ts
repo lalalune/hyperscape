@@ -66,7 +66,7 @@ interface GenerationState {
   assetName: string;
   assetType: string;
   description: string;
-  gameStyle: "runescape" | "custom";
+  gameStyle: "classic" | "custom";
   customStyle: string;
 
   // Reference image input
@@ -146,7 +146,7 @@ interface GenerationState {
   setAssetName: (name: string) => void;
   setAssetType: (type: string) => void;
   setDescription: (desc: string) => void;
-  setGameStyle: (style: "runescape" | "custom") => void;
+  setGameStyle: (style: "classic" | "custom") => void;
   setCustomStyle: (style: string) => void;
 
   // Custom Prompt Actions
@@ -242,7 +242,7 @@ export const useGenerationStore = create<GenerationState>()(
           assetName: "",
           assetType: "weapon",
           description: "",
-          gameStyle: "runescape",
+          gameStyle: "classic",
           customStyle: "",
           referenceImageMode: "auto",
           referenceImageSource: null,

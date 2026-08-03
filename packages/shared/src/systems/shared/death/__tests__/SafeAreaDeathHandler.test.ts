@@ -1,7 +1,7 @@
 /**
  * SafeAreaDeathHandler Unit Tests
  *
- * Tests the safe area death handling system (RuneScape-style gravestones).
+ * Tests the safe area death handling system (classic fantasy MMORPG-style gravestones).
  *
  * Key behaviors tested:
  * - Server authority: Client cannot spawn gravestones

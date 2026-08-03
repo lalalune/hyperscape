@@ -30,7 +30,7 @@ export interface ProcessingDebugInfo {
  * Active firemaking session data.
  *
  * PERFORMANCE: All data cached at session start to avoid per-tick allocations.
- * OSRS-ACCURACY: Start position cached for movement detection (cancels action).
+ * RULES ACCURACY: Start position cached for movement detection (cancels action).
  */
 export interface FiremakingSession {
   playerId: PlayerID;

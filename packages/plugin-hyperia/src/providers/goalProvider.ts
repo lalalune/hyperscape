@@ -477,7 +477,7 @@ export function getCombatReadiness(service: HyperiaService): CombatReadiness {
   }
 
   // Check for weapon (deduct points based on combat capability)
-  // In OSRS, hatchets and pickaxes can be equipped and used as melee weapons
+  // In classic MMORPG, hatchets and pickaxes can be equipped and used as melee weapons
   const hasWeaponEquipped = detectHasWeapon(player);
   const hasCombatItem = hasCombatCapableItem(player);
 

@@ -2,7 +2,7 @@
  * Duel Arena Types
  *
  * Type definitions for player-to-player dueling system.
- * Follows OSRS-style duel arena mechanics with stakes.
+ * Follows classic MMORPG-style duel arena mechanics with stakes.
  *
  * Duel Flow:
  * 1. Player A challenges Player B (duelChallenge)
@@ -71,7 +71,7 @@ export const DEFAULT_DUEL_RULES: DuelRules = {
 };
 
 /**
- * Rule combinations that are invalid (OSRS restrictions).
+ * Rule combinations that are invalid (classic MMORPG restrictions).
  * Format: [rule1, rule2, error message]
  */
 export const INVALID_RULE_COMBINATIONS: Array<

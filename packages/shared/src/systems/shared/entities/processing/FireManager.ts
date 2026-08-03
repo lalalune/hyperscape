@@ -2,9 +2,8 @@
  * Fire Manager
  *
  * Manages fire object lifecycle for firemaking skill.
- * Implements OSRS-accurate walk-west behavior after lighting fires.
+ * Implements rules-accurate walk-west behavior after lighting fires.
  *
- * @see https://oldschool.runescape.wiki/w/Firemaking
  */
 
 import { PROCESSING_CONSTANTS } from "../../../../constants/ProcessingConstants";
@@ -15,7 +14,7 @@ import { getRandomFireDuration } from "./FiremakingCalculator";
 
 /**
  * Direction offsets for walk-west priority.
- * OSRS order: West, East, South, North
+ * classic MMORPG order: West, East, South, North
  */
 const DIRECTION_OFFSETS: Record<string, { x: number; z: number }> = {
   west: { x: -1, z: 0 },
@@ -39,7 +38,7 @@ function generateFireId(): string {
  * - Position-based lookup
  * - Range-based queries for cooking
  * - Automatic expiration via tick updates
- * - OSRS walk-west movement calculation
+ * - classic MMORPG walk-west movement calculation
  */
 export class FireManager {
   /** Active fires by ID */
@@ -273,7 +272,7 @@ export class FireManager {
   }
 
   /**
-   * Calculate post-fire position using OSRS walk-west behavior.
+   * Calculate post-fire position using classic MMORPG walk-west behavior.
    *
    * After lighting a fire, the player walks in priority order:
    * 1. West (preferred)

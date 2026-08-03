@@ -31,7 +31,7 @@ This is a hard requirement. DO NOT:
 
 ## Project Overview
 
-Hyperia is a RuneScape-style MMORPG built on Three.js WebGPURenderer with TSL shaders.
+Hyperia is a classic fantasy MMORPG built on Three.js WebGPURenderer with TSL shaders.
 
 ## CRITICAL: Secrets and Private Keys
 

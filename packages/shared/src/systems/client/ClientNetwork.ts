@@ -319,7 +319,7 @@ export class ClientNetwork extends SystemBase {
   private maxSnapshots: number = 10;
   private extrapolationLimit: number = 500; // ms
 
-  // Tile-based interpolation for RuneScape-style movement
+  // Tile-based interpolation for classic fantasy MMORPG-style movement
   // Public to allow position sync on respawn/teleport
   public tileInterpolator: TileInterpolator = new TileInterpolator();
 
@@ -1803,7 +1803,7 @@ export class ClientNetwork extends SystemBase {
         //
         // This prevents race conditions where multiple systems fight over rotation.
         // TileInterpolator.setCombatRotation() will apply rotation when entity is standing still,
-        // and ignore it when moving (movement direction takes priority, OSRS-accurate).
+        // and ignore it when moving (movement direction takes priority, rules-accurate).
         const changesTyped = changes as Record<string, unknown>;
         const { p, q, ...restChanges } = changesTyped;
 
@@ -1818,7 +1818,7 @@ export class ClientNetwork extends SystemBase {
           // If TileInterpolator didn't apply it (entity moving), that's intentional
           // Movement direction wins over combat rotation while moving
           if (!applied) {
-            // Entity is moving - combat rotation ignored (OSRS-accurate)
+            // Entity is moving - combat rotation ignored (rules-accurate)
           }
         }
 
@@ -2087,7 +2087,7 @@ export class ClientNetwork extends SystemBase {
       }
 
       // CRITICAL: Skip interpolation for dead mobs to prevent death animation sliding
-      // Dead mobs lock their position client-side for RuneScape-style stationary death
+      // Dead mobs lock their position client-side for classic fantasy MMORPG-style stationary death
       // Access entity.data directly instead of serialize() to avoid per-frame allocation
       if ((entity.data as { aiState?: string })?.aiState === "dead") {
         continue; // Don't interpolate - let MobEntity maintain locked death position
@@ -3792,7 +3792,7 @@ export class ClientNetwork extends SystemBase {
   }
 
   /**
-   * Trade moved to confirmation screen (OSRS two-screen flow)
+   * Trade moved to confirmation screen (classic MMORPG two-screen flow)
    */
   onTradeConfirmScreen = (data: {
     tradeId: string;
@@ -3895,7 +3895,7 @@ export class ClientNetwork extends SystemBase {
   onEntityRemoved = (id: string) => {
     // Remove from interpolation tracking
     this.deleteInterpolationState(id);
-    // Remove from tile interpolation tracking (RuneScape-style movement)
+    // Remove from tile interpolation tracking (classic fantasy MMORPG-style movement)
     this.tileInterpolator.removeEntity(id);
     // Clean up pending modifications tracking - decrement count first
     const list = this.pendingModifications.get(id);
@@ -3931,7 +3931,7 @@ export class ClientNetwork extends SystemBase {
     } | null;
     const collisionService = townSystem?.getCollisionService?.();
 
-    // Update tile-based interpolation (RuneScape-style)
+    // Update tile-based interpolation (classic fantasy MMORPG-style)
     this.tileInterpolator.update(
       delta,
       (id: string) => {
@@ -3998,7 +3998,7 @@ export class ClientNetwork extends SystemBase {
     });
   };
 
-  // OSRS-STYLE: Show gathering tool in hand during gathering (e.g., fishing rod)
+  // classic MMORPG-STYLE: Show gathering tool in hand during gathering (e.g., fishing rod)
   onGatheringToolShow = (data: {
     playerId: string;
     itemId: string;
@@ -4899,7 +4899,7 @@ export class ClientNetwork extends SystemBase {
     });
   };
 
-  // ==== Tile Movement Handlers (RuneScape-style) ====
+  // ==== Tile Movement Handlers (classic fantasy MMORPG-style) ====
 
   /**
    * Handle tile position update from server
@@ -4955,7 +4955,7 @@ export class ClientNetwork extends SystemBase {
   /**
    * Handle movement path started
    *
-   * OSRS Model: Client receives FULL PATH and walks through it at fixed speed.
+   * classic MMORPG Model: Client receives FULL PATH and walks through it at fixed speed.
    * Server tick updates are for sync/verification only.
    */
   onTileMovementStart = (data: {
@@ -4978,7 +4978,7 @@ export class ClientNetwork extends SystemBase {
     // path: complete path from server (no client recalculation)
     // destinationTile: final target for verification
     // moveSeq: packet ordering to ignore stale packets
-    // emote: bundled animation (OSRS-style)
+    // emote: bundled animation (classic MMORPG-style)
     // tilesPerTick: mob-specific speed (for faster/slower mobs)
     this.tileInterpolator.onMovementStart(
       data.id,

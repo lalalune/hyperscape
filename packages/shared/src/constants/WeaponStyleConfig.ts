@@ -1,10 +1,9 @@
 /**
- * WeaponStyleConfig - OSRS-accurate combat style availability per weapon type
+ * WeaponStyleConfig - rules-accurate combat style availability per weapon type
  *
- * In OSRS, different weapon types have different available combat styles.
+ * In classic MMORPG, different weapon types have different available combat styles.
  * This configuration maps weapon types to their allowed combat styles.
  *
- * @see https://oldschool.runescape.wiki/w/Combat_Options
  */
 
 import { WeaponType } from "../types/game/item-types";
@@ -12,7 +11,7 @@ import type { CombatStyleExtended } from "../types/game/combat-types";
 
 /**
  * Combat styles available for each weapon type.
- * OSRS-accurate: Not all weapons have all 4 styles.
+ * rules-accurate: Not all weapons have all 4 styles.
  */
 export const WEAPON_STYLE_CONFIG: Record<WeaponType, CombatStyleExtended[]> = {
   // Swords - full style selection (slash/stab versatility)
@@ -41,7 +40,7 @@ export const WEAPON_STYLE_CONFIG: Record<WeaponType, CombatStyleExtended[]> = {
   // Halberds - full style selection (2H reach weapon)
   [WeaponType.HALBERD]: ["accurate", "aggressive", "defensive", "controlled"],
 
-  // Axes - no controlled (pure damage weapons in OSRS)
+  // Axes - no controlled (pure damage weapons in classic MMORPG)
   [WeaponType.AXE]: ["accurate", "aggressive", "defensive"],
 
   // Daggers - no controlled (quick stabbing weapons)
@@ -50,18 +49,17 @@ export const WEAPON_STYLE_CONFIG: Record<WeaponType, CombatStyleExtended[]> = {
   // Unarmed - no controlled (punching)
   [WeaponType.NONE]: ["accurate", "aggressive", "defensive"],
 
-  // Ranged weapons - OSRS-accurate styles
+  // Ranged weapons - rules-accurate styles
   // Accurate: +3 ranged level, normal speed
   // Rapid: no bonus, -1 tick faster attack
   // Longrange: +2 attack range, XP split to ranged/defence
   [WeaponType.BOW]: ["accurate", "rapid", "longrange"],
   [WeaponType.CROSSBOW]: ["accurate", "rapid", "longrange"],
 
-  // Magic weapons - OSRS-accurate styles
+  // Magic weapons - rules-accurate styles
   // Staves/wands have both melee and magic styles:
   //   Melee (crush): Bash=accurate, Pound=aggressive, Focus=defensive
   //   Magic: Spell=autocast (defensive autocast is a toggle, not a separate style)
-  // @see https://oldschool.runescape.wiki/w/Staff
   [WeaponType.STAFF]: ["accurate", "aggressive", "defensive", "autocast"],
   [WeaponType.WAND]: ["accurate", "aggressive", "defensive", "autocast"],
 

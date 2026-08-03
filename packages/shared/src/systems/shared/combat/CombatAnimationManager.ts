@@ -91,7 +91,7 @@ export class CombatAnimationManager {
   /**
    * Process emote reset for a specific entity
    *
-   * OSRS-ACCURATE: Called by GameTickProcessor during per-entity processing
+   * RULES-ACCURATE: Called by GameTickProcessor during per-entity processing
    * This allows emote resets to be processed per-entity rather than globally.
    *
    * @param entityId - The entity to check for emote reset
@@ -165,10 +165,10 @@ export class CombatAnimationManager {
           weaponType === "wand";
 
         if (isMagicWeapon && selectedSpell) {
-          // OSRS-accurate: Magic weapons with autocast use spell cast animation
+          // rules-accurate: Magic weapons with autocast use spell cast animation
           combatEmote = "spell_cast";
         } else if (isMagicWeapon) {
-          // OSRS-accurate: Magic weapons WITHOUT autocast use melee bonk (crush)
+          // rules-accurate: Magic weapons WITHOUT autocast use melee bonk (crush)
           // Staffs default to punching/combat animation when no spell selected
           combatEmote = "combat";
         } else if (weaponType === "two_hand_sword") {

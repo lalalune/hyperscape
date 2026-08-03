@@ -476,7 +476,7 @@ Each preset has the following fields:
   "category": "metal",
   "tier": 1,
   "color": "#CD7F32",
-  "stylePrompt": "bronze metal texture, copper brown color, slightly dull metallic finish, RuneScape 2007 style",
+  "stylePrompt": "bronze metal texture, copper brown color, slightly dull metallic finish, classic low-poly fantasy style",
   "description": "Basic copper-brown metal, entry-level equipment"
 }
 ```

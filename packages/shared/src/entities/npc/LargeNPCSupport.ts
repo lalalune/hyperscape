@@ -1,16 +1,15 @@
 /**
  * LargeNPCSupport - Multi-tile NPC handling
  *
- * OSRS large NPCs:
+ * classic MMORPG large NPCs:
  * - Occupy multiple tiles (2x2, 3x3, 4x4, etc.)
  * - SW tile is "true" position for most calculations
  * - Attack range originates from ALL occupied tiles
  * - Players can walk through occupied tiles (with entity collision)
  *
  * This module provides utilities for handling NPCs that occupy more than
- * one tile, matching OSRS mechanics for boss fights and large creatures.
+ * one tile, matching classic tick-based mechanics for boss fights and large creatures.
  *
- * @see https://oldschool.runescape.wiki/w/Size
  * @see MOB_AGGRO_IMPLEMENTATION_PLAN.md
  */
 
@@ -100,7 +99,7 @@ export function getNPCSize(mobType: string): NPCSize {
  *
  * The SW tile is the tile with the smallest X and Z coordinates
  * that the NPC occupies. This is the "true" position for most
- * OSRS calculations (pathfinding, hunt range, etc.)
+ * classic MMORPG calculations (pathfinding, hunt range, etc.)
  *
  * @param worldPos - NPC's world position
  * @returns SW tile coordinate

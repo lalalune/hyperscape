@@ -164,7 +164,7 @@ function DroppableEquipmentSlot({
 
         if (!slot.item) return;
 
-        // OSRS uses orange for item names in context menus
+        // classic MMORPG uses orange for item names in context menus
         const itemName = slot.item.name;
 
         const items = [
@@ -418,7 +418,7 @@ export const EquipmentPanel = React.memo(function EquipmentPanel({
 }: EquipmentPanelProps) {
   const theme = useThemeStore((s) => s.theme);
   const { shouldUseMobileUI } = useMobileLayout();
-  // RS3-style hover tooltip state
+  // modern MMORPG-style hover tooltip state
   const [hoverState, setHoverState] = useState<EquipmentHoverState | null>(
     null,
   );
@@ -539,7 +539,7 @@ export const EquipmentPanel = React.memo(function EquipmentPanel({
     }
   };
 
-  // RS3-style: Click immediately unequips
+  // modern MMORPG-style: Click immediately unequips
   const handleSlotClick = (slot: EquipmentSlot) => {
     if (!slot.item) return;
     if (onSlotAction) {
@@ -604,7 +604,7 @@ export const EquipmentPanel = React.memo(function EquipmentPanel({
           type: "info",
           position: ce.detail.position,
         });
-        // Also add to chat (OSRS-style game message)
+        // Also add to chat (classic MMORPG-style game message)
         if (world?.chat?.add) {
           world.chat.add({
             id: uuid(),

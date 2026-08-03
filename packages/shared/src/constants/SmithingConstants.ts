@@ -4,7 +4,6 @@
  * This file contains all hardcoded values used across the smithing feature,
  * making it easier to maintain consistency and adjust values.
  *
- * @see https://oldschool.runescape.wiki/w/Game_tick for tick timing
  */
 
 import { COMBAT_CONSTANTS } from "./CombatConstants";
@@ -15,7 +14,7 @@ export const SMITHING_CONSTANTS = {
   COAL_ITEM_ID: "coal",
 
   // Tick-based timing defaults (used when manifest doesn't specify)
-  // OSRS: smelting and smithing both take 4 ticks
+  // classic MMORPG: smelting and smithing both take 4 ticks
   DEFAULT_SMELTING_TICKS: 4,
   DEFAULT_SMITHING_TICKS: 4,
 
@@ -139,7 +138,7 @@ export function getItemQuantity(item: LooseInventoryItem): number {
 
 /**
  * Convert ticks to milliseconds for setTimeout scheduling
- * @param ticks - Number of game ticks (1 tick = 600ms in OSRS)
+ * @param ticks - Number of game ticks (1 tick = 600ms in classic MMORPG)
  */
 export function ticksToMs(ticks: number): number {
   return ticks * SMITHING_CONSTANTS.TICK_DURATION_MS;

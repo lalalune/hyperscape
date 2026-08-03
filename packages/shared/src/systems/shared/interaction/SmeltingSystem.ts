@@ -1,14 +1,13 @@
 /**
  * SmeltingSystem - Handles Smelting at Furnaces
  *
- * OSRS-accurate smelting implementation:
+ * rules-accurate smelting implementation:
  * - Use ores on furnace to smelt bars
  * - Consumes primary ore, secondary ore (bronze), and coal
  * - Iron ore has 50% success rate (others always succeed)
  * - Grants smithing XP on successful smelt
  * - Auto-smelting continues until out of materials
  *
- * @see https://oldschool.runescape.wiki/w/Smithing#Smelting
  * @see ProcessingDataProvider for smelting recipes from manifest
  */
 
@@ -97,7 +96,7 @@ export class SmeltingSystem extends SystemBase {
       },
     );
 
-    // Cancel smelting on movement (OSRS: any click cancels skilling)
+    // Cancel smelting on movement (classic MMORPG: any click cancels skilling)
     this.subscribe<{
       playerId: string;
       targetPosition: { x: number; y: number; z: number };
@@ -351,7 +350,7 @@ export class SmeltingSystem extends SystemBase {
       return;
     }
 
-    // Play smelting animation (OSRS-style)
+    // Play smelting animation (classic MMORPG-style)
     this.emitTypedEvent(EventType.ANIMATION_PLAY, {
       entityId: playerId,
       animation: "smelting",

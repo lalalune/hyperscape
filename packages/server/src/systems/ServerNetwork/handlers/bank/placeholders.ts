@@ -1,7 +1,7 @@
 /**
- * Bank Placeholder Handlers (RS3-style)
+ * Bank Placeholder Handlers (modern MMORPG-style)
  *
- * RS3-style: Placeholders are bank_storage rows with qty=0.
+ * modern MMORPG-style: Placeholders are bank_storage rows with qty=0.
  * Provides withdraw-placeholder, release, and toggle functionality.
  */
 
@@ -36,12 +36,12 @@ import {
 } from "./utils";
 
 /**
- * Handle withdraw-placeholder request (RS3-style)
+ * Handle withdraw-placeholder request (modern MMORPG-style)
  *
  * Withdraws ALL of an item to inventory and leaves a qty=0 placeholder.
- * This is the RS3 "Withdraw-Placeholder" context menu option.
+ * This is the modern MMORPG "Withdraw-Placeholder" context menu option.
  *
- * RS3 Behavior:
+ * modern MMORPG Behavior:
  * - Right-click item in bank → "Withdraw-Placeholder"
  * - ALL of that item withdrawn to inventory
  * - Bank row stays with qty=0 (placeholder)
@@ -105,7 +105,7 @@ export async function handleBankWithdrawPlaceholder(
         const bankRow = bankRows[0];
         const availableQty = bankRow.quantity ?? 0;
 
-        // RS3-style: Can't withdraw-placeholder if already qty=0
+        // modern MMORPG-style: Can't withdraw-placeholder if already qty=0
         if (availableQty === 0) {
           throw new Error("ALREADY_PLACEHOLDER");
         }
@@ -144,7 +144,7 @@ export async function handleBankWithdrawPlaceholder(
         // Withdraw as many as we can fit (up to all)
         const withdrawQty = Math.min(availableQty, freeSlots.length);
 
-        // RS3-STYLE: Set qty=0 (leave placeholder) - ALWAYS for this action
+        // modern MMORPG-STYLE: Set qty=0 (leave placeholder) - ALWAYS for this action
         await tx.execute(
           sql`UPDATE bank_storage SET quantity = 0 WHERE id = ${bankRow.id}`,
         );
@@ -184,7 +184,7 @@ export async function handleBankWithdrawPlaceholder(
 }
 
 /**
- * Handle release single placeholder (RS3-style)
+ * Handle release single placeholder (modern MMORPG-style)
  *
  * Deletes a bank_storage row with qty=0 at the specified slot.
  * Then compacts slots to fill the gap.
@@ -223,7 +223,7 @@ export async function handleBankReleasePlaceholder(
       SLOT_EMPTY: "No item at that slot",
     },
     execute: async (tx) => {
-      // RS3-style: Find bank_storage row with qty=0 at this slot
+      // modern MMORPG-style: Find bank_storage row with qty=0 at this slot
       const placeholderResult = await tx.execute(
         sql`SELECT id, quantity FROM bank_storage
             WHERE "playerId" = ${ctx.playerId}
@@ -241,7 +241,7 @@ export async function handleBankReleasePlaceholder(
         quantity: number | null;
       };
 
-      // RS3-style: Can only release if qty=0 (is a placeholder)
+      // modern MMORPG-style: Can only release if qty=0 (is a placeholder)
       if ((row.quantity ?? 0) > 0) {
         throw new Error("NOT_A_PLACEHOLDER");
       }
@@ -263,7 +263,7 @@ export async function handleBankReleasePlaceholder(
 }
 
 /**
- * Handle release all placeholders (RS3-style)
+ * Handle release all placeholders (modern MMORPG-style)
  *
  * Deletes all bank_storage rows with qty=0 for the player.
  * Then compacts slots in each tab.
@@ -287,7 +287,7 @@ export async function handleBankReleaseAllPlaceholders(
   // Step 2: Execute transaction
   const result = await executeSecureTransaction(ctx, {
     execute: async (tx) => {
-      // RS3-style: Find all qty=0 placeholders grouped by tab
+      // modern MMORPG-style: Find all qty=0 placeholders grouped by tab
       const placeholders = await tx.execute(
         sql`SELECT id, slot, "tabIndex" FROM bank_storage
             WHERE "playerId" = ${ctx.playerId} AND quantity = 0

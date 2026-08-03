@@ -337,7 +337,7 @@ export function createClientWorld() {
   // These systems enhance visual fidelity and user experience
 
   world.register("lods", LODs); // Level-of-detail mesh management
-  // Nametags disabled - OSRS pattern: names shown in right-click menu only
+  // Nametags disabled - classic MMORPG pattern: names shown in right-click menu only
   world.register("healthbars", HealthBars); // Entity health bars
   world.register("equipment-visual", EquipmentVisualSystem); // Visual weapon/equipment attachment
   world.register("zone-detection", ZoneDetectionSystem); // Zone type detection (safe/pvp/wilderness)

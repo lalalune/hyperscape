@@ -162,7 +162,7 @@ test.describe("Skills Panel", () => {
     const skillCount = await skillItems.count();
 
     // Should have multiple skills displayed
-    // Common OSRS-style games have 20+ skills
+    // Common classic MMORPG-style games have 20+ skills
     expect(skillCount).toBeGreaterThanOrEqual(1);
 
     // Take screenshot
@@ -302,7 +302,7 @@ test.describe("XP and Level Up", () => {
     for (const skillName of Object.keys(skills)) {
       const skill = skills[skillName];
 
-      // Level should be between 1 and 99 (OSRS style)
+      // Level should be between 1 and 99 (classic MMORPG style)
       expect(skill.level).toBeGreaterThanOrEqual(1);
       expect(skill.level).toBeLessThanOrEqual(99);
 

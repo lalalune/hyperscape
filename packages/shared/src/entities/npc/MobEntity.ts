@@ -53,7 +53,7 @@
  * - Health bar when damaged
  * - Death animation
  * - Attack animations
- * - Name shown in right-click menu (OSRS pattern)
+ * - Name shown in right-click menu (classic MMORPG pattern)
  *
  * **Network Sync**:
  * - Position broadcast to clients
@@ -281,7 +281,7 @@ export class MobEntity extends CombatantEntity {
   /**
    * Find an unoccupied tile for spawning using spiral search
    *
-   * OSRS Mechanic: If spawn tile is occupied, search outward in expanding rings
+   * classic MMORPG Mechanic: If spawn tile is occupied, search outward in expanding rings
    * until an unoccupied tile is found. Uses Chebyshev distance (8-connected).
    *
    * @param centerX - Center tile X coordinate
@@ -396,7 +396,7 @@ export class MobEntity extends CombatantEntity {
    * Called after spawn/respawn to set collision flags on tiles this mob occupies.
    * Uses pre-allocated buffers to avoid hot path allocations.
    *
-   * OSRS Mechanic: Flags set when entity spawns/moves TO a tile
+   * classic MMORPG Mechanic: Flags set when entity spawns/moves TO a tile
    * If spawn tile is occupied, finds nearby unoccupied tile first.
    */
   private registerOccupancy(): void {
@@ -414,7 +414,7 @@ export class MobEntity extends CombatantEntity {
     this._currentTile.z = Math.floor(pos.z);
 
     // Check if spawn tile is already occupied by another mob
-    // If so, find an unoccupied tile nearby (OSRS-accurate: NPCs don't stack)
+    // If so, find an unoccupied tile nearby (rules-accurate: NPCs don't stack)
     const unoccupiedTile = this.findUnoccupiedSpawnTile(
       this._currentTile.x,
       this._currentTile.z,
@@ -461,7 +461,7 @@ export class MobEntity extends CombatantEntity {
    *
    * Called when mob dies or despawns to clear collision flags.
    *
-   * OSRS Mechanic: Flags removed when entity despawns/dies
+   * classic MMORPG Mechanic: Flags removed when entity despawns/dies
    */
   private unregisterOccupancy(): void {
     // Server-only: occupancy tracking is authoritative
@@ -479,7 +479,7 @@ export class MobEntity extends CombatantEntity {
    * Called after successful movement to update collision flags.
    * Uses atomic move() to avoid race conditions.
    *
-   * OSRS Mechanic: Flags removed from old tiles, added to new tiles (in order)
+   * classic MMORPG Mechanic: Flags removed from old tiles, added to new tiles (in order)
    * Called by MobTileMovementManager after successful movement.
    */
   public updateOccupancy(): void {
@@ -559,7 +559,7 @@ export class MobEntity extends CombatantEntity {
           this.config.currentHealth,
           this.config.maxHealth,
         );
-        // Health bar starts hidden (RuneScape pattern: only show during combat)
+        // Health bar starts hidden (classic fantasy MMORPG pattern: only show during combat)
       }
     }
 
@@ -576,7 +576,7 @@ export class MobEntity extends CombatantEntity {
   protected override initializeVisuals(): void {
     // Call parent but it won't create health bar for mobs because we override createHealthBar
     // Note: We still want name tags from Entity.ts if applicable
-    // But mobs don't show nametags (RS pattern: names in right-click menu only)
+    // But mobs don't show nametags (names appear in the context menu only)
     // So just create the mesh without UI elements
   }
 
@@ -704,7 +704,7 @@ export class MobEntity extends CombatantEntity {
       initialSpawnPoint.z,
     );
 
-    // Register tile occupancy for OSRS-accurate NPC collision
+    // Register tile occupancy for rules-accurate NPC collision
     // Called after position is set (server-only, no-op on client)
     this.registerOccupancy();
 
@@ -1089,7 +1089,7 @@ export class MobEntity extends CombatantEntity {
    * is instant and stays for the entity's lifetime.
    *
    * IMMEDIATE INTERACTION: Also ensures the mob is interactive BEFORE VRM loads.
-   * RuneScape-style: entity is functional immediately, visuals are secondary.
+   * classic fantasy MMORPG-style: entity is functional immediately, visuals are secondary.
    */
   private createRaycastProxy(): void {
     // Skip on server - no visuals needed
@@ -1457,7 +1457,7 @@ export class MobEntity extends CombatantEntity {
         }
       },
 
-      // Combat (TICK-BASED, OSRS-accurate)
+      // Combat (TICK-BASED, rules-accurate)
       canAttack: (currentTick) => this.combatManager.canAttack(currentTick),
       performAttack: (targetId, currentTick) => {
         this.combatManager.performAttack(targetId, currentTick);
@@ -1472,7 +1472,7 @@ export class MobEntity extends CombatantEntity {
       // CRITICAL: Return mob's current spawn point (changes on respawn)
       // NOT the spawn area center (which is fixed)
       getSpawnPoint: () => this._currentSpawnPoint,
-      getDistanceFromSpawn: () => this.getSpawnDistanceTiles(), // OSRS Chebyshev tiles
+      getDistanceFromSpawn: () => this.getSpawnDistanceTiles(), // classic MMORPG Chebyshev tiles
       getWanderRadius: () => this.respawnManager.getSpawnAreaRadius(),
       getLeashRange: () =>
         this.config.leashRange ?? COMBAT_CONSTANTS.DEFAULTS.NPC.LEASH_RANGE,
@@ -1501,7 +1501,7 @@ export class MobEntity extends CombatantEntity {
         this.world.emit(eventType as EventType, data);
       },
 
-      // Entity Occupancy (OSRS-accurate NPC collision)
+      // Entity Occupancy (rules-accurate NPC collision)
       getEntityId: () => this.id as EntityID,
       getEntityOccupancy: () => this.world.entityOccupancy,
       isWalkable: (tile) => {
@@ -1527,7 +1527,7 @@ export class MobEntity extends CombatantEntity {
         return true;
       },
 
-      // Same-tile step-out (OSRS-accurate)
+      // Same-tile step-out (rules-accurate)
       // When NPC is on same tile as target, it cannot attack.
       // Tries all 4 cardinal directions in shuffled order, picking the first
       // valid tile (walkable terrain + no entity blocking).
@@ -1540,7 +1540,7 @@ export class MobEntity extends CombatantEntity {
         const rng = getGameRng();
 
         // Find best step-out tile (checks walkability + entity occupancy)
-        // Uses shuffled order for OSRS-style randomness
+        // Uses shuffled order for classic MMORPG-style randomness
         const stepOutTile = getBestStepOutTile(
           currentTile,
           this.world.entityOccupancy,
@@ -1573,7 +1573,7 @@ export class MobEntity extends CombatantEntity {
         // If no valid tile found, all directions are blocked
         if (!stepOutTile) {
           // All cardinal tiles blocked - wait for next tick
-          // In OSRS, mob would be stuck until a tile opens up
+          // In classic MMORPG, mob would be stuck until a tile opens up
           return false;
         }
 
@@ -1599,9 +1599,9 @@ export class MobEntity extends CombatantEntity {
   }
 
   /**
-   * Generate a random wander target within wander radius (OSRS-accurate)
+   * Generate a random wander target within wander radius (rules-accurate)
    *
-   * OSRS generates wander targets relative to SPAWN, not current position.
+   * classic MMORPG generates wander targets relative to SPAWN, not current position.
    * This ensures NPCs naturally drift back toward spawn over time,
    * even after being leashed far from their spawn point.
    *
@@ -1611,7 +1611,7 @@ export class MobEntity extends CombatantEntity {
     const spawn = this._currentSpawnPoint;
     const radius = this.config.wanderRadius;
 
-    // OSRS-accurate: Random tile within [-radius, +radius] of spawn
+    // rules-accurate: Random tile within [-radius, +radius] of spawn
     // This creates a square wander area centered on spawn
     const range = 2 * radius + 1;
     const offsetX = Math.floor(Math.random() * range) - radius;
@@ -1769,7 +1769,7 @@ export class MobEntity extends CombatantEntity {
       return; // Don't run AI when dead
     }
 
-    // Validate target is still alive (RuneScape-style: instant disengage on target death)
+    // Validate target is still alive (classic fantasy MMORPG-style: instant disengage on target death)
     if (this.config.targetPlayerId) {
       const targetPlayer = this.world.getPlayer(this.config.targetPlayerId);
       if (!targetPlayer || targetPlayer.health.current <= 0) {
@@ -1995,7 +1995,7 @@ export class MobEntity extends CombatantEntity {
       this._healthBarHandle.move(this._healthBarMatrix);
     }
 
-    // Hide health bar after combat timeout (RuneScape pattern: 4.8 seconds)
+    // Hide health bar after combat timeout (classic fantasy MMORPG pattern: 4.8 seconds)
     if (this._healthBarHandle && this._healthBarVisibleUntil > 0) {
       if (Date.now() >= this._healthBarVisibleUntil) {
         this._healthBarHandle.hide();
@@ -2056,7 +2056,7 @@ export class MobEntity extends CombatantEntity {
         }
       }
 
-      // COMBAT ROTATION: Rotate to face target when in ATTACK state (RuneScape-style)
+      // COMBAT ROTATION: Rotate to face target when in ATTACK state (classic fantasy MMORPG-style)
       // BUT: Only apply combat rotation when NOT moving via tile movement
       // TileInterpolator handles rotation when entity is walking/running
       const isTileMoving = this.data.tileMovementActive === true;
@@ -2071,7 +2071,7 @@ export class MobEntity extends CombatantEntity {
           const dz = targetPlayer.position.z - this.position.z;
           const distanceSquared = dx * dx + dz * dz;
 
-          // OSRS-ACCURATE: Skip rotation when on same tile (distance too small)
+          // RULES-ACCURATE: Skip rotation when on same tile (distance too small)
           // Prevents 180° flips from floating-point instability when dx ≈ 0, dz ≈ 0
           // Threshold: 0.25 = 0.5^2 (half a tile)
           const MIN_ROTATION_DISTANCE_SQ = 0.25;
@@ -2322,7 +2322,7 @@ export class MobEntity extends CombatantEntity {
 
   /**
    * Calculate 2D horizontal distance (XZ plane only, ignoring Y)
-   * @deprecated Use getSpawnDistanceTiles() for leash/spawn checks - OSRS uses Chebyshev distance
+   * @deprecated Use getSpawnDistanceTiles() for leash/spawn checks - classic MMORPG uses Chebyshev distance
    */
   private getDistance2D(point: Position3D): number {
     const pos = this.getPosition();
@@ -2332,9 +2332,9 @@ export class MobEntity extends CombatantEntity {
   }
 
   /**
-   * Calculate tile-based Chebyshev distance from spawn point (OSRS-accurate)
+   * Calculate tile-based Chebyshev distance from spawn point (rules-accurate)
    *
-   * OSRS uses Chebyshev distance (max of dx, dz) for tile-based checks.
+   * classic MMORPG uses Chebyshev distance (max of dx, dz) for tile-based checks.
    * This is critical for diagonal positions:
    * - Euclidean: (6,6) from (0,0) = 8.49 tiles (WRONG)
    * - Chebyshev: (6,6) from (0,0) = 6 tiles (CORRECT)
@@ -2349,7 +2349,7 @@ export class MobEntity extends CombatantEntity {
 
   /**
    * Get the mob's current spawn point (public accessor for movement capping)
-   * Used by MobTileMovementManager to enforce OSRS-accurate leash range
+   * Used by MobTileMovementManager to enforce rules-accurate leash range
    */
   getSpawnPoint(): Position3D {
     return this._currentSpawnPoint;
@@ -2357,8 +2357,7 @@ export class MobEntity extends CombatantEntity {
 
   /**
    * Get the mob's leash range (max tiles from spawn during chase)
-   * OSRS-accurate default: 7 tiles max range from spawn
-   * @see https://oldschool.runescape.wiki/w/Aggressiveness
+   * rules-accurate default: 7 tiles max range from spawn
    */
   getLeashRange(): number {
     return this.config.leashRange ?? COMBAT_CONSTANTS.DEFAULTS.NPC.LEASH_RANGE;
@@ -2427,7 +2426,7 @@ export class MobEntity extends CombatantEntity {
     this.deathManager.die(deathPosition, currentTime);
 
     // Start respawn timer with RespawnManager (TICK-BASED - generates NEW random spawn point - NOT death location!)
-    // Uses server tick for OSRS-accurate timing
+    // Uses server tick for rules-accurate timing
     this.respawnManager.startRespawnTimer(
       this.world.currentTick,
       deathPosition,
@@ -2447,7 +2446,7 @@ export class MobEntity extends CombatantEntity {
 
     // CRITICAL FIX FOR ISSUE #269: Don't end combat immediately when mob dies
     // Let combat timeout naturally after 4.8 seconds (8 ticks) to keep health bars visible
-    // This matches RuneScape behavior where combat state persists briefly after death
+    // This matches classic fantasy MMORPG behavior where combat state persists briefly after death
     // CombatSystem.handleEntityDied() already removes the dead mob's combat state
     // The attacker's combat will timeout naturally via the 4.8 second timer
     //
@@ -2520,7 +2519,7 @@ export class MobEntity extends CombatantEntity {
           selectedSpell
         ) {
           // Magic weapon WITH active spell - use "magic" style for Magic XP
-          // OSRS-accurate: staffs used for melee (no spell) grant melee XP
+          // rules-accurate: staffs used for melee (no spell) grant melee XP
           attackStyle = "magic";
         } else {
           // Melee attack (or staff/wand without a spell) - use player's selected attack style
@@ -2536,7 +2535,7 @@ export class MobEntity extends CombatantEntity {
         }
       } else {
         // No weapon (unarmed) - check if player has a spell selected
-        // OSRS-accurate: You can cast spells without a staff
+        // rules-accurate: You can cast spells without a staff
         if (selectedSpell) {
           // Player has a spell selected - use "magic" for Magic XP
           attackStyle = "magic";
@@ -2637,7 +2636,7 @@ export class MobEntity extends CombatantEntity {
       // Smoothly rotate towards target direction
       this.node.quaternion.slerp(this._targetQuat, 0.1);
 
-      // Stuck detection: Only check when actively moving (RuneScape-style: give up if stuck)
+      // Stuck detection: Only check when actively moving (classic fantasy MMORPG-style: give up if stuck)
       // This prevents false positives during IDLE and ATTACK states
       const isMovingState =
         this.config.aiState === MobAIState.WANDER ||
@@ -2680,7 +2679,7 @@ export class MobEntity extends CombatantEntity {
   }
 
   /**
-   * Find nearby player within aggro range (RuneScape-style)
+   * Find nearby player within aggro range (classic fantasy MMORPG-style)
    * Delegates to AggroManager component
    *
    * IMPORTANT: Only scans for players if mob is aggressive.
@@ -2705,11 +2704,10 @@ export class MobEntity extends CombatantEntity {
       ? aggroSystem.getPlayersInNearbyRegions(currentPos)
       : this.world.getPlayers(); // Fallback if AggroSystem not available
 
-    // OSRS-Accurate Aggression Range:
+    // Rules-Accurate Aggression Range:
     // The aggression range origin is the static spawn point of the NPC.
     // Aggression range = max range (leash) + attack range (combat range)
     // Players must be within this distance of SPAWN to be attacked.
-    // @see https://oldschool.runescape.wiki/w/Aggressiveness
     const leashRange =
       this.config.leashRange ?? COMBAT_CONSTANTS.DEFAULTS.NPC.LEASH_RANGE;
     const attackRange = Math.max(1, this.config.combatRange);
@@ -2718,7 +2716,7 @@ export class MobEntity extends CombatantEntity {
     return this.aggroManager.findNearbyPlayer(
       currentPos,
       players,
-      this._currentSpawnPoint, // Spawn point for OSRS-accurate aggression check
+      this._currentSpawnPoint, // Spawn point for rules-accurate aggression check
       aggressionRange, // Max attack distance from spawn
     );
   }
@@ -2736,7 +2734,7 @@ export class MobEntity extends CombatantEntity {
 
   /**
    * Clear current target and exit combat (called when target dies or becomes invalid)
-   * RuneScape-style: Mob immediately disengages and returns to spawn area
+   * classic fantasy MMORPG-style: Mob immediately disengages and returns to spawn area
    */
   private clearTargetAndExitCombat(): void {
     // Clear target
@@ -2769,7 +2767,7 @@ export class MobEntity extends CombatantEntity {
     }
   }
 
-  // Map internal AI states to interface expected states (RuneScape-style)
+  // Map internal AI states to interface expected states (classic fantasy MMORPG-style)
   private mapAIStateToInterface(
     internalState: string,
   ): "idle" | "wander" | "chase" | "attack" | "return" | "dead" {
@@ -2966,7 +2964,7 @@ export class MobEntity extends CombatantEntity {
         // CRITICAL: Use current VISUAL position (this.position), NOT server position (data.p)
         // TileInterpolator may be mid-interpolation, showing the mob at a different location
         // than the server's authoritative position. The mob should die WHERE THE PLAYER SEES IT,
-        // not teleport to the server position. This matches RS3's smooth movement philosophy.
+        // not teleport to the server position. This matches modern MMORPG's smooth movement philosophy.
         const visualDeathPos = new THREE.Vector3(
           this.position.x,
           this.position.y,

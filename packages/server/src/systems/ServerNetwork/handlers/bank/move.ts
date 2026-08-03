@@ -1,7 +1,7 @@
 /**
  * Bank Move/Rearrange Handler
  *
- * OSRS-style bank organization: swap mode and insert mode.
+ * classic MMORPG-style bank organization: swap mode and insert mode.
  */
 
 import { type World, SessionType } from "@hyperforge/shared";
@@ -25,7 +25,7 @@ import { rateLimiter, sendBankStateWithTabs, TEMP_SWAP_SLOT } from "./utils";
 /**
  * Handle bank move/rearrange request
  *
- * OSRS-style bank organization:
+ * classic MMORPG-style bank organization:
  * - Swap mode: Drop on item center → exchange positions
  * - Insert mode: Drop on item edge → insert at position, shift others
  *

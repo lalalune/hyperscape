@@ -5,7 +5,7 @@
  * - useLevelUpState: Event subscription and queue management
  * - LevelUpPopup: Visual popup display
  * - levelUpAudio: Placeholder fanfare sounds
- * - Chat message: OSRS-style game message
+ * - Chat message: classic MMORPG-style game message
  */
 
 import { useEffect, useRef, useMemo } from "react";
@@ -77,7 +77,7 @@ export function LevelUpNotification({
       const now = Date.now();
       const message: ChatMessage = {
         id: uuid(),
-        from: "", // Empty = no [username] prefix, just game text (OSRS style)
+        from: "", // Empty = no [username] prefix, just game text (classic MMORPG style)
         body: messageBody,
         text: messageBody, // For interface compatibility
         timestamp: now,

@@ -15,7 +15,7 @@
  * - Stamina system for actions
  *
  * **Inventory & Equipment**:
- * - 28-slot inventory (RuneScape-style)
+ * - 28-slot inventory (classic fantasy MMORPG-style)
  * - Equipment slots (weapon, helmet, body, legs, shield, etc.)
  * - Item quantities and metadata
  * - Coins/currency
@@ -35,7 +35,7 @@
  * - Session data
  *
  * **UI Elements**:
- * - Name shown in right-click menu (OSRS pattern)
+ * - Name shown in right-click menu (classic MMORPG pattern)
  * - Health bar (when damaged)
  * - Stamina bar (when depleted)
  * - Combat indicators
@@ -395,7 +395,7 @@ export class PlayerEntity extends CombatantEntity {
         inCombat: false,
         combatTarget: null,
         autoRetaliate:
-          (playerData.autoRetaliate as boolean | undefined) ?? true, // OSRS default: ON, persisted from DB
+          (playerData.autoRetaliate as boolean | undefined) ?? true, // classic MMORPG default: ON, persisted from DB
       },
 
       // Death system
@@ -488,7 +488,7 @@ export class PlayerEntity extends CombatantEntity {
 
     this.addComponent("inventory", {
       items: playerData.inventory || [],
-      capacity: 28, // RuneScape-style 28 slots
+      capacity: 28, // classic fantasy MMORPG-style 28 slots
       coins: 0,
     });
 
@@ -744,7 +744,7 @@ export class PlayerEntity extends CombatantEntity {
   }
 
   // Note: Health bar handled by HealthBars system
-  // Names shown in right-click context menu only (OSRS pattern)
+  // Names shown in right-click context menu only (classic MMORPG pattern)
 
   // Player-specific methods that can be called by Systems
 

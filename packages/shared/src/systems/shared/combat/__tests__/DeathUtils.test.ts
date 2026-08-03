@@ -5,7 +5,7 @@
  *
  * Key behaviors tested:
  * - sanitizeKilledBy: XSS prevention, Unicode normalization, injection defense
- * - splitItemsForSafeDeath: OSRS keep-3 logic, stack handling, value sorting
+ * - splitItemsForSafeDeath: classic MMORPG keep-3 logic, stack handling, value sorting
  * - validatePosition: NaN/Infinity rejection, world-bounds clamping
  * - isPositionInBounds: boundary detection without clamping
  * - isValidPositionNumber: finite number validation
@@ -496,7 +496,7 @@ describe("isValidPositionNumber", () => {
 // ─── ITEMS_KEPT_ON_DEATH constant ────────────────────────────────────────────
 
 describe("ITEMS_KEPT_ON_DEATH", () => {
-  it("is 3 (OSRS standard)", () => {
+  it("is 3 (classic MMORPG standard)", () => {
     expect(ITEMS_KEPT_ON_DEATH).toBe(3);
   });
 });

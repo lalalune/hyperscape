@@ -1,5 +1,5 @@
 /**
- * XPProgressOrb - XP Progress Display (RuneLite XP Globes-style)
+ * XPProgressOrb - XP Progress Display (third-party-client XP globe style)
  *
  * Composition root that combines:
  * - useXPOrbState: State management and event subscription

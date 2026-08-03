@@ -1,7 +1,7 @@
 /**
  * Tier Data Provider
  *
- * Provides OSRS-accurate tier-based level requirements for equipment and tools.
+ * Provides rules-accurate tier-based level requirements for equipment and tools.
  * Single source of truth - loaded from tier-requirements.json manifest.
  *
  * Usage:

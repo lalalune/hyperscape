@@ -14,7 +14,6 @@
  * 4. If valid, creates session in CookingSessionManager
  * 5. Session processes cooking with burn chance
  *
- * @see https://oldschool.runescape.wiki/w/Cooking
  */
 
 import { PROCESSING_CONSTANTS } from "../../../../constants/ProcessingConstants";
@@ -377,7 +376,7 @@ export class PendingCookingManager {
     } else if (reason === "no_food") {
       this.callbacks.sendMessage(playerId, "You have run out of food to cook.");
     } else if (reason === "moved") {
-      // No message - OSRS doesn't show a message for moving
+      // No message - classic MMORPG doesn't show a message for moving
     }
 
     if (DEBUG_PROCESSING) {

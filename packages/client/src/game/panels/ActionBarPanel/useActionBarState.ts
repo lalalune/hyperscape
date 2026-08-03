@@ -120,7 +120,7 @@ export interface UseActionBarStateResult {
   activeAttackStyle: string | null;
   isLocked: boolean;
   keyboardShortcuts: string[];
-  /** RS3-style: Map of itemId -> quantity in inventory */
+  /** modern MMORPG-style: Map of itemId -> quantity in inventory */
   inventoryItems: Map<string, number>;
 
   // State setters
@@ -133,7 +133,7 @@ export interface UseActionBarStateResult {
   handleToggleLock: () => void;
   handleClearAll: () => void;
   handleUseSlot: (slot: ActionBarSlotContent, index: number) => void;
-  /** RS3-style: Get item availability and quantity for a slot */
+  /** modern MMORPG-style: Get item availability and quantity for a slot */
   getItemAvailability: (itemId: string) => {
     available: boolean;
     quantity: number;
@@ -163,7 +163,7 @@ export function useActionBarState({
     null,
   );
   const [isLocked, setIsLocked] = useState<boolean>(() => loadLockState(barId));
-  // RS3-style: Track inventory items for availability display
+  // modern MMORPG-style: Track inventory items for availability display
   const [inventoryItems, setInventoryItems] = useState<Map<string, number>>(
     new Map(),
   );
@@ -478,7 +478,7 @@ export function useActionBarState({
           slot: invItem.slot,
         });
       } else if (slot.type === "skill" && slot.skillId) {
-        // Open the skills panel when a skill slot is clicked (RS3 behavior)
+        // Open the skills panel when a skill slot is clicked (modern MMORPG behavior)
         // Emit event to open the pane with the skills tab focused
         world.emit(EventType.UI_OPEN_PANE, {
           pane: "skills",
@@ -559,7 +559,7 @@ export function useActionBarState({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [slots, keyboardShortcuts, handleUseSlot]);
 
-  // RS3-style: Track inventory items for availability display
+  // modern MMORPG-style: Track inventory items for availability display
   useEffect(() => {
     if (!world) return;
 
@@ -601,7 +601,7 @@ export function useActionBarState({
     };
   }, [world]);
 
-  // RS3-style: Get item availability and quantity
+  // modern MMORPG-style: Get item availability and quantity
   const getItemAvailability = useCallback(
     (itemId: string): { available: boolean; quantity: number } => {
       const quantity = inventoryItems.get(itemId) || 0;

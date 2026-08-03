@@ -3,7 +3,7 @@
  *
  * Hybrid action queue using event-based AND frame-based detection.
  *
- * OSRS-Style Pattern:
+ * classic MMORPG-Style Pattern:
  * 1. Player clicks entity far away
  * 2. Action queued with target position and required range
  * 3. Walk request sent to server
@@ -22,7 +22,7 @@
  *   Frame-based polling allows us to track the moving target and recalculate
  *   the walk path if needed. Event-based alone would miss mob movement.
  *
- * This matches how OSRS handles interactions - items are picked up on
+ * This matches how classic MMORPG handles interactions - items are picked up on
  * arrival at the tile, while combat continuously tracks moving targets.
  */
 
@@ -54,7 +54,7 @@ export class ActionQueueService {
   /**
    * Queue an action to execute when player reaches range
    *
-   * Replaces any existing queued action (OSRS-style: new click cancels old action).
+   * Replaces any existing queued action (classic MMORPG-style: new click cancels old action).
    *
    * @returns The action ID for tracking
    */
@@ -78,11 +78,11 @@ export class ActionQueueService {
       queuedAtFrame: this.frameCount,
       maxWaitFrames:
         params.maxWaitFrames ?? ACTION_QUEUE.DEFAULT_TIMEOUT_FRAMES,
-      // OSRS-style: Track target tile to detect movement for following
+      // classic MMORPG-style: Track target tile to detect movement for following
       lastWalkTargetTile: initialTargetTile
         ? { x: initialTargetTile.x, z: initialTargetTile.z }
         : undefined,
-      // Multi-tile footprint for OSRS-style interaction from any adjacent tile
+      // Multi-tile footprint for classic MMORPG-style interaction from any adjacent tile
       footprint: params.footprint,
     };
 
@@ -178,7 +178,7 @@ export class ActionQueueService {
     let inRange: boolean;
 
     if (action.requiredRange === 0) {
-      // Range 0 (items): OSRS-accurate tile matching
+      // Range 0 (items): rules-accurate tile matching
       // Use world-space distance with tolerance to handle minor position offsets
       const dx = Math.abs(serverPosition.x - action.targetPosition.x);
       const dz = Math.abs(serverPosition.z - action.targetPosition.z);
@@ -322,7 +322,7 @@ export class ActionQueueService {
       action.targetPosition.z,
     );
 
-    // OSRS-style: If target moved to a different tile, re-pathfind to follow
+    // classic MMORPG-style: If target moved to a different tile, re-pathfind to follow
     // "if the clicked entity is an NPC or player, a new pathfinding attempt
     // will be started every tick, until a target tile can be found"
     if (
@@ -368,7 +368,7 @@ export class ActionQueueService {
   }
 
   /**
-   * Send walk request to follow a moving target (OSRS-style)
+   * Send walk request to follow a moving target (classic MMORPG-style)
    * Calculates adjacent tile position for combat range
    */
   private sendFollowWalkRequest(

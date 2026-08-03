@@ -657,7 +657,7 @@ export class RaycastService {
    * Get footprint for station entities (multi-tile objects like furnace, anvil, etc.)
    *
    * Returns footprint dimensions for entities that occupy multiple tiles.
-   * This enables OSRS-style interaction where players can interact from
+   * This enables classic MMORPG-style interaction where players can interact from
    * any tile adjacent to the entity's footprint, not just the center.
    *
    * @param entityType - The entity type
