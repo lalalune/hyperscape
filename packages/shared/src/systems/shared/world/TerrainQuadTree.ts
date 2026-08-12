@@ -25,6 +25,8 @@ export interface QuadTreeConfig {
   resolution: number;
   /** Skirt drop distance in meters to hide LOD seams */
   skirtDrop: number;
+  /** Number of top-level root chunks to retain around the active root. */
+  rootChunkRadius: number;
 }
 
 export const DEFAULT_QUAD_TREE_CONFIG: QuadTreeConfig = {
@@ -34,6 +36,7 @@ export const DEFAULT_QUAD_TREE_CONFIG: QuadTreeConfig = {
   unsplitMultiplier: 1.2,
   resolution: 32,
   skirtDrop: 15,
+  rootChunkRadius: 1,
 };
 
 export type QuadPosition = "ne" | "nw" | "sw" | "se";
@@ -372,7 +375,16 @@ export class TerrainQuadTree {
   private structureDirty = false;
 
   constructor(config: Partial<QuadTreeConfig> = {}) {
-    this.config = { ...DEFAULT_QUAD_TREE_CONFIG, ...config };
+    const resolvedConfig = { ...DEFAULT_QUAD_TREE_CONFIG, ...config };
+    const requestedRootChunkRadius = Number.isFinite(
+      resolvedConfig.rootChunkRadius,
+    )
+      ? resolvedConfig.rootChunkRadius
+      : DEFAULT_QUAD_TREE_CONFIG.rootChunkRadius;
+    this.config = {
+      ...resolvedConfig,
+      rootChunkRadius: Math.max(0, Math.floor(requestedRootChunkRadius)),
+    };
     this.maxSize = this.config.minSize * Math.pow(2, this.config.maxDepth);
   }
 
@@ -569,8 +581,9 @@ export class TerrainQuadTree {
       worldZ: number;
     }> = [];
 
-    for (let dx = -1; dx <= 1; dx++) {
-      for (let dz = -1; dz <= 1; dz++) {
+    const radius = this.config.rootChunkRadius;
+    for (let dx = -radius; dx <= radius; dx++) {
+      for (let dz = -radius; dz <= radius; dz++) {
         const cx = gx + dx;
         const cz = gz + dz;
         coords.push({
@@ -587,7 +600,7 @@ export class TerrainQuadTree {
   }
 
   private updateAllNeighbours(): void {
-    // Main chunk neighbours (from the 3x3 grid)
+    // Main chunk neighbours from the configured root grid.
     for (const [key, chunk] of this.mainChunks) {
       const [xStr, zStr] = key.split(",");
       const x = parseFloat(xStr);

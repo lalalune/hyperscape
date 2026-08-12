@@ -549,7 +549,10 @@ export class BFSPathfinder {
 
     // Trace back from end to start (builds path in reverse order)
     while (!tilesEqual(current, start)) {
-      fullPath.push(current); // O(1) instead of unshift O(n)
+      // Own every coordinate in the returned path. Direct path callers often
+      // pass a reusable scratch tile as `end`; retaining that reference makes
+      // a later path request silently rewrite this path's destination.
+      fullPath.push({ x: current.x, z: current.z });
       // OPTIMIZATION: Use numeric key
       const parentTile = parent.get(tileKeyNumeric(current));
       if (!parentTile) break;

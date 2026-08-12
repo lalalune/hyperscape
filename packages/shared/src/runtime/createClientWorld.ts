@@ -10,7 +10,8 @@
  * - No client-side prediction or interpolation (server is authoritative)
  * - Client handles rendering, input, audio, and UI
  * - Uses WebGPU for graphics via three.js
- * - PhysX physics runs locally for immediate feedback (validated by server)
+ * - Interactive clients run local PhysX feedback validated by the server
+ * - Streaming/spectator clients omit PhysX and render authoritative state only
  *
  * Systems Registered:
  * 1. Core Systems: ClientRuntime, Stage, ClientNetwork
@@ -19,7 +20,7 @@
  * 4. Input: ClientInput (keyboard, mouse, touch)
  * 5. UI: ClientInterface (preferences, UI state)
  * 6. Loading: ClientLoader (asset management)
- * 7. Physics: Physics (PhysX via WASM)
+ * 7. Physics: Physics (PhysX via WASM, interactive clients only)
  * 8. Terrain: TerrainSystem (heightmap rendering)
  * 9. Visual Effects: LODs, HealthBars, Particles, Wind
  * 10. Actions: ClientActions (executable actions from UI/keybinds)
@@ -50,6 +51,7 @@ import { FrameBudgetManager } from "../utils/FrameBudgetManager";
 // Core client systems
 import { ClientActions } from "../systems/client/ClientActions";
 import { ClientAudio } from "../systems/client/ClientAudio";
+import { CombatAudioSystem } from "../systems/client/CombatAudioSystem";
 import { ClientCameraSystem } from "../systems/client/ClientCameraSystem";
 import { DevStats } from "../systems/client/DevStats";
 import { PathfindingDebugSystem } from "../systems/client/PathfindingDebugSystem";
@@ -129,7 +131,7 @@ import { Particles } from "../systems/shared";
 import { Wind } from "../systems/shared";
 import { ClientTeleportEffectsSystem } from "../systems/client/ClientTeleportEffectsSystem";
 import type { SystemConstructor } from "../systems/shared/infrastructure/System";
-import { isStreamingLikeViewport } from "./clientViewportMode";
+import { resolveClientViewportRuntimeProfile } from "./clientViewportMode";
 
 /**
  * Window extension for browser testing and debugging.
@@ -154,12 +156,6 @@ function isInitTraceEnabled(): boolean {
   }
 }
 
-function shouldPrewarmTreeCacheForCurrentMode(): boolean {
-  // Stream and spectator viewers should prioritize first-frame latency over
-  // proactive cache warmup to avoid CPU contention during stream join.
-  return !isStreamingLikeViewport();
-}
-
 function removeSystem(world: World, key: string): void {
   const existingSystem = world.systemsByName.get(key);
   if (!existingSystem) return;
@@ -182,13 +178,14 @@ function replaceSystem(
  * Creates and configures a client-side World instance.
  *
  * The client world handles rendering, input, audio, and UI while receiving
- * authoritative game state from the server. It runs physics locally for
- * immediate feedback, but the server validates all actions.
+ * authoritative game state from the server. Interactive clients run local
+ * physics feedback validated by the server; stream/spectator clients omit it.
  *
  * @returns A fully configured World instance ready for client initialization
  */
 export function createClientWorld() {
   const world = new World();
+  const viewportProfile = resolveClientViewportRuntimeProfile();
   // ============================================================================
   // FRAME BUDGET MANAGER
   // ============================================================================
@@ -256,6 +253,7 @@ export function createClientWorld() {
   // Audio systems
   world.register("audio", ClientAudio); // 3D spatial audio
   world.register("music", MusicSystem); // Background music player
+  world.register("combat-audio", CombatAudioSystem); // Authoritative positional hit feedback
 
   // Input and interaction
   world.register("controls", ClientInput); // Keyboard, mouse, touch input
@@ -268,7 +266,7 @@ export function createClientWorld() {
   // Streaming/spectator viewports skip physics entirely — they don't need
   // collision detection and PhysX WASM can crash in the Playwright capture
   // browser. RigidBody/Collider nodes already guard against missing PHYSX.
-  if (!isStreamingLikeViewport()) {
+  if (viewportProfile.enableLocalPhysics) {
     replaceSystem(world, "physics", Physics);
   } else {
     // The World constructor registers a default PhysicsSystem whose init()
@@ -312,8 +310,18 @@ export function createClientWorld() {
   // NOTE: Towns register flat zones which emit TERRAIN_TILE_REGENERATED events
   // that VegetationSystem receives to regenerate grass at correct heights
 
-  world.register("towns", TownSystem);
-  world.register("pois", POISystem);
+  if (viewportProfile.enableProceduralExplorationSystems) {
+    world.register("towns", TownSystem);
+    world.register("pois", POISystem);
+  } else {
+    // The arena-only broadcast uses explicit world-area/arena flat zones and
+    // authoritative server movement. Generating the entire exploration world's
+    // towns, building collision, and POIs blocks first paint without producing
+    // any visible arena content.
+    console.log(
+      "[createClientWorld] Skipping procedural towns and POIs for stream/spectator viewport",
+    );
+  }
   // world.register("roads", RoadNetworkSystem);
 
   // ============================================================================
@@ -418,12 +426,12 @@ export function createClientWorld() {
       if (traceInit) {
         console.log("[createClientWorld] -> registerSystems");
       }
-      await registerSystems(world);
+      await registerSystems(world, "client");
       if (traceInit) {
         console.log("[createClientWorld] <- registerSystems");
       }
 
-      if (shouldPrewarmTreeCacheForCurrentMode()) {
+      if (viewportProfile.prewarmTreeCache) {
         // Pre-warm procgen tree cache AFTER PhysX is loaded (prevents WASM timeout)
         // Tree generation is CPU-intensive and can block WASM instantiation if run in parallel.
         // By waiting for PhysX first, we ensure critical physics initialization completes
@@ -450,15 +458,10 @@ export function createClientWorld() {
         console.log(
           "[createClientWorld] Skipping tree cache pre-warm and PhysX for stream/spectator viewport",
         );
-        // CRITICAL: We still need to load PhysX even if we skip tree pre-warming!
-        // In stream mode, there is no local player, so PlayerLocal won't trigger the load either.
-        // We trigger it here in the background so colliders and static actors can initialize.
-        waitForPhysX("StreamInitialization", 120000).catch((err) => {
-          console.warn(
-            "[createClientWorld] Background PhysX load failed:",
-            err,
-          );
-        });
+        // The default physics system was removed above, arena visuals omit local
+        // collision in this non-interactive mode, and movement remains entirely
+        // server-authoritative. Loading the WASM anyway only adds cold-start
+        // network/compile work and can stall the first broadcast frames.
       }
 
       // Mob impostor pre-warming disabled — VRM mobs use on-demand baking.

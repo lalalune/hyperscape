@@ -483,8 +483,7 @@ export class Entity implements IEntity {
     // 2. entityData.health and entityData.maxHealth (if EntityData was passed)
     // 3. Default to 100/100
     const healthData = config?.properties?.health as
-      | { current: number; max: number }
-      | undefined;
+      { current: number; max: number } | undefined;
     if (healthData) {
       this.health = healthData.current;
       this.maxHealth = healthData.max;
@@ -990,8 +989,7 @@ export class Entity implements IEntity {
   protected createHealthBar(): void {
     // Try to use atlas-based HealthBars system (much more efficient)
     const healthbars = this.world.getSystem?.("healthbars") as
-      | HealthBarsSystem
-      | undefined;
+      HealthBarsSystem | undefined;
 
     if (healthbars) {
       // Atlas-based: Register with HealthBars system
@@ -1060,7 +1058,25 @@ export class Entity implements IEntity {
    * Update health and refresh health bar - from BaseEntity
    */
   public setHealth(newHealth: number): void {
-    this.health = Math.max(0, Math.min(this.maxHealth, newHealth));
+    this.setHealthAndMaxHealth(newHealth, this.maxHealth);
+  }
+
+  /**
+   * Atomically update the current and maximum health pool.
+   *
+   * Callers that change constitution or another max-health source must use
+   * this instead of mutating serialized data around setHealth(): setHealth()
+   * clamps against the entity's authoritative maxHealth field.
+   */
+  public setHealthAndMaxHealth(newHealth: number, newMaxHealth: number): void {
+    const nextMaxHealth =
+      Number.isFinite(newMaxHealth) && newMaxHealth > 0
+        ? newMaxHealth
+        : this.maxHealth;
+    const nextHealth = Number.isFinite(newHealth) ? newHealth : this.health;
+
+    this.maxHealth = nextMaxHealth;
+    this.health = Math.max(0, Math.min(this.maxHealth, nextHealth));
 
     // Update health in entity data for network sync
     this.data.health = this.health;
@@ -1070,6 +1086,7 @@ export class Entity implements IEntity {
     const healthComponent = this.getComponent("health");
     if (healthComponent && healthComponent.data) {
       healthComponent.data.current = this.health;
+      healthComponent.data.max = this.maxHealth;
       healthComponent.data.isDead = this.health <= 0;
     }
 

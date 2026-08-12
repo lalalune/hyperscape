@@ -379,6 +379,202 @@
       "when": 1772300000000,
       "tag": "0054_add_agent_thoughts",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1785750000000,
+      "tag": "0055_add_streaming_duel_outcomes",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1785873551000,
+      "tag": "0056_add_streaming_scheduler_leases",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1785882000000,
+      "tag": "0057_retire_in_server_betting_integration",
+      "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1785915253000,
+      "tag": "0058_add_streaming_duel_cancellations",
+      "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1785993000000,
+      "tag": "0059_add_agent_bank_operation_receipts",
+      "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1785994200000,
+      "tag": "0060_add_streaming_duel_preparations",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1786170426362,
+      "tag": "0061_add_prayer_point_units",
+      "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1786257000000,
+      "tag": "0062_preserve_fractional_gathering_xp",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1786264200000,
+      "tag": "0063_preserve_fractional_processing_xp",
+      "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1786267800000,
+      "tag": "0064_persist_processing_consumable_uses",
+      "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1786271400000,
+      "tag": "0065_persist_active_processing_fires",
+      "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1786275000000,
+      "tag": "0066_add_streaming_duel_competitive_snapshots",
+      "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1786341600000,
+      "tag": "0067_add_agent_autonomy_checkpoints",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1786345200000,
+      "tag": "0068_add_streaming_duel_opening_styles",
+      "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1786348800000,
+      "tag": "0069_add_streaming_duel_lifecycle_timestamps",
+      "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1786352400000,
+      "tag": "0070_add_streaming_duel_transition_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1786356000000,
+      "tag": "0071_add_agent_autonomy_action_outcomes",
+      "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1786359600000,
+      "tag": "0072_add_agent_autonomy_progression_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1786363200000,
+      "tag": "0073_harden_ordinary_agent_banking",
+      "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1786366800000,
+      "tag": "0074_add_atomic_bone_burial",
+      "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1786370400000,
+      "tag": "0075_add_agent_autonomy_lifecycle",
+      "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1786374000000,
+      "tag": "0076_add_ordinary_bank_withdrawal",
+      "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1786377600000,
+      "tag": "0077_add_atomic_composite_bank_withdrawal",
+      "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1786381200000,
+      "tag": "0078_add_agent_store_operation_receipts",
+      "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1786384800000,
+      "tag": "0079_add_durable_gathering_resource_states",
+      "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1786388400000,
+      "tag": "0080_add_durable_quest_gathering_progress",
+      "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1786392000000,
+      "tag": "0081_add_durable_quest_processing_progress",
+      "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1786395600000,
+      "tag": "0082_add_atomic_safe_death_custody",
+      "breakpoints": true
     }
   ]
 }

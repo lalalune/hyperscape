@@ -421,14 +421,23 @@ export interface BiomeResource {
  */
 export interface NPCLocation {
   id: string; // Must match ID in npcs.json
-  type: "bank" | "general_store" | "skill_trainer" | "quest_giver";
+  type:
+    | "bank"
+    | "general_store"
+    | "skill_trainer"
+    | "quest_giver"
+    | "armor_store"
+    | "crafting_store"
+    | "magic_store"
+    | "range_store"
+    | "tanner";
   position: WorldPosition;
   // The following are optional - data should come from npcs.json manifest
   name?: string;
   services?: string[];
   modelPath?: string;
   description?: string;
-  storeId?: string; // Links NPC to store in stores.json (for general_store type)
+  storeId?: string; // Links any store-capable NPC to its exact stores.json identity
 }
 
 /**
@@ -508,6 +517,14 @@ export interface WorldArea {
     heightOffset?: number;
     blendRadius: number;
   }>;
+  /** Explicit elevated water bodies used for compact ponds and lakes. */
+  waterBodies?: Array<{
+    id: string;
+    centerX: number;
+    centerZ: number;
+    radius: number;
+    surfaceY: number;
+  }>;
   /** Sub-zones within this area (e.g., lobby, hospital, arenas) */
   subZones?: Record<
     string,
@@ -561,9 +578,7 @@ export interface MobSpawnPointData {
  * Zone spawn point data - union type for all spawn point types
  */
 export type ZoneSpawnPointData =
-  | PlayerSpawnPointData
-  | ResourceSpawnPointData
-  | MobSpawnPointData;
+  PlayerSpawnPointData | ResourceSpawnPointData | MobSpawnPointData;
 
 /**
  * Zone spawn point - a spawn point in a zone

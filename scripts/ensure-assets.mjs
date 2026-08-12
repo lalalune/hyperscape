@@ -96,7 +96,8 @@ function isCI() {
 async function main() {
   console.log("📦 Checking game assets...");
 
-  const ci = isCI();
+  const requireFullAssets = process.env.HYPERIA_REQUIRE_FULL_ASSETS === "true";
+  const ci = isCI() && !requireFullAssets;
 
   // In CI: only need manifests (no binary assets), but still must clone
   if (ci && hasManifests(assetsDir)) {

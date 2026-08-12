@@ -160,15 +160,20 @@ export class Collider extends Node {
   }
 
   mount() {
+    this.needsRebuild = false;
+
+    // Stream/spectator worlds intentionally omit the physics system. Do this
+    // check before probing the global runtime: otherwise every collider marks
+    // itself for rebuild and retries on every render commit, producing an
+    // unbounded warning loop even though physics is deliberately unavailable.
+    if (!this.ctx?.physics) {
+      return;
+    }
+
     const physx = getRuntimePhysX();
     if (!physx) {
       console.warn("[collider] PHYSX not initialized yet");
       this.needsRebuild = true;
-      return;
-    }
-
-    // Guard: physics system may be removed in stream/spectator viewports
-    if (!this.ctx?.physics) {
       return;
     }
 
@@ -285,7 +290,6 @@ export class Collider extends Node {
     }
     // this._geometry = geometry
     physx.destroy(geometry);
-    this.needsRebuild = false;
   }
 
   commit(didMove: boolean) {

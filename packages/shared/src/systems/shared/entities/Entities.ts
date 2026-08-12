@@ -304,8 +304,7 @@ export class Entities extends SystemBase implements IEntities {
       const rawScale = (
         data as {
           scale?:
-            | { x: number; y: number; z: number }
-            | [number, number, number];
+            { x: number; y: number; z: number } | [number, number, number];
         }
       ).scale;
       let finalScale = { x: 1, y: 1, z: 1 };
@@ -524,6 +523,7 @@ export class Entities extends SystemBase implements IEntities {
       const networkData = data as {
         npcType?: string;
         npcId?: string;
+        storeId?: string;
         services?: string[];
       };
 
@@ -582,6 +582,7 @@ export class Entities extends SystemBase implements IEntities {
         // Use network data for NPCEntity fields
         npcType: derivedNPCType,
         npcId: npcId,
+        storeId: networkData.storeId,
         dialogueLines: ["Hello there!"],
         services: services,
         questIds: questIds,

@@ -153,8 +153,6 @@ export async function createHttpServer(
     // Production domains (HTTPS)
     "https://hyperbet.win",
     "https://www.hyperbet.win",
-    "https://bsc.hyperbet.win",
-    "https://www.bsc.hyperbet.win",
     "https://hyperia.gg",
     "https://www.hyperia.gg",
     "https://hyperia.club",
@@ -163,16 +161,13 @@ export async function createHttpServer(
     "https://hyperia-betting.pages.dev",
     "https://hyperbet.pages.dev",
     "https://hyperbet-solana.pages.dev",
-    "https://hyperbet-bsc.pages.dev",
     "https://hyperia-production.up.railway.app",
     "https://api.hyperbet.win",
-    "https://bsc-api.hyperbet.win",
     // Production domains (HTTP for legacy/testing)
     "http://hyperia.pages.dev",
     "http://hyperia-betting.pages.dev",
     "http://hyperbet.pages.dev",
     "http://hyperbet-solana.pages.dev",
-    "http://hyperbet-bsc.pages.dev",
     // Development (from env vars or defaults)
     elizaOSUrl, // ElizaOS API
     clientUrl, // Game Client
@@ -180,11 +175,9 @@ export async function createHttpServer(
     // Dynamic patterns (for localhost dev and preview deployments)
     /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$/, // Matches http://localhost:3333, http://127.0.0.1:4179, etc.
     /^https?:\/\/(www\.)?hyperbet\.win$/, // hyperbet.win apex and www
-    /^https?:\/\/.+\.hyperbet\.win$/, // hyperbet.win subdomains
     /^https?:\/\/.+\.hyperia-betting\.pages\.dev$/, // Existing Hyperbet Pages preview deployments
     /^https?:\/\/.+\.hyperbet\.pages\.dev$/, // Hyperbet Pages preview deployments
     /^https?:\/\/.+\.hyperbet-solana\.pages\.dev$/, // Hyperbet Solana preview deployments
-    /^https?:\/\/.+\.hyperbet-bsc\.pages\.dev$/, // Hyperbet BSC preview deployments
     /^https?:\/\/(www\.)?hyperia\.gg$/, // hyperia.gg apex and www
     /^https?:\/\/.+\.hyperia\.gg$/, // hyperia.gg subdomains
     /^https?:\/\/.+\.hyperia\.pages\.dev$/, // Cloudflare Pages preview deployments
@@ -503,9 +496,15 @@ async function registerStaticFiles(
   });
   console.log(`[HTTP] ✅ Public directory registered (${publicInfo.source})`);
 
-  // Always register /live/ from server public directory for HLS streaming
-  // This is needed because the public root may resolve to client/dist/ instead
-  const hlsDir = path.join(config.__dirname, "public", "live");
+  // HLS segments are generated runtime data. Integrated launchers place them
+  // outside the source tree to avoid filesystem-sync and indexing contention;
+  // standalone deployments retain the historical server/public/live default.
+  const configuredHlsDir = process.env.HLS_PUBLIC_DIR?.trim();
+  const hlsDir = configuredHlsDir
+    ? path.isAbsolute(configuredHlsDir)
+      ? configuredHlsDir
+      : path.resolve(config.__dirname, configuredHlsDir)
+    : path.join(config.__dirname, "public", "live");
   await fs.ensureDir(hlsDir);
   await fastify.register(statics, {
     root: hlsDir,

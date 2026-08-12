@@ -51,6 +51,7 @@ import type { Physics } from "../shared/interaction/Physics";
 import type { PxRigidStatic } from "../../types/systems/physics";
 import type { ParticleSystem } from "../shared/presentation/ParticleSystem";
 import type { FlatZone } from "../../types/world/terrain";
+import { isStreamingLikeViewport } from "../../runtime/clientViewportMode";
 import {
   getDuelArenaConfig,
   type DuelArenaConfig,
@@ -64,6 +65,7 @@ import {
   HOSPITAL_CENTER_Z,
   HOSPITAL_WIDTH,
   HOSPITAL_LENGTH,
+  ARENA_FORFEIT_PILLAR_INSET,
 } from "../../data/arena-layout";
 
 // Arena grid size/position: getDuelArenaConfig() at runtime (see duel-manifest / ArenaPoolManager).
@@ -118,6 +120,16 @@ const BANNER_CLOTH_HEIGHT = 1.2;
 const BANNER_COLORS: number[] = [
   0xcc3333, 0xcc3333, 0x3366cc, 0x3366cc, 0x33aa44, 0x33aa44,
 ];
+
+/**
+ * Interaction markers and fence banners are useful in the playable client,
+ * but their tall geometry can cross the orbiting broadcast camera and obscure
+ * the scoreboard. Stream views keep the arena architecture while omitting
+ * these nonessential foreground props.
+ */
+export function shouldRenderInteractiveArenaProps(win?: Window): boolean {
+  return !isStreamingLikeViewport(win);
+}
 
 // Instanced mesh counts (fence posts, rails, pillars) are derived from DuelArenaConfig at runtime.
 
@@ -341,9 +353,15 @@ export class DuelArenaVisualsSystem extends System {
 
     this.physicsSystem = this.world.getSystem("physics") as Physics | null;
     if (!this.physicsSystem) {
-      console.warn(
-        "[DuelArenaVisualsSystem] Physics system not available, floors will have no collision",
-      );
+      if (this.world.isClient && isStreamingLikeViewport()) {
+        console.info(
+          "[DuelArenaVisualsSystem] Local collision intentionally omitted for the non-interactive stream viewport; movement remains server-authoritative",
+        );
+      } else {
+        console.warn(
+          "[DuelArenaVisualsSystem] Physics system not available, floors will have no collision",
+        );
+      }
     }
 
     this.registerArenaFlatZones();
@@ -455,6 +473,7 @@ export class DuelArenaVisualsSystem extends System {
     if (this.world.isClient) {
       this.arenaGroup = new THREE.Group();
       this.arenaGroup.name = "DuelArenaVisuals";
+      const renderInteractiveArenaProps = shouldRenderInteractiveArenaProps();
 
       // Create all shared materials first
       this.createSharedMaterials();
@@ -464,7 +483,9 @@ export class DuelArenaVisualsSystem extends System {
       this.buildPillarInstances();
       this.buildBrazierInstances();
       this.buildBorderInstances();
-      this.buildBannerPoleInstances();
+      if (renderInteractiveArenaProps) {
+        this.buildBannerPoleInstances();
+      }
     }
 
     // Individual meshes (need unique userData/layers for raycasting)
@@ -474,8 +495,10 @@ export class DuelArenaVisualsSystem extends System {
     this.createHospitalFloor();
     if (this.world.isClient) {
       this.createArenaCenterRings();
-      this.createForfeitPillars();
-      this.createBannerCloths();
+      if (shouldRenderInteractiveArenaProps()) {
+        this.createForfeitPillars();
+        this.createBannerCloths();
+      }
     }
 
     // Register fire/torch particles
@@ -1208,8 +1231,13 @@ export class DuelArenaVisualsSystem extends System {
     if (!this.world.isClient || !this.arenaGroup) return;
 
     const cfg = this.arenaCfg;
-    const innerR = 2.0;
-    const outerR = 2.45;
+    const isBroadcastViewport = isStreamingLikeViewport();
+    // Playable clients keep the small center reference. The broadcast uses a
+    // larger boundary that matches the scheduler's compact combat footprint,
+    // so viewers read kiting and diagonal footwork as movement within the duel
+    // instead of mistaking the center marker for an abandoned arena.
+    const innerR = isBroadcastViewport ? 7.0 : 2.0;
+    const outerR = isBroadcastViewport ? 7.35 : 2.45;
     const ringGeom = new THREE.RingGeometry(innerR, outerR, 64);
     ringGeom.rotateX(-Math.PI / 2);
     this.geometries.push(ringGeom);
@@ -1258,8 +1286,8 @@ export class DuelArenaVisualsSystem extends System {
       const terrainY = this.getTerrainHeight(cx, cz);
 
       const cornerOffset = {
-        x: cfg.arenaWidth / 2 - 2,
-        z: cfg.arenaLength / 2 - 2,
+        x: cfg.arenaWidth / 2 - ARENA_FORFEIT_PILLAR_INSET,
+        z: cfg.arenaLength / 2 - ARENA_FORFEIT_PILLAR_INSET,
       };
 
       for (const [label, sx, sz] of [
@@ -1524,8 +1552,7 @@ export class DuelArenaVisualsSystem extends System {
     this.arenaGroup!.add(horizBar);
 
     const particleSystem = this.world.getSystem("particle") as
-      | ParticleSystem
-      | undefined;
+      ParticleSystem | undefined;
     if (particleSystem) {
       const emitterId = "healing_glow_hospital";
       particleSystem.register(emitterId, {
@@ -1547,8 +1574,7 @@ export class DuelArenaVisualsSystem extends System {
    */
   private registerTorchParticles(): void {
     const particleSystem = this.world.getSystem("particle") as
-      | ParticleSystem
-      | undefined;
+      ParticleSystem | undefined;
     if (!particleSystem) return;
 
     const cfg = this.arenaCfg;
@@ -1581,8 +1607,7 @@ export class DuelArenaVisualsSystem extends System {
    */
   private registerLobbyFireParticles(): void {
     const particleSystem = this.world.getSystem("particle") as
-      | ParticleSystem
-      | undefined;
+      ParticleSystem | undefined;
     if (!particleSystem) return;
 
     const terrainY = this.getProceduralTerrainHeight(
@@ -1935,8 +1960,7 @@ export class DuelArenaVisualsSystem extends System {
     this.flatZoneIds = [];
 
     const particleSystem = this.world.getSystem("particle") as
-      | ParticleSystem
-      | undefined;
+      ParticleSystem | undefined;
     if (particleSystem) {
       for (const id of this.particleEmitterIds) {
         particleSystem.unregister(id);

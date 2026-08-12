@@ -148,6 +148,7 @@ export {
   AttackType,
   ItemType,
 } from "./types/core/core";
+export { BANKING_CONSTANTS } from "./constants/BankingConstants";
 
 // Export DeathState enum for death/respawn system
 export { DeathState } from "./types/entities/entities";
@@ -181,6 +182,16 @@ export {
 // Export ID generation utilities (for transaction tracking, etc.)
 export { generateTransactionId } from "./utils/IdGenerator";
 export {
+  calculateCombatLevel,
+  getPrimaryCombatType,
+  MIN_COMBAT_LEVEL,
+  MAX_COMBAT_LEVEL,
+} from "./utils/game/CombatLevelCalculator";
+export type {
+  CombatSkills,
+  CombatType,
+} from "./utils/game/CombatLevelCalculator";
+export {
   deriveStreamingGuardrailReason,
   hasValidStreamingGuardrailAgentSnapshot,
   hasValidStreamingGuardrailArenaPositions,
@@ -202,6 +213,26 @@ export {
   getGameRngState,
 } from "./utils/SeededRandom";
 export type { SeededRandomState } from "./utils/SeededRandom";
+
+// Rules-accurate combat calculators used by authoritative replay and retained
+// launch verification. Every calculator accepts an explicit SeededRandom.
+export {
+  calculateDamage,
+  calculateHitChance,
+  type CombatStats,
+  type HitCalculationResult,
+  type PrayerCombatBonuses,
+} from "./utils/game/CombatCalculations";
+export {
+  calculateRangedDamage,
+  type RangedDamageParams,
+  type RangedDamageResult,
+} from "./systems/shared/combat/RangedDamageCalculator";
+export {
+  calculateMagicDamage,
+  type MagicDamageParams,
+  type MagicDamageResult,
+} from "./systems/shared/combat/MagicDamageCalculator";
 
 // Export branded type identifiers for compile-time type safety
 export type {
@@ -361,11 +392,29 @@ export {
   NOTE_SUFFIX,
 } from "./data/items";
 
-// Export store helpers used by server store handler
-export { getStoreById } from "./data/banks-stores";
+// Authoritative runtime view of the loaded processing recipe manifests.
+export {
+  ProcessingDataProvider,
+  processingDataProvider,
+} from "./data/ProcessingDataProvider";
+export type { CookingItemData } from "./data/ProcessingDataProvider";
 
-// Export avatar options for character creation
-export { AVATAR_OPTIONS } from "./data/avatars";
+// Export store helpers used by authoritative server/store planning.
+export { getAllStores, getStoreById } from "./data/banks-stores";
+
+// Public authored combat-NPC catalog used by the server's deterministic
+// acquisition planner. Runtime drop rolls remain server-authoritative.
+export { getCombatNPCs } from "./data/npcs";
+
+// Export avatar options for character creation and duel identity
+export {
+  AVATAR_OPTIONS,
+  CANONICAL_DUEL_AVATAR_ID,
+  CANONICAL_DUEL_AVATAR_URL,
+  DEFAULT_AVATAR_URL,
+  getDuelAvatarUrlForStyle,
+} from "./data/avatars";
+export type { DuelAvatarStyle } from "./data/avatars";
 
 // Export skill data for UI displays
 export {
@@ -400,17 +449,49 @@ export type {
 export { prayerDataProvider } from "./data/PrayerDataProvider";
 export {
   attachEquipmentVisualToVRM,
+  createDynamicBowStringController,
   extractEquipmentAttachmentData,
+  hasValidDynamicBowString,
+  isSkinnedEquipmentSkeletonCompatible,
   removeEquipmentVisual,
   resolveEquipmentVisualData,
   resolveEquipmentVisualUrls,
+  shouldRenderHeldEquipmentVisual,
+  validateStreamingEquipmentVisualModel,
 } from "./systems/client/EquipmentVisualHelpers";
 export type {
+  DuelEquipmentFitData,
+  DynamicBowStringController,
+  DynamicBowStringData,
+  DynamicBowStringTransition,
   EquipmentAttachmentData,
   EquipmentVisualModelData,
   EquipmentVisualStore,
   EquipmentVisualUrlResolution,
+  HeldEquipmentVisualState,
+  StreamingEquipmentVisualValidation,
+  StreamingEquipmentVisualValidationReason,
 } from "./systems/client/EquipmentVisualHelpers";
+export {
+  EquipmentVisualSystem,
+  STREAMING_DUEL_INTENTIONALLY_INVISIBLE_EQUIPMENT_SLOTS,
+  STREAMING_DUEL_VISIBLE_EQUIPMENT_SLOTS,
+  isStreamingDuelVisibleEquipmentSlot,
+} from "./systems/client/EquipmentVisualSystem";
+export type {
+  StreamingDuelEquipmentVisualContract,
+  StreamingDuelBowPresentationDiagnostics,
+  StreamingDuelBowTransitionEvent,
+  StreamingDuelEquipmentVisualExpectation,
+  StreamingDuelEquipmentVisualLoadStatus,
+  StreamingDuelEquipmentVisualReadiness,
+  StreamingDuelEquipmentVisualRequirement,
+  StreamingDuelVisibleEquipmentSlot,
+} from "./systems/client/EquipmentVisualSystem";
+export type {
+  StreamingArrowVisualSpawnEvent,
+  StreamingProjectileVisualDiagnostics,
+} from "./systems/client/ProjectileRenderer";
 
 // Export spell service for magic combat
 export { spellService } from "./systems/shared/combat/SpellService";
@@ -462,8 +543,32 @@ export { ClientActions } from "./systems/client/ClientActions";
 export { EventBus } from "./systems/shared";
 export { System as SystemClass } from "./systems/shared";
 export { SystemBase } from "./systems/shared";
-export { CombatSystem } from "./systems/shared/combat";
-export { PrayerSystem } from "./systems/shared/character/PrayerSystem";
+export {
+  CombatSystem,
+  ammunitionService,
+  runeService,
+} from "./systems/shared/combat";
+export {
+  PrayerSystem,
+  PRAYER_POINT_UNITS_PER_POINT,
+} from "./systems/shared/character/PrayerSystem";
+// Concrete character systems are already part of the server framework bundle.
+// Export explicit runtime aliases so server integration harnesses and external
+// world hosts can instantiate the same classes without reaching into source
+// paths and accidentally creating duplicate shared-data singletons.
+export { InventorySystem as CharacterInventorySystem } from "./systems/shared/character/InventorySystem";
+export { EquipmentSystem as CharacterEquipmentSystem } from "./systems/shared/character/EquipmentSystem";
+export type {
+  PrayerActionFailureReason,
+  PrayerActionReceipt,
+  PrayerCustodyView,
+} from "./systems/shared/character/PrayerSystem";
+export type {
+  BoneBurialFailureReason,
+  BoneBurialReceipt,
+  FoodConsumptionFailureReason,
+  FoodConsumptionReceipt,
+} from "./systems/shared/character/PlayerSystem";
 export { LootSystem } from "./systems/shared/economy/LootSystem";
 export { StoreSystem } from "./systems/shared/economy/StoreSystem";
 export { GroundItemSystem } from "./systems/shared/economy/GroundItemSystem";
@@ -579,6 +684,7 @@ export {
 export { ControlPriorities } from "./systems/client/ControlPriorities";
 export { downloadFile } from "./utils/downloadFile";
 export * from "./utils/typeGuards";
+export { getExternalResources } from "./utils/ExternalAssetUtils";
 
 // Item type detection helpers (rules-accurate inventory actions)
 export {
@@ -792,7 +898,24 @@ export type {
   SystemEvent,
   EventHandler,
 } from "./systems/shared";
-export type { EventMap } from "./types/events";
+export type {
+  EventMap,
+  ProcessingRequestCommitStatus,
+  ProcessingProgressPhase,
+  ProcessingRejectionReason,
+  ProcessingRequestProgressPayload,
+  ProcessingRequestRejectedPayload,
+  ProcessingRequestStatusPayload,
+  ProcessingRequestEnvelope,
+  RecoverableProcessingRequest,
+  RecoverableProcessingRequestStatus,
+  ProcessingSkill,
+} from "./types/events";
+export {
+  getProcessingRequestOperationId,
+  normalizeProcessingRequestEnvelope,
+  normalizeProcessingRequestId,
+} from "./types/events";
 export type {
   AnyEvent,
   EventType as EventTypeEnum,
@@ -819,6 +942,18 @@ export type {
 } from "./systems/client/ClientInterface";
 export type { ChatListener } from "./systems/shared";
 export type { UIProxy } from "./types/rendering/nodes";
+export type {
+  FrozenCombatArmorIds,
+  FrozenCombatArmorSlot,
+  FrozenCombatLoadoutDefinition,
+  FrozenCombatLoadoutSwitchRequest,
+  FrozenCombatLoadoutSwitchReceipt,
+  OwnedDuelPreparationPlanRequest,
+  OwnedDuelPreparationPlanRecoveryRequest,
+  OwnedDuelPreparationPlanFailureReason,
+  OwnedDuelPreparationPlanReceipt,
+} from "./systems/shared/character/EquipmentSystem";
+export { FROZEN_COMBAT_ARMOR_SLOTS } from "./systems/shared/character/EquipmentSystem";
 
 // Export Panel utility
 export { default as Panel } from "./libs/stats-gl/panel";
@@ -949,6 +1084,31 @@ export type {
   WorldChunkRow,
   InventorySaveItem,
   EquipmentSaveItem,
+  CombatLoadoutPersistenceSnapshot,
+  CombatLoadoutCommitRequest,
+  CombatLoadoutCommitReceipt,
+  BankSaveItem,
+  DuelPreparationPlanPersistenceSnapshot,
+  DuelPreparationPlanRecoveryEvidence,
+  DuelPreparationPlanCommitRequest,
+  DuelPreparationPlanRecoveryRequest,
+  DuelPreparationPlanCommitReceipt,
+  InventoryDebitRequirement,
+  InventoryDebitCommitRequest,
+  InventoryDebitCommitReceipt,
+  BoneBurialCommitRequest,
+  BoneBurialCommitReceipt,
+  GatheringRewardSkill,
+  GatheringRewardItem,
+  GatheringRewardCommitRequest,
+  GatheringRewardCommitReceipt,
+  GatheringResourceState,
+  EquipmentStackDebitCommitRequest,
+  EquipmentStackDebitCommitReceipt,
+  PrayerPersistenceSnapshot,
+  PrayerStateTransitionKind,
+  PrayerStateCommitRequest,
+  PrayerStateCommitReceipt,
 } from "./types/network/database";
 
 // Export entity types (PlayerEntity class is exported above, so only export other types here)
@@ -1084,6 +1244,7 @@ export {
 } from "./systems/shared/movement/TileSystem";
 export type {
   TileCoord,
+  TileInteractionArrival,
   TileMovementState,
   TileFlags,
   CardinalDirection,
@@ -1138,6 +1299,8 @@ export { INPUT } from "./systems/client/interaction/constants";
 
 // Combat constants (tick-based timing, ranges, etc.)
 export { COMBAT_CONSTANTS } from "./constants/CombatConstants";
+export { PROCESSING_CONSTANTS } from "./constants/ProcessingConstants";
+export { canPlayerPerformPreparationAction } from "./systems/shared/interaction/ProcessingStationAuthority";
 
 // Home teleport constants (cooldown, cast time)
 export { HOME_TELEPORT_CONSTANTS } from "./constants/GameConstants";
@@ -1157,6 +1320,9 @@ export { PLAYER_CONSTANTS } from "./constants/GameConstants";
 
 // Gathering constants (tick-based timing, ranges, etc.)
 export { GATHERING_CONSTANTS } from "./constants/GatheringConstants";
+
+// Smithing prerequisites shared by authoritative execution and agent planners
+export { SMITHING_CONSTANTS } from "./constants/SmithingConstants";
 
 // Context menu colors (rules-accurate styling)
 export { CONTEXT_MENU_COLORS } from "./constants/GameConstants";
@@ -1251,6 +1417,24 @@ export {
   budgeted,
 } from "./utils/FrameBudgetManager";
 export type { FrameTimingStats } from "./utils/FrameBudgetManager";
+export {
+  DurationHistogram,
+  type DurationPercentiles,
+} from "./utils/DurationHistogram";
+export {
+  classifyStreamResourceCategory,
+  StreamPerformanceTelemetry,
+  normalizeStreamingPerformanceSnapshot,
+  type StreamFramePerformanceSnapshot,
+  type StreamLongFrameSample,
+  type StreamPerformanceFrameSample,
+  type StreamPerformanceResourceSample,
+  type StreamRendererMetricSnapshot,
+  type StreamResourceCategory,
+  type StreamResourceMetricSnapshot,
+  type StreamResourcePerformanceSnapshot,
+  type StreamingPerformanceSnapshot,
+} from "./systems/client/StreamPerformanceTelemetry";
 
 // Physics Worker - Offloads PhysX simulation to web worker
 export {

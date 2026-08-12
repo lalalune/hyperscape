@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "exportedAt": "2026-08-11T12:00:00.000Z",
+  "avatar": {
+    "id": "steve",
+    "legacyAttachmentId": "/api/assets/steve/model",
+    "path": "avatars/duel-candidates/duel-steve.vrm",
+    "sha256": "879d9d47f4616333fefaaa7c5d71247f31a4f309d6b99931f4cca540d9963207",
+    "normalizedHeight": 1.6
+  },
+  "fits": [
+    {
+      "itemId": "shortbow",
+      "slot": "weapon",
+      "grip": "two-hand",
+      "weaponType": "bow",
+      "dynamicBowString": true,
+      "attachmentBone": "leftHand",
+      "sourcePath": "models/bows/bow-wood/bow-wood.glb",
+      "sourceSha256": "ff92b029f9c2b34035c71b365aad3e5e87e024ffe8f021979bf8c124940111b3",
+      "outputPath": "models/bows/bow-wood/shortbow-steve-fitted.glb",
+      "targetLengthMetres": 0.9,
+      "desiredWorldEulerDegrees": [0, -90, 0],
+      "desiredWorldOffsetMetres": [0, 0, 0],
+      "referenceMotion": {
+        "path": "emotes/emote-range.glb",
+        "sha256": "72c27c15fb447e5f2b2e87ea5e01a2a9c632d201e33042a2c1c6ab696a2769cf",
+        "sampleRatio": 0.55
+      }
+    },
+    {
+      "itemId": "magic_shortbow",
+      "slot": "weapon",
+      "grip": "two-hand",
+      "weaponType": "bow",
+      "dynamicBowString": true,
+      "attachmentBone": "leftHand",
+      "sourcePath": "models/bows/bow-wood/bow-wood.glb",
+      "sourceSha256": "ff92b029f9c2b34035c71b365aad3e5e87e024ffe8f021979bf8c124940111b3",
+      "outputPath": "models/bows/bow-wood/magic-shortbow-steve-fitted.glb",
+      "targetLengthMetres": 0.9,
+      "desiredWorldEulerDegrees": [0, -90, 0],
+      "desiredWorldOffsetMetres": [0, 0, 0],
+      "referenceMotion": {
+        "path": "emotes/emote-range.glb",
+        "sha256": "72c27c15fb447e5f2b2e87ea5e01a2a9c632d201e33042a2c1c6ab696a2769cf",
+        "sampleRatio": 0.55
+      }
+    },
+    {
+      "itemId": "staff_of_air",
+      "slot": "weapon",
+      "grip": "one-hand",
+      "weaponType": "staff",
+      "attachmentBone": "rightHand",
+      "sourcePath": "models/magic-staffs/air-staff/air-staff.glb",
+      "sourceSha256": "edd7dbd2a85282d0f31aaf7e7f7fad3f0cf192c57dc8f6dfee359a617b71315d",
+      "outputPath": "models/magic-staffs/air-staff/staff-of-air-steve-fitted.glb",
+      "targetLengthMetres": 1.3,
+      "desiredWorldEulerDegrees": [0, 0, 0],
+      "desiredWorldOffsetMetres": [0, 0, 0],
+      "stableHeldPose": {
+        "avatarLocalEulerDegrees": [0, 0, 32]
+      },
+      "referenceMotion": {
+        "path": "emotes/emote-spell-cast.glb",
+        "sha256": "c40916806391c63cc869149c054ec9f7f100bd94efd40c7b6b7c40e6d3a853df",
+        "sampleRatio": 0.55
+      }
+    }
+  ]
+}

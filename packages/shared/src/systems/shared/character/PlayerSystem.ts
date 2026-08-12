@@ -74,8 +74,67 @@ import * as THREE from "three";
 import { EatDelayManager } from "./EatDelayManager";
 import { BuryDelayManager } from "./BuryDelayManager";
 import { COMBAT_CONSTANTS } from "../../../constants/CombatConstants";
-import { Skill } from "./SkillsSystem";
+import { calculateCombatLevel as calculateRulesCombatLevel } from "../../../utils/game/CombatLevelCalculator";
+import type { SkillsSystem } from "./SkillsSystem";
 import type { CombatSystem } from "../combat/CombatSystem";
+import type {
+  AtomicBoneBurialFailureReason,
+  InventorySystem,
+} from "./InventorySystem";
+import type { PrayerSystem } from "./PrayerSystem";
+import { uuid } from "../../../utils/IdGenerator";
+
+export type FoodConsumptionFailureReason =
+  | "invalid_request"
+  | "player_missing"
+  | "player_not_alive"
+  | "item_not_owned"
+  | "not_food"
+  | "full_health"
+  | "eat_delay"
+  | "action_in_progress"
+  | "inventory_not_initialized"
+  | "inventory_busy"
+  | "atomic_persistence_unavailable"
+  | "insufficient_items"
+  | "persistence_failed"
+  | "committed_state_apply_failed";
+
+export interface FoodConsumptionReceipt {
+  ok: boolean;
+  committed: boolean;
+  consumed: boolean;
+  playerId: string;
+  itemId: string;
+  operationId: string;
+  replayed: boolean;
+  healedAmount: number;
+  newHealth: number | null;
+  reason?: FoodConsumptionFailureReason;
+}
+
+export type BoneBurialFailureReason =
+  | AtomicBoneBurialFailureReason
+  | "player_missing"
+  | "player_not_alive"
+  | "bury_delay"
+  | "action_in_progress"
+  | "live_state_apply_failed";
+
+export interface BoneBurialReceipt {
+  ok: boolean;
+  committed: boolean;
+  liveStateApplied: boolean;
+  playerId: string;
+  itemId: string;
+  operationId: string;
+  replayed: boolean;
+  awardedXp: number;
+  currentXp: number | null;
+  currentLevel: number | null;
+  retryable: boolean;
+  reason?: BoneBurialFailureReason;
+}
 
 /**
  * PlayerSystem - Central Player Management
@@ -95,9 +154,19 @@ export class PlayerSystem extends SystemBase {
 
   // Eat delay tracking (rules-accurate 3-tick cooldown)
   private eatDelayManager = new EatDelayManager();
+  /** One food custody/effect transition may be in flight per player. */
+  private foodActionsInFlight = new Set<string>();
+  /** Bounded in-process effect receipts prevent a replay from healing twice. */
+  private appliedFoodOperations = new Map<string, FoodConsumptionReceipt>();
+  private readonly MAX_APPLIED_FOOD_RECEIPTS = 512;
 
   // Bury delay tracking (rules-accurate 2-tick cooldown)
   private buryDelayManager = new BuryDelayManager();
+  /** One prayer-resource custody transition may be in flight per player. */
+  private boneActionsInFlight = new Set<string>();
+  /** Bound one-time presentation/cooldown effects independently of DB replay. */
+  private appliedBoneOperationEffects = new Set<string>();
+  private readonly MAX_APPLIED_BONE_EFFECTS = 512;
 
   // Player spawn tracking (merged from PlayerSpawnSystem)
   private spawnedPlayers = new Map<string, PlayerSpawnData>();
@@ -316,8 +385,8 @@ export class PlayerSystem extends SystemBase {
     });
 
     // Handle consumable item usage
-    this.subscribe(EventType.ITEM_USED, (data) => {
-      this.handleItemUsed(
+    this.subscribe(EventType.ITEM_USED, async (data) => {
+      await this.handleItemUsed(
         data as {
           playerId: string;
           itemId: string;
@@ -710,6 +779,43 @@ export class PlayerSystem extends SystemBase {
     // Add to our system using entity ID for runtime lookups
     this.players.set(data.playerId, playerData);
 
+    // The character entity may have been created before PlayerSystem finished
+    // loading the authoritative database row. Apply that exact persisted pool
+    // after hydration so reconnect/restart cannot manufacture a full heal.
+    const hydratedEntity = (this.world.getPlayer?.(data.playerId) ??
+      this.world.entities.get(data.playerId)) as PlayerEntity | undefined;
+    if (hydratedEntity) {
+      if (hydratedEntity.setHealthAndMaxHealth) {
+        hydratedEntity.setHealthAndMaxHealth(
+          playerData.health.current,
+          playerData.health.max,
+        );
+      } else {
+        hydratedEntity.setHealth(playerData.health.current);
+      }
+    }
+
+    // Autocast is persisted beside the character row, but the runtime combat
+    // and equipment systems read it from entity data. Restore it before the
+    // player-ready boundary so a restart cannot present a stale null spell to
+    // a database-first duel preparation transaction. Update both registries
+    // because some runtimes expose distinct player/entity projections.
+    const hydratedSelectedSpell = playerData.selectedSpell ?? null;
+    const runtimeProjections = [
+      this.world.getPlayer?.(data.playerId),
+      this.world.entities.get(data.playerId),
+    ];
+    for (const projection of runtimeProjections) {
+      if (projection?.data) {
+        (projection.data as { selectedSpell?: string | null }).selectedSpell =
+          hydratedSelectedSpell;
+      }
+    }
+    this.emitTypedEvent(EventType.COMBAT_AUTOCAST_SET, {
+      playerId: data.playerId,
+      spellId: hydratedSelectedSpell,
+    });
+
     const pendingSkills = this.pendingSkillUpdates.get(data.playerId);
     if (pendingSkills) {
       this.pendingSkillUpdates.delete(data.playerId);
@@ -825,6 +931,7 @@ export class PlayerSystem extends SystemBase {
       });
     }
 
+    this.persistPlayerHealth(data.entityId, player);
     this.emitPlayerUpdate(data.entityId);
   }
 
@@ -944,6 +1051,7 @@ export class PlayerSystem extends SystemBase {
       maxHealth: player.health.max,
     });
 
+    this.persistPlayerHealth(data.playerId, player);
     this.emitPlayerUpdate(data.playerId);
   }
 
@@ -993,6 +1101,7 @@ export class PlayerSystem extends SystemBase {
       );
     }
 
+    this.persistPlayerHealth(data.playerId, player);
     this.emitPlayerUpdate(data.playerId);
   }
 
@@ -1076,11 +1185,41 @@ export class PlayerSystem extends SystemBase {
     );
 
     if (player.health.current !== oldHealth) {
+      const playerEntity = (this.world.getPlayer?.(playerId) ??
+        this.world.entities.get(playerId)) as PlayerEntity | null;
+      if (playerEntity) {
+        // Keep the combat entity authoritative. Updating only PlayerSystem's
+        // cached Player object makes food appear to heal in UI while the
+        // CombatSystem continues damaging the old entity health pool.
+        playerEntity.setHealth(player.health.current);
+
+        const statsComponent = playerEntity.getComponent("stats");
+        if (
+          statsComponent?.data &&
+          typeof statsComponent.data.health === "object" &&
+          statsComponent.data.health !== null
+        ) {
+          const healthData = statsComponent.data.health as {
+            current?: number;
+            max?: number;
+          };
+          healthData.current = player.health.current;
+          healthData.max = player.health.max;
+        }
+      }
+
+      const actualHeal = player.health.current - oldHealth;
       this.emitTypedEvent(EventType.PLAYER_HEALTH_UPDATED, {
         playerId,
         health: player.health.current,
         maxHealth: player.health.max,
       });
+      this.emitTypedEvent(EventType.ENTITY_HEALED, {
+        entityId: playerId,
+        healAmount: actualHeal,
+        newHealth: player.health.current,
+      });
+      this.persistPlayerHealth(playerId, player);
       this.emitPlayerUpdate(playerId);
       return true;
     }
@@ -1097,12 +1236,12 @@ export class PlayerSystem extends SystemBase {
    * - OWASP input validation
    * - classic MMORPG-style chat message format
    */
-  private handleItemUsed(data: {
+  private async handleItemUsed(data: {
     playerId: string;
     itemId: string;
     slot: number;
     itemData: { id: string; name: string; type: string };
-  }): void {
+  }): Promise<void> {
     // SERVER-SIDE ONLY: Food consumption is validated and processed on server
     if (!this.world.isServer) {
       return;
@@ -1123,88 +1262,223 @@ export class PlayerSystem extends SystemBase {
     // === BONE BURYING (Prayer XP) ===
     // Check for bones before consumables - bones have prayerXp property
     if (itemData.prayerXp && itemData.prayerXp > 0) {
-      this.handleBoneBury(data.playerId, data.slot, itemData);
+      await this.buryBoneAtomic(
+        data.playerId,
+        itemData.id,
+        `bone-burial:${uuid()}${uuid()}`,
+      );
       return;
     }
 
-    // Only process consumables for food eating
-    if (data.itemData.type !== "consumable" && data.itemData.type !== "food") {
-      return;
+    await this.consumeFoodAtomic(
+      data.playerId,
+      data.itemId,
+      data.slot,
+      `food-debit:${uuid()}${uuid()}`,
+    );
+  }
+
+  /**
+   * Consume one owned food item through the strict inventory-debit boundary,
+   * then apply its heal. No health, cooldown, message, or attack-delay effect
+   * is exposed unless the durable custody receipt succeeds.
+   */
+  async consumeFoodAtomic(
+    playerId: string,
+    itemId: string,
+    slot: number,
+    operationId: string,
+  ): Promise<FoodConsumptionReceipt> {
+    const normalizedPlayerId = String(playerId ?? "").trim();
+    const normalizedItemId = String(itemId ?? "").trim();
+    const normalizedOperationId = String(operationId ?? "").trim();
+    const player = this.players.get(normalizedPlayerId);
+    const failure = (
+      reason: FoodConsumptionFailureReason,
+      overrides: Partial<FoodConsumptionReceipt> = {},
+    ): FoodConsumptionReceipt => ({
+      ok: false,
+      committed: false,
+      consumed: false,
+      playerId: normalizedPlayerId,
+      itemId: normalizedItemId,
+      operationId: normalizedOperationId,
+      replayed: false,
+      healedAmount: 0,
+      newHealth: player?.health.current ?? null,
+      reason,
+      ...overrides,
+    });
+
+    if (
+      !normalizedPlayerId ||
+      !normalizedItemId ||
+      !normalizedOperationId ||
+      normalizedOperationId.length > 256 ||
+      !Number.isSafeInteger(slot) ||
+      slot < 0 ||
+      slot >= 28
+    ) {
+      return failure("invalid_request");
+    }
+    const applied = this.appliedFoodOperations.get(normalizedOperationId);
+    if (applied) {
+      if (
+        applied.playerId !== normalizedPlayerId ||
+        applied.itemId !== normalizedItemId
+      ) {
+        return failure("invalid_request");
+      }
+      return { ...applied, replayed: true };
+    }
+    if (!this.world.isServer) return failure("invalid_request");
+    if (!player) return failure("player_missing");
+    if (!player.alive || player.health.current <= 0) {
+      return failure("player_not_alive");
     }
 
-    // Check for healing properties
-    if (!itemData.healAmount || itemData.healAmount <= 0) {
-      return;
+    const itemData = getItem(normalizedItemId);
+    if (!itemData) return failure("invalid_request");
+    if (
+      (itemData.type !== "consumable" && itemData.type !== "food") ||
+      !itemData.healAmount ||
+      itemData.healAmount <= 0
+    ) {
+      return failure("not_food");
     }
-
-    // === MAX HEALTH CHECK ===
-    // Similar to prayer points check - notify player if already at max health
-    const player = this.players.get(data.playerId);
-    if (player) {
-      console.log("[PlayerSystem] handleItemUsed health check:", {
-        playerId: data.playerId,
-        current: player.health.current,
-        max: player.health.max,
-        isAtMax: player.health.current >= player.health.max,
-      });
-    }
-    if (player && player.health.current >= player.health.max) {
-      console.log("[PlayerSystem] Player at max health, sending UI_MESSAGE");
+    if (player.health.current >= player.health.max) {
       this.emitTypedEvent(EventType.UI_MESSAGE, {
-        playerId: data.playerId,
+        playerId: normalizedPlayerId,
         message: "You're already at full health.",
         type: "warning" as const,
       });
-      return;
+      return failure("full_health");
     }
 
-    // === SECURITY: Bounds checking (OWASP) ===
-    const healAmount = Math.min(
-      Math.max(0, Math.floor(itemData.healAmount)),
-      COMBAT_CONSTANTS.MAX_HEAL_AMOUNT,
-    );
-
-    // === RATE LIMITING: Eat delay check (Anti-Cheat) ===
     const currentTick = this.world.currentTick ?? 0;
-    if (!this.eatDelayManager.canEat(data.playerId, currentTick)) {
-      // Already eating - send rejection message
+    if (!this.eatDelayManager.canEat(normalizedPlayerId, currentTick)) {
       this.emitTypedEvent(EventType.UI_MESSAGE, {
-        playerId: data.playerId,
+        playerId: normalizedPlayerId,
         message: "You are already eating.",
         type: "warning" as const,
       });
-      return;
+      return failure("eat_delay");
+    }
+    if (this.foodActionsInFlight.has(normalizedPlayerId)) {
+      return failure("action_in_progress");
     }
 
-    // Record this eat action
-    this.eatDelayManager.recordEat(data.playerId, currentTick);
+    const inventorySystem = this.world.getSystem(
+      "inventory",
+    ) as InventorySystem | null;
+    const inventory = inventorySystem?.getInventory(normalizedPlayerId);
+    if (!inventorySystem || !inventory) {
+      return failure("inventory_not_initialized");
+    }
+    const ownedItem = inventory.items.find((item) => item.slot === slot);
+    if (
+      !ownedItem ||
+      ownedItem.itemId !== normalizedItemId ||
+      (ownedItem.quantity ?? 0) <= 0
+    ) {
+      return failure("item_not_owned");
+    }
 
-    // === CONSUME THE FOOD ===
-    // Remove the item from inventory AFTER all checks pass
-    // This ensures food isn't lost if eating is rejected (e.g., eat delay)
-    this.emitTypedEvent(EventType.INVENTORY_REMOVE_ITEM, {
-      playerId: data.playerId,
-      itemId: data.itemId,
-      quantity: 1,
-      slot: data.slot,
-    });
+    this.foodActionsInFlight.add(normalizedPlayerId);
+    try {
+      const debit = await inventorySystem.debitItemsAtomic(
+        normalizedPlayerId,
+        normalizedOperationId,
+        [{ itemId: normalizedItemId, quantity: 1 }],
+      );
+      if (!debit.ok) {
+        const reason: FoodConsumptionFailureReason = debit.reason;
+        if (reason === "committed_state_apply_failed") {
+          // The database debit is already durable even though the live
+          // inventory snapshot could not be applied. Make this a terminal
+          // effect receipt so replaying the same operation can never turn the
+          // already-spent item into a later heal.
+          const terminalReceipt = failure(reason, {
+            committed: true,
+            consumed: true,
+            newHealth:
+              this.players.get(normalizedPlayerId)?.health.current ?? null,
+          });
+          this.rememberAppliedFoodOperation(terminalReceipt);
+          this.emitTypedEvent(EventType.UI_MESSAGE, {
+            playerId: normalizedPlayerId,
+            message:
+              "The food was consumed, but healing could not be applied. Your inventory is being synchronized.",
+            type: "error" as const,
+          });
+          return terminalReceipt;
+        }
+        this.emitTypedEvent(EventType.UI_MESSAGE, {
+          playerId: normalizedPlayerId,
+          message:
+            reason === "insufficient_items"
+              ? "You no longer have that food."
+              : "The food action was cancelled before healing. Your inventory is being synchronized.",
+          type: "error" as const,
+        });
+        return failure(reason);
+      }
 
-    // Apply healing (may return false if already at full health)
-    // NOTE: healPlayer() emits PLAYER_HEALTH_UPDATED only if health changed
-    this.healPlayer(data.playerId, healAmount);
+      // Re-read health after the async custody boundary. Damage that landed
+      // while persistence was pending is preserved; healing adds to the current
+      // authoritative pool rather than restoring a stale pre-debit snapshot.
+      const currentPlayer = this.players.get(normalizedPlayerId);
+      if (!currentPlayer || !currentPlayer.alive) {
+        const terminalReceipt = failure("player_not_alive", {
+          committed: true,
+          consumed: true,
+          replayed: debit.replayed,
+          newHealth: currentPlayer?.health.current ?? null,
+        });
+        this.rememberAppliedFoodOperation(terminalReceipt);
+        return terminalReceipt;
+      }
+      const healthBefore = currentPlayer.health.current;
+      const healAmount = Math.min(
+        Math.max(0, Math.floor(itemData.healAmount)),
+        COMBAT_CONSTANTS.MAX_HEAL_AMOUNT,
+      );
+      this.eatDelayManager.recordEat(normalizedPlayerId, currentTick);
+      this.healPlayer(normalizedPlayerId, healAmount);
+      const newHealth = currentPlayer.health.current;
+      const receipt: FoodConsumptionReceipt = {
+        ok: true,
+        committed: true,
+        consumed: true,
+        playerId: normalizedPlayerId,
+        itemId: normalizedItemId,
+        operationId: normalizedOperationId,
+        replayed: debit.replayed,
+        healedAmount: Math.max(0, newHealth - healthBefore),
+        newHealth,
+      };
+      this.rememberAppliedFoodOperation(receipt);
 
-    // classic MMORPG Behavior: Message and attack delay ALWAYS apply when eating,
-    // even at full health. Food is consumed regardless.
+      this.emitTypedEvent(EventType.UI_MESSAGE, {
+        playerId: normalizedPlayerId,
+        message: `You eat the ${itemData.name.toLowerCase()}.`,
+        type: "success" as const,
+      });
+      this.applyEatAttackDelay(normalizedPlayerId, currentTick);
+      return receipt;
+    } finally {
+      this.foodActionsInFlight.delete(normalizedPlayerId);
+    }
+  }
 
-    // classic MMORPG-style message (lowercase item name, no heal amount shown)
-    this.emitTypedEvent(EventType.UI_MESSAGE, {
-      playerId: data.playerId,
-      message: `You eat the ${itemData.name.toLowerCase()}.`,
-      type: "success" as const,
-    });
-
-    // === COMBAT INTEGRATION: Apply attack delay if in combat ===
-    this.applyEatAttackDelay(data.playerId, currentTick);
+  private rememberAppliedFoodOperation(receipt: FoodConsumptionReceipt): void {
+    this.appliedFoodOperations.set(receipt.operationId, receipt);
+    while (this.appliedFoodOperations.size > this.MAX_APPLIED_FOOD_RECEIPTS) {
+      const oldest = this.appliedFoodOperations.keys().next().value as
+        string | undefined;
+      if (!oldest) break;
+      this.appliedFoodOperations.delete(oldest);
+    }
   }
 
   /**
@@ -1234,95 +1508,187 @@ export class PlayerSystem extends SystemBase {
   }
 
   /**
-   * Handle bone burying for prayer XP (rules-accurate)
-   *
-   * classic MMORPG Mechanics:
-   * - 2-tick (1.2s) delay between burials
-   * - XP granted immediately upon bury
-   * - Some bones require minimum prayer level
-   * - Message: "You bury the bones."
-   *
+   * Consume one prayer-resource item and converge all live views on the
+   * database-owned receipt. Custody, XP, level, and point-cap progression are
+   * never exposed as separate mutations.
    */
-  private handleBoneBury(
+  async buryBoneAtomic(
     playerId: string,
-    slot: number,
-    itemData: {
-      id: string;
-      name: string;
-      prayerXp?: number;
-      buryLevelRequired?: number;
-    },
-  ): void {
-    const currentTick = this.world.currentTick ?? 0;
+    itemId: string,
+    operationId: string,
+  ): Promise<BoneBurialReceipt> {
+    const normalizedPlayerId = String(playerId ?? "").trim();
+    const normalizedItemId = String(itemId ?? "").trim();
+    const normalizedOperationId = String(operationId ?? "").trim();
+    const itemData = getItem(normalizedItemId);
+    const failure = (
+      reason: BoneBurialFailureReason,
+      retryable: boolean,
+      overrides: Partial<BoneBurialReceipt> = {},
+    ): BoneBurialReceipt => ({
+      ok: false,
+      committed: false,
+      liveStateApplied: false,
+      playerId: normalizedPlayerId,
+      itemId: normalizedItemId,
+      operationId: normalizedOperationId,
+      replayed: false,
+      awardedXp: 0,
+      currentXp: null,
+      currentLevel: null,
+      retryable,
+      reason,
+      ...overrides,
+    });
 
-    // Check bury delay (2-tick cooldown)
-    if (!this.buryDelayManager.canBury(playerId, currentTick)) {
+    if (
+      !normalizedPlayerId ||
+      !normalizedItemId ||
+      !normalizedOperationId ||
+      !itemData ||
+      !Number.isSafeInteger(itemData.prayerXp) ||
+      (itemData.prayerXp ?? 0) <= 0 ||
+      !Number.isSafeInteger(itemData.buryLevelRequired ?? 1) ||
+      (itemData.buryLevelRequired ?? 1) < 1 ||
+      (itemData.buryLevelRequired ?? 1) > 99
+    ) {
+      return failure("invalid_request", false);
+    }
+    if (!this.world.isServer) return failure("invalid_request", false);
+    const player = this.players.get(normalizedPlayerId);
+    if (!player) return failure("player_missing", false);
+    if (!player.alive || player.health.current <= 0) {
+      return failure("player_not_alive", false);
+    }
+
+    const currentTick = this.world.currentTick ?? 0;
+    if (
+      !this.appliedBoneOperationEffects.has(normalizedOperationId) &&
+      !this.buryDelayManager.canBury(normalizedPlayerId, currentTick)
+    ) {
       this.emitTypedEvent(EventType.UI_MESSAGE, {
-        playerId,
+        playerId: normalizedPlayerId,
         message: "You are already burying bones.",
         type: "warning" as const,
       });
-      return;
+      return failure("bury_delay", true);
+    }
+    if (this.boneActionsInFlight.has(normalizedPlayerId)) {
+      return failure("action_in_progress", true);
     }
 
-    // Check prayer level requirement (if any)
-    if (itemData.buryLevelRequired && itemData.buryLevelRequired > 1) {
-      const prayerLevel = this.getPrayerLevel(playerId);
-      if (prayerLevel < itemData.buryLevelRequired) {
+    const inventorySystem = this.world.getSystem(
+      "inventory",
+    ) as InventorySystem | null;
+    const skillsSystem = this.world.getSystem("skills") as SkillsSystem | null;
+    const prayerSystem = this.world.getSystem("prayer") as PrayerSystem | null;
+    if (!inventorySystem || !skillsSystem || !prayerSystem) {
+      return failure("atomic_persistence_unavailable", true);
+    }
+
+    this.boneActionsInFlight.add(normalizedPlayerId);
+    try {
+      const committed = await inventorySystem.commitBoneBurialAtomic(
+        normalizedPlayerId,
+        normalizedOperationId,
+        normalizedItemId,
+        itemData.prayerXp!,
+        itemData.buryLevelRequired ?? 1,
+      );
+      if (!committed.ok) {
+        if (!committed.retryable) {
+          const message =
+            committed.reason === "item_missing"
+              ? "You no longer have those bones."
+              : committed.reason === "level_required"
+                ? `You need level ${itemData.buryLevelRequired ?? 1} Prayer to bury these bones.`
+                : committed.reason === "xp_cap"
+                  ? "Your Prayer experience is already at its maximum."
+                  : "The burial was cancelled before anything changed.";
+          this.emitTypedEvent(EventType.UI_MESSAGE, {
+            playerId: normalizedPlayerId,
+            message,
+            type: "warning" as const,
+          });
+        }
+        return failure(committed.reason, committed.retryable);
+      }
+
+      const committedResult = {
+        committed: true,
+        replayed: committed.replayed,
+        awardedXp: committed.awardedXp,
+        currentXp: committed.currentXp,
+        currentLevel: committed.currentLevel,
+      };
+      if (!committed.liveInventoryApplied) {
+        return failure("live_state_apply_failed", true, committedResult);
+      }
+      const skillsApplied = skillsSystem.reconcileCommittedPrayerProgression(
+        normalizedPlayerId,
+        committed.currentXp,
+        committed.currentLevel,
+        committed.awardedXp,
+        committed.replayed,
+      );
+      if (!skillsApplied) {
+        return failure("live_state_apply_failed", true, committedResult);
+      }
+
+      let prayerCustody;
+      try {
+        prayerCustody =
+          await prayerSystem.reloadPrayerState(normalizedPlayerId);
+      } catch (error) {
+        Logger.systemError(
+          "PlayerSystem",
+          `Bone burial committed but Prayer state reload failed for ${normalizedPlayerId}`,
+          error instanceof Error ? error : new Error(String(error)),
+        );
+        return failure("live_state_apply_failed", true, committedResult);
+      }
+      if (
+        !prayerCustody.ready ||
+        !prayerCustody.persistenceHealthy ||
+        prayerCustody.maxPoints !== committed.currentLevel
+      ) {
+        return failure("live_state_apply_failed", true, committedResult);
+      }
+
+      if (!this.appliedBoneOperationEffects.has(normalizedOperationId)) {
+        this.buryDelayManager.recordBury(normalizedPlayerId, currentTick);
         this.emitTypedEvent(EventType.UI_MESSAGE, {
-          playerId,
-          message: `You need level ${itemData.buryLevelRequired} Prayer to bury these bones.`,
-          type: "warning" as const,
+          playerId: normalizedPlayerId,
+          message: "You bury the bones.",
+          type: "success" as const,
         });
-        return;
+        this.appliedBoneOperationEffects.add(normalizedOperationId);
+        while (
+          this.appliedBoneOperationEffects.size > this.MAX_APPLIED_BONE_EFFECTS
+        ) {
+          const oldest = this.appliedBoneOperationEffects.values().next()
+            .value as string | undefined;
+          if (!oldest) break;
+          this.appliedBoneOperationEffects.delete(oldest);
+        }
       }
+
+      return {
+        ok: true,
+        committed: true,
+        liveStateApplied: true,
+        playerId: normalizedPlayerId,
+        itemId: normalizedItemId,
+        operationId: normalizedOperationId,
+        replayed: committed.replayed,
+        awardedXp: committed.awardedXp,
+        currentXp: committed.currentXp,
+        currentLevel: committed.currentLevel,
+        retryable: false,
+      };
+    } finally {
+      this.boneActionsInFlight.delete(normalizedPlayerId);
     }
-
-    // Record bury action (starts cooldown)
-    this.buryDelayManager.recordBury(playerId, currentTick);
-
-    // Remove bones from inventory
-    this.emitTypedEvent(EventType.INVENTORY_REMOVE_ITEM, {
-      playerId,
-      itemId: itemData.id,
-      quantity: 1,
-      slot,
-    });
-
-    // Grant prayer XP
-    const prayerXp = itemData.prayerXp ?? 0;
-    if (prayerXp > 0) {
-      this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
-        playerId,
-        skill: Skill.PRAYER,
-        amount: prayerXp,
-      });
-    }
-
-    // classic MMORPG-style message
-    this.emitTypedEvent(EventType.UI_MESSAGE, {
-      playerId,
-      message: "You bury the bones.",
-      type: "success" as const,
-    });
-  }
-
-  /**
-   * Get player's current prayer level
-   */
-  private getPrayerLevel(playerId: string): number {
-    const entity = this.entityManager?.getEntity(playerId);
-    if (!entity) return 1;
-
-    const stats = (
-      entity as unknown as {
-        getComponent?: (name: string) => Record<string, unknown> | undefined;
-      }
-    ).getComponent?.("stats");
-    if (!stats?.prayer) return 1;
-
-    const prayerData = stats.prayer as { level?: number };
-    return prayerData.level ?? 1;
   }
 
   async updatePlayerPosition(
@@ -1506,8 +1872,93 @@ export class PlayerSystem extends SystemBase {
       });
     }
 
+    this.persistPlayerHealth(playerId, player);
     this.emitPlayerUpdate(playerId);
     return true;
+  }
+
+  /**
+   * Restore every authoritative health representation without moving a player.
+   *
+   * Duel cleanup cannot use the normal PLAYER_RESPAWNED path for a surviving
+   * winner: that handler deliberately ignores already-alive players as an
+   * anti-cheat boundary. Without this explicit server-system API, the visible
+   * entity is healed while PlayerSystem retains the winner's depleted health,
+   * causing the next fight to resolve against a hidden stale pool.
+   */
+  restorePlayerHealth(playerId: string, maxHealth: number): boolean {
+    const player = this.players.get(playerId);
+    if (!player || !Number.isFinite(maxHealth) || maxHealth <= 0) {
+      return false;
+    }
+
+    const restoredHealth = Math.max(1, Math.floor(maxHealth));
+    player.health.current = restoredHealth;
+    player.health.max = restoredHealth;
+    player.alive = true;
+    player.death.respawnTime = 0;
+    player.death.deathLocation = null;
+
+    const entity =
+      this.world.getPlayer?.(playerId) ?? this.world.entities.get(playerId);
+    if (entity) {
+      const restorableEntity = entity as PlayerEntity & {
+        setHealthAndMaxHealth?: (current: number, max: number) => void;
+        resetDeathState?: () => void;
+      };
+      restorableEntity.resetDeathState?.();
+      if (restorableEntity.setHealthAndMaxHealth) {
+        restorableEntity.setHealthAndMaxHealth(restoredHealth, restoredHealth);
+      } else {
+        restorableEntity.setHealth(restoredHealth);
+      }
+
+      const healthComponent = restorableEntity.getComponent("health");
+      if (healthComponent?.data) {
+        const healthData = healthComponent.data as {
+          current?: number;
+          max?: number;
+          isDead?: boolean;
+        };
+        healthData.current = restoredHealth;
+        healthData.max = restoredHealth;
+        healthData.isDead = false;
+      }
+
+      const statsComponent = restorableEntity.getComponent("stats");
+      if (statsComponent?.data) {
+        const stats = statsComponent.data as {
+          health?: { current?: number; max?: number };
+          hitpoints?: { current?: number; max?: number };
+        };
+        if (stats.health) {
+          stats.health.current = restoredHealth;
+          stats.health.max = restoredHealth;
+        }
+        if (stats.hitpoints) {
+          stats.hitpoints.current = restoredHealth;
+          stats.hitpoints.max = restoredHealth;
+        }
+      }
+    }
+
+    this.persistPlayerHealth(playerId, player);
+    this.emitPlayerUpdate(playerId);
+    return true;
+  }
+
+  /**
+   * Persist one authoritative health snapshot through DatabaseSystem's
+   * same-tick coalescing boundary. Damage, healing, regeneration, respawn,
+   * and duel restoration all pass through this helper.
+   */
+  private persistPlayerHealth(playerId: string, player: Player): void {
+    if (!this.world.isServer || !this.databaseSystem) return;
+    const databaseId = PlayerIdMapper.getDatabaseId(playerId);
+    this.databaseSystem.savePlayer(databaseId, {
+      health: player.health.current,
+      maxHealth: player.health.max,
+    });
   }
 
   destroy(): void {
@@ -1718,12 +2169,20 @@ export class PlayerSystem extends SystemBase {
   }
 
   private async performAutoSave(): Promise<void> {
-    if (!this.databaseSystem) return;
+    await this.saveAllPlayersToDatabase();
+  }
 
-    // Save all players
-    for (const playerId of this.players.keys()) {
-      await this.savePlayerToDatabase(playerId);
-    }
+  /**
+   * Await a direct persistence snapshot for every live player.
+   * Graceful shutdown calls this before DatabaseSystem rejects new writes.
+   */
+  async saveAllPlayersToDatabase(): Promise<void> {
+    if (!this.databaseSystem) return;
+    await Promise.all(
+      Array.from(this.players.keys(), (playerId) =>
+        this.savePlayerToDatabase(playerId),
+      ),
+    );
   }
 
   private async savePlayerToDatabase(playerId: string): Promise<void> {
@@ -1767,7 +2226,7 @@ export class PlayerSystem extends SystemBase {
     const playerAttackState = this.playerAttackStyles.get(playerId);
     const attackStyle = playerAttackState?.selectedStyle || "accurate";
 
-    this.databaseSystem.savePlayer(databaseId, {
+    await this.databaseSystem.savePlayerAsync(databaseId, {
       name: player.name,
       combatLevel: player.combat.combatLevel,
       attackLevel: player.skills.attack.level,
@@ -1785,22 +2244,15 @@ export class PlayerSystem extends SystemBase {
   }
 
   private calculateCombatLevel(skills: Skills): number {
-    // classic MMORPG Combat Level Formula:
-    // base = 0.25 × (Defence + Hitpoints + floor(Prayer / 2))
-    // melee = 0.325 × (Attack + Strength)
-    // ranged = 0.325 × floor(Ranged × 1.5)
-    // magic = 0.325 × floor(Magic × 1.5)
-    // combat = base + max(melee, ranged, magic)
-
-    // Since we don't have Prayer or Magic yet, simplified formula:
-    const base = 0.25 * (skills.defense.level + skills.constitution.level);
-
-    const melee = 0.325 * (skills.attack.level + skills.strength.level);
-    const ranged = 0.325 * Math.floor(skills.ranged.level * 1.5);
-
-    const combatLevel = base + Math.max(melee, ranged);
-
-    return Math.floor(combatLevel);
+    return calculateRulesCombatLevel({
+      attack: skills.attack.level,
+      strength: skills.strength.level,
+      defense: skills.defense.level,
+      hitpoints: skills.constitution.level,
+      ranged: skills.ranged.level,
+      magic: skills.magic.level,
+      prayer: skills.prayer.level,
+    });
   }
 
   /**
@@ -2236,6 +2688,7 @@ export class PlayerSystem extends SystemBase {
       (player.data as { selectedSpell?: string | null }).selectedSpell =
         spellId;
     }
+    player.selectedSpell = spellId;
 
     // ALSO update on Entities.players (used by CombatSystem via world.getPlayer())
     const entitiesPlayer = this.world.getPlayer?.(playerId);
@@ -2248,7 +2701,7 @@ export class PlayerSystem extends SystemBase {
     if (this.world.isServer && this.databaseSystem) {
       const databaseId = PlayerIdMapper.getDatabaseId(playerId);
       this.databaseSystem.savePlayer(databaseId, {
-        selectedSpell: spellId ?? undefined,
+        selectedSpell: spellId,
       });
     }
 
@@ -2346,10 +2799,18 @@ export class PlayerSystem extends SystemBase {
         statsComponent.data.defense = data.skills.defense;
         statsComponent.data.constitution = data.skills.constitution;
         statsComponent.data.ranged = data.skills.ranged;
+        statsComponent.data.magic = data.skills.magic;
+        statsComponent.data.prayer = data.skills.prayer;
         statsComponent.data.woodcutting = data.skills.woodcutting;
+        statsComponent.data.mining = data.skills.mining;
         statsComponent.data.fishing = data.skills.fishing;
         statsComponent.data.firemaking = data.skills.firemaking;
         statsComponent.data.cooking = data.skills.cooking;
+        statsComponent.data.smithing = data.skills.smithing;
+        statsComponent.data.agility = data.skills.agility;
+        statsComponent.data.crafting = data.skills.crafting;
+        statsComponent.data.fletching = data.skills.fletching;
+        statsComponent.data.runecrafting = data.skills.runecrafting;
       }
     }
 
@@ -2391,20 +2852,34 @@ export class PlayerSystem extends SystemBase {
       defenseLevel: s.defense.level,
       constitutionLevel: s.constitution.level,
       rangedLevel: s.ranged.level,
+      magicLevel: s.magic.level,
       woodcuttingLevel: s.woodcutting.level,
+      miningLevel: s.mining.level,
       fishingLevel: s.fishing.level,
       firemakingLevel: s.firemaking.level,
       cookingLevel: s.cooking.level,
+      smithingLevel: s.smithing.level,
+      agilityLevel: s.agility.level,
+      craftingLevel: s.crafting.level,
+      fletchingLevel: s.fletching.level,
+      runecraftingLevel: s.runecrafting.level,
       // XP
       attackXp: Math.floor(s.attack.xp),
       strengthXp: Math.floor(s.strength.xp),
       defenseXp: Math.floor(s.defense.xp),
       constitutionXp: Math.floor(s.constitution.xp),
       rangedXp: Math.floor(s.ranged.xp),
-      woodcuttingXp: Math.floor(s.woodcutting.xp),
-      fishingXp: Math.floor(s.fishing.xp),
-      firemakingXp: Math.floor(s.firemaking.xp),
-      cookingXp: Math.floor(s.cooking.xp),
+      magicXp: Math.floor(s.magic.xp),
+      woodcuttingXp: s.woodcutting.xp,
+      miningXp: s.mining.xp,
+      fishingXp: s.fishing.xp,
+      firemakingXp: s.firemaking.xp,
+      cookingXp: s.cooking.xp,
+      smithingXp: s.smithing.xp,
+      agilityXp: Math.floor(s.agility.xp),
+      craftingXp: s.crafting.xp,
+      fletchingXp: s.fletching.xp,
+      runecraftingXp: s.runecrafting.xp,
     };
     try {
       this.databaseSystem.savePlayer(playerId, update);

@@ -35,6 +35,11 @@ import {
   type SpellVisualConfig,
   type ArrowVisualConfig,
 } from "../../data/spell-visuals";
+import {
+  createArrowVisualGeometries,
+  createArrowVisualInstance,
+  type ArrowVisualGeometries,
+} from "./ArrowVisualHelpers";
 
 /**
  * Trail sprite for spell effects
@@ -49,6 +54,8 @@ interface TrailSprite {
  * Active projectile being rendered
  */
 interface ActiveProjectile {
+  /** Monotonic visual-spawn identity exposed to the stream acceptance probe. */
+  diagnosticSequence: number;
   /** Main visual - Group for both spells (multi-layer) and arrows (mesh parts) */
   sprite: THREE.Sprite | THREE.Group;
   /** Current position of projectile */
@@ -65,12 +72,15 @@ interface ActiveProjectile {
   speed: number;
   /** Max lifetime in ms (safety timeout) */
   maxLifetime: number;
+  /** Server-derived visual flight duration, excluding any launch delay. */
+  travelDurationMs?: number;
   startTime: number;
   type: "arrow" | "spell";
   spellId?: string;
   arrowId?: string;
   attackerId: string;
   targetId: string;
+  networkEventId?: string;
   /** Visual config for this projectile */
   visualConfig: SpellVisualConfig | ArrowVisualConfig;
   /** Trail sprites for spell effects */
@@ -83,6 +93,34 @@ interface ActiveProjectile {
   sparkMeshes?: THREE.Mesh[];
   /** Billboard mesh children that need to face camera each frame */
   billboardMeshes?: THREE.Mesh[];
+}
+
+export interface StreamingArrowVisualSpawnEvent {
+  sequence: number;
+  attackerId: string;
+  targetId: string;
+  arrowId: string | null;
+  networkEventId: string | null;
+  performanceTimeMs: number;
+  startPosition: [number, number, number];
+  targetPosition: [number, number, number];
+  travelDurationMs: number | null;
+}
+
+export interface StreamingProjectileVisualDiagnostics {
+  schemaVersion: 1;
+  updatedAt: number;
+  latestSequence: number;
+  arrowLaunchEventCount: number;
+  arrowSpawnCount: number;
+  arrowCancelledBeforeSpawnCount: number;
+  pendingArrowCount: number;
+  activeArrows: Array<
+    StreamingArrowVisualSpawnEvent & {
+      currentPosition: [number, number, number];
+    }
+  >;
+  recentArrowSpawns: StreamingArrowVisualSpawnEvent[];
 }
 
 /**
@@ -103,6 +141,20 @@ export class ProjectileRenderer extends System {
 
   private activeProjectiles: ActiveProjectile[] = [];
   private activeImpactParticles: ImpactParticle[] = [];
+  private projectileDiagnosticSequence = 0;
+  private arrowLaunchEventCount = 0;
+  private arrowSpawnCount = 0;
+  private arrowCancelledBeforeSpawnCount = 0;
+  private readonly recentArrowSpawns: StreamingArrowVisualSpawnEvent[] = [];
+  private static readonly MAX_RECENT_ARROW_SPAWNS = 128;
+
+  /**
+   * Arrow meshes are short-lived, but their dimensions come from a small
+   * manifest-backed set. Reuse transformed geometry across launches so a
+   * long-running ranged duel stream does not allocate and retain two new GPU
+   * geometry records for every arrow.
+   */
+  private arrowGeometryCache = new Map<string, ArrowVisualGeometries>();
 
   // Projectile movement constants
   private readonly PROJECTILE_SPEED = 12; // Units per second (tiles ~= 1 unit)
@@ -115,14 +167,23 @@ export class ProjectileRenderer extends System {
   private readonly _toRemove: number[] = [];
   private readonly _tempVec3 = new THREE.Vector3();
   private readonly _tempVec3b = new THREE.Vector3();
+  private readonly _spawnOrigin = new THREE.Vector3();
 
   // Bound handlers for cleanup
   private boundLaunchHandler: ((data: unknown) => void) | null = null;
   private boundHitHandler: ((data: unknown) => void) | null = null;
+  private boundCombatEndedHandler: ((data: unknown) => void) | null = null;
 
   // Tracks pending delayed-spawn timers so destroy() can cancel them
-  private readonly _pendingDelays: Set<ReturnType<typeof setTimeout>> =
-    new Set();
+  private readonly _pendingDelays = new Map<
+    ReturnType<typeof setTimeout>,
+    {
+      attackerId: string;
+      targetId: string;
+      type: "arrow" | "spell";
+      arrowId?: string;
+    }
+  >();
 
   // DataTexture-based glow caches (WebGPU-safe, color baked into pixels)
   // Used for both projectile layers and trail meshes via getCachedGlowTexture()
@@ -158,6 +219,7 @@ export class ProjectileRenderer extends System {
     // Create bound handlers
     this.boundLaunchHandler = this.onProjectileLaunched.bind(this);
     this.boundHitHandler = this.onProjectileHit.bind(this);
+    this.boundCombatEndedHandler = this.onCombatEnded.bind(this);
 
     // Listen for projectile events
     this.world.on(
@@ -166,52 +228,63 @@ export class ProjectileRenderer extends System {
       this,
     );
     this.world.on(EventType.COMBAT_PROJECTILE_HIT, this.boundHitHandler, this);
+    this.world.on(EventType.COMBAT_ENDED, this.boundCombatEndedHandler, this);
   }
 
-  /**
-   * Create a 3D arrow mesh (shaft + head) that can be oriented with lookAt()
-   * The arrow points along +Z axis by default
-   */
+  getStreamingProjectileVisualDiagnostics(): StreamingProjectileVisualDiagnostics {
+    return {
+      schemaVersion: 1,
+      updatedAt: Date.now(),
+      latestSequence: this.projectileDiagnosticSequence,
+      arrowLaunchEventCount: this.arrowLaunchEventCount,
+      arrowSpawnCount: this.arrowSpawnCount,
+      arrowCancelledBeforeSpawnCount: this.arrowCancelledBeforeSpawnCount,
+      pendingArrowCount: [...this._pendingDelays.values()].filter(
+        (pending) => pending.type === "arrow",
+      ).length,
+      activeArrows: this.activeProjectiles.flatMap((projectile) =>
+        projectile.type === "arrow"
+          ? [
+              {
+                sequence: projectile.diagnosticSequence,
+                attackerId: projectile.attackerId,
+                targetId: projectile.targetId,
+                arrowId: projectile.arrowId ?? null,
+                networkEventId: projectile.networkEventId ?? null,
+                performanceTimeMs: projectile.startTime,
+                startPosition: [
+                  projectile.startPos.x,
+                  projectile.startPos.y,
+                  projectile.startPos.z,
+                ] as [number, number, number],
+                targetPosition: [
+                  projectile.targetPos.x,
+                  projectile.targetPos.y,
+                  projectile.targetPos.z,
+                ] as [number, number, number],
+                travelDurationMs: projectile.travelDurationMs ?? null,
+                currentPosition: [
+                  projectile.sprite.position.x,
+                  projectile.sprite.position.y,
+                  projectile.sprite.position.z,
+                ] as [number, number, number],
+              },
+            ]
+          : [],
+      ),
+      recentArrowSpawns: this.recentArrowSpawns.map((event) => ({ ...event })),
+    };
+  }
+
+  /** Create the same nock-origin, +Z arrow silhouette used by the bow. */
   private create3DArrow(config: ArrowVisualConfig): THREE.Group {
-    const group = new THREE.Group();
-
-    const shaftLength = config.length * 0.7;
-    const headLength = config.length * 0.3;
-    const shaftRadius = config.width * 0.15;
-    const headRadius = config.width * 0.4;
-
-    // Convert colors
-    const shaftColor = config.shaftColor;
-    const headColor = config.headColor;
-
-    // Shaft (cylinder along Z axis)
-    const shaftGeometry = new THREE.CylinderGeometry(
-      shaftRadius,
-      shaftRadius,
-      shaftLength,
-      8,
-    );
-    // Rotate to point along Z and offset so end is at origin
-    shaftGeometry.rotateX(Math.PI / 2);
-    shaftGeometry.translate(0, 0, -shaftLength / 2 - headLength / 2);
-
-    // Use MeshBasicNodeMaterial for WebGPU compatibility
-    const shaftMaterial = new MeshBasicNodeMaterial();
-    shaftMaterial.color = new THREE.Color(shaftColor);
-    const shaft = new THREE.Mesh(shaftGeometry, shaftMaterial);
-    group.add(shaft);
-
-    // Arrowhead (cone pointing along +Z)
-    const headGeometry = new THREE.ConeGeometry(headRadius, headLength, 8);
-    // Rotate so cone points along +Z
-    headGeometry.rotateX(Math.PI / 2);
-
-    const headMaterial = new MeshBasicNodeMaterial();
-    headMaterial.color = new THREE.Color(headColor);
-    const head = new THREE.Mesh(headGeometry, headMaterial);
-    group.add(head);
-
-    return group;
+    const geometryKey = `${config.length}:${config.width}`;
+    let geometries = this.arrowGeometryCache.get(geometryKey);
+    if (!geometries) {
+      geometries = createArrowVisualGeometries(config);
+      this.arrowGeometryCache.set(geometryKey, geometries);
+    }
+    return createArrowVisualInstance(config, geometries).group;
   }
 
   /**
@@ -413,6 +486,8 @@ export class ProjectileRenderer extends System {
     spellId?: string;
     arrowId?: string;
     delayMs?: number;
+    travelDurationMs?: number;
+    networkEventId?: string;
   } {
     if (typeof data !== "object" || data === null) return false;
     const d = data as Record<string, unknown>;
@@ -430,7 +505,32 @@ export class ProjectileRenderer extends System {
     // Optional fields - validate if present
     if (d.spellId !== undefined && typeof d.spellId !== "string") return false;
     if (d.arrowId !== undefined && typeof d.arrowId !== "string") return false;
-    if (d.delayMs !== undefined && typeof d.delayMs !== "number") return false;
+    if (
+      d.networkEventId !== undefined &&
+      (typeof d.networkEventId !== "string" ||
+        d.networkEventId.length === 0 ||
+        d.networkEventId.length > 160)
+    ) {
+      return false;
+    }
+    if (
+      d.delayMs !== undefined &&
+      (typeof d.delayMs !== "number" ||
+        !Number.isFinite(d.delayMs) ||
+        d.delayMs < 0 ||
+        d.delayMs > 5_000)
+    ) {
+      return false;
+    }
+    if (
+      d.travelDurationMs !== undefined &&
+      (typeof d.travelDurationMs !== "number" ||
+        !Number.isFinite(d.travelDurationMs) ||
+        d.travelDurationMs < 50 ||
+        d.travelDurationMs > 10_000)
+    ) {
+      return false;
+    }
 
     return true;
   }
@@ -445,8 +545,11 @@ export class ProjectileRenderer extends System {
     const p = pos as Record<string, unknown>;
     return (
       typeof p.x === "number" &&
+      Number.isFinite(p.x) &&
       typeof p.y === "number" &&
-      typeof p.z === "number"
+      Number.isFinite(p.y) &&
+      typeof p.z === "number" &&
+      Number.isFinite(p.z)
     );
   }
 
@@ -484,11 +587,14 @@ export class ProjectileRenderer extends System {
       spellId,
       arrowId,
       delayMs,
+      travelDurationMs,
+      networkEventId,
     } = data;
 
     // Determine if this is an arrow or spell
     const isSpell = projectileType !== "arrow" && spellId;
     const type = isSpell ? "spell" : "arrow";
+    if (type === "arrow") this.arrowLaunchEventCount++;
 
     // If there's a delay (e.g., for magic cast animation), wait before spawning
     if (delayMs && delayMs > 0) {
@@ -502,9 +608,16 @@ export class ProjectileRenderer extends System {
           targetPosition,
           spellId,
           arrowId,
+          travelDurationMs,
+          networkEventId,
         );
       }, delayMs);
-      this._pendingDelays.add(handle);
+      this._pendingDelays.set(handle, {
+        attackerId,
+        targetId,
+        type,
+        ...(arrowId ? { arrowId } : {}),
+      });
     } else {
       this.createProjectile(
         attackerId,
@@ -514,6 +627,8 @@ export class ProjectileRenderer extends System {
         targetPosition,
         spellId,
         arrowId,
+        travelDurationMs,
+        networkEventId,
       );
     }
   };
@@ -525,6 +640,20 @@ export class ProjectileRenderer extends System {
     // Validate payload structure before use
     if (!this.isValidHitPayload(data)) {
       return;
+    }
+
+    // A throttled background tab can receive the authoritative impact before
+    // its delayed visual-spawn timer fires. Cancel that timer so a projectile
+    // cannot appear after its damage splat.
+    for (const [handle, pair] of this._pendingDelays) {
+      if (
+        pair.attackerId === data.attackerId &&
+        pair.targetId === data.targetId
+      ) {
+        if (pair.type === "arrow") this.arrowCancelledBeforeSpawnCount++;
+        clearTimeout(handle);
+        this._pendingDelays.delete(handle);
+      }
     }
 
     // Find and mark for removal any projectile matching this attacker/target
@@ -540,6 +669,100 @@ export class ProjectileRenderer extends System {
     }
   };
 
+  /** Remove every pending/active visual for a combat pair without an impact. */
+  private onCombatEnded = (data: unknown): void => {
+    if (!this.isValidHitPayload(data)) return;
+
+    for (const [handle, pair] of this._pendingDelays) {
+      const matchesPair =
+        (pair.attackerId === data.attackerId &&
+          pair.targetId === data.targetId) ||
+        (pair.attackerId === data.targetId &&
+          pair.targetId === data.attackerId);
+      if (matchesPair) {
+        if (pair.type === "arrow") this.arrowCancelledBeforeSpawnCount++;
+        clearTimeout(handle);
+        this._pendingDelays.delete(handle);
+      }
+    }
+
+    for (let i = this.activeProjectiles.length - 1; i >= 0; i--) {
+      const projectile = this.activeProjectiles[i];
+      const matchesPair =
+        (projectile.attackerId === data.attackerId &&
+          projectile.targetId === data.targetId) ||
+        (projectile.attackerId === data.targetId &&
+          projectile.targetId === data.attackerId);
+      if (matchesPair) {
+        this.removeProjectile(projectile);
+        this.activeProjectiles.splice(i, 1);
+      }
+    }
+  };
+
+  /**
+   * Resolve the arrow's release origin from the rendered attacker's actual
+   * draw hand at the delayed launch instant. Server positions remain the
+   * fail-safe for mobs, unloaded avatars, and malformed client rigs.
+   */
+  private resolveProjectileStartPosition(
+    attackerId: string,
+    type: "arrow" | "spell",
+    sourcePos: { x: number; y: number; z: number },
+  ): THREE.Vector3 {
+    const origin = this._spawnOrigin.set(
+      sourcePos.x,
+      sourcePos.y + 1.1,
+      sourcePos.z,
+    );
+    if (type !== "arrow") return origin;
+
+    const entity = this.world.entities?.get(attackerId) as
+      | {
+          _avatar?: {
+            instance?: {
+              raw?: {
+                userData?: {
+                  vrm?: {
+                    humanoid?: {
+                      getRawBoneNode?: (name: string) => THREE.Object3D | null;
+                    };
+                  };
+                };
+              };
+            };
+          };
+          avatar?: {
+            instance?: {
+              raw?: {
+                userData?: {
+                  vrm?: {
+                    humanoid?: {
+                      getRawBoneNode?: (name: string) => THREE.Object3D | null;
+                    };
+                  };
+                };
+              };
+            };
+          };
+        }
+      | undefined;
+    const raw = entity?._avatar?.instance?.raw ?? entity?.avatar?.instance?.raw;
+    const drawHand =
+      raw?.userData?.vrm?.humanoid?.getRawBoneNode?.("rightHand");
+    if (!drawHand) return origin;
+
+    drawHand.getWorldPosition(origin);
+    if (
+      !Number.isFinite(origin.x) ||
+      !Number.isFinite(origin.y) ||
+      !Number.isFinite(origin.z)
+    ) {
+      origin.set(sourcePos.x, sourcePos.y + 1.1, sourcePos.z);
+    }
+    return origin;
+  }
+
   /**
    * Create a new projectile sprite with optional trail
    */
@@ -551,18 +774,26 @@ export class ProjectileRenderer extends System {
     targetPos: { x: number; y: number; z: number },
     spellId?: string,
     arrowId?: string,
+    travelDurationMs?: number,
+    networkEventId?: string,
   ): void {
     if (!this.world.stage?.scene) {
       return;
     }
 
-    // Set initial position (slightly above ground)
-    const startY = sourcePos.y + 1.1;
+    const start = this.resolveProjectileStartPosition(
+      attackerId,
+      type,
+      sourcePos,
+    );
+    const startX = start.x;
+    const startY = start.y;
+    const startZ = start.z;
     const endY = targetPos.y + 1.0;
 
     // Calculate initial distance for arc calculation
-    const dx = targetPos.x - sourcePos.x;
-    const dz = targetPos.z - sourcePos.z;
+    const dx = targetPos.x - startX;
+    const dz = targetPos.z - startZ;
     const totalDistance = Math.sqrt(dx * dx + dz * dz);
 
     // Get visual config
@@ -578,13 +809,7 @@ export class ProjectileRenderer extends System {
       const arrowConfig = visualConfig as ArrowVisualConfig;
 
       projectileObject = this.create3DArrow(arrowConfig);
-
-      // Offset arrow spawn forward toward target so it appears to come from the bow
-      const forwardOffset = 1.2;
-      const dirLen = totalDistance > 0 ? totalDistance : 1;
-      const offsetX = sourcePos.x + (dx / dirLen) * forwardOffset;
-      const offsetZ = sourcePos.z + (dz / dirLen) * forwardOffset;
-      projectileObject.position.set(offsetX, startY, offsetZ);
+      projectileObject.position.set(startX, startY, startZ);
 
       // Point arrow toward target using lookAt
       const targetPoint = new THREE.Vector3(targetPos.x, endY, targetPos.z);
@@ -596,9 +821,9 @@ export class ProjectileRenderer extends System {
 
       const spellResult = this.createSpellGroup(
         spellConfig,
-        sourcePos.x,
+        startX,
         startY,
-        sourcePos.z,
+        startZ,
       );
       projectileObject = spellResult.group;
       spellSparkMeshes = spellResult.sparkMeshes;
@@ -640,16 +865,14 @@ export class ProjectileRenderer extends System {
         const trailMesh = new THREE.Mesh(geom, trailMaterial);
         const trailSize = spellConfig.size * (0.3 + (i / trailLength) * 0.4);
         trailMesh.scale.set(trailSize, trailSize, trailSize);
-        trailMesh.position.set(sourcePos.x, startY, sourcePos.z);
+        trailMesh.position.set(startX, startY, startZ);
         trailMesh.visible = false;
         trailMesh.frustumCulled = false;
         trailMesh.renderOrder = 997;
 
         this.world.stage.scene.add(trailMesh);
         trailSprites.push({ mesh: trailMesh, index: i });
-        trailPositions.push(
-          new THREE.Vector3(sourcePos.x, startY, sourcePos.z),
-        );
+        trailPositions.push(new THREE.Vector3(startX, startY, startZ));
       }
     }
 
@@ -660,7 +883,10 @@ export class ProjectileRenderer extends System {
     const spawnX = projectileObject.position.x;
     const spawnZ = projectileObject.position.z;
 
+    const startTime = performance.now();
+    const diagnosticSequence = ++this.projectileDiagnosticSequence;
     this.activeProjectiles.push({
+      diagnosticSequence,
       sprite: projectileObject,
       currentPos: new THREE.Vector3(spawnX, startY, spawnZ),
       startPos: new THREE.Vector3(spawnX, startY, spawnZ),
@@ -668,13 +894,15 @@ export class ProjectileRenderer extends System {
       totalDistance,
       distanceTraveled: 0,
       speed,
-      maxLifetime: this.MAX_LIFETIME,
-      startTime: performance.now(),
+      maxLifetime: Math.max(this.MAX_LIFETIME, (travelDurationMs ?? 0) + 1_000),
+      travelDurationMs,
+      startTime,
       type,
       spellId,
       arrowId,
       attackerId,
       targetId,
+      networkEventId,
       visualConfig,
       trailSprites,
       trailPositions,
@@ -683,6 +911,26 @@ export class ProjectileRenderer extends System {
       billboardMeshes:
         spellBillboardMeshes.length > 0 ? spellBillboardMeshes : undefined,
     });
+    if (type === "arrow") {
+      this.arrowSpawnCount++;
+      this.recentArrowSpawns.push({
+        sequence: diagnosticSequence,
+        attackerId,
+        targetId,
+        arrowId: arrowId ?? null,
+        networkEventId: networkEventId ?? null,
+        performanceTimeMs: startTime,
+        startPosition: [spawnX, startY, spawnZ],
+        targetPosition: [targetPos.x, endY, targetPos.z],
+        travelDurationMs: travelDurationMs ?? null,
+      });
+      if (
+        this.recentArrowSpawns.length >
+        ProjectileRenderer.MAX_RECENT_ARROW_SPAWNS
+      ) {
+        this.recentArrowSpawns.shift();
+      }
+    }
   }
 
   /**
@@ -723,7 +971,7 @@ export class ProjectileRenderer extends System {
       const elapsed = now - proj.startTime;
 
       // Safety timeout or forced removal from hit event
-      if (elapsed > proj.maxLifetime) {
+      if (elapsed >= proj.maxLifetime) {
         // maxLifetime=0 means forced by hit event — spawn impact burst
         if (proj.maxLifetime === 0) {
           this.spawnImpactBurst(proj);
@@ -736,6 +984,19 @@ export class ProjectileRenderer extends System {
       // Track moving target - update targetPos with current target position
       this.getTargetPosition(proj.targetId, proj.targetPos);
 
+      // The server's impact tick is authoritative. When its derived duration
+      // elapses locally, finish the visual even if frame cadence or target
+      // motion prevented the distance threshold from being crossed.
+      if (
+        proj.travelDurationMs !== undefined &&
+        elapsed >= proj.travelDurationMs
+      ) {
+        this.spawnImpactBurst(proj);
+        this.removeProjectile(proj);
+        this._toRemove.push(i);
+        continue;
+      }
+
       // Calculate direction to target
       this._tempVec3.copy(proj.targetPos).sub(proj.currentPos);
       // OPTIMIZATION: use lengthSq for hit check (avoids sqrt), then compute sqrt once
@@ -743,7 +1004,10 @@ export class ProjectileRenderer extends System {
       const distSqToTarget = this._tempVec3.lengthSq();
 
       // Check if we've hit the target
-      if (distSqToTarget < this.HIT_THRESHOLD * this.HIT_THRESHOLD) {
+      if (
+        proj.travelDurationMs === undefined &&
+        distSqToTarget < this.HIT_THRESHOLD * this.HIT_THRESHOLD
+      ) {
         this.spawnImpactBurst(proj);
         this.removeProjectile(proj);
         this._toRemove.push(i);
@@ -754,7 +1018,17 @@ export class ProjectileRenderer extends System {
       const distanceToTarget = Math.sqrt(distSqToTarget);
       // divideScalar(dist) is equivalent to normalize() but avoids a second sqrt
       this._tempVec3.divideScalar(distanceToTarget);
-      const moveDistance = proj.speed * dt;
+      const remainingFlightSeconds =
+        proj.travelDurationMs === undefined
+          ? null
+          : Math.max(0.001, (proj.travelDurationMs - elapsed) / 1_000 + dt);
+      const moveDistance =
+        remainingFlightSeconds === null
+          ? proj.speed * dt
+          : Math.min(
+              distanceToTarget,
+              (distanceToTarget * dt) / remainingFlightSeconds,
+            );
       proj.distanceTraveled += moveDistance;
 
       // Move toward target
@@ -766,10 +1040,10 @@ export class ProjectileRenderer extends System {
         const arcHeight = arrowConfig.arcHeight ?? 1.5;
 
         // Progress based on distance traveled vs total distance
-        const progress = Math.min(
-          proj.distanceTraveled / proj.totalDistance,
-          1,
-        );
+        const progress =
+          proj.travelDurationMs === undefined
+            ? Math.min(proj.distanceTraveled / proj.totalDistance, 1)
+            : Math.min(elapsed / proj.travelDurationMs, 1);
 
         // Parabolic arc: height = 4 * h * t * (1 - t)
         const arcOffset = 4 * arcHeight * progress * (1 - progress);
@@ -851,9 +1125,11 @@ export class ProjectileRenderer extends System {
       ) {
         // Progress approximation for trail opacity
         const progress =
-          proj.totalDistance > 0
-            ? Math.min(proj.distanceTraveled / proj.totalDistance, 1)
-            : 0.5;
+          proj.travelDurationMs !== undefined
+            ? Math.min(elapsed / proj.travelDurationMs, 1)
+            : proj.totalDistance > 0
+              ? Math.min(proj.distanceTraveled / proj.totalDistance, 1)
+              : 0.5;
         this.updateTrail(proj, progress);
       }
 
@@ -1028,11 +1304,20 @@ export class ProjectileRenderer extends System {
       }
     }
 
-    // Dispose arrow mesh materials (shaft + head)
+    // Dispose arrow mesh materials; geometry is shared by the renderer cache.
     if (proj.type === "arrow" && proj.sprite instanceof THREE.Group) {
+      const disposed = new Set<THREE.Material>();
       proj.sprite.traverse((child) => {
         if (child instanceof THREE.Mesh && child.material) {
-          (child.material as THREE.Material).dispose();
+          const materials = Array.isArray(child.material)
+            ? child.material
+            : [child.material];
+          for (const material of materials) {
+            if (!disposed.has(material)) {
+              material.dispose();
+              disposed.add(material);
+            }
+          }
         }
       });
     }
@@ -1048,7 +1333,7 @@ export class ProjectileRenderer extends System {
 
   destroy(): void {
     // Cancel any pending delayed-spawn timers so they don't fire after teardown
-    for (const handle of this._pendingDelays) {
+    for (const handle of this._pendingDelays.keys()) {
       clearTimeout(handle);
     }
     this._pendingDelays.clear();
@@ -1064,6 +1349,10 @@ export class ProjectileRenderer extends System {
     if (this.boundHitHandler) {
       this.world.off(EventType.COMBAT_PROJECTILE_HIT, this.boundHitHandler);
       this.boundHitHandler = null;
+    }
+    if (this.boundCombatEndedHandler) {
+      this.world.off(EventType.COMBAT_ENDED, this.boundCombatEndedHandler);
+      this.boundCombatEndedHandler = null;
     }
 
     // Clean up active projectiles
@@ -1083,6 +1372,13 @@ export class ProjectileRenderer extends System {
       tex.dispose();
     }
     this.spellGlowTextures.clear();
+
+    for (const geometries of this.arrowGeometryCache.values()) {
+      geometries.shaft.dispose();
+      geometries.head.dispose();
+      geometries.fletching.dispose();
+    }
+    this.arrowGeometryCache.clear();
 
     // Dispose shared geometry
     // Only dispose the shared geometry when the last instance is torn down

@@ -56,6 +56,46 @@ import {
   ticksToMs as ticksToMsUtil,
 } from "./gathering/SuccessRateCalculator";
 import { DEBUG_GATHERING } from "./gathering/debug";
+import type {
+  AtomicGatheringRewardReceipt,
+  InventorySystem,
+} from "../character/InventorySystem";
+import type { DatabaseSystem } from "../../../types/systems/system-interfaces";
+import { canPlayerPerformPreparationAction } from "../interaction/ProcessingStationAuthority";
+
+type PendingGatherReward = {
+  operationId: string;
+  playerId: PlayerID;
+  resourceId: ResourceID;
+  skill: "woodcutting" | "mining" | "fishing";
+  drop: ResourceDrop;
+  resourceName: string;
+  respawnTicks: number;
+  secondaryItemId: string | null;
+  depletionMode: "none" | "chance" | "timer";
+  shouldDeplete: boolean;
+  state: "in_flight" | "retry_wait" | "settled";
+  retryCount: number;
+  retryAtTick: number;
+  receipt: AtomicGatheringRewardReceipt | null;
+};
+
+export interface ResourceEcologyStats {
+  totalResources: number;
+  availableResources: number;
+  depletedResources: number;
+  manifestResources: number;
+  resourceVariants: number;
+  forestryTimers: number;
+  forestryActiveGatherers: number;
+  scheduledRespawns: number;
+  fishingMovementTimers: number;
+  pendingFishingAreas: number;
+  playerSkillSnapshots: number;
+  gatherRateLimits: number;
+  suspiciousPatternEntries: number;
+  custody: ReturnType<ResourceSystem["getGatheringCustodyStats"]>;
+}
 
 /**
  * Player entity interface for emote operations.
@@ -132,6 +172,7 @@ export class ResourceSystem extends SystemBase {
       cycleTickInterval: number; // Ticks between attempts
       attempts: number;
       successes: number;
+      pendingRewardOperationId: string | null;
       // Skill being used (woodcutting, mining, fishing)
       skill: string;
       // Tool item ID being used (for visual display, e.g., fishing rod)
@@ -157,6 +198,11 @@ export class ResourceSystem extends SystemBase {
       };
     }
   >();
+  /** One unresolved durable reward per player; ambiguity always reuses its ID. */
+  private pendingGatherRewards = new Map<PlayerID, PendingGatherReward>();
+  /** Potentially depleting resources admit one reward commit at a time. */
+  private gatheringRewardReservations = new Map<ResourceID, string>();
+  private isDestroying = false;
   // Tick-based respawn tracking (replaces legacy setTimeout approach)
   private respawnAtTick = new Map<ResourceID, number>();
   private playerSkills = new Map<
@@ -262,7 +308,7 @@ export class ResourceSystem extends SystemBase {
       name: "resource",
       dependencies: {
         required: [], // Resource system can work independently
-        optional: ["inventory", "skills", "ui", "terrain"], // Better with inventory, skills, and terrain systems
+        optional: ["inventory", "skills", "ui", "terrain", "database"], // Better with inventory, skills, UI, terrain, and durable node state
       },
       autoCleanup: true,
     });
@@ -273,8 +319,7 @@ export class ResourceSystem extends SystemBase {
    */
   private sendNetworkMessage(method: string, data: unknown): void {
     const network = this.world.network as
-      | { send?: (method: string, data: unknown) => void }
-      | undefined;
+      { send?: (method: string, data: unknown) => void } | undefined;
     if (network?.send) {
       network.send(method, data);
     }
@@ -416,6 +461,16 @@ export class ResourceSystem extends SystemBase {
       }
     });
 
+    this.subscribe<{ attackerId: string; targetId: string }>(
+      EventType.COMBAT_STARTED,
+      (data) => {
+        this.cancelGatheringForPlayer(data.attackerId, "combat");
+        if (data.targetId !== data.attackerId) {
+          this.cancelGatheringForPlayer(data.targetId, "combat");
+        }
+      },
+    );
+
     // RULES ACCURACY: Cancel gathering when player opens bank
     // Opening interface = new action
     this.subscribe<{ playerId: string; bankId?: string }>(
@@ -481,7 +536,7 @@ export class ResourceSystem extends SystemBase {
     });
 
     // Terrain resources now flow through RESOURCE_SPAWN_POINTS_REGISTERED only
-    this.subscribe<{ tileId: string }>("terrain:tile:unloaded", (data) =>
+    this.subscribe(EventType.TERRAIN_TILE_UNLOADED, (data) =>
       this.onTerrainTileUnloaded(data),
     );
 
@@ -664,15 +719,19 @@ export class ResourceSystem extends SystemBase {
         const suffix = r.resourceId.replace(resourceData.type + "_", "");
         const subType = suffix === "normal" ? undefined : suffix;
 
-        // Ground Y position to terrain height
+        // Land resources sit on terrain. Authored fishing spots sit on the
+        // visible water plane so their deterministic placement matches the
+        // same interaction geometry as dynamically discovered shore spots.
         let groundedY = r.position.y;
         if (this.terrainSystem) {
-          const terrainHeight = this.terrainSystem.getHeightAt(
-            r.position.x,
-            r.position.z,
-          );
-          if (Number.isFinite(terrainHeight)) {
-            groundedY = terrainHeight; // Feet at ground level
+          const authoredHeight =
+            resourceData.type === "fishing_spot"
+              ? this.terrainSystem
+                  .getWaterBodyRegistry()
+                  .getWaterSurfaceAt(r.position.x, r.position.z)
+              : this.terrainSystem.getHeightAt(r.position.x, r.position.z);
+          if (Number.isFinite(authoredHeight)) {
+            groundedY = authoredHeight;
           }
         }
 
@@ -772,8 +831,27 @@ export class ResourceSystem extends SystemBase {
       area.bounds,
       getHeight,
       getWaterSurface,
-      8, // minSpacing — spread spots out
+      6, // minSpacing — distinct usable shore positions in the compact pond
     );
+
+    // Static fishing spots are the reliable launch baseline. Keep dynamic
+    // ecology as supplemental variety without ever spawning a second entity
+    // onto an authored spot's tile.
+    const authoredFishingTiles = new Set(
+      area.resources
+        .filter(
+          (resource) =>
+            getExternalResource(resource.resourceId)?.type === "fishing_spot",
+        )
+        .map((resource) => {
+          const tile = worldToTile(resource.position.x, resource.position.z);
+          return `${tile.x},${tile.z}`;
+        }),
+    );
+    shorePoints = shorePoints.filter((point) => {
+      const tile = worldToTile(point.x, point.z);
+      return !authoredFishingTiles.has(`${tile.x},${tile.z}`);
+    });
 
     // If collision flags returned nothing, terrain tiles aren't baked yet
     // (called at server startup before tiles load). Queue for retry — the
@@ -959,6 +1037,54 @@ export class ResourceSystem extends SystemBase {
       return;
     }
 
+    const preparedResources: Array<{
+      spawnPoint: TerrainResourceSpawnPoint;
+      resource: Resource;
+    }> = [];
+    for (const spawnPoint of spawnPoints) {
+      try {
+        const resource = this.createResourceFromSpawnPoint(spawnPoint);
+        if (resource) preparedResources.push({ spawnPoint, resource });
+      } catch (error) {
+        console.error(
+          `[ResourceSystem] Failed to prepare resource "${spawnPoint.subType ?? "normal"}" (type=${spawnPoint.type}):`,
+          error,
+        );
+      }
+    }
+
+    const activeResourceStates = new Map<
+      string,
+      { depletedAt: number; respawnAt: number }
+    >();
+    const databaseSystem = this.world.getSystem?.<DatabaseSystem>("database");
+    if (
+      databaseSystem &&
+      typeof databaseSystem.getGatheringResourceStatesAsync === "function" &&
+      preparedResources.length > 0
+    ) {
+      try {
+        const persisted = await databaseSystem.getGatheringResourceStatesAsync(
+          preparedResources.map(({ resource }) => resource.id),
+        );
+        for (const state of persisted) {
+          if (
+            Number.isSafeInteger(state.depletedAt) &&
+            Number.isSafeInteger(state.respawnAt) &&
+            state.respawnAt > Date.now()
+          ) {
+            activeResourceStates.set(state.resourceId, state);
+          }
+        }
+      } catch (error) {
+        console.error(
+          "[ResourceSystem] Durable gathering state could not be loaded; refusing to expose this resource batch.",
+          error,
+        );
+        return;
+      }
+    }
+
     // Get EntityManager for spawning
     const entityManager = this.world.getSystem("entity-manager") as {
       spawnEntity?: (
@@ -976,11 +1102,23 @@ export class ResourceSystem extends SystemBase {
     let spawned = 0;
     const batchedEntityData: unknown[] = [];
 
-    for (const spawnPoint of spawnPoints) {
+    for (const { spawnPoint, resource } of preparedResources) {
       try {
-        const resource = this.createResourceFromSpawnPoint(spawnPoint);
-        if (!resource) {
-          continue;
+        const persistedState = activeResourceStates.get(resource.id);
+        const isPersistedDepleted = Boolean(persistedState);
+        if (persistedState) {
+          resource.isAvailable = false;
+          resource.lastDepleted = persistedState.depletedAt;
+          const remainingTicks = Math.max(
+            1,
+            Math.ceil(
+              (persistedState.respawnAt - Date.now()) / TICK_DURATION_MS,
+            ),
+          );
+          this.respawnAtTick.set(
+            createResourceID(resource.id),
+            (this.world.currentTick || 0) + remainingTicks,
+          );
         }
 
         // Store in map for tracking
@@ -1083,7 +1221,7 @@ export class ResourceSystem extends SystemBase {
             chance: drop.chance,
           })),
           respawnTime: resource.respawnTime,
-          depleted: false,
+          depleted: isPersistedDepleted,
           // Manifest-driven model config with scale variation applied
           depletedModelPath: this.getDepletedModelPathForResource(
             resource.type,
@@ -1423,10 +1561,11 @@ export class ResourceSystem extends SystemBase {
    * re-broadcast when the tile is loaded again later.
    * Note: Manifest resources (from world-areas.json) are protected and never deleted.
    */
-  private onTerrainTileUnloaded(data: { tileId: string }): void {
-    // Extract tileX and tileZ from tileId (format: "x,z")
-    const [tileX, tileZ] = data.tileId.split(",").map(Number);
-
+  private onTerrainTileUnloaded(data: {
+    tileId: string;
+    tileX: number;
+    tileZ: number;
+  }): void {
     const entityManager = this.world.getSystem("entity-manager") as {
       destroyEntity?: (id: string) => boolean;
     } | null;
@@ -1438,11 +1577,28 @@ export class ResourceSystem extends SystemBase {
         continue;
       }
 
-      // Check if resource belongs to this tile (based on position)
-      const resourceTileX = Math.floor(resource.position.x / 100); // 100m tile size
-      const resourceTileZ = Math.floor(resource.position.z / 100);
+      // Terrain chunks are centered on tileIndex * size, so tile N spans
+      // [(N - 0.5) * size, (N + 0.5) * size). Keep this identical to
+      // TerrainSystem.worldToTerrainTileIndex, including negative coordinates.
+      const terrainTileSize = TERRAIN_CONSTANTS.TERRAIN_TILE_SIZE;
+      const resourceTileX = Math.floor(
+        (resource.position.x + terrainTileSize * 0.5) / terrainTileSize,
+      );
+      const resourceTileZ = Math.floor(
+        (resource.position.z + terrainTileSize * 0.5) / terrainTileSize,
+      );
 
-      if (resourceTileX === tileX && resourceTileZ === tileZ) {
+      if (resourceTileX === data.tileX && resourceTileZ === data.tileZ) {
+        const gatheringPlayers: string[] = [];
+        for (const [playerId, session] of this.activeGathering) {
+          if (session.resourceId === resourceId) {
+            gatheringPlayers.push(playerId);
+          }
+        }
+        for (const playerId of gatheringPlayers) {
+          this.cancelGatheringForPlayer(playerId, "terrain_tile_unloaded");
+        }
+
         // Destroy the entity in EntityManager so it's removed from the
         // entities map and broadcast as entityRemoved to clients. Without
         // this, the entity lingers and the duplicate-ID check in
@@ -1452,15 +1608,10 @@ export class ResourceSystem extends SystemBase {
         }
 
         this.resources.delete(resourceId);
-
-        // Clean up any active gathering on this resource
-        // Note: activeGathering is keyed by PlayerID, not ResourceID
-        // We need to find and remove any gathering sessions for this resource
-        for (const [playerId, session] of this.activeGathering) {
-          if (session.resourceId === resourceId) {
-            this.activeGathering.delete(playerId);
-          }
-        }
+        this.resourceVariants.delete(resourceId);
+        this.resourceTimers.delete(resourceId);
+        this.respawnAtTick.delete(resourceId);
+        this.fishingSpotMoveTimers.delete(resourceId);
       }
     }
   }
@@ -1505,7 +1656,18 @@ export class ResourceSystem extends SystemBase {
       return;
     }
 
+    if (!canPlayerPerformPreparationAction(this.world, data.playerId)) {
+      return;
+    }
+
     const playerId = createPlayerID(data.playerId);
+
+    // An ambiguous commit must finish under its original idempotency key before
+    // this player can begin another harvest. Starting a second action here
+    // could turn a lost database response into a duplicate reward.
+    if (this.pendingGatherRewards.has(playerId)) {
+      return;
+    }
 
     // ===== SECURITY: Rate limiting - prevent gather request spam =====
     // Silently drops requests faster than 1 tick (600ms), just like classic MMORPG
@@ -1886,6 +2048,7 @@ export class ResourceSystem extends SystemBase {
       cycleTickInterval,
       attempts: 0,
       successes: 0,
+      pendingRewardOperationId: null,
       // Store skill and tool for visual display
       skill: resource.skillRequired,
       toolItemId: toolInfo?.itemId ?? null,
@@ -2056,6 +2219,7 @@ export class ResourceSystem extends SystemBase {
     this.activeGathering.delete(pid);
     // SECURITY: Clean up rate limit tracking on disconnect
     this.gatherRateLimits.delete(pid);
+    this.playerSkills.delete(playerId);
   }
 
   /**
@@ -2196,6 +2360,12 @@ export class ResourceSystem extends SystemBase {
    */
   private processResourceTimers(tickNumber: number): void {
     for (const [resourceId, timer] of this.resourceTimers) {
+      // A durable reward request snapshots the timer's depletion decision.
+      // Do not let the timer cross zero while that exact request is in flight.
+      if (this.gatheringRewardReservations.has(resourceId)) {
+        timer.lastUpdateTick = tickNumber;
+        continue;
+      }
       const ticksDelta = tickNumber - timer.lastUpdateTick;
       timer.lastUpdateTick = tickNumber;
 
@@ -2507,7 +2677,9 @@ export class ResourceSystem extends SystemBase {
     const oldPos = resource.position;
 
     // Search for valid water edge points near current position
-    const searchRadius = 15;
+    const { relocateRadius, relocateMinDistance } =
+      GATHERING_CONSTANTS.FISHING_SPOT_MOVE;
+    const searchRadius = relocateRadius;
     const searchBounds = {
       minX: oldPos.x - searchRadius,
       maxX: oldPos.x + searchRadius,
@@ -2521,13 +2693,34 @@ export class ResourceSystem extends SystemBase {
       searchBounds,
       this.terrainSystem.getHeightAt.bind(this.terrainSystem),
       registry.getWaterSurfaceAt.bind(registry),
-      3, // Smaller spacing for relocation candidates
+      6, // Match spawn spacing so moves stay on established reachable shores
     );
 
-    // Filter out positions too close to current location (must move at least 5m)
+    const occupiedFishingTiles = new Set<string>();
+    for (const [otherId, otherResource] of this.resources) {
+      if (
+        otherId === resourceId ||
+        (otherResource.type !== "fishing_spot" &&
+          otherResource.skillRequired !== "fishing")
+      ) {
+        continue;
+      }
+      const tile = worldToTile(
+        otherResource.position.x,
+        otherResource.position.z,
+      );
+      occupiedFishingTiles.add(`${tile.x},${tile.z}`);
+    }
+
+    // Honor the declared movement envelope and never merge two live spots.
     const candidates = nearbyShorePoints.filter((p) => {
       const dist = Math.sqrt((p.x - oldPos.x) ** 2 + (p.z - oldPos.z) ** 2);
-      return dist >= 5;
+      const tile = worldToTile(p.x, p.z);
+      return (
+        dist >= relocateMinDistance &&
+        dist <= relocateRadius &&
+        !occupiedFishingTiles.has(`${tile.x},${tile.z}`)
+      );
     });
 
     // If no valid spots nearby, stay put and try again later
@@ -2566,9 +2759,36 @@ export class ResourceSystem extends SystemBase {
     // Update entity position if it exists
     const entity = this.world.entities.get(resourceId);
     if (entity?.position) {
-      entity.position.x = newPos.x;
-      entity.position.y = newPos.y;
-      entity.position.z = newPos.z;
+      if (typeof entity.position.set === "function") {
+        entity.position.set(newPos.x, newPos.y, newPos.z);
+      } else {
+        entity.position.x = newPos.x;
+        entity.position.y = newPos.y;
+        entity.position.z = newPos.z;
+      }
+      const entityData = entity.data as
+        | {
+            position?:
+              [number, number, number] | { x: number; y: number; z: number };
+          }
+        | undefined;
+      if (Array.isArray(entityData?.position)) {
+        entityData.position[0] = newPos.x;
+        entityData.position[1] = newPos.y;
+        entityData.position[2] = newPos.z;
+      } else if (entityData?.position) {
+        entityData.position.x = newPos.x;
+        entityData.position.y = newPos.y;
+        entityData.position.z = newPos.z;
+      }
+      const resourceEntity = entity as unknown as {
+        config?: { position?: { x: number; y: number; z: number } };
+        markNetworkDirty?: () => void;
+      };
+      if (resourceEntity.config?.position) {
+        resourceEntity.config.position = { ...resource.position };
+      }
+      resourceEntity.markNetworkDirty?.();
     }
 
     // Broadcast position update to clients
@@ -2590,6 +2810,231 @@ export class ResourceSystem extends SystemBase {
     this.initializeFishingSpotTimer(resourceId, resource.position);
   }
 
+  private launchGatheringRewardCommit(pending: PendingGatherReward): void {
+    const inventorySystem =
+      this.world.getSystem?.<InventorySystem>("inventory");
+    if (!inventorySystem?.commitGatheringRewardAtomic) {
+      pending.receipt = {
+        ok: false,
+        committed: false,
+        liveInventoryApplied: false,
+        playerId: pending.playerId,
+        operationId: pending.operationId,
+        replayed: false,
+        skill: pending.skill,
+        xpAmount: pending.drop.xpAmount,
+        reward: null,
+        secondaryItemId: pending.secondaryItemId,
+        retryable: true,
+        reason: "atomic_persistence_unavailable",
+      };
+      pending.state = "settled";
+      return;
+    }
+
+    pending.state = "in_flight";
+    pending.receipt = null;
+    void inventorySystem
+      .commitGatheringRewardAtomic(pending.playerId, pending.operationId, {
+        resourceId: pending.resourceId,
+        depleteAfterCommit: pending.shouldDeplete,
+        respawnTicks: pending.respawnTicks,
+        skill: pending.skill,
+        xpAmount: pending.drop.xpAmount,
+        rewardItemId: pending.drop.itemId,
+        rewardQuantity: pending.drop.quantity,
+        secondaryItemId: pending.secondaryItemId,
+      })
+      .then((receipt) => {
+        if (
+          this.isDestroying ||
+          this.pendingGatherRewards.get(pending.playerId) !== pending
+        ) {
+          return;
+        }
+        pending.receipt = receipt;
+        pending.state = "settled";
+      })
+      .catch((error) => {
+        if (
+          this.isDestroying ||
+          this.pendingGatherRewards.get(pending.playerId) !== pending
+        ) {
+          return;
+        }
+        console.error(
+          `[ResourceSystem] Gathering reward ${pending.operationId} returned an unexpected error:`,
+          error,
+        );
+        pending.receipt = {
+          ok: false,
+          committed: false,
+          liveInventoryApplied: false,
+          playerId: pending.playerId,
+          operationId: pending.operationId,
+          replayed: false,
+          skill: pending.skill,
+          xpAmount: pending.drop.xpAmount,
+          reward: null,
+          secondaryItemId: pending.secondaryItemId,
+          retryable: true,
+          reason: "persistence_ambiguous",
+        };
+        pending.state = "settled";
+      });
+  }
+
+  private releaseGatheringRewardReservation(
+    pending: PendingGatherReward,
+  ): void {
+    if (
+      this.gatheringRewardReservations.get(pending.resourceId) ===
+      pending.operationId
+    ) {
+      this.gatheringRewardReservations.delete(pending.resourceId);
+    }
+  }
+
+  private processPendingGatherRewards(tickNumber: number): void {
+    for (const pending of this.pendingGatherRewards.values()) {
+      if (pending.state === "retry_wait") {
+        if (tickNumber >= pending.retryAtTick) {
+          this.launchGatheringRewardCommit(pending);
+        }
+        continue;
+      }
+      if (pending.state !== "settled" || !pending.receipt) continue;
+
+      const receipt = pending.receipt;
+      if (!receipt.ok) {
+        if (receipt.retryable) {
+          pending.retryCount++;
+          const delayTicks = Math.min(2 ** Math.min(pending.retryCount, 6), 50);
+          pending.retryAtTick = tickNumber + delayTicks;
+          pending.receipt = null;
+          pending.state = "retry_wait";
+          if (pending.retryCount === 1 || pending.retryCount % 10 === 0) {
+            console.warn(
+              `[ResourceSystem] Retaining unresolved gathering reward ${pending.operationId}; retry ${pending.retryCount} in ${delayTicks} ticks (${receipt.reason}).`,
+            );
+          }
+          continue;
+        }
+
+        this.pendingGatherRewards.delete(pending.playerId);
+        this.releaseGatheringRewardReservation(pending);
+        const session = this.activeGathering.get(pending.playerId);
+        if (session?.pendingRewardOperationId === pending.operationId) {
+          session.pendingRewardOperationId = null;
+        }
+        const message =
+          receipt.reason === "inventory_full"
+            ? `Your inventory is too full to hold any more ${pending.drop.itemName.toLowerCase()}.`
+            : receipt.reason === "secondary_missing"
+              ? `You no longer have the required ${pending.secondaryItemId?.replace(/_/g, " ") ?? "supplies"}.`
+              : receipt.reason === "resource_unavailable"
+                ? `The ${pending.resourceName.toLowerCase()} was depleted by another gatherer.`
+                : "That gathering result could not be validated. Please try again.";
+        this.emitTypedEvent(EventType.UI_MESSAGE, {
+          playerId: pending.playerId,
+          message,
+          type: "warning",
+        });
+        this.cancelGatheringForPlayer(
+          pending.playerId,
+          `reward_${receipt.reason}`,
+        );
+        continue;
+      }
+
+      this.pendingGatherRewards.delete(pending.playerId);
+      this.releaseGatheringRewardReservation(pending);
+      const session = this.activeGathering.get(pending.playerId);
+      if (session?.pendingRewardOperationId === pending.operationId) {
+        session.pendingRewardOperationId = null;
+        session.successes++;
+      }
+
+      if (receipt.awardedXp > 0) {
+        this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
+          playerId: pending.playerId,
+          skill: pending.skill,
+          amount: receipt.awardedXp,
+        });
+      }
+      this.sendChat(
+        pending.playerId,
+        `You receive ${pending.drop.quantity}x ${pending.drop.itemName}.`,
+      );
+      this.emitTypedEvent(EventType.UI_MESSAGE, {
+        playerId: pending.playerId,
+        message: `You get some ${pending.drop.itemName.toLowerCase()}. (+${receipt.awardedXp} ${pending.skill} XP)`,
+        type: "success",
+      });
+      if (!receipt.liveInventoryApplied) {
+        this.emitTypedEvent(EventType.UI_MESSAGE, {
+          playerId: pending.playerId,
+          message:
+            "Your reward is safely recorded, but the live inventory view needs to resynchronize.",
+          type: "warning",
+        });
+      }
+
+      // Publish quest-facing gathering truth for every committed reward, not
+      // only for the subset of rolls that also deplete the source. The durable
+      // operation identity lets downstream consumers reject non-custody events.
+      this.emitTypedEvent(EventType.RESOURCE_GATHERING_COMPLETED, {
+        playerId: pending.playerId,
+        resourceId: pending.resourceId,
+        successful: true,
+        skill: pending.skill,
+        operationId: pending.operationId,
+        rewardItemId: pending.drop.itemId,
+        rewardQuantity: pending.drop.quantity,
+      });
+
+      const resource = this.resources.get(pending.resourceId);
+      if (!resource?.isAvailable) continue;
+      if (pending.depletionMode === "timer") {
+        this.handleForestryLog(
+          pending.playerId,
+          pending.resourceId,
+          tickNumber,
+        );
+      }
+      const depletedUntil = receipt.depletedUntil;
+      if (depletedUntil === null || depletedUntil <= Date.now()) continue;
+
+      resource.isAvailable = false;
+      resource.lastDepleted =
+        depletedUntil - pending.respawnTicks * TICK_DURATION_MS;
+      const resourceEntity = this.world.entities.get(pending.resourceId) as
+        ResourceEntityMethods | undefined;
+      resourceEntity?.deplete?.();
+      this.emitTypedEvent(EventType.RESOURCE_DEPLETED, {
+        resourceId: pending.resourceId,
+        position: resource.position,
+      });
+      this.sendChat(
+        pending.playerId,
+        `The ${pending.resourceName.toLowerCase()} is depleted.`,
+      );
+      this.sendNetworkMessage("resourceDepleted", {
+        resourceId: pending.resourceId,
+        position: resource.position,
+        depleted: true,
+      });
+      this.respawnAtTick.set(
+        pending.resourceId,
+        tickNumber +
+          Math.max(
+            1,
+            Math.ceil((depletedUntil - Date.now()) / TICK_DURATION_MS),
+          ),
+      );
+    }
+  }
+
   /**
    * Process all active gathering sessions on each server tick (rules-accurate 600ms)
    *
@@ -2607,12 +3052,15 @@ export class ResourceSystem extends SystemBase {
    *
    * @param tickNumber - Current server tick number for timing calculations
    *
-   * @emits INVENTORY_ITEM_ADDED on successful gather
-   * @emits SKILLS_XP_GAINED on successful gather
+   * @emits SKILLS_XP_GAINED after the durable gathering receipt commits
    * @emits RESOURCE_GATHERING_STOPPED when session ends
    * @emits RESOURCE_DEPLETED when resource is exhausted
    */
   public processGatheringTick(tickNumber: number): void {
+    // Resolve committed rewards and retry only ambiguous receipts before any
+    // new success rolls. This keeps world depletion on authoritative ticks.
+    this.processPendingGatherRewards(tickNumber);
+
     // Process respawns first (tick-based)
     this.processRespawns(tickNumber);
 
@@ -2623,21 +3071,29 @@ export class ResourceSystem extends SystemBase {
     // Only check every 10 ticks (~6s) to avoid pointless iteration.
     if (this.pendingFishingAreas.size > 0 && tickNumber % 10 === 0) {
       for (const [areaId, area] of this.pendingFishingAreas) {
-        // Quick probe: check if ANY water flag exists in the area bounds.
-        // If not, tiles aren't baked yet — skip the full spawn attempt.
-        const cx = Math.floor((area.bounds.minX + area.bounds.maxX) / 2);
-        const cz = Math.floor((area.bounds.minZ + area.bounds.maxZ) / 2);
-        const hasAnyFlags =
-          this.world.collision.getFlags(cx, cz) !== 0 ||
-          this.world.collision.getFlags(
-            Math.floor(area.bounds.minX),
-            Math.floor(area.bounds.minZ),
-          ) !== 0 ||
-          this.world.collision.getFlags(
-            Math.floor(area.bounds.maxX),
-            Math.floor(area.bounds.maxZ),
-          ) !== 0;
-        if (hasAnyFlags) {
+        // Retry only after every terrain tile intersecting the fishing area has
+        // baked walkability. A zero collision flag means "walkable", not "not
+        // ready"; the previous center/corner flag probe could therefore leave
+        // a valid pond pending forever.
+        let fullyBaked = true;
+        const sampleStep = 50;
+        for (
+          let x = area.bounds.minX;
+          x <= area.bounds.maxX && fullyBaked;
+          x += sampleStep
+        ) {
+          for (
+            let z = area.bounds.minZ;
+            z <= area.bounds.maxZ;
+            z += sampleStep
+          ) {
+            if (!this.terrainSystem?.hasBakedWalkabilityAt(x, z)) {
+              fullyBaked = false;
+              break;
+            }
+          }
+        }
+        if (fullyBaked) {
           this.spawnDynamicFishingSpots(areaId, area);
         }
       }
@@ -2658,6 +3114,9 @@ export class ResourceSystem extends SystemBase {
         completedSessions.push(playerId);
         continue;
       }
+
+      if (session.pendingRewardOperationId) continue;
+      if (this.gatheringRewardReservations.has(session.resourceId)) continue;
 
       // Only process when it's time for the next attempt (tick-based)
       if (tickNumber < session.nextAttemptTick) continue;
@@ -2717,35 +3176,6 @@ export class ResourceSystem extends SystemBase {
         continue;
       }
 
-      // Inventory capacity guard - if full, stop session
-      const inventorySystem = this.world.getSystem?.("inventory") as {
-        getInventory?: (playerId: string) => {
-          items?: unknown[];
-          capacity?: number;
-        };
-      } | null;
-      if (inventorySystem?.getInventory) {
-        const inv = inventorySystem.getInventory(playerId);
-        const capacity = (inv?.capacity as number) ?? 28;
-        const count = Array.isArray(inv?.items) ? inv!.items!.length : 0;
-        if (count >= capacity) {
-          // PERFORMANCE: Use cached drops instead of resource.drops lookup
-          const dropName =
-            session.cachedDrops[0]?.itemName?.toLowerCase() || "items";
-          this.emitTypedEvent(EventType.UI_MESSAGE, {
-            playerId: playerId,
-            message: `Your inventory is too full to hold any more ${dropName}.`,
-            type: "warning",
-          });
-          this.emitTypedEvent(EventType.RESOURCE_GATHERING_STOPPED, {
-            playerId: playerId,
-            resourceId: session.resourceId,
-          });
-          completedSessions.push(playerId);
-          continue;
-        }
-      }
-
       // RULES ACCURACY: Check for secondary consumable (bait, feathers) on each tick
       // Stop gathering if player runs out of bait/feathers
       if (resource.secondaryRequired) {
@@ -2791,8 +3221,6 @@ export class ResourceSystem extends SystemBase {
       }
 
       if (isSuccessful) {
-        session.successes++;
-
         // RULES ACCURACY: Get player's skill level for priority-based fish rolling
         const cachedSkills = this.playerSkills.get(playerId);
         const playerSkillLevel =
@@ -2801,132 +3229,46 @@ export class ResourceSystem extends SystemBase {
         // PERFORMANCE: Roll against cached drop table (avoids resource lookup)
         // For fishing, this uses classic MMORPG priority rolling with per-fish catch rates
         const drop = this.rollDrop(session.cachedDrops, playerSkillLevel);
-
-        // Add item to inventory using manifest data
-        this.emitTypedEvent(EventType.INVENTORY_ITEM_ADDED, {
-          playerId: playerId,
-          item: {
-            id: `inv_${playerId}_${Date.now()}_${drop.itemId}`,
-            itemId: drop.itemId, // FROM MANIFEST
-            quantity: drop.quantity, // FROM MANIFEST
-            slot: -1,
-            metadata: drop.stackable ? { stackable: true } : null,
-          },
-        });
-
-        // Award XP from the rolled drop (fixes multi-drop XP bug)
-        const xpAmount = drop.xpAmount;
-        this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
-          playerId: playerId,
-          skill: resource.skillRequired,
-          amount: xpAmount,
-        });
-
-        // RULES ACCURACY: Consume secondary item (bait, feathers) on successful harvest
-        if (resource.secondaryRequired) {
-          this.emitTypedEvent(EventType.INVENTORY_ITEM_REMOVED, {
-            playerId: playerId,
-            itemId: resource.secondaryRequired,
-            quantity: 1,
-          });
-        }
-
-        // Feedback using manifest data
-        this.sendChat(
+        const usesTimer = this.usesTimerBasedDepletion(session.resourceId);
+        const canChanceDeplete =
+          !usesTimer &&
+          resource.skillRequired !== "fishing" &&
+          (tuned.depleteChance ?? 1) > 0;
+        const timer = usesTimer
+          ? this.resourceTimers.get(session.resourceId)
+          : undefined;
+        const shouldDeplete = usesTimer
+          ? timer?.hasReceivedFirstLog === true && timer.currentTicks <= 0
+          : canChanceDeplete && Math.random() < (tuned.depleteChance ?? 1);
+        const pending: PendingGatherReward = {
+          operationId: `gathering-reward:${uuid()}${uuid()}`,
           playerId,
-          `You receive ${drop.quantity}x ${drop.itemName}.`,
-        );
-        this.emitTypedEvent(EventType.UI_MESSAGE, {
-          playerId: playerId,
-          message: `You get some ${drop.itemName.toLowerCase()}. (+${xpAmount} ${resource.skillRequired} XP)`,
-          type: "success",
-        });
-
-        // ===== DEPLETION CHECK =====
-        // RULES ACCURACY: Use Forestry timer for higher-level trees, chance-based for mining/regular trees
-        let shouldDeplete = false;
-
-        if (this.usesTimerBasedDepletion(session.resourceId)) {
-          // FORESTRY: Timer-based depletion (oak, willow, maple, yew, magic, redwood)
-          // Timer started on first log, depletes when timer=0 AND player receives log
-          shouldDeplete = this.handleForestryLog(
-            playerId,
+          resourceId: session.resourceId,
+          skill: resource.skillRequired as PendingGatherReward["skill"],
+          drop,
+          resourceName: session.cachedResourceName,
+          respawnTicks: tuned.respawnTicks,
+          secondaryItemId: resource.secondaryRequired ?? null,
+          depletionMode: usesTimer
+            ? "timer"
+            : canChanceDeplete
+              ? "chance"
+              : "none",
+          shouldDeplete,
+          state: "in_flight",
+          retryCount: 0,
+          retryAtTick: tickNumber,
+          receipt: null,
+        };
+        session.pendingRewardOperationId = pending.operationId;
+        this.pendingGatherRewards.set(playerId, pending);
+        if (usesTimer || canChanceDeplete) {
+          this.gatheringRewardReservations.set(
             session.resourceId,
-            tickNumber,
-          );
-        } else if (
-          resource.type === "ore" ||
-          resource.skillRequired === "mining"
-        ) {
-          // MINING: Use manifest depleteChance (1.0 for most rocks, 0 for essence)
-          // classic MMORPG: Rune essence rocks never deplete — continuous mining until inventory full.
-          const depletionChance = tuned.depleteChance ?? 1.0;
-          if (depletionChance <= 0) {
-            shouldDeplete = false;
-          } else {
-            const roll = Math.random();
-            shouldDeplete = roll < depletionChance;
-            console.log(
-              `[Mining] ⛏️ ${session.resourceId}: Chance roll=${roll.toFixed(3)} vs ${depletionChance} → ${shouldDeplete ? "DEPLETE" : "continue"}`,
-            );
-          }
-        } else if (
-          resource.type === "fishing_spot" ||
-          resource.skillRequired === "fishing"
-        ) {
-          // FISHING: Spots don't deplete (they move, handled elsewhere)
-          shouldDeplete = false;
-        } else {
-          // REGULAR TREES & FALLBACK: Use manifest depleteChance (1/8 for regular trees)
-          const roll = Math.random();
-          const fallbackChance = tuned.depleteChance ?? 1.0;
-          shouldDeplete = roll < fallbackChance;
-          console.log(
-            `[Forestry] 🌲 ${session.resourceId}: Chance roll=${roll.toFixed(3)} vs ${fallbackChance} → ${shouldDeplete ? "DEPLETE" : "continue"}`,
+            pending.operationId,
           );
         }
-
-        if (shouldDeplete) {
-          // Deplete resource and schedule tick-based respawn
-          resource.isAvailable = false;
-          resource.lastDepleted = Date.now();
-
-          const resourceEntity = this.world.entities.get(session.resourceId) as
-            | ResourceEntityMethods
-            | undefined;
-          if (resourceEntity?.deplete) {
-            resourceEntity.deplete();
-          }
-
-          this.emitTypedEvent(EventType.RESOURCE_DEPLETED, {
-            resourceId: session.resourceId,
-            position: resource.position,
-          });
-          // PERFORMANCE: Use cached resource name
-          this.sendChat(
-            playerId,
-            `The ${session.cachedResourceName.toLowerCase()} is depleted.`,
-          );
-          this.sendNetworkMessage("resourceDepleted", {
-            resourceId: session.resourceId,
-            position: resource.position,
-            depleted: true,
-          });
-
-          // Schedule tick-based respawn (replaces setTimeout)
-          const respawnTick = tickNumber + tuned.respawnTicks;
-          this.respawnAtTick.set(session.resourceId, respawnTick);
-
-          // Emit completion for this session
-          this.emitTypedEvent(EventType.RESOURCE_GATHERING_COMPLETED, {
-            playerId: playerId,
-            resourceId: session.resourceId,
-            successful: true,
-            skill: resource.skillRequired,
-          });
-
-          completedSessions.push(playerId);
-        }
+        this.launchGatheringRewardCommit(pending);
       } else {
         // Failure feedback (optional gentle info)
         // PERFORMANCE: Use cached resource name
@@ -3314,6 +3656,67 @@ export class ResourceSystem extends SystemBase {
     return this.resources.get(createResourceID(resourceId));
   }
 
+  /** Operational snapshot for detecting stuck or accumulating reward custody. */
+  getGatheringCustodyStats(): {
+    activeSessions: number;
+    pendingRewards: number;
+    inFlightRewards: number;
+    retryWaitingRewards: number;
+    resourceReservations: number;
+    maxRetryCount: number;
+  } {
+    let inFlightRewards = 0;
+    let retryWaitingRewards = 0;
+    let maxRetryCount = 0;
+    for (const pending of this.pendingGatherRewards.values()) {
+      if (pending.state === "in_flight") inFlightRewards++;
+      if (pending.state === "retry_wait") retryWaitingRewards++;
+      maxRetryCount = Math.max(maxRetryCount, pending.retryCount);
+    }
+    return {
+      activeSessions: this.activeGathering.size,
+      pendingRewards: this.pendingGatherRewards.size,
+      inFlightRewards,
+      retryWaitingRewards,
+      resourceReservations: this.gatheringRewardReservations.size,
+      maxRetryCount,
+    };
+  }
+
+  /**
+   * Read-only operational snapshot for long-running population and resource
+   * ecology verification. Every retained lifecycle index is represented so a
+   * production soak can detect contradictory state or unbounded growth.
+   */
+  getResourceEcologyStats(): ResourceEcologyStats {
+    let availableResources = 0;
+    for (const resource of this.resources.values()) {
+      if (resource.isAvailable) availableResources++;
+    }
+
+    let forestryActiveGatherers = 0;
+    for (const timer of this.resourceTimers.values()) {
+      forestryActiveGatherers += timer.activeGatherers.size;
+    }
+
+    return {
+      totalResources: this.resources.size,
+      availableResources,
+      depletedResources: this.resources.size - availableResources,
+      manifestResources: this.manifestResourceIds.size,
+      resourceVariants: this.resourceVariants.size,
+      forestryTimers: this.resourceTimers.size,
+      forestryActiveGatherers,
+      scheduledRespawns: this.respawnAtTick.size,
+      fishingMovementTimers: this.fishingSpotMoveTimers.size,
+      pendingFishingAreas: this.pendingFishingAreas.size,
+      playerSkillSnapshots: this.playerSkills.size,
+      gatherRateLimits: this.gatherRateLimits.size,
+      suspiciousPatternEntries: this.suspiciousPatterns.size,
+      custody: this.getGatheringCustodyStats(),
+    };
+  }
+
   /**
    * Check if a player is actively gathering a specific resource.
    * Used to prevent repeated gather requests from creating unnecessary objects.
@@ -3334,8 +3737,12 @@ export class ResourceSystem extends SystemBase {
    * Clears all active sessions, resources, and rate limits
    */
   destroy(): void {
+    this.isDestroying = true;
+
     // Clear all active gathering sessions
     this.activeGathering.clear();
+    this.pendingGatherRewards.clear();
+    this.gatheringRewardReservations.clear();
 
     // Clear tick-based respawn tracking
     this.respawnAtTick.clear();
@@ -3348,10 +3755,14 @@ export class ResourceSystem extends SystemBase {
 
     // Clear all resource data
     this.resources.clear();
+    this.resourceVariants.clear();
     this.manifestResourceIds.clear();
+    this.playerSkills.clear();
+    this.pendingFishingAreas.clear();
 
     // SECURITY: Clear rate limit tracking
     this.gatherRateLimits.clear();
+    this.suspiciousPatterns.clear();
 
     // Dispose shared GPU resources (cached textures) used by fishing spot glow
     disposeFishingSpotTextures();

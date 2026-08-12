@@ -16,6 +16,7 @@
 
 import * as THREE from "../../extras/three/three";
 import { Emotes } from "../../data/playerEmotes";
+import { DEFAULT_AVATAR_URL } from "../../data/avatars";
 import { EventType } from "../../types/events";
 import type { ClientLoader, LoadedAvatar } from "../../types/index";
 import type { VRMHooks } from "../../types/systems/physics";
@@ -118,7 +119,7 @@ export class PlayerAvatarController {
     return (
       (this.ctx.data.sessionAvatar as string) ||
       (this.ctx.data.avatar as string) ||
-      "asset://avatars/avatar-male-01.vrm"
+      DEFAULT_AVATAR_URL
     );
   }
 

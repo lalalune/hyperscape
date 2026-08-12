@@ -14,6 +14,7 @@
 import { spawn, exec, execSync, type ChildProcess } from "child_process";
 import fs from "node:fs";
 import { createRequire } from "node:module";
+import type { Writable } from "node:stream";
 import { WebSocketServer, WebSocket, type RawData } from "ws";
 import type {
   RTMPDestination,
@@ -132,6 +133,18 @@ export class RTMPBridge {
   private ffmpegLogTail: string[] = [];
   /** Whether FFmpeg stdin is currently backpressured */
   private ffmpegBackpressured = false;
+  /** Whether the dedicated browser PCM pipe is currently backpressured. */
+  private browserAudioBackpressured = false;
+  private browserAudioInput: { sampleRate: number; channels: 2 } | null = null;
+  private lastBrowserAudioData = 0;
+  private browserAudioChunkCount = 0;
+  private browserAudioDroppedChunkCount = 0;
+  private browserAudioTrimmedChunkCount = 0;
+  /** Stable origin used to keep local HLS timestamps monotonic across FFmpeg respawns. */
+  private hlsTimelineStartedAt: number | null = null;
+  private encoderCrashExitScheduled = false;
+  private encoderReadyWaiters = new Set<(ready: boolean) => void>();
+  private directEncoderRestartHandler: (() => void) | null = null;
   /** Whether client socket reads are paused due to FFmpeg backpressure */
   private clientSocketPaused = false;
 
@@ -207,6 +220,12 @@ export class RTMPBridge {
       destinations: [],
       ffmpegRunning: false,
       clientConnected: false,
+      audioSource: "uninitialized",
+      audioHealthy: false,
+      audioLastChunkAt: null,
+      audioChunks: 0,
+      audioDroppedChunks: 0,
+      audioTrimmedChunks: 0,
     };
     this.ffmpegCommand = resolveFfmpegCommand();
     console.log(`[RTMPBridge] Using FFmpeg command: ${this.ffmpegCommand}`);
@@ -363,7 +382,31 @@ export class RTMPBridge {
       .replace(/\|/g, "\\|");
   }
 
-  private buildBridgeAudioInputArgs(): string[] {
+  private buildBridgeAudioInputArgs(
+    browserAudioInput: { sampleRate: number; channels: 2 } | null = null,
+  ): string[] {
+    if (browserAudioInput) {
+      this.status.audioSource = "browser";
+      this.status.audioHealthy = false;
+      console.log(
+        `[RTMPBridge] Audio capture from browser master mix: ${browserAudioInput.sampleRate}Hz stereo PCM`,
+      );
+      return [
+        "-thread_queue_size",
+        "1024",
+        "-use_wallclock_as_timestamps",
+        "1",
+        "-f",
+        "f32le",
+        "-ac",
+        String(browserAudioInput.channels),
+        "-ar",
+        String(browserAudioInput.sampleRate),
+        "-i",
+        "pipe:3",
+      ];
+    }
+
     const audioEnabled = process.env.STREAM_AUDIO_ENABLED !== "false";
     const pulseDevice =
       process.env.PULSE_AUDIO_DEVICE || "chrome_audio.monitor";
@@ -391,6 +434,8 @@ export class RTMPBridge {
     }
 
     if (usePulseAudio) {
+      this.status.audioSource = "pulse";
+      this.status.audioHealthy = true;
       console.log(`[RTMPBridge] Audio capture from PulseAudio: ${pulseDevice}`);
       return [
         "-thread_queue_size",
@@ -408,6 +453,8 @@ export class RTMPBridge {
       ];
     }
 
+    this.status.audioSource = "silent";
+    this.status.audioHealthy = false;
     console.log(
       "[RTMPBridge] Audio: using bridge-managed silent source (anullsrc)",
     );
@@ -443,6 +490,68 @@ export class RTMPBridge {
       socket.resume?.();
       this.clientSocketPaused = false;
     }
+  }
+
+  private waitForDrain(stream: Writable, timeoutMs = 10_000): Promise<boolean> {
+    if (
+      !stream.writable ||
+      stream.destroyed ||
+      stream.writableEnded ||
+      stream.writableFinished ||
+      !stream.writableNeedDrain
+    ) {
+      return Promise.resolve(false);
+    }
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = (ready: boolean) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
+        stream.off("drain", onDrain);
+        stream.off("error", onError);
+        stream.off("close", onClose);
+        resolve(ready);
+      };
+      const onDrain = () => finish(true);
+      const onError = () => finish(false);
+      const onClose = () => finish(false);
+      const timeoutId = setTimeout(() => finish(false), timeoutMs);
+      timeoutId.unref?.();
+      stream.once("drain", onDrain);
+      stream.once("error", onError);
+      stream.once("close", onClose);
+      if (!stream.writableNeedDrain) void Promise.resolve().then(onDrain);
+    });
+  }
+
+  private waitForEncoderReady(timeoutMs = 15_000): Promise<boolean> {
+    const activeInput = this.ffmpeg?.stdin;
+    if (activeInput?.writable && !activeInput.destroyed) {
+      return Promise.resolve(true);
+    }
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = (ready: boolean) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
+        this.encoderReadyWaiters.delete(finish);
+        resolve(ready);
+      };
+      const timeoutId = setTimeout(() => finish(false), timeoutMs);
+      timeoutId.unref?.();
+      this.encoderReadyWaiters.add(finish);
+    });
+  }
+
+  private resolveEncoderReadyWaiters(ready: boolean): void {
+    for (const waiter of [...this.encoderReadyWaiters]) waiter(ready);
+  }
+
+  /** Register CDP-owned recovery work that must run after FFmpeg respawns. */
+  setDirectEncoderRestartHandler(handler: (() => void) | null): void {
+    this.directEncoderRestartHandler = handler;
   }
 
   /**
@@ -926,6 +1035,7 @@ export class RTMPBridge {
     this.startTime = Date.now();
     this.status.active = true;
     this.status.ffmpegRunning = true;
+    this.resolveEncoderReadyWaiters(true);
     this.status.startedAt = this.startTime;
 
     this.status.destinations = this.destinations
@@ -976,7 +1086,7 @@ export class RTMPBridge {
       }
 
       if ((code !== 0 || signal != null) && shouldRestartOnCrash()) {
-        this.handleFFmpegCrash(code);
+        this.handleEncoderFailure(code);
       }
     });
 
@@ -986,7 +1096,7 @@ export class RTMPBridge {
       this.status.ffmpegRunning = false;
 
       if (shouldRestartOnCrash()) {
-        this.handleFFmpegCrash(-1);
+        this.handleEncoderFailure(-1);
       }
     });
 
@@ -1012,7 +1122,9 @@ export class RTMPBridge {
    * because there's only one encode step (JPEG→H.264) instead of two
    * (VP8/VP9→H.264).
    */
-  startFFmpegDirect(): void {
+  startFFmpegDirect(options?: {
+    browserAudioInput?: { sampleRate: number; channels: 2 } | null;
+  }): void {
     if (this.ffmpeg) {
       console.warn("[RTMPBridge] FFmpeg already running");
       return;
@@ -1022,6 +1134,14 @@ export class RTMPBridge {
     this.cdpDirectMode = true;
     this.directFrameCount = 0;
     this.droppedFrameCount = 0;
+    if (options && "browserAudioInput" in options) {
+      this.browserAudioInput = options.browserAudioInput ?? null;
+    }
+    this.lastBrowserAudioData = 0;
+    this.browserAudioChunkCount = 0;
+    this.browserAudioDroppedChunkCount = 0;
+    this.browserAudioTrimmedChunkCount = 0;
+    this.browserAudioBackpressured = false;
 
     const outputString = this.buildOutputString();
     const isNullOutput = outputString === "-f null -";
@@ -1051,6 +1171,10 @@ export class RTMPBridge {
 
     // Input: JPEG frames piped via stdin
     args.push(
+      "-thread_queue_size",
+      "1024",
+      "-use_wallclock_as_timestamps",
+      "1",
       "-f",
       "mjpeg",
       "-framerate",
@@ -1058,7 +1182,7 @@ export class RTMPBridge {
       "-i",
       "pipe:0",
     );
-    args.push(...this.buildBridgeAudioInputArgs());
+    args.push(...this.buildBridgeAudioInputArgs(this.browserAudioInput));
 
     // Map video from pipe and audio from PulseAudio/anullsrc
     args.push("-map", "0:v:0", "-map", "1:a:0");
@@ -1090,7 +1214,9 @@ export class RTMPBridge {
     );
 
     this.ffmpeg = spawn(this.ffmpegCommand, args, {
-      stdio: ["pipe", "pipe", "pipe"],
+      stdio: this.browserAudioInput
+        ? ["pipe", "pipe", "pipe", "pipe"]
+        : ["pipe", "pipe", "pipe"],
     });
 
     this.ffmpegBackpressured = false;
@@ -1102,6 +1228,74 @@ export class RTMPBridge {
     this.status.clientConnected = true; // CDP mode is always "connected"
 
     this.setupFFmpegHandlers("CDP direct", () => this.cdpDirectMode);
+
+    const browserAudioPipe = this.ffmpeg.stdio[3];
+    if (browserAudioPipe && "on" in browserAudioPipe) {
+      browserAudioPipe.on("drain", () => {
+        this.browserAudioBackpressured = false;
+      });
+      browserAudioPipe.on("error", (err) => {
+        if ((err as NodeJS.ErrnoException).code !== "EPIPE") {
+          console.error("[RTMPBridge] Browser audio pipe error:", err);
+        }
+      });
+    }
+  }
+
+  /** Feed interleaved Float32 PCM from the canonical browser master mix. */
+  async feedBrowserAudioPcm(pcmBuffer: Buffer): Promise<boolean> {
+    let audioPipe = this.ffmpeg?.stdio[3] as Writable | null | undefined;
+    if (
+      !audioPipe?.writable ||
+      audioPipe.destroyed ||
+      audioPipe.writableEnded
+    ) {
+      // Do not retain PCM captured while the encoder is down. Replaying that
+      // backlog into a replacement process compresses old samples into its new
+      // wall-clock timeline and can stall FFmpeg's audio scheduler. The HLS
+      // discontinuity already represents the outage; resume with the first
+      // current sample after the new pipe exists.
+      this.browserAudioDroppedChunkCount++;
+      return false;
+    }
+    if (!this.browserAudioInput || typeof audioPipe.write !== "function") {
+      return false;
+    }
+    // Child-process pipes report backpressure for every 32 KiB PCM block on
+    // macOS because their default high-water mark is smaller than one block.
+    // Waiting for `drain` here can pin the browser binding for seconds while
+    // FFmpeg probes or restarts its other input. Keep a small, explicit latency
+    // budget instead: writes may buffer up to one second, after which incoming
+    // PCM
+    // is trimmed until the encoder catches up. This avoids unbounded queues and
+    // preserves live A/V timing without counting intentional resync as a
+    // transport failure.
+    const maxBufferedMs = Math.max(
+      50,
+      Number.parseInt(
+        process.env.STREAM_BROWSER_AUDIO_MAX_BUFFER_MS || "1000",
+        10,
+      ) || 1000,
+    );
+    const bytesPerSecond =
+      this.browserAudioInput.sampleRate *
+      this.browserAudioInput.channels *
+      Float32Array.BYTES_PER_ELEMENT;
+    const maxBufferedBytes = Math.ceil((bytesPerSecond * maxBufferedMs) / 1000);
+    if (audioPipe.writableLength + pcmBuffer.byteLength > maxBufferedBytes) {
+      this.browserAudioTrimmedChunkCount++;
+      return false;
+    }
+    try {
+      const writable = audioPipe.write(pcmBuffer);
+      this.lastBrowserAudioData = Date.now();
+      this.browserAudioChunkCount++;
+      this.browserAudioBackpressured = !writable;
+      return true;
+    } catch {
+      this.browserAudioDroppedChunkCount++;
+      return false;
+    }
   }
 
   /**
@@ -1110,8 +1304,29 @@ export class RTMPBridge {
    * @param jpegBuffer - Raw JPEG image data
    * @returns true if frame was written, false if dropped
    */
-  feedFrame(jpegBuffer: Buffer): boolean {
-    if (!this.ffmpeg?.stdin?.writable) return false;
+  async feedFrame(jpegBuffer: Buffer): Promise<boolean> {
+    let videoPipe = this.ffmpeg?.stdin;
+    if (!videoPipe?.writable || videoPipe.destroyed) {
+      const ready = await this.waitForEncoderReady();
+      videoPipe = this.ffmpeg?.stdin;
+      if (!ready || !videoPipe?.writable || videoPipe.destroyed) {
+        this.droppedFrameCount++;
+        return false;
+      }
+    }
+
+    if (this.ffmpegBackpressured) {
+      const ready = await this.waitForDrain(videoPipe);
+      if (!ready) {
+        const encoderReady = await this.waitForEncoderReady();
+        videoPipe = this.ffmpeg?.stdin;
+        if (!encoderReady || !videoPipe?.writable || videoPipe.destroyed) {
+          this.droppedFrameCount++;
+          return false;
+        }
+      }
+      this.ffmpegBackpressured = false;
+    }
 
     // Exit placeholder mode when live frames resume
     if (this.inPlaceholderMode) {
@@ -1141,6 +1356,7 @@ export class RTMPBridge {
       this.ffmpegRestartTimeout = null;
     }
     this.stopHealthMonitoring();
+    this.resolveEncoderReadyWaiters(false);
     this.stopFFmpeg();
   }
 
@@ -1156,6 +1372,7 @@ export class RTMPBridge {
 
     // Stop health monitoring
     this.stopHealthMonitoring();
+    this.resolveEncoderReadyWaiters(false);
 
     this.stopFFmpeg();
     this.ffmpegBackpressured = false;
@@ -1406,6 +1623,20 @@ export class RTMPBridge {
 
     const hlsOutputPath = process.env.HLS_OUTPUT_PATH?.trim();
     if (hlsOutputPath) {
+      const hlsBuildTime = Date.now();
+      const configuredTimelineOrigin = Number.parseInt(
+        process.env.HLS_TIMELINE_ORIGIN_MS || "",
+        10,
+      );
+      this.hlsTimelineStartedAt ??=
+        Number.isFinite(configuredTimelineOrigin) &&
+        configuredTimelineOrigin > 0
+          ? Math.min(configuredTimelineOrigin, hlsBuildTime)
+          : hlsBuildTime;
+      const hlsTimelineOffsetSeconds = Math.max(
+        0,
+        (hlsBuildTime - this.hlsTimelineStartedAt) / 1000,
+      );
       const hlsTime = parseEnvInt(process.env.HLS_TIME_SECONDS, 1, 1);
       const hlsListSize = parseEnvInt(process.env.HLS_LIST_SIZE, 30, 2);
       const hlsDeleteThreshold = parseEnvInt(
@@ -1413,11 +1644,16 @@ export class RTMPBridge {
         120,
         1,
       );
-      const hlsStartNumber = parseEnvInt(
+      const configuredHlsStartNumber = parseEnvInt(
         process.env.HLS_START_NUMBER,
         Math.floor(Date.now() / 1000),
         0,
       );
+      // Keep the configured sequence stable across supervised worker restarts.
+      // `append_list` reads the current manifest and advances from its tail;
+      // changing start_number per process creates artificial sequence gaps that
+      // make attached readers skip otherwise valid segments.
+      const hlsStartNumber = configuredHlsStartNumber;
       const hlsFlags =
         process.env.HLS_FLAGS ||
         "delete_segments+append_list+independent_segments+program_date_time+omit_endlist+temp_file";
@@ -1433,6 +1669,8 @@ export class RTMPBridge {
         `hls_list_size=${hlsListSize}`,
         `hls_delete_threshold=${hlsDeleteThreshold}`,
         `hls_flags=${hlsFlags}`,
+        "hls_segment_options=mpegts_flags=+initial_discontinuity",
+        `output_ts_offset=${hlsTimelineOffsetSeconds.toFixed(3)}`,
         `start_number=${hlsStartNumber}`,
         `hls_allow_cache=${hlsAllowCache}`,
         `hls_segment_filename=${RTMPBridge.teeEscape(hlsSegmentPattern)}`,
@@ -1642,9 +1880,17 @@ export class RTMPBridge {
     oldFfmpeg.stderr?.removeAllListeners("data");
     oldFfmpeg.stdin?.removeAllListeners("drain");
     oldFfmpeg.stdin?.removeAllListeners("error");
+    const oldBrowserAudioPipe = oldFfmpeg.stdio[3];
+    if (oldBrowserAudioPipe && "removeAllListeners" in oldBrowserAudioPipe) {
+      oldBrowserAudioPipe.removeAllListeners("drain");
+      oldBrowserAudioPipe.removeAllListeners("error");
+    }
 
     // Close stdin first to signal end of input
     oldFfmpeg.stdin?.end();
+    if (oldBrowserAudioPipe && "end" in oldBrowserAudioPipe) {
+      oldBrowserAudioPipe.end();
+    }
 
     // Give it a moment to finish, then kill
     const killTimer = setTimeout(() => {
@@ -1675,8 +1921,24 @@ export class RTMPBridge {
               startedAt: this.status.startedAt,
             }));
 
+    const now = Date.now();
+    const browserAudioHealthy =
+      this.status.audioSource === "browser" &&
+      this.lastBrowserAudioData > 0 &&
+      now - this.lastBrowserAudioData < RTMPBridge.DATA_TIMEOUT;
     return {
       ...this.status,
+      audioHealthy:
+        this.status.audioSource === "pulse"
+          ? true
+          : this.status.audioSource === "browser"
+            ? browserAudioHealthy
+            : false,
+      audioLastChunkAt:
+        this.lastBrowserAudioData > 0 ? this.lastBrowserAudioData : null,
+      audioChunks: this.browserAudioChunkCount,
+      audioDroppedChunks: this.browserAudioDroppedChunkCount,
+      audioTrimmedChunks: this.browserAudioTrimmedChunkCount,
       destinations: idleConfiguredDestinations.map((d) => ({ ...d })),
     };
   }
@@ -1731,6 +1993,33 @@ export class RTMPBridge {
   }
 
   /**
+   * Recover from an encoder failure at the safest process boundary.
+   *
+   * Bun's extra child-process stdio pipe can stop draining after an in-process
+   * FFmpeg respawn. The dedicated capture worker is already supervised by the
+   * duel stack, so its opt-in policy exits the worker and lets the supervisor
+   * recreate the browser and all encoder pipes from a clean process. Other
+   * bridge consumers retain the legacy in-process retry behavior by default.
+   */
+  private handleEncoderFailure(exitCode: number | null): void {
+    const exitWorker = RTMPBridge.parseEnvBool(
+      process.env.STREAM_EXIT_ON_ENCODER_CRASH,
+      false,
+    );
+    if (!exitWorker) {
+      this.handleFFmpegCrash(exitCode);
+      return;
+    }
+    if (this.encoderCrashExitScheduled) return;
+    this.encoderCrashExitScheduled = true;
+    this.resolveEncoderReadyWaiters(false);
+    console.error(
+      `[RTMPBridge] FFmpeg terminated (${exitCode ?? "signal"}); exiting the supervised capture worker for a clean restart`,
+    );
+    setTimeout(() => process.exit(1), 0);
+  }
+
+  /**
    * Handle FFmpeg crash with exponential backoff restart
    */
   private handleFFmpegCrash(exitCode: number | null): void {
@@ -1776,6 +2065,7 @@ export class RTMPBridge {
         console.log("[RTMPBridge] Attempting FFmpeg restart...");
         if (this.cdpDirectMode) {
           this.startFFmpegDirect();
+          this.directEncoderRestartHandler?.();
         } else if (this.client && (this.client as any)._isWebCodecs) {
           this.startFFmpegWebCodecs();
         } else {

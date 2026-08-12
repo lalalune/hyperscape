@@ -101,6 +101,7 @@ import { getNPCById } from "../../../data/npcs";
 import type { EquipmentSystem } from "../character/EquipmentSystem";
 import type { InventorySystem } from "../character/InventorySystem";
 import type { Item, EquipmentSlot } from "../../../types/game/item-types";
+import { uuid } from "../../../utils/IdGenerator";
 
 // Re-export CombatData from CombatStateService for backwards compatibility
 export type { CombatData } from "./CombatStateService";
@@ -211,8 +212,7 @@ export class CombatSystem extends SystemBase {
     attackType: "melee" as string | undefined,
     targetType: "mob" as "player" | "mob" | undefined,
     position: { x: 0, y: 0, z: 0 } as
-      | { x: number; y: number; z: number }
-      | undefined,
+      { x: number; y: number; z: number } | undefined,
     isCritical: false as boolean | undefined,
   };
 
@@ -729,7 +729,7 @@ export class CombatSystem extends SystemBase {
 
     switch (attackType) {
       case AttackType.RANGED:
-        this.handleRangedAttack(data);
+        await this.handleRangedAttack(data);
         break;
       case AttackType.MAGIC:
         await this.handleMagicAttack(data);
@@ -1055,13 +1055,13 @@ export class CombatSystem extends SystemBase {
   /**
    * Handle ranged attack - validate arrows, create projectile, queue damage
    */
-  private handleRangedAttack(data: {
+  private async handleRangedAttack(data: {
     attackerId: string;
     targetId: string;
     attackerType: "player" | "mob";
     targetType: "player" | "mob";
     arrowId?: string;
-  }): void {
+  }): Promise<void> {
     const { attackerId, targetId, attackerType, targetType } = data;
     const currentTick = this.world.currentTick ?? 0;
 
@@ -1258,6 +1258,17 @@ export class CombatSystem extends SystemBase {
       return;
     }
 
+    if (
+      !this.projectileService.canCreateProjectile(
+        attackerId,
+        { x: attackerPos.x, z: attackerPos.z },
+        { x: targetPos.x, z: targetPos.z },
+      )
+    ) {
+      this.emitAttackFailed(attackerId, targetId, "projectile_capacity");
+      return;
+    }
+
     // Check cooldown
     const typedAttackerId = createEntityID(attackerId);
     if (!this.checkAttackCooldown(typedAttackerId, currentTick)) {
@@ -1283,21 +1294,11 @@ export class CombatSystem extends SystemBase {
       baseAttackSpeed + styleBonus.speedModifier,
     );
 
-    // Face target
-    this.rotationManager.rotateTowardsTarget(
-      attackerId,
-      targetId,
-      attackerType,
-      targetType,
-    );
-
-    // Play attack animation
-    this.animationManager.setCombatEmote(
-      attackerId,
-      attackerType,
-      currentTick,
-      attackSpeedTicks,
-    );
+    // Claim the cooldown before awaiting durable custody. The event handler and
+    // tick auto-attack path can otherwise both debit and launch on one tick.
+    const previousNextAttackTick = this.nextAttackTicks.get(typedAttackerId);
+    const claimedNextAttackTick = currentTick + attackSpeedTicks;
+    this.nextAttackTicks.set(typedAttackerId, claimedNextAttackTick);
 
     // Calculate damage
     const damage = this.calculateRangedDamageForAttack(
@@ -1306,6 +1307,34 @@ export class CombatSystem extends SystemBase {
       attackerId,
       targetType,
     );
+
+    const arrowId = arrowSlot?.itemId?.toString();
+    const arrowDebit =
+      arrowId && this.equipmentSystem
+        ? await this.equipmentSystem.consumeArrowAtomic(
+            attackerId,
+            `arrow-debit:${uuid()}${uuid()}`,
+            arrowId,
+          )
+        : null;
+    if (!arrowDebit?.ok) {
+      if (this.nextAttackTicks.get(typedAttackerId) === claimedNextAttackTick) {
+        if (previousNextAttackTick === undefined) {
+          this.nextAttackTicks.delete(typedAttackerId);
+        } else {
+          this.nextAttackTicks.set(typedAttackerId, previousNextAttackTick);
+        }
+      }
+      this.emitTypedEvent(EventType.UI_MESSAGE, {
+        playerId: attackerId,
+        message:
+          arrowDebit?.reason === "insufficient_items"
+            ? "You don't have enough ammunition."
+            : "The ranged attack was cancelled before launch. Your equipment is being synchronized.",
+        type: "error",
+      });
+      return;
+    }
 
     // Create projectile with delayed hit
     const projectileParams: CreateProjectileParams = {
@@ -1316,10 +1345,31 @@ export class CombatSystem extends SystemBase {
       currentTick,
       sourcePosition: { x: attackerPos.x, z: attackerPos.z },
       targetPosition: { x: targetPos.x, z: targetPos.z },
-      arrowId: arrowSlot?.itemId ? String(arrowSlot.itemId) : undefined,
+      arrowId,
     };
 
-    this.projectileService.createProjectile(projectileParams);
+    const projectile =
+      this.projectileService.createProjectile(projectileParams);
+    if (!projectile) {
+      this.logger.error(
+        `Projectile capacity changed after committed arrow debit for ${attackerId}`,
+        new Error("ranged_projectile_commit_invariant_failed"),
+      );
+      return;
+    }
+
+    this.rotationManager.rotateTowardsTarget(
+      attackerId,
+      targetId,
+      attackerType,
+      targetType,
+    );
+    this.animationManager.setCombatEmote(
+      attackerId,
+      attackerType,
+      currentTick,
+      attackSpeedTicks,
+    );
 
     // Emit projectile created event for client visuals
     this.emitProjectileLaunched(
@@ -1329,21 +1379,18 @@ export class CombatSystem extends SystemBase {
       attackerPos,
       targetPos,
       undefined,
-      arrowSlot?.itemId ? String(arrowSlot.itemId) : undefined,
+      arrowId,
       400, // Delay to match bow draw animation
     );
 
     // Set cooldown and enter combat
     const typedTargetId = createEntityID(targetId);
-    this.nextAttackTicks.set(typedAttackerId, currentTick + attackSpeedTicks);
     this.enterCombat(
       typedAttackerId,
       typedTargetId,
       attackSpeedTicks,
       AttackType.RANGED,
     );
-
-    // Arrow consumption will be handled when projectile hits
   }
 
   private async handleMagicAttack(data: {
@@ -1605,24 +1652,12 @@ export class CombatSystem extends SystemBase {
       weapon,
     );
     if (!runeValidation.valid) {
-      if (isStreamingDuel) {
-        // Streaming duel agents bypass rune validation — inventory-based rune
-        // addition is unreliable for bot agents (race conditions, manifest
-        // loading timing). The staff provides infinite elemental runes; only
-        // catalytic runes (mind/chaos) would fail. Since these are AI bots
-        // with no real economy, let the attack proceed.
-        console.warn(
-          `[MagicAttack:Duel] Rune validation bypassed for ${attackerId} ` +
-            `(${runeValidation.error}) weapon=${weapon?.id ?? "none"} spell=${spell.id}`,
-        );
-      } else {
-        this.emitTypedEvent(EventType.UI_MESSAGE, {
-          playerId: attackerId,
-          message: runeValidation.error ?? "You don't have enough runes.",
-          type: "error",
-        });
-        return;
-      }
+      this.emitTypedEvent(EventType.UI_MESSAGE, {
+        playerId: attackerId,
+        message: runeValidation.error ?? "You don't have enough runes.",
+        type: "error",
+      });
+      return;
     }
 
     // Check magic attack range (spells have fixed range, typically 10 tiles)
@@ -1641,10 +1676,26 @@ export class CombatSystem extends SystemBase {
     if (distance > attackRange || distance === 0) {
       if (isStreamingDuel) {
         console.warn(
-          `[MagicAttack:Duel] Range check failed: distance=${distance} range=${attackRange}`,
+          `[MagicAttack:Duel] Range check failed: attacker=${attackerId} target=${targetId} ` +
+            `distance=${distance} range=${attackRange} sameEntity=${attacker === target} ` +
+            `attackerPos=(${attackerPos.x},${attackerPos.y},${attackerPos.z}) ` +
+            `targetPos=(${targetPos.x},${targetPos.y},${targetPos.z}) ` +
+            `attackerTile=(${this._attackerTile.x},${this._attackerTile.z}) ` +
+            `targetTile=(${this._targetTile.x},${this._targetTile.z})`,
         );
       }
       this.emitAttackFailed(attackerId, targetId, "out_of_range");
+      return;
+    }
+
+    if (
+      !this.projectileService.canCreateProjectile(
+        attackerId,
+        { x: attackerPos.x, z: attackerPos.z },
+        { x: targetPos.x, z: targetPos.z },
+      )
+    ) {
+      this.emitAttackFailed(attackerId, targetId, "projectile_capacity");
       return;
     }
 
@@ -1661,32 +1712,9 @@ export class CombatSystem extends SystemBase {
     // consumeRunesForSpell is async, so two concurrent invocations (event
     // handler + tick auto-attack) can both pass checkAttackCooldown before
     // either sets the cooldown, resulting in duplicate projectiles.
-    this.nextAttackTicks.set(typedAttackerId, currentTick + attackSpeedTicks);
-
-    // Enter combat state synchronously so auto-attack tick gating works
-    const typedTargetId = createEntityID(targetId);
-    this.enterCombat(
-      typedAttackerId,
-      typedTargetId,
-      attackSpeedTicks,
-      AttackType.MAGIC,
-    );
-
-    // Face target
-    this.rotationManager.rotateTowardsTarget(
-      attackerId,
-      targetId,
-      attackerType,
-      targetType,
-    );
-
-    // Play attack animation
-    this.animationManager.setCombatEmote(
-      attackerId,
-      attackerType,
-      currentTick,
-      attackSpeedTicks,
-    );
+    const previousNextAttackTick = this.nextAttackTicks.get(typedAttackerId);
+    const claimedNextAttackTick = currentTick + attackSpeedTicks;
+    this.nextAttackTicks.set(typedAttackerId, claimedNextAttackTick);
 
     // Calculate damage
     const damage = this.calculateMagicDamageForAttack(
@@ -1697,16 +1725,32 @@ export class CombatSystem extends SystemBase {
       spell,
     );
 
-    // Consume runes for real players; skip for streaming duel agents (they
-    // bypass rune validation above, so consumption would fail or be a no-op)
-    if (!isStreamingDuel) {
-      try {
-        await this.consumeRunesForSpell(attackerId, spell, weapon);
-      } catch (err) {
-        console.warn(
-          `[MagicAttack] consumeRunesForSpell failed for ${attackerId}: ${err instanceof Error ? err.message : String(err)}`,
-        );
+    // The complete spell cost is one durable custody operation for every
+    // player, including selected duel contestants. No animation, combat state,
+    // projectile, damage, or XP is created unless that receipt succeeds.
+    const runeDebit = await this.consumeRunesForSpell(
+      attackerId,
+      spell,
+      weapon,
+      `spell-runes:${uuid()}${uuid()}`,
+    );
+    if (!runeDebit.ok) {
+      if (this.nextAttackTicks.get(typedAttackerId) === claimedNextAttackTick) {
+        if (previousNextAttackTick === undefined) {
+          this.nextAttackTicks.delete(typedAttackerId);
+        } else {
+          this.nextAttackTicks.set(typedAttackerId, previousNextAttackTick);
+        }
       }
+      this.emitTypedEvent(EventType.UI_MESSAGE, {
+        playerId: attackerId,
+        message:
+          runeDebit.reason === "insufficient_items"
+            ? "You don't have enough runes."
+            : "The spell was cancelled before launch. Your inventory is being synchronized.",
+        type: "error",
+      });
+      return;
     }
 
     // Create projectile with delayed hit
@@ -1722,7 +1766,35 @@ export class CombatSystem extends SystemBase {
       xpReward: spell.baseXp,
     };
 
-    this.projectileService.createProjectile(projectileParams);
+    const projectile =
+      this.projectileService.createProjectile(projectileParams);
+    if (!projectile) {
+      this.logger.error(
+        `Projectile capacity changed after committed spell debit for ${attackerId}`,
+        new Error("magic_projectile_commit_invariant_failed"),
+      );
+      return;
+    }
+
+    const typedTargetId = createEntityID(targetId);
+    this.enterCombat(
+      typedAttackerId,
+      typedTargetId,
+      attackSpeedTicks,
+      AttackType.MAGIC,
+    );
+    this.rotationManager.rotateTowardsTarget(
+      attackerId,
+      targetId,
+      attackerType,
+      targetType,
+    );
+    this.animationManager.setCombatEmote(
+      attackerId,
+      attackerType,
+      currentTick,
+      attackSpeedTicks,
+    );
 
     // Emit projectile created event for client visuals
     // Delay projectile spawn to sync with casting animation (roughly halfway through)
@@ -1807,17 +1879,23 @@ export class CombatSystem extends SystemBase {
     playerId: string,
     spell: Spell,
     weapon: Item | null,
-  ): Promise<void> {
-    if (!this.inventorySystem) return;
+    operationId: string,
+  ): Promise<{ ok: true } | { ok: false; reason: string }> {
+    if (!this.inventorySystem) {
+      return { ok: false, reason: "atomic_persistence_unavailable" };
+    }
 
     const runesToConsume = runeService.getRunesToConsume(spell.runes, weapon);
-
-    for (const requirement of runesToConsume) {
-      await this.inventorySystem.removeItemDirect(playerId, {
+    if (runesToConsume.length === 0) return { ok: true };
+    const receipt = await this.inventorySystem.debitItemsAtomic(
+      playerId,
+      operationId,
+      runesToConsume.map((requirement) => ({
         itemId: requirement.runeId,
         quantity: requirement.quantity,
-      });
-    }
+      })),
+    );
+    return receipt.ok ? { ok: true } : { ok: false, reason: receipt.reason };
   }
 
   /**
@@ -2060,7 +2138,7 @@ export class CombatSystem extends SystemBase {
     }
 
     if (data.attackType === AttackType.RANGED) {
-      this.handleRangedAttack({
+      void this.handleRangedAttack({
         attackerId: data.mobId,
         targetId: data.targetId,
         attackerType: "mob",
@@ -2627,7 +2705,20 @@ export class CombatSystem extends SystemBase {
 
     const typedEntityId = createEntityID(data.entityId);
     const combatState = this.stateService.getCombatData(data.entityId);
-    if (!combatState) return;
+    if (!combatState) {
+      // An explicit stop can race with state teardown while its projectile is
+      // still active. With no counterpart available, clear every projectile
+      // involving this entity so it cannot damage a revived/teleported player.
+      this.cancelProjectilesInvolvingEntity(data.entityId);
+      return;
+    }
+
+    const targetId = String(combatState.targetId);
+
+    // Projectile damage is delayed by one or more ticks. Combat state teardown
+    // must invalidate that queued work before health restoration or a new fight
+    // can reuse the same entities.
+    this.projectileService.cancelProjectilesBetween(data.entityId, targetId);
 
     // Reset emotes for both entities via AnimationManager
     // Skip attacker emote reset if requested (e.g., when target died during attack animation)
@@ -2636,10 +2727,7 @@ export class CombatSystem extends SystemBase {
     }
     // Skip target emote reset if requested (e.g., when dead entity ends combat, don't reset their attacker)
     if (!data.skipTargetEmoteReset) {
-      this.animationManager.resetEmote(
-        String(combatState.targetId),
-        combatState.targetType,
-      );
+      this.animationManager.resetEmote(targetId, combatState.targetType);
     }
 
     // Clear combat state from player entities via StateService
@@ -2648,7 +2736,7 @@ export class CombatSystem extends SystemBase {
       combatState.attackerType,
     );
     this.stateService.clearCombatStateFromEntity(
-      String(combatState.targetId),
+      targetId,
       combatState.targetType,
     );
 
@@ -2658,13 +2746,13 @@ export class CombatSystem extends SystemBase {
 
     // Clean up combat follow tracking
     this.lastCombatTargetTile.delete(data.entityId);
-    this.lastCombatTargetTile.delete(String(combatState.targetId));
+    this.lastCombatTargetTile.delete(targetId);
 
     // Emit combat ended event
-    this.emitCombatEnded(data.entityId, String(combatState.targetId));
+    this.emitCombatEnded(data.entityId, targetId);
 
     this.recordCombatEvent(GameEventType.COMBAT_END, data.entityId, {
-      targetId: String(combatState.targetId),
+      targetId,
       attackerType: combatState.attackerType,
       targetType: combatState.targetType,
       reason: "timeout_or_manual",
@@ -2674,7 +2762,7 @@ export class CombatSystem extends SystemBase {
       this.emitClearFaceTarget(data.entityId);
     }
     if (combatState.targetType === "player") {
-      this.emitClearFaceTarget(String(combatState.targetId));
+      this.emitClearFaceTarget(targetId);
     }
 
     // Show combat end message for player
@@ -2704,6 +2792,11 @@ export class CombatSystem extends SystemBase {
    */
   private handleEntityDied(entityId: string, entityType: string): void {
     const typedEntityId = createEntityID(entityId);
+
+    // A dead entity can have both inbound and outbound delayed hits queued.
+    // Remove them before any duel-owned restoration can make the same entity
+    // alive again.
+    this.cancelProjectilesInvolvingEntity(entityId);
 
     // Record death event for analytics
     const deathEventType =
@@ -2793,6 +2886,9 @@ export class CombatSystem extends SystemBase {
    */
   private handlePlayerRespawned(playerId: string): void {
     const typedPlayerId = createEntityID(playerId);
+
+    // Safety net for any projectile that survived an abnormal death path.
+    this.cancelProjectilesInvolvingEntity(playerId);
 
     // 1. Clear any lingering combat state the respawned player might have
     const playerCombatState = this.stateService.getCombatData(typedPlayerId);
@@ -2957,6 +3053,14 @@ export class CombatSystem extends SystemBase {
     });
   }
 
+  /** Cancel all delayed damage either targeting or originating from an entity. */
+  private cancelProjectilesInvolvingEntity(entityId: string): number {
+    return (
+      this.projectileService.cancelProjectilesForTarget(entityId) +
+      this.projectileService.cancelProjectilesFromAttacker(entityId)
+    );
+  }
+
   /**
    * Check if a player can logout based on combat state
    * rules-accurate: Cannot logout while actively in combat
@@ -3040,8 +3144,7 @@ export class CombatSystem extends SystemBase {
     this.lastCombatTargetTile.delete(playerId);
 
     // Cancel any in-flight projectiles targeting or from this player
-    this.projectileService.cancelProjectilesForTarget(playerId);
-    this.projectileService.cancelProjectilesFromAttacker(playerId);
+    this.cancelProjectilesInvolvingEntity(playerId);
 
     // Find all entities that were targeting this disconnected player
     const combatStatesMap = this.stateService.getCombatStatesMap();

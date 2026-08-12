@@ -121,12 +121,17 @@ import {
 import { WaterVisualManager } from "./WaterVisualManager";
 import {
   GrassVisualManager,
+  STREAMING_GRASS_VISUAL_PROFILE,
   type GrassWorkerSetup,
 } from "./GrassVisualManager";
 import { terminateGrassWorkerPool } from "../../../utils/workers/GrassWorker";
 import { CompositeQuadTreeListener } from "./TerrainQuadTree";
 import type { QuadChunkWorkerConfig } from "../../../utils/workers/QuadChunkWorker";
 import { terminateQuadChunkWorkerPool } from "../../../utils/workers/QuadChunkWorker";
+import {
+  isStreamPageRoute,
+  isStreamingLikeViewport,
+} from "../../../runtime/clientViewportMode";
 
 // Road influence blending - used for shader's roadInfluence attribute
 const ROAD_BLEND_WIDTH = 0.5; // Extra blend distance beyond road width (meters)
@@ -185,6 +190,7 @@ export class TerrainSystem extends System {
   public instancedMeshManager!: InstancedMeshManager;
   private _terrainInitialized = false;
   private _initialTilesReady = false; // Track when initial tiles are loaded
+  private destroyed = false;
   private lastPlayerTile = { x: 0, z: 0 };
   private updateTimer = 0;
   private terrainTime = 0; // For animated caustics
@@ -221,6 +227,8 @@ export class TerrainSystem extends System {
   // Smooth generation queue to avoid main-thread spikes when player moves
   private pendingTileKeys: string[] = [];
   private pendingTileSet = new Set<string>();
+  /** Preserve full-content versus geometry-only intent while a tile is queued. */
+  private pendingTileContent = new Map<string, boolean>();
   private pendingCollisionKeys: string[] = [];
   private pendingCollisionSet = new Set<string>();
   // Deferred walkability baking queue — spreads 10,000 iterations across ticks
@@ -247,6 +255,7 @@ export class TerrainSystem extends System {
   private _tempVec2_3 = new THREE.Vector2(); // For road distance calculations
   private _tempBox3 = new THREE.Box3();
   private _spectatorFocusPos = new THREE.Vector3();
+  private _hasStreamingArenaFocus = false;
   private lamppostLightUpdateTimer = 0;
   private lamppostActiveLights: VertexLight[] = [];
   private lamppostLightIndices: number[] = [];
@@ -491,25 +500,45 @@ export class TerrainSystem extends System {
   private enqueueTileForGeneration(
     tileX: number,
     tileZ: number,
-    _generateContent = true,
+    generateContent = true,
   ): void {
     const key = `${tileX}_${tileZ}`;
-    if (this.terrainTiles.has(key) || this.pendingTileSet.has(key)) return;
+    if (this.terrainTiles.has(key)) return;
+    if (this.pendingTileSet.has(key)) {
+      // A core/ring request upgrades an earlier horizon-only request.
+      if (generateContent) this.pendingTileContent.set(key, true);
+      return;
+    }
     this.pendingTileSet.add(key);
     this.pendingTileKeys.push(key);
+    this.pendingTileContent.set(key, generateContent);
 
-    // Also queue for worker pre-computation if enabled (client-side only)
-    if (
-      this.runtimeIsClient &&
-      this.CONFIG.USE_WORKERS &&
-      !this.pendingWorkerResults.has(key)
-    ) {
-      this.pendingWorkerTiles.push({ tileX, tileZ });
-    }
+    this.queueTileForWorker(tileX, tileZ);
   }
 
   /** Tiles waiting to be sent to workers for pre-computation */
   private pendingWorkerTiles: Array<{ tileX: number; tileZ: number }> = [];
+  /** Tiles queued for or currently executing in a worker. */
+  private pendingWorkerTileKeys = new Set<string>();
+  /** Tiles whose worker job failed or could not start and may use sync fallback. */
+  private workerFallbackTileKeys = new Set<string>();
+
+  private queueTileForWorker(tileX: number, tileZ: number): void {
+    const key = `${tileX}_${tileZ}`;
+    if (
+      !this.runtimeIsClient ||
+      !this.CONFIG.USE_WORKERS ||
+      this.terrainTiles.has(key) ||
+      this.pendingWorkerResults.has(key) ||
+      this.pendingWorkerTileKeys.has(key)
+    ) {
+      return;
+    }
+
+    this.pendingWorkerTileKeys.add(key);
+    this.workerFallbackTileKeys.delete(key);
+    this.pendingWorkerTiles.push({ tileX, tileZ });
+  }
 
   /**
    * Public API: Request prefetch of a tile for speculative loading.
@@ -526,22 +555,7 @@ export class TerrainSystem extends System {
       return;
     }
 
-    // Add to worker pre-computation queue first (background processing)
-    if (
-      this.runtimeIsClient &&
-      this.CONFIG.USE_WORKERS &&
-      !this.pendingWorkerResults.has(key)
-    ) {
-      // Check if not already in worker queue
-      const alreadyQueued = this.pendingWorkerTiles.some(
-        (t) => t.tileX === tileX && t.tileZ === tileZ,
-      );
-      if (!alreadyQueued) {
-        this.pendingWorkerTiles.push({ tileX, tileZ });
-      }
-    }
-
-    // Enqueue for generation (will be processed when budget allows)
+    // Enqueue once for worker pre-computation and main-thread assembly.
     this.enqueueTileForGeneration(tileX, tileZ, true);
   }
 
@@ -557,19 +571,43 @@ export class TerrainSystem extends System {
         : () => Date.now();
     const start = nowFn();
     let generated = 0;
-    while (this.pendingTileKeys.length > 0) {
+    // Inspect each entry at most once per frame. Worker-backed entries rotate
+    // to the tail until their result or an explicit fallback arrives.
+    const inspectionLimit = this.pendingTileKeys.length;
+    let inspected = 0;
+    while (this.pendingTileKeys.length > 0 && inspected < inspectionLimit) {
       if (generated >= this.maxTilesPerFrame) break;
       if (nowFn() - start > this.generationBudgetMsPerFrame) break;
       const key = this.pendingTileKeys.shift()!;
+      inspected++;
+
+      const workerData = this.pendingWorkerResults.get(key);
+      const waitingForWorker =
+        this.runtimeIsClient &&
+        this.CONFIG.USE_WORKERS &&
+        this.pendingWorkerTileKeys.has(key) &&
+        !this.workerFallbackTileKeys.has(key) &&
+        !workerData;
+      if (waitingForWorker) {
+        this.pendingTileKeys.push(key);
+        continue;
+      }
+
       this.pendingTileSet.delete(key);
+      const generateContent = this.pendingTileContent.get(key) ?? true;
+      this.pendingTileContent.delete(key);
       const [x, z] = key.split("_").map(Number);
 
       // Check if we have pre-computed worker data for this tile
-      const workerData = this.pendingWorkerResults.get(key);
       const _tStart = performance.now();
       if (workerData) {
         const geometry = this.createTileGeometryFromWorkerData(workerData);
-        this.createTileFromGeometryWithResources(x, z, geometry);
+        this.createTileFromGeometryWithResources(
+          x,
+          z,
+          geometry,
+          generateContent,
+        );
         this.pendingWorkerResults.delete(key);
         if (TERRAIN_TIMING_DEBUG) {
           console.debug(
@@ -577,14 +615,46 @@ export class TerrainSystem extends System {
           );
         }
       } else {
-        this.generateTile(x, z);
+        this.generateTile(x, z, generateContent);
         if (TERRAIN_TIMING_DEBUG) {
           console.debug(
             `[TerrainTiming] sync tile ${key}: ${(performance.now() - _tStart).toFixed(1)}ms`,
           );
         }
       }
+      this.pendingWorkerTileKeys.delete(key);
+      this.workerFallbackTileKeys.delete(key);
       generated++;
+    }
+  }
+
+  /**
+   * Drop queued terrain work that no active terrain center still needs.
+   * Duel teleports can invalidate hundreds of queued tiles before generation;
+   * retaining them makes the server generate, populate, and immediately unload
+   * obsolete world regions for minutes after the camera has moved on.
+   */
+  private prunePendingTileQueue(neededTiles: ReadonlySet<string>): void {
+    if (this.pendingTileKeys.length === 0) return;
+
+    const retainedKeys: string[] = [];
+    for (const key of this.pendingTileKeys) {
+      if (neededTiles.has(key)) {
+        retainedKeys.push(key);
+        continue;
+      }
+      this.pendingTileSet.delete(key);
+      this.pendingTileContent.delete(key);
+      this.pendingWorkerResults.delete(key);
+      this.pendingWorkerTileKeys.delete(key);
+      this.workerFallbackTileKeys.delete(key);
+    }
+    this.pendingTileKeys = retainedKeys;
+
+    if (this.pendingWorkerTiles.length > 0) {
+      this.pendingWorkerTiles = this.pendingWorkerTiles.filter((tile) =>
+        neededTiles.has(`${tile.tileX}_${tile.tileZ}`),
+      );
     }
   }
 
@@ -852,13 +922,19 @@ export class TerrainSystem extends System {
           .getBiomeCenters() as BiomeCenter[],
         biomeData,
       );
+      if (this.destroyed) return;
 
-      // Check if workers were actually available
+      // Only an explicit worker failure permits synchronous fallback. Normal
+      // in-flight work remains queued without blocking the render thread.
       if (!batchResult.workersAvailable) {
         console.warn(
           "[TerrainSystem] Workers not available, tiles will use synchronous generation",
         );
-        // Tiles will be generated synchronously via the normal queue
+        for (const tile of tilesToProcess) {
+          const key = `${tile.tileX}_${tile.tileZ}`;
+          this.pendingWorkerTileKeys.delete(key);
+          this.workerFallbackTileKeys.add(key);
+        }
         return;
       }
 
@@ -871,10 +947,34 @@ export class TerrainSystem extends System {
 
       // Store successful results for later geometry creation
       for (const result of batchResult.results) {
-        this.pendingWorkerResults.set(result.tileKey, result);
+        this.pendingWorkerTileKeys.delete(result.tileKey);
+        if (
+          this.pendingTileSet.has(result.tileKey) &&
+          !this.terrainTiles.has(result.tileKey)
+        ) {
+          this.pendingWorkerResults.set(result.tileKey, result);
+        }
+      }
+
+      if (batchResult.failedCount > 0) {
+        const completedKeys = new Set(
+          batchResult.results.map((result) => result.tileKey),
+        );
+        for (const tile of tilesToProcess) {
+          const key = `${tile.tileX}_${tile.tileZ}`;
+          if (completedKeys.has(key)) continue;
+          this.pendingWorkerTileKeys.delete(key);
+          this.workerFallbackTileKeys.add(key);
+        }
       }
     } catch (error) {
+      if (this.destroyed) return;
       console.error("[TerrainSystem] Worker batch failed:", error);
+      for (const tile of tilesToProcess) {
+        const key = `${tile.tileX}_${tile.tileZ}`;
+        this.pendingWorkerTileKeys.delete(key);
+        this.workerFallbackTileKeys.add(key);
+      }
     } finally {
       this.workerBatchInProgress = false;
     }
@@ -1049,6 +1149,7 @@ export class TerrainSystem extends System {
     tileX: number,
     tileZ: number,
     geometry: THREE.PlaneGeometry,
+    generateContent = true,
   ): TerrainTile {
     const key = `${tileX}_${tileZ}`;
 
@@ -1090,6 +1191,7 @@ export class TerrainSystem extends System {
       resources: [],
       roads: [],
       generated: true,
+      contentGenerated: generateContent,
       lastActiveTime: new Date(),
       playerCount: 0,
       needsSave: true,
@@ -1187,11 +1289,11 @@ export class TerrainSystem extends System {
       this.runtimeIsServer || this.world.network?.isServer || false;
     const isClient = this.runtimeIsClient;
 
-    if (isServer) {
+    if (generateContent && isServer) {
       this.generateTileResources(tile);
     }
 
-    if (isClient) {
+    if (generateContent && isClient) {
       if (!isServer && tile.resources.length === 0) {
         this.generateTileResources(tile);
       }
@@ -1225,6 +1327,7 @@ export class TerrainSystem extends System {
       tileX,
       tileZ,
       biome: genericBiome,
+      contentGenerated: generateContent,
       resources: resourcesPayload,
     });
 
@@ -1586,8 +1689,7 @@ export class TerrainSystem extends System {
     // Get systems references
     // Check if database system exists and has the required method
     const dbSystem = this.world.getSystem("database") as
-      | { saveWorldChunk(chunkData: WorldChunkData): void }
-      | undefined;
+      { saveWorldChunk(chunkData: WorldChunkData): void } | undefined;
     if (dbSystem) {
       this.databaseSystem = dbSystem;
     }
@@ -1613,6 +1715,7 @@ export class TerrainSystem extends System {
   }
 
   async start(): Promise<void> {
+    this.destroyed = false;
     this.ensureNoiseInitialized();
 
     // CRITICAL: Wait for DataManager to initialize BIOMES data before generating terrain
@@ -1642,6 +1745,10 @@ export class TerrainSystem extends System {
     console.log(
       `[TerrainSystem] DataManager initialized, ${Object.keys(BIOMES).length} biomes loaded, proceeding with terrain generation`,
     );
+
+    // Load explicit ponds/lakes before terrain collision or visual tiles are
+    // generated so water, shore discovery, and movement share one registry.
+    this.loadWaterBodiesFromManifest();
 
     // Load flat zones from manifest (now that DataManager has loaded world-areas.json and stations.json)
     this.loadFlatZonesFromManifest();
@@ -1683,6 +1790,29 @@ export class TerrainSystem extends System {
     if (!this._initialTilesReady) {
       this.loadInitialTiles();
     }
+    if (
+      this.runtimeIsClient &&
+      isStreamingLikeViewport() &&
+      this.quadTreeVisualManager &&
+      this.world.graphics?.precompileObject
+    ) {
+      const center = this.getTerrainCenters()[0]?.position;
+      if (center) {
+        const precompileObject = this.world.graphics.precompileObject.bind(
+          this.world.graphics,
+        );
+        await this.quadTreeVisualManager.precompileRepresentativeChunk(
+          center.x,
+          center.z,
+          precompileObject,
+        );
+        if (this.grassVisualManager) {
+          await this.grassVisualManager.precompileRepresentativeChunk(
+            precompileObject,
+          );
+        }
+      }
+    }
 
     // Refresh road influence after the road network becomes available.
     this.world.on(EventType.ROADS_GENERATED, (...args: unknown[]) => {
@@ -1696,8 +1826,7 @@ export class TerrainSystem extends System {
       );
 
       this.roadNetworkSystem = this.world.getSystem("roads") as
-        | RoadNetworkSystem
-        | undefined;
+        RoadNetworkSystem | undefined;
 
       // Tiles already exist by this point in normal client flow. Refresh them
       // so roads appear without making road generation block first terrain.
@@ -1904,6 +2033,14 @@ export class TerrainSystem extends System {
       workerBiomes[name] = { color: cached };
     }
 
+    const isStreamingViewport = isStreamingLikeViewport();
+    const maxSyncChunksPerFrame = isStreamingViewport
+      ? Math.min(1, this.CONFIG.QUADTREE_MAX_SYNC_PER_FRAME)
+      : this.CONFIG.QUADTREE_MAX_SYNC_PER_FRAME;
+    const maxAssembliesPerFrame = isStreamingViewport
+      ? Math.min(2, this.CONFIG.QUADTREE_MAX_ASSEMBLIES_PER_FRAME)
+      : this.CONFIG.QUADTREE_MAX_ASSEMBLIES_PER_FRAME;
+
     this.quadTreeVisualManager = new TerrainVisualManager(
       {
         minSize: this.CONFIG.QUADTREE_MIN_SIZE,
@@ -1912,6 +2049,11 @@ export class TerrainSystem extends System {
         unsplitMultiplier: this.CONFIG.QUADTREE_UNSPLIT_MULTIPLIER,
         resolution: this.CONFIG.QUADTREE_RESOLUTION,
         skirtDrop: this.CONFIG.QUADTREE_SKIRT_DROP,
+        // The broadcast camera is pinned to the compact arena complex. One
+        // 1,600 m root covers the complete 250 m critical scene radius, so
+        // retaining the exploration viewport's surrounding eight roots only
+        // creates off-screen worker, geometry, and GPU residency churn.
+        rootChunkRadius: isStreamingViewport ? 0 : 1,
       },
       provider,
       qtContainer,
@@ -1923,8 +2065,8 @@ export class TerrainSystem extends System {
       this.CONFIG.QUADTREE_DEBUG_WIREFRAME,
       this.CONFIG.TERRAIN_RECEIVE_SHADOW && !isCsmEnabled(),
       this.CONFIG.TERRAIN_CAST_SHADOW,
-      this.CONFIG.QUADTREE_MAX_SYNC_PER_FRAME,
-      this.CONFIG.QUADTREE_MAX_ASSEMBLIES_PER_FRAME,
+      maxSyncChunksPerFrame,
+      maxAssembliesPerFrame,
     );
 
     // Water quad-tree visual manager — flat water meshes aligned with terrain chunks
@@ -1960,6 +2102,7 @@ export class TerrainSystem extends System {
         (wx: number, wz: number) => this.isInFlatZone(wx, wz),
         (wx: number, wz: number) => this.getTerrainColorAt(wx, wz),
         grassWorkerSetup,
+        isStreamingViewport ? STREAMING_GRASS_VISUAL_PROFILE : undefined,
       );
 
       // Wire terrain, water, grass managers to the same quad-tree via composite
@@ -2096,8 +2239,7 @@ export class TerrainSystem extends System {
     width: number;
   }> {
     this.roadNetworkSystem ??= this.world.getSystem("roads") as
-      | RoadNetworkSystem
-      | undefined;
+      RoadNetworkSystem | undefined;
     if (!this.roadNetworkSystem) return [];
 
     const ts = this.CONFIG.TILE_SIZE;
@@ -2286,6 +2428,64 @@ export class TerrainSystem extends System {
     if (this.runtimeIsClient) {
       const localPlayer = this.world.getPlayer?.();
       if (!localPlayer) {
+        // The broadcast page must keep terrain and LOD residency centered on
+        // the active duel ring. The scheduler teleports contestants home while
+        // the delayed public renderer is still completing RESOLUTION; following
+        // either remote avatar here would rebuild far-away terrain even though
+        // the cinematic camera intentionally remains at the arena.
+        if (isStreamPageRoute()) {
+          const arenaPositions =
+            typeof window === "undefined"
+              ? null
+              : (
+                  window as Window & {
+                    __HYPERIA_STREAM_STATE__?: {
+                      cycle?: {
+                        arenaPositions?: {
+                          agent1?: unknown;
+                          agent2?: unknown;
+                        } | null;
+                      } | null;
+                    } | null;
+                  }
+                ).__HYPERIA_STREAM_STATE__?.cycle?.arenaPositions;
+          const first = arenaPositions?.agent1;
+          const second = arenaPositions?.agent2;
+          if (
+            Array.isArray(first) &&
+            first.length === 3 &&
+            first.every((value) =>
+              Number.isFinite(typeof value === "number" ? value : Number.NaN),
+            ) &&
+            Array.isArray(second) &&
+            second.length === 3 &&
+            second.every((value) =>
+              Number.isFinite(typeof value === "number" ? value : Number.NaN),
+            )
+          ) {
+            this._spectatorFocusPos.set(
+              ((first[0] as number) + (second[0] as number)) / 2,
+              ((first[1] as number) + (second[1] as number)) / 2,
+              ((first[2] as number) + (second[2] as number)) / 2,
+            );
+            this._hasStreamingArenaFocus = true;
+          } else if (!this._hasStreamingArenaFocus) {
+            const arena = getDuelArenaConfig();
+            this._spectatorFocusPos.set(
+              arena.baseX + arena.arenaWidth / 2,
+              arena.baseY,
+              arena.baseZ + arena.arenaLength / 2,
+            );
+            this._hasStreamingArenaFocus = true;
+          }
+          return [
+            {
+              id: "streaming-arena-focus",
+              position: this._spectatorFocusPos,
+            },
+          ];
+        }
+
         // Prefer server-assigned spectator target (snapshot/stream updates),
         // then fall back to URL config hints.
         const followEntityId = (() => {
@@ -2318,8 +2518,7 @@ export class TerrainSystem extends System {
             this.world.entities?.items?.get(followEntityId) ||
             this.world.entities?.players?.get(followEntityId);
           const followedPos = followedEntity?.position as
-            | { x: number; y: number; z: number }
-            | undefined;
+            { x: number; y: number; z: number } | undefined;
           if (
             followedPos &&
             Number.isFinite(followedPos.x) &&
@@ -2416,8 +2615,41 @@ export class TerrainSystem extends System {
     const players = this.world.getPlayers() || [];
     const centers: Array<{ id: string; position: THREE.Vector3 }> = [];
 
+    // The authoritative duel arena must stay resident even while scripted
+    // fighters return to their ordinary spawn points between cycles. Without
+    // this fixed center, every phase transition swaps the server between two
+    // terrain regions and the generation queue never reaches idle.
+    if (
+      this.runtimeIsServer &&
+      typeof process !== "undefined" &&
+      process.env.STREAMING_DUEL_ENABLED === "true"
+    ) {
+      const lobby = getDuelArenaConfig().lobbySpawnPoint;
+      this._spectatorFocusPos.set(lobby.x, lobby.y, lobby.z);
+      centers.push({
+        id: "server-arena-lobby",
+        position: this._spectatorFocusPos,
+      });
+    }
+
     for (const player of players) {
       if (!player?.node?.position) continue;
+
+      // Server-owned agents are transient simulation actors, not independent
+      // terrain viewers. One fixed arena center covers duel simulation while
+      // human players retain normal position-based terrain streaming.
+      const playerFlags = player as unknown as {
+        isAgent?: boolean;
+        isEmbeddedAgent?: boolean;
+        data?: { isAgent?: boolean; isEmbeddedAgent?: boolean };
+      };
+      const isAgent =
+        playerFlags.isAgent === true ||
+        playerFlags.isEmbeddedAgent === true ||
+        playerFlags.data?.isAgent === true ||
+        playerFlags.data?.isEmbeddedAgent === true;
+      if (this.runtimeIsServer && isAgent) continue;
+
       centers.push({
         id: player.id || "player",
         position: player.node.position,
@@ -2425,11 +2657,16 @@ export class TerrainSystem extends System {
     }
 
     // If no players at all (spectator on server, or empty world), use arena lobby.
-    if (centers.length === 0 && this.runtimeIsClient) {
+    if (centers.length === 0) {
       const lobby = getDuelArenaConfig().lobbySpawnPoint;
       this._spectatorFocusPos.set(lobby.x, lobby.y, lobby.z);
       return [
-        { id: "spectator-arena-lobby", position: this._spectatorFocusPos },
+        {
+          id: this.runtimeIsClient
+            ? "spectator-arena-lobby"
+            : "server-arena-lobby",
+          position: this._spectatorFocusPos,
+        },
       ];
     }
 
@@ -2552,6 +2789,7 @@ export class TerrainSystem extends System {
       resources: [],
       roads: [],
       generated: true,
+      contentGenerated: generateContent,
       lastActiveTime: new Date(),
       playerCount: 0,
       needsSave: true,
@@ -2710,6 +2948,7 @@ export class TerrainSystem extends System {
       biome: genericBiome,
       tileX,
       tileZ,
+      contentGenerated: generateContent,
       resources: resourcesPayload,
     });
 
@@ -2961,8 +3200,7 @@ export class TerrainSystem extends System {
   ): number {
     // Lazy-load road system reference
     this.roadNetworkSystem ??= this.world.getSystem("roads") as
-      | RoadNetworkSystem
-      | undefined;
+      RoadNetworkSystem | undefined;
     if (!this.roadNetworkSystem) return 0;
 
     // Convert world coordinates to road tile coordinates
@@ -3126,8 +3364,7 @@ export class TerrainSystem extends System {
   ): Promise<Float32Array | null> {
     // Get road segments
     this.roadNetworkSystem ??= this.world.getSystem("roads") as
-      | RoadNetworkSystem
-      | undefined;
+      RoadNetworkSystem | undefined;
     if (!this.roadNetworkSystem) return null;
 
     const segments = this.roadNetworkSystem.getRoadSegmentsForTile(
@@ -4328,6 +4565,56 @@ export class TerrainSystem extends System {
   }
 
   /**
+   * Load explicit elevated water bodies from world-areas.json.
+   *
+   * These are registered after DataManager is ready but before any terrain
+   * tile is generated. The same registry drives collision baking, rendered
+   * water, vegetation exclusion, and dynamic fishing-shore discovery.
+   */
+  private loadWaterBodiesFromManifest(): void {
+    const seenIds = new Set<string>();
+    let loadedCount = 0;
+
+    for (const [areaId, area] of Object.entries(ALL_WORLD_AREAS)) {
+      for (const body of area.waterBodies ?? []) {
+        const values = [body.centerX, body.centerZ, body.radius, body.surfaceY];
+        if (
+          typeof body.id !== "string" ||
+          body.id.trim().length === 0 ||
+          !values.every(Number.isFinite) ||
+          body.radius <= 0
+        ) {
+          throw new Error(
+            `[TerrainSystem] Invalid water body in area ${areaId}: ${JSON.stringify(body)}`,
+          );
+        }
+        if (seenIds.has(body.id)) {
+          throw new Error(
+            `[TerrainSystem] Duplicate water body ID ${body.id} in world-areas.json`,
+          );
+        }
+        seenIds.add(body.id);
+        this.waterBodyRegistry.register({
+          id: body.id,
+          centerX: body.centerX,
+          centerZ: body.centerZ,
+          radius: body.radius,
+          radiusSq: body.radius * body.radius,
+          surfaceY: body.surfaceY,
+          sourceType: "explicit",
+        });
+        loadedCount++;
+      }
+    }
+
+    if (loadedCount > 0) {
+      console.log(
+        `[TerrainSystem] Registered ${loadedCount} explicit water bodies from world-areas.json`,
+      );
+    }
+  }
+
+  /**
    * Load flat zones from world-areas manifest during initialization.
    * Called before any tiles are generated.
    *
@@ -5210,6 +5497,7 @@ export class TerrainSystem extends System {
       resources: [],
       roads: [],
       generated: false,
+      contentGenerated: false,
       playerCount: 0,
       needsSave: false,
       collision: null,
@@ -5688,17 +5976,18 @@ export class TerrainSystem extends System {
     // Clear baked terrain walkability flags (server-only)
     if (this.runtimeIsServer && this.world?.collision) {
       const tileSize = this.CONFIG.TILE_SIZE;
-      const originX = tile.x * tileSize;
-      const originZ = tile.z * tileSize;
+      const originX = tile.x * tileSize - tileSize * 0.5;
+      const originZ = tile.z * tileSize - tileSize * 0.5;
       const tilesPerSide = Math.floor(tileSize / 1.0);
       const terrainFlagsMask = CollisionFlag.WATER | CollisionFlag.STEEP_SLOPE;
-      for (let lx = 0; lx < tilesPerSide; lx++) {
-        const mx = Math.floor(originX + lx + 0.5);
-        for (let lz = 0; lz < tilesPerSide; lz++) {
-          const mz = Math.floor(originZ + lz + 0.5);
-          this.world.collision.removeFlags(mx, mz, terrainFlagsMask);
-        }
-      }
+      this.world.collision.replaceFlagsInRegion(
+        Math.floor(originX),
+        Math.floor(originZ),
+        tilesPerSide,
+        tilesPerSide,
+        terrainFlagsMask,
+        new Int32Array(tilesPerSide * tilesPerSide),
+      );
     }
 
     // Clean up road meshes
@@ -5941,6 +6230,19 @@ export class TerrainSystem extends System {
   }
 
   /**
+   * Whether server walkability flags have been baked for the terrain containing
+   * this world position. Generated tiles bake WATER/STEEP_SLOPE synchronously,
+   * so movement can trust CollisionMatrix instead of recomputing procedural
+   * height, biome, water, and slope data in its hot path.
+   */
+  hasBakedWalkabilityAt(worldX: number, worldZ: number): boolean {
+    return this.isTerrainTileGenerated(
+      this.worldToTerrainTileIndex(worldX),
+      this.worldToTerrainTileIndex(worldZ),
+    );
+  }
+
+  /**
    * Pre-compute WATER and STEEP_SLOPE collision flags for all movement tiles
    * within a terrain tile. Called once when terrain is generated.
    *
@@ -5969,20 +6271,15 @@ export class TerrainSystem extends System {
     const tilesPerSide = Math.floor(tileSize / 1.0); // 100 movement tiles per side
     const wt = this.CONFIG.WATER_THRESHOLD;
 
-    // World origin of this terrain tile's movement tiles
-    const originX = terrainTileX * tileSize;
-    const originZ = terrainTileZ * tileSize;
+    // Terrain geometry is centered on tileIndex * tileSize. Its movement grid
+    // therefore begins half a tile before the mesh position.
+    const originX = terrainTileX * tileSize - tileSize * 0.5;
+    const originZ = terrainTileZ * tileSize - tileSize * 0.5;
     const originXInt = Math.floor(originX);
     const originZInt = Math.floor(originZ);
 
-    // Clear stale terrain flags first (handles re-baking after flat zone regeneration)
     const terrainFlagsMask = CollisionFlag.WATER | CollisionFlag.STEEP_SLOPE;
-    for (let lx = 0; lx < tilesPerSide; lx++) {
-      const moveTileX = originXInt + lx;
-      for (let lz = 0; lz < tilesPerSide; lz++) {
-        collision.removeFlags(moveTileX, originZInt + lz, terrainFlagsMask);
-      }
-    }
+    const terrainFlags = new Int32Array(tilesPerSide * tilesPerSide);
 
     // ---- PASS 1: Water flags (aligned with visual water mesh) ----
     //
@@ -6056,11 +6353,7 @@ export class TerrainSystem extends System {
             const flagIdx = flagRow + tz;
             if (!waterTileFlags[flagIdx]) {
               waterTileFlags[flagIdx] = 1;
-              collision.addFlags(
-                originXInt + tx,
-                originZInt + tz,
-                CollisionFlag.WATER,
-              );
+              terrainFlags[flagIdx] |= CollisionFlag.WATER;
             }
           }
         }
@@ -6117,11 +6410,7 @@ export class TerrainSystem extends System {
               const flagIdx = flagRow + tz;
               if (!waterTileFlags[flagIdx]) {
                 waterTileFlags[flagIdx] = 1;
-                collision.addFlags(
-                  originXInt + tx,
-                  originZInt + tz,
-                  CollisionFlag.WATER,
-                );
+                terrainFlags[flagIdx] |= CollisionFlag.WATER;
               }
             }
           }
@@ -6130,39 +6419,136 @@ export class TerrainSystem extends System {
     }
 
     // ---- PASS 2: Biome + slope flags (non-water tiles only) ----
-    for (let lx = 0; lx < tilesPerSide; lx++) {
-      const worldX = originX + lx + 0.5;
-      const moveTileX = originXInt + lx;
-      const flagRow = lx * tilesPerSide;
+    // Sample a one-meter grid once and reuse neighboring samples. The prior
+    // path called calculateSlope() for each of 10,000 movement tiles, causing
+    // up to 90,000 cached-height queries and 100ms+ authoritative tick stalls.
+    const biome = this.getBiomeAt(terrainTileX, terrainTileZ);
+    const biomeData = BIOMES[biome];
+    const slopeDistance = this.CONFIG.SLOPE_CHECK_DISTANCE;
+    const integerSlopeDistance = Number.isInteger(slopeDistance)
+      ? slopeDistance
+      : null;
+    let slopeHeights: Float64Array | null = null;
+    let slopeGridSide = 0;
 
-      for (let lz = 0; lz < tilesPerSide; lz++) {
-        if (waterTileFlags[flagRow + lz]) continue; // Already water
-
-        const worldZ = originZ + lz + 0.5;
-
-        // Biome check — "lakes" biome is always impassable
-        const biomeTerrainTileX = Math.floor(worldX / tileSize);
-        const biomeTerrainTileZ = Math.floor(worldZ / tileSize);
-        const biome = this.getBiomeAt(biomeTerrainTileX, biomeTerrainTileZ);
-
-        if (biome === "lakes") {
-          collision.addFlags(moveTileX, originZInt + lz, CollisionFlag.WATER);
-        } else {
-          // Slope check — slope exceeds biome's maxSlope
-          const biomeData = BIOMES[biome];
-          if (biomeData) {
-            const slope = this.calculateSlope(worldX, worldZ);
-            if (slope > biomeData.maxSlope) {
-              collision.addFlags(
-                moveTileX,
-                originZInt + lz,
-                CollisionFlag.STEEP_SLOPE,
-              );
-            }
-          }
+    if (biome !== "lakes" && biomeData && integerSlopeDistance !== null) {
+      slopeGridSide = tilesPerSide + integerSlopeDistance * 2;
+      slopeHeights = new Float64Array(slopeGridSide * slopeGridSide);
+      for (let gx = 0; gx < slopeGridSide; gx++) {
+        const worldX = originX + gx - integerSlopeDistance + 0.5;
+        const rowOffset = gx * slopeGridSide;
+        for (let gz = 0; gz < slopeGridSide; gz++) {
+          const worldZ = originZ + gz - integerSlopeDistance + 0.5;
+          slopeHeights[rowOffset + gz] = this.getHeightAt(worldX, worldZ);
         }
       }
     }
+
+    const inverseSlopeDistance = 1 / slopeDistance;
+    const inverseDiagonalDistance = 1 / (slopeDistance * Math.SQRT2);
+    for (let lx = 0; lx < tilesPerSide; lx++) {
+      const worldX = originX + lx + 0.5;
+      const flagRow = lx * tilesPerSide;
+
+      for (let lz = 0; lz < tilesPerSide; lz++) {
+        const flagIndex = flagRow + lz;
+        if (waterTileFlags[flagIndex]) continue; // Already water
+
+        const worldZ = originZ + lz + 0.5;
+
+        if (biome === "lakes") {
+          terrainFlags[flagIndex] |= CollisionFlag.WATER;
+          continue;
+        }
+        if (!biomeData) continue;
+
+        let slope: number;
+        if (slopeHeights && integerSlopeDistance !== null) {
+          const gx = lx + integerSlopeDistance;
+          const gz = lz + integerSlopeDistance;
+          const center = slopeHeights[gx * slopeGridSide + gz];
+          const north =
+            Math.abs(
+              slopeHeights[gx * slopeGridSide + gz + integerSlopeDistance] -
+                center,
+            ) * inverseSlopeDistance;
+          const south =
+            Math.abs(
+              slopeHeights[gx * slopeGridSide + gz - integerSlopeDistance] -
+                center,
+            ) * inverseSlopeDistance;
+          const east =
+            Math.abs(
+              slopeHeights[(gx + integerSlopeDistance) * slopeGridSide + gz] -
+                center,
+            ) * inverseSlopeDistance;
+          const west =
+            Math.abs(
+              slopeHeights[(gx - integerSlopeDistance) * slopeGridSide + gz] -
+                center,
+            ) * inverseSlopeDistance;
+          const northEast =
+            Math.abs(
+              slopeHeights[
+                (gx + integerSlopeDistance) * slopeGridSide +
+                  gz +
+                  integerSlopeDistance
+              ] - center,
+            ) * inverseDiagonalDistance;
+          const northWest =
+            Math.abs(
+              slopeHeights[
+                (gx - integerSlopeDistance) * slopeGridSide +
+                  gz +
+                  integerSlopeDistance
+              ] - center,
+            ) * inverseDiagonalDistance;
+          const southEast =
+            Math.abs(
+              slopeHeights[
+                (gx + integerSlopeDistance) * slopeGridSide +
+                  gz -
+                  integerSlopeDistance
+              ] - center,
+            ) * inverseDiagonalDistance;
+          const southWest =
+            Math.abs(
+              slopeHeights[
+                (gx - integerSlopeDistance) * slopeGridSide +
+                  gz -
+                  integerSlopeDistance
+              ] - center,
+            ) * inverseDiagonalDistance;
+          slope = Math.max(
+            north,
+            south,
+            east,
+            west,
+            northEast,
+            northWest,
+            southEast,
+            southWest,
+          );
+        } else {
+          slope = this.calculateSlope(worldX, worldZ);
+        }
+
+        if (slope > biomeData.maxSlope) {
+          terrainFlags[flagIndex] |= CollisionFlag.STEEP_SLOPE;
+        }
+      }
+    }
+
+    // Apply the complete terrain result in one zone-oriented batch. This also
+    // clears stale WATER/STEEP_SLOPE flags while preserving every other flag.
+    collision.replaceFlagsInRegion(
+      originXInt,
+      originZInt,
+      tilesPerSide,
+      tilesPerSide,
+      terrainFlagsMask,
+      terrainFlags,
+    );
 
     // ---- PASS 3: Bridge collision (overrides WATER → walkable) ----
     const bridgeSystem = this.world.getSystem("bridges") as BridgeSystem | null;
@@ -6186,11 +6572,7 @@ export class TerrainSystem extends System {
       ): void;
     } | null;
     if (dockSystem?.reapplyCollisionForTile) {
-      dockSystem.reapplyCollisionForTile(
-        terrainTileX * tileSize,
-        terrainTileZ * tileSize,
-        tileSize,
-      );
+      dockSystem.reapplyCollisionForTile(originX, originZ, tileSize);
     }
   }
 
@@ -6512,6 +6894,7 @@ export class TerrainSystem extends System {
   }> {
     const biome = this.getBiomeAt(tileX, tileZ);
     const biomeData = BIOMES[biome];
+    const rng = this.createTileRng(tileX, tileZ, "mob-spawn-positions");
 
     // Don't spawn mobs in safe zones
     if (biomeData.difficulty === 0 || biomeData.mobTypes.length === 0) {
@@ -6535,10 +6918,10 @@ export class TerrainSystem extends System {
       // Random position within tile
       const worldX =
         tileX * this.CONFIG.TILE_SIZE +
-        (Math.random() - 0.5) * this.CONFIG.TILE_SIZE * 0.8;
+        (rng() - 0.5) * this.CONFIG.TILE_SIZE * 0.8;
       const worldZ =
         tileZ * this.CONFIG.TILE_SIZE +
-        (Math.random() - 0.5) * this.CONFIG.TILE_SIZE * 0.8;
+        (rng() - 0.5) * this.CONFIG.TILE_SIZE * 0.8;
 
       // Check if position is suitable for mob spawning
       const terrainInfo = this.getTerrainInfoAt(worldX, worldZ);
@@ -7000,6 +7383,7 @@ export class TerrainSystem extends System {
   }
 
   destroy(): void {
+    this.destroyed = true;
     // Dispose quad-tree visual manager
     if (this.quadTreeVisualManager) {
       this.quadTreeVisualManager.dispose();
@@ -7021,8 +7405,11 @@ export class TerrainSystem extends System {
     terminateQuadChunkWorkerPool();
     terminateGrassWorkerPool();
 
-    // Clear pending worker results
+    // Clear pending worker state
     this.pendingWorkerResults.clear();
+    this.pendingWorkerTiles.length = 0;
+    this.pendingWorkerTileKeys.clear();
+    this.workerFallbackTileKeys.clear();
 
     // Remove prefs listener
     if (this.world.prefs) {
@@ -7076,6 +7463,9 @@ export class TerrainSystem extends System {
     this._pendingTileRegeneration.clear();
     this.terrainBoundingBoxes.clear();
     this.pendingSerializationData.clear();
+    this.pendingTileKeys.length = 0;
+    this.pendingTileSet.clear();
+    this.pendingTileContent.clear();
 
     // Cleanup GPU compute context
     if (this.terrainComputeContext) {
@@ -7203,30 +7593,25 @@ export class TerrainSystem extends System {
    * Initialize chunk loading system with 9 core + ring strategy
    */
   private initializeChunkLoadingSystem(): void {
-    const isEmbeddedSpectator = (() => {
-      if (typeof window === "undefined") return false;
-      const win = window as Window & {
-        __HYPERIA_EMBEDDED__?: boolean;
-        __HYPERIA_CONFIG__?: { mode?: string };
-      };
-      return (
-        win.__HYPERIA_EMBEDDED__ === true &&
-        win.__HYPERIA_CONFIG__?.mode === "spectator"
-      );
-    })();
+    const isStreamingViewport = isStreamingLikeViewport();
     // world.isServer can be false during early bootstrap (before network mode
     // is finalized). Resolve runtime role explicitly so server startup always
     // uses tight headless chunk ranges.
     const { isServer: isServerRuntime } = this.resolveRuntimeRole();
 
-    // Embedded spectator prioritizes first-frame time over long-range preload.
+    // Streaming viewports prioritize first-frame time over gameplay travel
+    // preload. Quad-tree visuals retain the horizon independently of these
+    // flat-grid simulation/content tiles.
     if (isServerRuntime) {
-      this.coreChunkRange = 3; // 7x7 core grid (full simulation)
-      this.ringChunkRange = 5; // 11x11 ring — resource content generated here
-      this.terrainOnlyChunkRange = 0; // No render-only tiles on server
-      this.maxTilesPerFrame = 4;
+      // The authoritative server does not render a horizon. A 3x3 simulation
+      // core plus one-tile preload ring covers movement/network interest while
+      // avoiding 121 full terrain tiles per player or duel teleport.
+      this.coreChunkRange = 1;
+      this.ringChunkRange = 2;
+      this.terrainOnlyChunkRange = 2;
+      this.maxTilesPerFrame = 1;
       this.generationBudgetMsPerFrame = 6;
-    } else if (isEmbeddedSpectator) {
+    } else if (isStreamingViewport) {
       this.coreChunkRange = 1; // 3x3 core grid
       this.ringChunkRange = 2; // Preload ring up to 5x5
       this.terrainOnlyChunkRange = 2; // Avoid far-horizon churn in embedded stream view
@@ -7387,6 +7772,11 @@ export class TerrainSystem extends System {
         playerCenters.push({ x: tileX, z: tileZ });
       }
     }
+
+    // A duel teleport or camera retarget invalidates queued work immediately.
+    // Prune before adding current requests so old regions never compete with
+    // the arena for the authoritative loop.
+    this.prunePendingTileQueue(neededTiles);
 
     // Queue missing tiles for smooth generation
     for (const tileKey of neededTiles) {
@@ -7696,6 +8086,33 @@ export class TerrainSystem extends System {
     return this._initialTilesReady && this.noise !== undefined;
   }
 
+  /**
+   * A stricter client-stream gate than isReady(): the gameplay height field
+   * may be usable while visible quad terrain and grass are still arriving.
+   */
+  public getStreamingVisualReadiness(criticalRadius = 250): {
+    ready: boolean;
+    terrain: ReturnType<TerrainVisualManager["getStreamingReadiness"]> | null;
+    grass: ReturnType<GrassVisualManager["getStreamingReadiness"]> | null;
+  } {
+    const terrain =
+      this.quadTreeVisualManager?.getStreamingReadiness(criticalRadius) ?? null;
+    const grass =
+      this.grassVisualManager && this.quadTreeVisualManager
+        ? this.grassVisualManager.getStreamingReadiness(
+            this.quadTreeVisualManager.getQuadTree().getFinalNodes(),
+            criticalRadius,
+          )
+        : null;
+    return {
+      ready: Boolean(
+        terrain?.ready && (!this.grassVisualManager || grass?.ready),
+      ),
+      terrain,
+      grass,
+    };
+  }
+
   public getTileSize(): number {
     return this.CONFIG.TILE_SIZE;
   }
@@ -7737,8 +8154,7 @@ export class TerrainSystem extends System {
 
     // Ensure road system reference is current
     this.roadNetworkSystem = this.world.getSystem("roads") as
-      | RoadNetworkSystem
-      | undefined;
+      RoadNetworkSystem | undefined;
 
     if (!this.roadNetworkSystem) {
       console.error("[TerrainSystem] Road system not found!");
@@ -7775,8 +8191,7 @@ export class TerrainSystem extends System {
 
     // Ensure road system reference is current
     this.roadNetworkSystem = this.world.getSystem("roads") as
-      | RoadNetworkSystem
-      | undefined;
+      RoadNetworkSystem | undefined;
 
     // Clear the logged tiles set to see fresh logs
     this._loggedTileSegments.clear();
@@ -7828,8 +8243,7 @@ export class TerrainSystem extends System {
 
     // Check road system
     this.roadNetworkSystem ??= this.world.getSystem("roads") as
-      | RoadNetworkSystem
-      | undefined;
+      RoadNetworkSystem | undefined;
 
     if (!this.roadNetworkSystem) {
       console.log("  Road system: NOT FOUND");

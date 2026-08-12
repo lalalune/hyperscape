@@ -159,6 +159,7 @@ import {
   dot,
   normalize,
 } from "../../../extras/three/three";
+import type { Node } from "three/webgpu";
 
 /**
  * Apply a day/night sky-tint to a colour in TSL.
@@ -174,7 +175,11 @@ import {
  * @param dayIntensity - Uniform or node with range [0, 1]
  * @param shadeColor - Tint color node (e.g. `vec3(...SUN_SHADE.TINT_COLOR)`)
  */
-export function applySunShade(color: any, dayIntensity: any, shadeColor: any) {
+export function applySunShade(
+  color: Node<"vec3">,
+  dayIntensity: Node<"float">,
+  shadeColor: Node<"vec3">,
+): Node<"vec3"> {
   const shadeFactor = sub(float(1.0), dayIntensity);
   const tinted = mul(color, shadeColor);
   return mix(color, tinted, shadeFactor);
@@ -193,12 +198,12 @@ export function applySunShade(color: any, dayIntensity: any, shadeColor: any) {
  * @param shadeColor   - Night tint color node
  */
 export function applyCustomLighting(
-  albedo: any,
-  normal: any,
-  sunDirNode: any,
-  dayIntensity: any,
-  shadeColor: any,
-): any {
+  albedo: Node<"vec3">,
+  normal: Node<"vec3">,
+  sunDirNode: Node<"vec3">,
+  dayIntensity: Node<"float">,
+  shadeColor: Node<"vec3">,
+): Node<"vec3"> {
   const tinted = applySunShade(albedo, dayIntensity, shadeColor);
   const sunDir = normalize(vec3(sunDirNode));
   const NdotL = dot(normal, sunDir);

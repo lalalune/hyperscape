@@ -57,6 +57,7 @@ import type {
 } from "../../types/index";
 import { DeathState } from "../../types/entities/entities";
 import { Emotes, essentialEmotes } from "../../data/playerEmotes";
+import { DEFAULT_AVATAR_URL } from "../../data/avatars";
 import type { World } from "../../core/World";
 import { createNode } from "../../extras/three/createNode";
 import { LerpQuaternion } from "../../extras/animation/LerpQuaternion";
@@ -86,6 +87,10 @@ import {
 } from "../../utils/rendering/DistanceFade";
 import { UIRenderer } from "../../utils/rendering/UIRenderer";
 import { MobInstancedRenderer } from "../../utils/rendering/InstancedMeshManager";
+import {
+  isStreamPageRoute,
+  isStreamingLikeViewport,
+} from "../../runtime/clientViewportMode";
 import type {
   MobAnimationState,
   MobInstancedHandle,
@@ -300,8 +305,13 @@ export class PlayerRemote extends Entity implements HotReloadable {
 
     this.aura = createNode("group") as Group;
 
+    // The broadcast HUD already owns contestant identity and health. Duplicating
+    // world-space labels on the canonical stream causes names and health bars to
+    // collide with the upper-third scoreboard whenever the camera moves close.
+    const showWorldSpaceCombatUi = !isStreamPageRoute();
+
     // Create nametag sprite floating above the character's head
-    {
+    if (showWorldSpaceCombatUi) {
       const playerName = (this.data.name as string) || "Player";
       const isAgent = !!(this.data.isAgent as boolean);
       const nameCanvas = UIRenderer.createNameTag(playerName, {
@@ -321,10 +331,9 @@ export class PlayerRemote extends Entity implements HotReloadable {
 
     // Register with HealthBars system
     const healthbars = this.world.getSystem?.("healthbars") as
-      | HealthBarsSystem
-      | undefined;
+      HealthBarsSystem | undefined;
 
-    if (healthbars) {
+    if (healthbars && showWorldSpaceCombatUi) {
       const currentHealth = (this.data.health as number) || 100;
       const maxHealth = (this.data.maxHealth as number) || 100;
       this._healthBarHandle = healthbars.add(this.id, currentHealth, maxHealth);
@@ -384,7 +393,7 @@ export class PlayerRemote extends Entity implements HotReloadable {
     const avatarUrl =
       (this.data.sessionAvatar as string) ||
       (this.data.avatar as string) ||
-      "asset://avatars/avatar-male-01.vrm";
+      DEFAULT_AVATAR_URL;
 
     // Skip if already loading ANY avatar (prevent race conditions)
     if (this.isLoadingAvatar) {
@@ -562,6 +571,14 @@ export class PlayerRemote extends Entity implements HotReloadable {
         avatarWithEmote.setEmote(Emotes.IDLE);
       }
       this.lastEmote = Emotes.IDLE;
+
+      if (
+        instanceWithRaw?.raw?.scene &&
+        isStreamingLikeViewport() &&
+        this.world.graphics?.precompileObject
+      ) {
+        await this.world.graphics.precompileObject(instanceWithRaw.raw.scene);
+      }
 
       // NOW make avatar visible - idle animation is guaranteed to be playing
       if (instanceWithRaw?.raw?.scene) {
@@ -843,8 +860,7 @@ export class PlayerRemote extends Entity implements HotReloadable {
         if (fadeResult.state === FadeState.CULLED) {
           if (this.avatar) {
             const inst = (this.avatar as AvatarWithInstance).instance as
-              | { raw?: { scene?: THREE.Object3D } }
-              | undefined;
+              { raw?: { scene?: THREE.Object3D } } | undefined;
             if (inst?.raw?.scene) {
               inst.raw.scene.visible = false;
             }
@@ -858,8 +874,7 @@ export class PlayerRemote extends Entity implements HotReloadable {
     // The cull path above hides the VRM scene; this re-shows it.
     if (this.avatar) {
       const inst = (this.avatar as AvatarWithInstance).instance as
-        | { raw?: { scene?: THREE.Object3D } }
-        | undefined;
+        { raw?: { scene?: THREE.Object3D } } | undefined;
       if (inst?.raw?.scene && !inst.raw.scene.visible) {
         inst.raw.scene.visible = true;
       }

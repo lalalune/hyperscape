@@ -17,6 +17,8 @@
  * ```
  */
 
+import { randomUUID } from "node:crypto";
+
 import type {
   World,
   FletchingInterfaceOpenPayload,
@@ -49,6 +51,8 @@ export class EventBridge {
     { tick: number; damages: Set<number> }
   >();
   private lastCleanupTick = 0;
+  private readonly projectileNetworkEventSourceId = randomUUID();
+  private projectileNetworkEventSequence = 0;
 
   /**
    * Registered event handlers for cleanup.
@@ -58,6 +62,7 @@ export class EventBridge {
     event: string | symbol;
     handler: (payload: unknown) => void;
   }> = [];
+  private destroyed = false;
 
   /**
    * Create an EventBridge
@@ -83,10 +88,20 @@ export class EventBridge {
   }
 
   /**
+   * Produce a stable identity that survives delivery through multiple nearby
+   * region topics without collapsing separate projectiles fired in one tick.
+   */
+  private nextProjectileNetworkEventId(): string {
+    this.projectileNetworkEventSequence += 1;
+    return `${this.projectileNetworkEventSourceId}:${this.projectileNetworkEventSequence}`;
+  }
+
+  /**
    * Cleanup all registered event listeners.
    * MUST be called when the ServerNetwork system is destroyed to prevent memory leaks.
    */
   destroy(): void {
+    this.destroyed = true;
     for (const { event, handler } of this.eventHandlers) {
       this.world.off(event as keyof EventMap, handler as () => void);
     }
@@ -140,6 +155,9 @@ export class EventBridge {
     this.setupCraftingEvents();
     this.setupFletchingEvents();
     this.setupTanningEvents();
+    this.setupRunecraftingEvents();
+    this.setupProcessingProgressEvents();
+    this.setupProcessingRejectionEvents();
     this.setupQuestEvents();
     this.setupTradeEvents();
   }
@@ -346,8 +364,14 @@ export class EventBridge {
             data: Record<string, unknown>,
           ) => void;
         };
+        // Prayer progression reaches this visual event only after the atomic
+        // bone/prayer custody receipt has committed XP, level, and points in
+        // one transaction. A second generic save is both redundant and
+        // forbidden because it could overwrite newer prayer custody state.
+        const progressionAlreadyCommittedAtomically = data.skill === "prayer";
         if (
           dbSystem?.savePlayer &&
+          !progressionAlreadyCommittedAtomically &&
           Number.isFinite(data.newXp) &&
           Number.isFinite(data.newLevel)
         ) {
@@ -479,8 +503,7 @@ export class EventBridge {
       this.on(EventType.UI_UPDATE, (payload: unknown) => {
         const data = payload as EventMap[EventType.UI_UPDATE] | undefined;
         const inner = data?.data as
-          | { playerId?: string; [k: string]: unknown }
-          | undefined;
+          { playerId?: string; [k: string]: unknown } | undefined;
 
         if (data?.component === "player" && inner?.playerId) {
           this.broadcast.sendToPlayer(inner.playerId, "playerState", inner);
@@ -521,26 +544,56 @@ export class EventBridge {
         const data = payload as EventMap[EventType.PLAYER_SET_DEAD];
 
         if (data.playerId) {
-          // Broadcast to ALL players so they can:
-          // 1. See death animation on the dying player
-          // 2. Clear tile interpolator state (allows respawn position to apply)
-          // CRITICAL: Include deathPosition so clients can position death animation correctly
-          this.broadcast.sendToAll("playerSetDead", {
-            playerId: data.playerId,
-            isDead: data.isDead,
-            deathPosition: data.deathPosition,
-          });
+          const sendDeathState = () => {
+            if (this.destroyed) return;
 
-          // CRITICAL: Also broadcast entityModified with death animation
-          // Without this, remote players won't see the death animation play
-          // (markNetworkDirty only marks for next sync cycle, not immediate)
-          if (data.isDead) {
-            this.broadcast.sendToAll("entityModified", {
-              id: data.playerId,
-              changes: {
-                e: "death",
-              },
+            // Broadcast to ALL players so they can:
+            // 1. See death animation on the dying player
+            // 2. Clear tile interpolator state (allows respawn position to apply)
+            this.broadcast.sendToAll("playerSetDead", {
+              playerId: data.playerId,
+              isDead: data.isDead,
+              deathPosition: data.deathPosition,
             });
+
+            if (data.isDead) {
+              // Also broadcast entityModified with death animation. Without this,
+              // remote players wait for the next dirty-entity sync cycle.
+              this.broadcast.sendToAll("entityModified", {
+                id: data.playerId,
+                changes: {
+                  e: "death",
+                },
+              });
+            }
+          };
+
+          if (data.isDead) {
+            // Health application emits PLAYER_SET_DEAD before CombatSystem emits
+            // the killing COMBAT_DAMAGE_DEALT / COMBAT_PROJECTILE_HIT events.
+            // Preserve synchronous authoritative server death state, but defer
+            // only its network presentation so contact and the terminal splat
+            // reach clients before the death pose begins.
+            const deathPosition = Array.isArray(data.deathPosition)
+              ? [...data.deathPosition]
+              : data.deathPosition
+                ? { ...data.deathPosition }
+                : undefined;
+            const deathData = {
+              playerId: data.playerId,
+              isDead: true,
+              deathPosition,
+            };
+            globalThis.queueMicrotask(() => {
+              if (this.destroyed) return;
+              this.broadcast.sendToAll("playerSetDead", deathData);
+              this.broadcast.sendToAll("entityModified", {
+                id: deathData.playerId,
+                changes: { e: "death" },
+              });
+            });
+          } else {
+            sendDeathState();
           }
         }
       });
@@ -681,7 +734,9 @@ export class EventBridge {
             attackerId: data.attackerId,
             targetId: data.targetId,
             damage: data.damage,
+            attackType: data.attackType,
             targetType: data.targetType,
+            isCritical: data.isCritical,
             position: { x: pos.x, y: pos.y, z: pos.z },
             tick: currentTick,
           };
@@ -698,14 +753,55 @@ export class EventBridge {
       // Use tracked this.on() for proper cleanup in destroy()
       this.on(EventType.COMBAT_PROJECTILE_LAUNCHED, (payload: unknown) => {
         const data = payload as EventMap[EventType.COMBAT_PROJECTILE_LAUNCHED];
+        const broadcastData = {
+          ...data,
+          tick: this.world.currentTick,
+          networkEventId: this.nextProjectileNetworkEventId(),
+        };
 
         // Broadcast to nearby clients so they see the projectile
         this.broadcast.sendToNearby(
           "projectileLaunched",
-          data,
+          broadcastData,
           data.sourcePosition.x,
           data.sourcePosition.z,
         );
+      });
+
+      // The launch payload carries the expected flight duration, but the
+      // authoritative impact remains the server's projectile tick. Forward it
+      // explicitly so clients remove the visual on the same event that applies
+      // damage instead of relying on frame-rate-dependent local arrival.
+      this.on(EventType.COMBAT_PROJECTILE_HIT, (payload: unknown) => {
+        const data = payload as EventMap[EventType.COMBAT_PROJECTILE_HIT];
+        const target = this.world.entities?.get(data.targetId) as
+          { position?: { x: number; y: number; z: number } } | undefined;
+        const position = data.position ?? target?.position ?? null;
+        const broadcastData = {
+          attackerId: data.attackerId,
+          targetId: data.targetId,
+          damage: data.damage,
+          projectileType: data.projectileType,
+          position: position
+            ? { x: position.x, y: position.y, z: position.z }
+            : null,
+          tick: this.world.currentTick,
+          networkEventId: this.nextProjectileNetworkEventId(),
+        };
+
+        if (position) {
+          this.broadcast.sendToNearby(
+            "projectileHit",
+            broadcastData,
+            position.x,
+            position.z,
+          );
+        } else {
+          // A terminal hit can remove the target entity before this listener
+          // runs. Full broadcast is rare and prevents a stuck projectile when
+          // there is no remaining spatial anchor.
+          this.broadcast.sendToAll("projectileHit", broadcastData);
+        }
       });
 
       // Forward combat face target events so clients rotate toward their target
@@ -713,8 +809,13 @@ export class EventBridge {
       this.on(EventType.COMBAT_FACE_TARGET, (payload: unknown) => {
         const data = payload as EventMap[EventType.COMBAT_FACE_TARGET];
 
-        // Send to specific player only — they need to rotate their local character
+        // The controlling player and the streaming spectators both render this
+        // authoritative target choice. Anonymous stream viewers subscribe to the
+        // generic spectator topic rather than spectator:<playerId>, so routing
+        // through sendToPlayerAndSpectators would leave the arena broadcast with
+        // no target-facing information.
         this.broadcast.sendToPlayer(data.playerId, "combatFaceTarget", data);
+        this.broadcast.sendToSpectators("combatFaceTarget", data);
       });
 
       // Forward combat clear face target so clients stop rotating toward dead/disengaged targets
@@ -725,16 +826,23 @@ export class EventBridge {
           "combatClearFaceTarget",
           data,
         );
+        this.broadcast.sendToSpectators("combatClearFaceTarget", data);
       });
 
       // Forward combat ended so clients/agents can clear inCombat flag
       this.on(EventType.COMBAT_ENDED, (payload: unknown) => {
         const data = payload as EventMap[EventType.COMBAT_ENDED];
         if (data.attackerId) {
-          this.broadcast.sendToPlayer(data.attackerId, "combatEnded", {
+          const combatEnded = {
             attackerId: data.attackerId,
             targetId: data.targetId,
-          });
+          };
+          this.broadcast.sendToPlayer(
+            data.attackerId,
+            "combatEnded",
+            combatEnded,
+          );
+          this.broadcast.sendToSpectators("combatEnded", combatEnded);
         }
       });
     } catch (_err) {
@@ -966,8 +1074,7 @@ export class EventBridge {
 
         // Get store data from StoreSystem
         const storeSystem = this.world.getSystem("store") as
-          | StoreSystem
-          | undefined;
+          StoreSystem | undefined;
         const store = storeSystem?.getStore(storeId);
 
         if (!store) {
@@ -1132,6 +1239,7 @@ export class EventBridge {
             resultItemId: data.resultItemId,
             wasBurnt: data.wasBurnt,
             xpGained: data.xpGained,
+            ...(data.requestId ? { requestId: data.requestId } : {}),
           });
         }
       });
@@ -1190,6 +1298,7 @@ export class EventBridge {
             totalSmelted: data.totalSmelted,
             totalFailed: data.totalFailed,
             totalXp: data.totalXp,
+            ...(data.requestId ? { requestId: data.requestId } : {}),
           });
         }
       });
@@ -1203,6 +1312,7 @@ export class EventBridge {
             outputItemId: data.outputItemId,
             totalSmithed: data.totalSmithed,
             totalXp: data.totalXp,
+            ...(data.requestId ? { requestId: data.requestId } : {}),
           });
         }
       });
@@ -1241,6 +1351,7 @@ export class EventBridge {
             outputItemId: data.outputItemId,
             totalCrafted: data.totalCrafted,
             totalXp: data.totalXp,
+            ...(data.requestId ? { requestId: data.requestId } : {}),
           });
         }
       });
@@ -1278,6 +1389,7 @@ export class EventBridge {
             outputItemId: data.outputItemId,
             totalCrafted: data.totalCrafted,
             totalXp: data.totalXp,
+            ...(data.requestId ? { requestId: data.requestId } : {}),
           });
         }
       });
@@ -1315,11 +1427,80 @@ export class EventBridge {
             outputItemId: data.outputItemId,
             totalTanned: data.totalTanned,
             totalCost: data.totalCost,
+            ...(data.requestId ? { requestId: data.requestId } : {}),
           });
         }
       });
     } catch (_err) {
       console.error("[EventBridge] Error setting up tanning events:", _err);
+    }
+  }
+
+  /** Forward the authoritative runecrafting transaction result to its player. */
+  private setupRunecraftingEvents(): void {
+    try {
+      this.on(EventType.RUNECRAFTING_COMPLETE, (payload: unknown) => {
+        const data = payload as EventMap[EventType.RUNECRAFTING_COMPLETE];
+        if (data.playerId) {
+          this.broadcast.sendToPlayer(data.playerId, "runecraftingComplete", {
+            runeType: data.runeType,
+            runeItemId: data.runeItemId,
+            essenceConsumed: data.essenceConsumed,
+            runesProduced: data.runesProduced,
+            multiplier: data.multiplier,
+            xpAwarded: data.xpAwarded,
+            ...(data.requestId ? { requestId: data.requestId } : {}),
+          });
+        }
+      });
+    } catch (_err) {
+      console.error(
+        "[EventBridge] Error setting up runecrafting events:",
+        _err,
+      );
+    }
+  }
+
+  /** Forward one typed, request-correlated processing rejection to its player. */
+  private setupProcessingRejectionEvents(): void {
+    try {
+      this.on(EventType.PROCESSING_REQUEST_REJECTED, (payload: unknown) => {
+        const data = payload as EventMap[EventType.PROCESSING_REQUEST_REJECTED];
+        if (data.playerId && data.requestId) {
+          this.broadcast.sendToPlayer(data.playerId, "processingRejected", {
+            requestId: data.requestId,
+            skill: data.skill,
+            reason: data.reason,
+            retryable: data.retryable,
+          });
+        }
+      });
+    } catch (_err) {
+      console.error(
+        "[EventBridge] Error setting up processing rejection events:",
+        _err,
+      );
+    }
+  }
+
+  /** Forward a safe correlated liveness acknowledgement only to its player. */
+  private setupProcessingProgressEvents(): void {
+    try {
+      this.on(EventType.PROCESSING_REQUEST_PROGRESS, (payload: unknown) => {
+        const data = payload as EventMap[EventType.PROCESSING_REQUEST_PROGRESS];
+        if (data.playerId && data.requestId) {
+          this.broadcast.sendToPlayer(data.playerId, "processingProgress", {
+            requestId: data.requestId,
+            skill: data.skill,
+            phase: data.phase,
+          });
+        }
+      });
+    } catch (_err) {
+      console.error(
+        "[EventBridge] Error setting up processing progress events:",
+        _err,
+      );
     }
   }
 

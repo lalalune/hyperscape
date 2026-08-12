@@ -20,6 +20,7 @@ import type { World } from "@hyperforge/shared";
 import { getDefaultPublicWsUrl } from "../../shared/public-ws-url.js";
 import { createJWT } from "../../shared/utils.js";
 import {
+  hydrateThoughtsFromDb,
   recordAgentThought,
   resolveDashboardIntent,
 } from "../../eliza/dashboardInterop.js";
@@ -2155,8 +2156,7 @@ export function registerAgentRoutes(
       const playersMap = (world.entities as { players?: Map<string, unknown> })
         .players;
       const playerEntity = playersMap?.get(characterId) as
-        | Record<string, unknown>
-        | undefined;
+        Record<string, unknown> | undefined;
 
       if (!playerEntity) {
         return reply.send({
@@ -2905,50 +2905,12 @@ export function registerAgentRoutes(
       const { ServerNetwork } =
         await import("../../systems/ServerNetwork/index.js");
 
-      let thoughts =
-        (
-          ServerNetwork as {
-            agentThoughts?: Map<
-              string,
-              Array<{
-                id: string;
-                type: string;
-                content: string;
-                timestamp: number;
-                decisionPath?: string;
-              }>
-            >;
-          }
-        ).agentThoughts?.get(characterId) || [];
+      let thoughts = ServerNetwork.agentThoughts.get(characterId) || [];
 
       // If in-memory is empty (e.g. after restart), hydrate from DB
       if (thoughts.length === 0 && db) {
-        try {
-          const { agentThoughts: agentThoughtsTable } =
-            await import("../../database/schema.js");
-          const { desc, eq } = await import("drizzle-orm");
-          const rows = await db
-            .select()
-            .from(agentThoughtsTable)
-            .where(eq(agentThoughtsTable.characterId, characterId))
-            .orderBy(desc(agentThoughtsTable.timestamp))
-            .limit(limit);
-          thoughts = rows.map((r) => ({
-            id: `${r.characterId}-thought-${r.timestamp}`,
-            type: r.type,
-            content: r.content,
-            timestamp: r.timestamp,
-            decisionPath: r.decisionPath ?? undefined,
-          }));
-          // Re-populate in-memory cache so subsequent requests are fast
-          if (thoughts.length > 0) {
-            (
-              ServerNetwork as { agentThoughts?: Map<string, typeof thoughts> }
-            ).agentThoughts?.set(characterId, thoughts);
-          }
-        } catch {
-          // DB not available or table doesn't exist yet — use empty
-        }
+        await hydrateThoughtsFromDb(characterId);
+        thoughts = ServerNetwork.agentThoughts.get(characterId) || [];
       }
 
       // Filter by since timestamp and limit
@@ -3069,11 +3031,7 @@ export function registerAgentRoutes(
         characterId?: string;
         autoStart?: boolean;
         scriptedRole?:
-          | "combat"
-          | "woodcutting"
-          | "fishing"
-          | "mining"
-          | "balanced";
+          "combat" | "woodcutting" | "fishing" | "mining" | "balanced";
       };
 
       if (!body.characterId) {
@@ -4265,13 +4223,7 @@ export function registerAgentRoutes(
     }
 
     const mp = src.modelProvider;
-    if (
-      mp === "openai" ||
-      mp === "anthropic" ||
-      mp === "groq" ||
-      mp === "xai" ||
-      mp === "openrouter"
-    ) {
+    if (mp === "openai" || mp === "anthropic" || mp === "groq") {
       next.modelProvider = mp;
     }
 

@@ -24,13 +24,7 @@ export type TreeSubType = _TreeSubType;
  * These map to ore_<subtype> in mining.json manifest.
  */
 export type OreSubType =
-  | "copper"
-  | "tin"
-  | "iron"
-  | "coal"
-  | "mithril"
-  | "adamant"
-  | "runite";
+  "copper" | "tin" | "iron" | "coal" | "mithril" | "adamant" | "runite";
 
 /**
  * Combined resource subtype for spawn points.
@@ -75,6 +69,8 @@ export interface TerrainTile {
   roads: RoadSegment[];
   waterMeshes: THREE.Mesh[];
   generated: boolean;
+  /** Whether gameplay resources/entities were generated for this tile. */
+  contentGenerated?: boolean;
   heightData: number[];
   lastActiveTime: Date;
   playerCount: number;
@@ -159,7 +155,7 @@ export interface FlatZoneTileBounds {
  * L-shaped and other non-rectangular building footprints.
  */
 export interface FlatZone {
-  /** Unique identifier (e.g., "station_furnace_lumbridge_1") */
+  /** Unique identifier (e.g., "station_furnace_town_1") */
   id: string;
   /** Center X position in world coordinates (meters) */
   centerX: number;

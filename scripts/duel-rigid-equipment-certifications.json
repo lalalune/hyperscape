@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "avatarId": "steve",
+  "legacyAvatarId": "/api/assets/steve/model",
+  "certifications": [
+    {
+      "itemId": "bronze_shortsword",
+      "slot": "weapon",
+      "grip": "one-hand",
+      "path": "packages/server/world/assets/models/swords/shortswords/shortsword-bronze-aligned.glb",
+      "sha256": "aafce4e8e71d2c152e72a2530c935dd276f6eef81b7565d8a25535c86fcdcc2b",
+      "structuralDocumentSha256": "3784f475dfae45080f73c91623f8c0d40f91e6dfe49911cc621fe7fe64e8d691",
+      "nonJsonChunksSha256": [
+        {
+          "type": 5130562,
+          "sha256": "c12973e95a07834d294fe077ec32f8e7d021da1a391eaeec81d57d00607a5769"
+        }
+      ]
+    },
+    {
+      "itemId": "bronze_longsword",
+      "slot": "weapon",
+      "grip": "one-hand",
+      "path": "packages/server/world/assets/models/swords/long-swords/longsword-bronze-aligned.glb",
+      "sha256": "d8f9f1be4f0aa7c0a78f331328135273656bda0b1848b635d0c36b3f801c6c04",
+      "structuralDocumentSha256": "ee2ee21159d684cda605a86cdbce511fee2e9b126e1c77d872b1ca3420e458d3",
+      "nonJsonChunksSha256": [
+        {
+          "type": 5130562,
+          "sha256": "7d829788c993dcfd5c0662aa8f704d6217f2d8fc24be25566483dff9d2b4c591"
+        }
+      ]
+    },
+    {
+      "itemId": "bronze_scimitar",
+      "slot": "weapon",
+      "grip": "one-hand",
+      "path": "packages/server/world/assets/models/swords/scimitars/scimitar-bronze-aligned.glb",
+      "sha256": "216502c4af16f36a88c77eafaaaf3d7218d323c6e0bbe2593acdfae941df6163",
+      "structuralDocumentSha256": "4151ecc586dd26957d92246022c20c154327111beebcc8df52c1987a7236d9b9",
+      "nonJsonChunksSha256": [
+        {
+          "type": 5130562,
+          "sha256": "1eeab0f43581e5bd03943bd8897ba13094ea19e6b15c1678161ef85414c48e1d"
+        }
+      ]
+    },
+    {
+      "itemId": "bronze_2h_sword",
+      "slot": "weapon",
+      "grip": "two-hand",
+      "path": "packages/server/world/assets/models/swords/2h-swords/2h-sword-bronze-aligned.glb",
+      "sha256": "1299047901a2a154af443fe687c0cd4f10f2bcbfb7104aed991aa5b1078810ef",
+      "structuralDocumentSha256": "dbfc52d2d369cc01f3b3ee097621782ad83aec79a489a8f7b79ea89ee97797eb",
+      "nonJsonChunksSha256": [
+        {
+          "type": 5130562,
+          "sha256": "3a3f999a5cf6b0d4c4defde6e67a9e391a55935cf0799ac343f2071b6c0cfe87"
+        }
+      ]
+    },
+    {
+      "itemId": "shortbow",
+      "slot": "weapon",
+      "grip": "two-hand",
+      "path": "packages/server/world/assets/models/bows/bow-wood/shortbow-steve-fitted.glb",
+      "sha256": "eb026953db1593dc1533312594bbf7b647b8f9c50f1c56e6c6bf215d826d4964",
+      "structuralDocumentSha256": "31c3600dccfaf448511ccd751256a975ff78a5e3fcd67d191c1bb326342c7bc5",
+      "nonJsonChunksSha256": [
+        {
+          "type": 5130562,
+          "sha256": "2efbf5df4afda13a614306189d45244f9b9e16e905d4c41631b5f83744dec21f"
+        }
+      ]
+    },
+    {
+      "itemId": "magic_shortbow",
+      "slot": "weapon",
+      "grip": "two-hand",
+      "path": "packages/server/world/assets/models/bows/bow-wood/magic-shortbow-steve-fitted.glb",
+      "sha256": "99fece2e333b3e5457fa333ca7e67b3d4df11b0f77f22d72c7cb9fc266e55bef",
+      "structuralDocumentSha256": "31c3600dccfaf448511ccd751256a975ff78a5e3fcd67d191c1bb326342c7bc5",
+      "nonJsonChunksSha256": [
+        {
+          "type": 5130562,
+          "sha256": "2efbf5df4afda13a614306189d45244f9b9e16e905d4c41631b5f83744dec21f"
+        }
+      ]
+    },
+    {
+      "itemId": "staff_of_air",
+      "slot": "weapon",
+      "grip": "one-hand",
+      "path": "packages/server/world/assets/models/magic-staffs/air-staff/staff-of-air-steve-fitted.glb",
+      "sha256": "73ebc7cdd8b483df23a79845a7ee3d8999ca81e711a09b65257fb9167c79d972",
+      "structuralDocumentSha256": "edcf518255cf4efb6a902ec114e1dd379313dd48ec13b753c085024e073644d5",
+      "nonJsonChunksSha256": [
+        {
+          "type": 5130562,
+          "sha256": "4e0e52db446783a6f665aef28d28ba148323734d65ee7b531793758c7f40d55e"
+        }
+      ]
+    }
+  ]
+}

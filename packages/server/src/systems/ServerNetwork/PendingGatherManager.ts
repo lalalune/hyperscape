@@ -33,6 +33,7 @@ import {
   type ResourceFootprint,
   FOOTPRINT_SIZES,
   GATHERING_CONSTANTS,
+  canPlayerPerformPreparationAction,
 } from "@hyperforge/shared";
 import type { TileMovementManager } from "./tile-movement";
 
@@ -57,6 +58,10 @@ interface PendingGather {
   resourcePosition: { x: number; y: number; z: number };
   /** Target shore tile for fishing (player must arrive at this exact tile) */
   targetShoreTile?: TileCoord;
+  /** Reserved non-overlapping approach tile for trees and rocks. */
+  targetApproachTile?: TileCoord;
+  /** Preserve the caller's movement mode when a moving fishing spot replans. */
+  runMode: boolean;
 }
 
 /**
@@ -82,12 +87,106 @@ export class PendingGatherManager {
 
   /** Map of playerId → pending gather data */
   private pendingGathers: Map<string, PendingGather> = new Map();
+  /** One pending gatherer may own an approach tile at a time. */
+  private approachReservations = new Map<
+    string,
+    { playerId: string; resourceId: string }
+  >();
+  /** Fishing spots can move while an agent is walking to shore. Replan only
+   * after the current map iteration so delete/reinsert cannot be revisited in
+   * the same pending-gather pass. */
+  private fishingReplans = new Map<
+    string,
+    { resourceId: string; runMode: boolean }
+  >();
 
   /** Pre-allocated tile buffers (zero-allocation hot path) */
   private readonly _playerTile: TileCoord = { x: 0, z: 0 };
   private readonly _resourceTile: TileCoord = { x: 0, z: 0 };
   /** Pre-allocated tile for footprint iteration to avoid per-check allocations */
   private readonly _tempFootprintTile: TileCoord = { x: 0, z: 0 };
+
+  private tileKey(tile: TileCoord): string {
+    return `${tile.x},${tile.z}`;
+  }
+
+  private releaseApproachReservation(playerId: string): void {
+    for (const [key, reservation] of this.approachReservations) {
+      if (reservation.playerId === playerId) {
+        this.approachReservations.delete(key);
+      }
+    }
+  }
+
+  private approachIsAvailable(playerId: string, tile: TileCoord): boolean {
+    const reservation = this.approachReservations.get(this.tileKey(tile));
+    if (reservation && reservation.playerId !== playerId) return false;
+    const movement = this.tileMovementManager as TileMovementManager & {
+      isTileAvailableForPlayer?: (playerId: string, tile: TileCoord) => boolean;
+    };
+    return movement.isTileAvailableForPlayer?.(playerId, tile) ?? true;
+  }
+
+  private reserveApproach(
+    playerId: string,
+    resourceId: string,
+    tile: TileCoord,
+  ): void {
+    this.releaseApproachReservation(playerId);
+    this.approachReservations.set(this.tileKey(tile), {
+      playerId,
+      resourceId,
+    });
+  }
+
+  private findCardinalApproach(
+    playerId: string,
+    playerTile: TileCoord,
+    resourceAnchor: TileCoord,
+    footprintX: number,
+    footprintZ: number,
+  ): TileCoord | null {
+    const footprint = new Set<string>();
+    for (let ox = 0; ox < footprintX; ox++) {
+      for (let oz = 0; oz < footprintZ; oz++) {
+        footprint.add(`${resourceAnchor.x + ox},${resourceAnchor.z + oz}`);
+      }
+    }
+    const candidates = new Map<string, TileCoord>();
+    const directions = [
+      { x: -1, z: 0 },
+      { x: 0, z: -1 },
+      { x: 0, z: 1 },
+      { x: 1, z: 0 },
+    ];
+    for (let ox = 0; ox < footprintX; ox++) {
+      for (let oz = 0; oz < footprintZ; oz++) {
+        const occupiedX = resourceAnchor.x + ox;
+        const occupiedZ = resourceAnchor.z + oz;
+        for (const direction of directions) {
+          const tile = {
+            x: occupiedX + direction.x,
+            z: occupiedZ + direction.z,
+          };
+          const key = this.tileKey(tile);
+          if (!footprint.has(key)) candidates.set(key, tile);
+        }
+      }
+    }
+    return (
+      [...candidates.values()]
+        .filter((tile) => this.approachIsAvailable(playerId, tile))
+        .sort((left, right) => {
+          const leftDistance =
+            (left.x - playerTile.x) ** 2 + (left.z - playerTile.z) ** 2;
+          const rightDistance =
+            (right.x - playerTile.x) ** 2 + (right.z - playerTile.z) ** 2;
+          return (
+            leftDistance - rightDistance || left.x - right.x || left.z - right.z
+          );
+        })[0] ?? null
+    );
+  }
 
   constructor(
     world: World,
@@ -125,8 +224,7 @@ export class PendingGatherManager {
     const stats = player.getComponent?.("stats");
     if (stats) {
       const skill = stats[skillName] as
-        | { level: number; xp: number }
-        | undefined;
+        { level: number; xp: number } | undefined;
       return skill?.level ?? 1;
     }
 
@@ -171,7 +269,12 @@ export class PendingGatherManager {
     resourceId: string,
     currentTick: number,
     runMode?: boolean,
-  ): void {
+  ): boolean {
+    if (!canPlayerPerformPreparationAction(this.world, playerId)) {
+      this.cancelPendingGather(playerId);
+      return false;
+    }
+
     // PERF: Skip if player is already gathering this exact resource (avoids object allocations)
     const resourceSystem = this.world.getSystem("resource") as {
       getResource?: (id: string) => ResourceData | null;
@@ -187,33 +290,30 @@ export class PendingGatherManager {
 
     // Early out if already gathering same resource (prevents repeated event emissions)
     if (resourceSystem?.isPlayerGatheringResource?.(playerId, resourceId)) {
-      return;
+      return true;
     }
-
-    // Cancel any existing pending gather
-    this.cancelPendingGather(playerId);
 
     if (!resourceSystem?.getResource) {
       console.warn("[PendingGather] No resource system available");
-      return;
+      return false;
     }
 
     const resource = resourceSystem.getResource(resourceId);
     if (!resource) {
       console.warn(`[PendingGather] Resource ${resourceId} not found`);
-      return;
+      return false;
     }
 
     if (!resource.isAvailable) {
       // Resource is depleted - silently ignore
-      return;
+      return false;
     }
 
     // Get player entity
     const player = this.world.getPlayer?.(playerId);
     if (!player?.position) {
       console.warn(`[PendingGather] Player ${playerId} not found`);
-      return;
+      return false;
     }
 
     // Get resource footprint
@@ -241,14 +341,20 @@ export class PendingGatherManager {
       const shoreTile = this.tileMovementManager.findClosestWalkableTile(
         resource.position,
         10, // Search up to 10 tiles away from fishing spot
+        (tile) => this.approachIsAvailable(playerId, tile),
       );
 
       if (!shoreTile) {
         console.warn(
           `[PendingGather]   🎣 No walkable shore tile found near fishing spot!`,
         );
-        return;
+        return false;
       }
+
+      // Only replace a valid pending gather after the new target has passed
+      // authoritative resource, player, and shoreline validation.
+      this.cancelPendingGather(playerId);
+      this.reserveApproach(playerId, resourceId, shoreTile);
 
       // Check if player is ALREADY on the shore tile (exact match, not distance)
       if (
@@ -262,8 +368,9 @@ export class PendingGatherManager {
           size.x,
           size.z,
         );
-        this.startGathering(playerId, resourceId);
-        return;
+        const started = this.startGathering(playerId, resourceId);
+        this.releaseApproachReservation(playerId);
+        return started;
       }
 
       // Player not on shore tile - walk there
@@ -314,21 +421,33 @@ export class PendingGatherManager {
         isFishing: true,
         resourcePosition: { ...resource.position },
         targetShoreTile: { x: shoreTile.x, z: shoreTile.z },
+        runMode: isRunning,
       });
 
       console.log(
         `[PendingGather]   Queued fishing gather, waiting for player to arrive at shore`,
       );
-      return;
+      return true;
     } else {
-      // NON-FISHING: Check if already on a cardinal tile adjacent to resource
+      const approachTile = this.findCardinalApproach(
+        playerId,
+        this._playerTile,
+        this._resourceTile,
+        size.x,
+        size.z,
+      );
+      if (!approachTile) {
+        return false;
+      }
+      // Only replace a valid pending gather after the new target and its
+      // non-overlapping physical approach have both been validated.
+      this.cancelPendingGather(playerId);
+      this.reserveApproach(playerId, resourceId, approachTile);
+
+      // NON-FISHING: Check if already on the exact reserved approach tile.
       if (
-        this.isOnCardinalTile(
-          this._playerTile,
-          this._resourceTile,
-          size.x,
-          size.z,
-        )
+        this._playerTile.x === approachTile.x &&
+        this._playerTile.z === approachTile.z
       ) {
         // PERF: Removed log - this happens every tick when agent spams gather
         this.setFaceTargetViaManager(
@@ -337,9 +456,13 @@ export class PendingGatherManager {
           size.x,
           size.z,
         );
-        this.startGathering(playerId, resourceId);
-        return;
+        const started = this.startGathering(playerId, resourceId);
+        this.releaseApproachReservation(playerId);
+        return started;
       }
+
+      this._tempFootprintTile.x = approachTile.x;
+      this._tempFootprintTile.z = approachTile.z;
     }
 
     // NON-FISHING: Walk to cardinal tile adjacent to resource
@@ -381,12 +504,13 @@ export class PendingGatherManager {
       );
     }
 
-    // Use GATHERING_RANGE (1) for cardinal-only positioning
+    // Path to the exact cardinal approach reserved for this gatherer.
+    const approachWorld = tileToWorld(this._tempFootprintTile);
     this.tileMovementManager.movePlayerToward(
       playerId,
-      resource.position,
+      { x: approachWorld.x, y: resource.position.y, z: approachWorld.z },
       isRunning,
-      GATHERING_CONSTANTS.GATHERING_RANGE,
+      0,
     );
 
     // Store pending gather (non-fishing only, fishing returns early)
@@ -400,17 +524,25 @@ export class PendingGatherManager {
       createdTick: currentTick,
       isFishing: false,
       resourcePosition: { ...resource.position },
+      targetApproachTile: {
+        x: this._tempFootprintTile.x,
+        z: this._tempFootprintTile.z,
+      },
+      runMode: isRunning,
     });
 
     console.log(
       `[PendingGather]   Queued pending gather, waiting for player to arrive`,
     );
+    return true;
   }
 
   /**
    * Cancel pending gather for a player
    */
   cancelPendingGather(playerId: string): void {
+    this.fishingReplans.delete(playerId);
+    this.releaseApproachReservation(playerId);
     if (this.pendingGathers.has(playerId)) {
       this.pendingGathers.delete(playerId);
       console.log(`[PendingGather] Cancelled pending gather for ${playerId}`);
@@ -422,6 +554,8 @@ export class PendingGatherManager {
    * Prevents memory leak from orphaned pending gather entries.
    */
   onPlayerDisconnect(playerId: string): void {
+    this.fishingReplans.delete(playerId);
+    this.releaseApproachReservation(playerId);
     if (this.pendingGathers.has(playerId)) {
       this.pendingGathers.delete(playerId);
       console.log(
@@ -449,6 +583,20 @@ export class PendingGatherManager {
         );
         // Fail-safe cleanup: remove from pending to prevent infinite error loops
         this.pendingGathers.delete(playerId);
+        this.releaseApproachReservation(playerId);
+      }
+    }
+
+    if (this.fishingReplans.size > 0) {
+      const replans = [...this.fishingReplans];
+      this.fishingReplans.clear();
+      for (const [playerId, replan] of replans) {
+        this.queuePendingGather(
+          playerId,
+          replan.resourceId,
+          currentTick,
+          replan.runMode,
+        );
       }
     }
   }
@@ -466,6 +614,7 @@ export class PendingGatherManager {
     if (currentTick - pending.createdTick > PENDING_GATHER_TIMEOUT_TICKS) {
       console.log(`[PendingGather] Timeout for ${playerId}`);
       this.pendingGathers.delete(playerId);
+      this.releaseApproachReservation(playerId);
       return;
     }
 
@@ -473,6 +622,7 @@ export class PendingGatherManager {
     const player = this.world.getPlayer?.(playerId);
     if (!player?.position) {
       this.pendingGathers.delete(playerId);
+      this.releaseApproachReservation(playerId);
       return;
     }
 
@@ -487,7 +637,31 @@ export class PendingGatherManager {
         `[PendingGather] Resource ${pending.resourceId} no longer available`,
       );
       this.pendingGathers.delete(playerId);
+      this.releaseApproachReservation(playerId);
       return;
+    }
+
+    if (pending.isFishing) {
+      worldToTileInto(
+        resource.position.x,
+        resource.position.z,
+        this._resourceTile,
+      );
+      const moved =
+        this._resourceTile.x !== pending.resourceAnchorTile.x ||
+        this._resourceTile.z !== pending.resourceAnchorTile.z ||
+        resource.position.x !== pending.resourcePosition.x ||
+        resource.position.z !== pending.resourcePosition.z;
+      if (moved) {
+        this.pendingGathers.delete(playerId);
+        this.releaseApproachReservation(playerId);
+        this.tileMovementManager.clearArrivalEmote?.(playerId);
+        this.fishingReplans.set(playerId, {
+          resourceId: pending.resourceId,
+          runMode: pending.runMode,
+        });
+        return;
+      }
     }
 
     // Get current player tile
@@ -509,13 +683,16 @@ export class PendingGatherManager {
         );
       }
     } else {
-      // NON-FISHING: Tile-based cardinal adjacency to resource
-      hasArrived = this.isOnCardinalTile(
-        this._playerTile,
-        pending.resourceAnchorTile,
-        pending.footprintX,
-        pending.footprintZ,
-      );
+      // NON-FISHING: Exact ownership of the preflighted approach tile.
+      hasArrived = pending.targetApproachTile
+        ? this._playerTile.x === pending.targetApproachTile.x &&
+          this._playerTile.z === pending.targetApproachTile.z
+        : this.isOnCardinalTile(
+            this._playerTile,
+            pending.resourceAnchorTile,
+            pending.footprintX,
+            pending.footprintZ,
+          );
 
       if (hasArrived) {
         console.log(
@@ -542,6 +719,7 @@ export class PendingGatherManager {
 
       // Remove from pending
       this.pendingGathers.delete(playerId);
+      this.releaseApproachReservation(playerId);
     }
   }
 
@@ -614,9 +792,9 @@ export class PendingGatherManager {
   /**
    * Start the gathering process
    */
-  private startGathering(playerId: string, resourceId: string): void {
+  private startGathering(playerId: string, resourceId: string): boolean {
     const player = this.world.getPlayer?.(playerId);
-    if (!player?.position) return;
+    if (!player?.position) return false;
 
     // Emit RESOURCE_GATHER event - ResourceSystem will handle the actual gathering
     this.world.emit(EventType.RESOURCE_GATHER, {
@@ -628,5 +806,6 @@ export class PendingGatherManager {
         z: player.position.z,
       },
     });
+    return true;
   }
 }

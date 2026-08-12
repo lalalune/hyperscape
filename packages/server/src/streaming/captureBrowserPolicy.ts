@@ -11,6 +11,36 @@ export type CaptureRendererHealthSnapshot = {
   diagnostics: CaptureReadinessDiagnostics | null;
 };
 
+export const DEFAULT_CAPTURE_GAME_URL = "http://localhost:3333/stream.html";
+
+export function applyCaptureFrameRateToUrl(
+  rawUrl: string,
+  framesPerSecond: number,
+): string {
+  try {
+    const url = new URL(rawUrl);
+    const safeFps = Number.isFinite(framesPerSecond)
+      ? Math.min(60, Math.max(1, Math.round(framesPerSecond)))
+      : 30;
+    url.searchParams.set("streamFps", String(safeFps));
+    return url.toString();
+  } catch {
+    return rawUrl;
+  }
+}
+
+export function resolveCaptureUrlCandidates(params: {
+  primaryUrl?: string;
+  fallbackUrls?: string;
+}): string[] {
+  const primaryUrl = params.primaryUrl?.trim() || DEFAULT_CAPTURE_GAME_URL;
+  const explicitFallbacks = (params.fallbackUrls ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  return [...new Set([primaryUrl, ...explicitFallbacks])];
+}
+
 export function buildDefaultCaptureLaunchArgs(params: {
   angleBackend: string;
   featureFlags: string;

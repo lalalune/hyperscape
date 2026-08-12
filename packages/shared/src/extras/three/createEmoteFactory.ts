@@ -39,6 +39,7 @@ import type { GLBData } from "../../types";
 const q1 = new THREE.Quaternion();
 const restRotationInverse = new THREE.Quaternion();
 const parentRestWorldRotation = new THREE.Quaternion();
+const sourceTranslation = new THREE.Vector3();
 
 type KeyframeTrackLike = THREE.KeyframeTrack & {
   ValueTypeName?: string;
@@ -68,7 +69,7 @@ function isQuaternionTrack(
  * Processes a Mixamo animation GLB and returns a factory for retargeting to VRM skeletons.
  *
  * @param glb - Loaded animation GLB data
- * @param _url - Animation URL (unused but kept for debugging)
+ * @param url - Animation URL used to apply explicit per-clip translation policy
  * @returns Factory object with toClip() method
  */
 /**
@@ -85,7 +86,7 @@ function isQuaternionTrack(
  * No manual compensation needed!
  */
 
-export function createEmoteFactory(glb: GLBData, _url: string) {
+export function createEmoteFactory(glb: GLBData, url: string) {
   // console.time('emote-init')
 
   if (!glb.animations || glb.animations.length === 0) {
@@ -95,6 +96,9 @@ export function createEmoteFactory(glb: GLBData, _url: string) {
   const clip = glb.animations[0];
 
   const scale = (glb.scene as THREE.Scene).children[0].scale.x; // armature should be here?
+  const preserveHipsVerticalTranslation = /(?:^|[/_-])death(?:[.?_-]|$)/i.test(
+    url,
+  );
 
   // no matter what vrm/emote combo we use for some reason avatars
   // levitate roughly 5cm above ground. this is a hack but it works.
@@ -152,7 +156,22 @@ export function createEmoteFactory(glb: GLBData, _url: string) {
         });
       }
     } else if (isVectorTrack(track)) {
-      if (yOffset) {
+      const vrmBoneName = (
+        normalizedBoneNames as Record<string, string | undefined>
+      )[mixamoRigName];
+      if (preserveHipsVerticalTranslation && vrmBoneName === "hips") {
+        const values = (track as KeyframeTrackLike).values;
+        if (values) {
+          for (let i = 0; i < values.length; i += 3) {
+            sourceTranslation
+              .fromArray(values, i)
+              .applyQuaternion(parentRestWorldRotation);
+            values[i] = sourceTranslation.x;
+            values[i + 1] = sourceTranslation.y;
+            values[i + 2] = sourceTranslation.z;
+          }
+        }
+      } else if (yOffset) {
         const values = (track as KeyframeTrackLike).values;
         if (values) {
           // Keyframe values can be typed arrays; mutate in place to avoid
@@ -231,12 +250,31 @@ export function createEmoteFactory(glb: GLBData, _url: string) {
                 values,
               ),
             );
-          } else if (isVectorTrack(track)) {
-            // SKIP position tracks entirely - don't add them to the animation
-            // This prevents root motion (sliding, bobbing, sinking)
-            // VRM skeleton will use its bind pose position instead
-            // Character position is controlled by game engine, not animation
-            // Don't push this track - effectively removes position animation
+          } else if (
+            isVectorTrack(track) &&
+            preserveHipsVerticalTranslation &&
+            vrmBoneName === "hips" &&
+            propertyName === "position"
+          ) {
+            // Three's declarations narrow the base track to `never` after the
+            // quaternion guard even though vector/quaternion tracks are
+            // runtime siblings. Preserve the already-proven vector subtype.
+            const vectorTrack = track as THREE.VectorKeyframeTrack;
+            const values = new Float32Array(vectorTrack.values.length);
+            for (let i = 0; i < vectorTrack.values.length; i += 3) {
+              values[i] = 0;
+              values[i + 1] = vectorTrack.values[i + 1] * _scaler;
+              values[i + 2] = 0;
+            }
+            tracks.push(
+              new THREE.VectorKeyframeTrack(
+                `${vrmNodeName}.${propertyName}`,
+                vectorTrack.times,
+                values,
+              ),
+            );
+            // Horizontal translation stays stripped so the game retains
+            // authoritative movement while the death pose can reach ground.
           }
         }
       });

@@ -181,8 +181,15 @@ export { TERRAIN_CONSTANTS } from "./constants/GameConstants";
 // Client input constants (click-to-move distance, drag threshold, raycast range)
 export { INPUT } from "./systems/client/interaction/constants";
 
-// Export avatar options for character creation
-export { AVATAR_OPTIONS } from "./data/avatars";
+// Export avatar options for character creation and duel identity
+export {
+  AVATAR_OPTIONS,
+  CANONICAL_DUEL_AVATAR_ID,
+  CANONICAL_DUEL_AVATAR_URL,
+  DEFAULT_AVATAR_URL,
+  getDuelAvatarUrlForStyle,
+} from "./data/avatars";
+export type { DuelAvatarStyle } from "./data/avatars";
 
 // Export skill data for UI displays
 export {
@@ -240,19 +247,67 @@ export { ClientLiveKit } from "./systems/client/ClientLiveKit";
 export { ClientInput } from "./systems/client/ClientInput";
 export {
   attachEquipmentVisualToVRM,
+  createDynamicBowStringController,
   extractEquipmentAttachmentData,
+  hasValidDynamicBowString,
+  isSkinnedEquipmentSkeletonCompatible,
   removeEquipmentVisual,
   resolveEquipmentVisualData,
   resolveEquipmentVisualUrls,
+  shouldRenderHeldEquipmentVisual,
+  validateStreamingEquipmentVisualModel,
 } from "./systems/client/EquipmentVisualHelpers";
 export type {
+  DuelEquipmentFitData,
+  DynamicBowStringController,
+  DynamicBowStringData,
+  DynamicBowStringTransition,
   EquipmentAttachmentData,
   EquipmentVisualModelData,
   EquipmentVisualStore,
   EquipmentVisualUrlResolution,
+  HeldEquipmentVisualState,
+  StreamingEquipmentVisualValidation,
+  StreamingEquipmentVisualValidationReason,
 } from "./systems/client/EquipmentVisualHelpers";
+export {
+  EquipmentVisualSystem,
+  STREAMING_DUEL_INTENTIONALLY_INVISIBLE_EQUIPMENT_SLOTS,
+  STREAMING_DUEL_VISIBLE_EQUIPMENT_SLOTS,
+  isStreamingDuelVisibleEquipmentSlot,
+} from "./systems/client/EquipmentVisualSystem";
+export type {
+  StreamingDuelEquipmentVisualContract,
+  StreamingDuelBowPresentationDiagnostics,
+  StreamingDuelBowTransitionEvent,
+  StreamingDuelEquipmentVisualExpectation,
+  StreamingDuelEquipmentVisualLoadStatus,
+  StreamingDuelEquipmentVisualReadiness,
+  StreamingDuelEquipmentVisualRequirement,
+  StreamingDuelVisibleEquipmentSlot,
+} from "./systems/client/EquipmentVisualSystem";
+export type {
+  StreamingArrowVisualSpawnEvent,
+  StreamingProjectileVisualDiagnostics,
+} from "./systems/client/ProjectileRenderer";
 export { ClientActions } from "./systems/client/ClientActions";
 export { DevStats } from "./systems/client/DevStats"; // FPS counter and dev performance telemetry
+export {
+  classifyStreamResourceCategory,
+  StreamPerformanceTelemetry,
+  normalizeStreamingPerformanceSnapshot,
+} from "./systems/client/StreamPerformanceTelemetry";
+export type {
+  StreamFramePerformanceSnapshot,
+  StreamLongFrameSample,
+  StreamPerformanceFrameSample,
+  StreamRendererMetricSnapshot,
+  StreamResourceCategory,
+  StreamResourceMetricSnapshot,
+  StreamResourcePerformanceSnapshot,
+  StreamPerformanceResourceSample,
+  StreamingPerformanceSnapshot,
+} from "./systems/client/StreamPerformanceTelemetry";
 export { EventBus } from "./systems/shared";
 export { System as SystemClass } from "./systems/shared";
 export { SystemBase } from "./systems/shared";
@@ -333,6 +388,7 @@ export {
   isValidEquipmentSlot,
   getIncompatibleRules,
   areRulesCompatible,
+  isPositionInsideCombatArena,
   type DuelRuleDefinition,
   type EquipmentSlotDefinition,
   type DuelEquipmentSlot,
@@ -530,7 +586,24 @@ export type {
   SystemEvent,
   EventHandler,
 } from "./systems/shared";
-export type { EventMap } from "./types/events";
+export type {
+  EventMap,
+  ProcessingRequestCommitStatus,
+  ProcessingProgressPhase,
+  ProcessingRejectionReason,
+  ProcessingRequestProgressPayload,
+  ProcessingRequestRejectedPayload,
+  ProcessingRequestStatusPayload,
+  ProcessingRequestEnvelope,
+  RecoverableProcessingRequest,
+  RecoverableProcessingRequestStatus,
+  ProcessingSkill,
+} from "./types/events";
+export {
+  getProcessingRequestOperationId,
+  normalizeProcessingRequestEnvelope,
+  normalizeProcessingRequestId,
+} from "./types/events";
 export type {
   AnyEvent,
   EventType as EventTypeEnum,
@@ -661,7 +734,30 @@ export type {
   UserRow,
   EntityRow,
   DatabaseRow,
+  InventoryDebitRequirement,
+  InventoryDebitCommitRequest,
+  InventoryDebitCommitReceipt,
+  BoneBurialCommitRequest,
+  BoneBurialCommitReceipt,
+  EquipmentStackDebitCommitRequest,
+  EquipmentStackDebitCommitReceipt,
+  PrayerPersistenceSnapshot,
+  PrayerStateTransitionKind,
+  PrayerStateCommitRequest,
+  PrayerStateCommitReceipt,
 } from "./types/network/database";
+
+export type {
+  PrayerActionFailureReason,
+  PrayerActionReceipt,
+  PrayerCustodyView,
+} from "./systems/shared/character/PrayerSystem";
+export type {
+  BoneBurialFailureReason,
+  BoneBurialReceipt,
+  FoodConsumptionFailureReason,
+  FoodConsumptionReceipt,
+} from "./systems/shared/character/PlayerSystem";
 
 // Export entity types
 export type {

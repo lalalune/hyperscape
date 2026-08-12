@@ -33,6 +33,7 @@ interface MockGroundItemSystem {
 
 interface MockDeathStateManager {
   createDeathLock: Mock;
+  getDeathLock: Mock;
   onItemLooted: Mock;
   onGravestoneExpired: Mock;
 }
@@ -65,6 +66,7 @@ function createMockGroundItemSystem(): MockGroundItemSystem {
 function createMockDeathStateManager(): MockDeathStateManager {
   return {
     createDeathLock: vi.fn().mockResolvedValue(undefined),
+    getDeathLock: vi.fn().mockResolvedValue(null),
     onItemLooted: vi.fn().mockResolvedValue(undefined),
     onGravestoneExpired: vi.fn().mockResolvedValue(undefined),
   };
@@ -387,6 +389,30 @@ describe("SafeAreaDeathHandler", () => {
       expect(
         handler.getTicksUntilExpiration(gravestoneId, expirationTick + 1),
       ).toBe(-1);
+    });
+
+    it("renews a database-native gravestone instead of exposing ephemeral ground loot", async () => {
+      world.currentTick = 1000;
+      deathStateManager.getDeathLock.mockResolvedValue({
+        playerId: "player1",
+        deathOperationId: "safe-death-operation-1",
+      });
+      const gravestoneId = await handler.spawnAndTrackGravestone(
+        "player1",
+        TEST_POSITION,
+        createTestItems(),
+        "goblin",
+      );
+      const expirationTick = 1000 + COMBAT_CONSTANTS.GRAVESTONE_TICKS;
+
+      handler.processTick(expirationTick);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(entityManager.destroyEntity).not.toHaveBeenCalled();
+      expect(groundItemSystem.spawnGroundItems).not.toHaveBeenCalled();
+      expect(
+        handler.getTicksUntilExpiration(gravestoneId, expirationTick),
+      ).toBeGreaterThan(COMBAT_CONSTANTS.GRAVESTONE_TICKS);
     });
   });
 

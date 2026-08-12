@@ -6,6 +6,7 @@ type BettingFeedTokenParams = {
 
 export type BettingFeedAccessTokenResolution = {
   token: string | null;
+  previousToken: string | null;
   source: "betting-feed" | null;
 };
 
@@ -54,19 +55,38 @@ export function hasValidBettingFeedToken(
   return timingSafeEqual(digestToken(expected), digestToken(presented));
 }
 
+export function hasValidBettingFeedTokenSet(
+  requiredTokens: Array<string | null | undefined>,
+  providedToken: string | null | undefined,
+): boolean {
+  return requiredTokens.some(
+    (requiredToken) =>
+      Boolean(requiredToken?.trim()) &&
+      hasValidBettingFeedToken(requiredToken!, providedToken),
+  );
+}
+
 export function resolveBettingFeedAccessToken(
   env: Record<string, string | undefined>,
 ): BettingFeedAccessTokenResolution {
   const bettingFeedToken = env.BETTING_FEED_ACCESS_TOKEN?.trim() || null;
+  const previousCandidate =
+    env.BETTING_FEED_ACCESS_TOKEN_PREVIOUS?.trim() || null;
+  const previousToken =
+    previousCandidate && previousCandidate !== bettingFeedToken
+      ? previousCandidate
+      : null;
   if (bettingFeedToken) {
     return {
       token: bettingFeedToken,
+      previousToken,
       source: "betting-feed",
     };
   }
 
   return {
     token: null,
+    previousToken: null,
     source: null,
   };
 }

@@ -44,6 +44,7 @@ import THREE, {
   MeshStandardNodeMaterial,
   MeshBasicNodeMaterial,
 } from "../../../extras/three/three";
+import type { TextureNode, UniformNode } from "three/webgpu";
 
 import { applySkyFog } from "./FogConfig";
 
@@ -56,17 +57,17 @@ import { applySkyFog } from "./FogConfig";
  */
 export interface BranchCardUniforms {
   /** Wind time accumulator */
-  time: ReturnType<typeof uniform<number>>;
+  time: UniformNode<"float", number>;
   /** Wind strength (0-1) */
-  windStrength: ReturnType<typeof uniform<number>>;
+  windStrength: UniformNode<"float", number>;
   /** Wind direction (normalized) */
-  windDirection: ReturnType<typeof uniform<THREE.Vector3>>;
+  windDirection: UniformNode<"vec3", THREE.Vector3>;
   /** Card atlas texture */
-  cardAtlas: ReturnType<typeof uniform<THREE.Texture>>;
+  cardAtlas: TextureNode<"vec4">;
   /** LOD fade factor (0 = invisible, 1 = opaque) */
-  lodFade: ReturnType<typeof uniform<number>>;
+  lodFade: UniformNode<"float", number>;
   /** Camera position for billboard orientation */
-  cameraPos: ReturnType<typeof uniform<THREE.Vector3>>;
+  cameraPos: UniformNode<"vec3", THREE.Vector3>;
 }
 
 /**
@@ -74,23 +75,23 @@ export interface BranchCardUniforms {
  */
 export interface InstancedLeafUniforms {
   /** Wind time accumulator */
-  time: ReturnType<typeof uniform<number>>;
+  time: UniformNode<"float", number>;
   /** Wind strength (0-1) */
-  windStrength: ReturnType<typeof uniform<number>>;
+  windStrength: UniformNode<"float", number>;
   /** Wind direction (normalized) */
-  windDirection: ReturnType<typeof uniform<THREE.Vector3>>;
+  windDirection: UniformNode<"vec3", THREE.Vector3>;
   /** Base leaf color */
-  baseColor: ReturnType<typeof uniform<THREE.Color>>;
+  baseColor: UniformNode<"color", THREE.Color>;
   /** Secondary color for variation */
-  secondaryColor: ReturnType<typeof uniform<THREE.Color>>;
+  secondaryColor: UniformNode<"color", THREE.Color>;
   /** Subsurface scattering color (backlit leaves) */
-  subsurfaceColor: ReturnType<typeof uniform<THREE.Color>>;
+  subsurfaceColor: UniformNode<"color", THREE.Color>;
   /** Sun direction for SSS */
-  sunDirection: ReturnType<typeof uniform<THREE.Vector3>>;
+  sunDirection: UniformNode<"vec3", THREE.Vector3>;
   /** LOD fade multiplier */
-  lodFade: ReturnType<typeof uniform<number>>;
+  lodFade: UniformNode<"float", number>;
   /** Day/night mix (0 = night, 1 = day) - affects SSS intensity */
-  dayNightMix: ReturnType<typeof uniform<number>>;
+  dayNightMix: UniformNode<"float", number>;
 }
 
 /**
@@ -121,9 +122,9 @@ export interface InstancedLeafMaterial extends THREE.MeshStandardNodeMaterial {
  * Simulates natural wind sway with main wave + gusts.
  */
 function createWindDisplacement(
-  uTime: ReturnType<typeof uniform<number>>,
-  uStrength: ReturnType<typeof uniform<number>>,
-  uDirection: ReturnType<typeof uniform<THREE.Vector3>>,
+  uTime: UniformNode<"float", number>,
+  uStrength: UniformNode<"float", number>,
+  uDirection: UniformNode<"vec3", THREE.Vector3>,
 ) {
   // Wind constants
   const MAIN_SPEED = 2.0;
@@ -300,7 +301,7 @@ export function createBranchCardMaterial(
     time: uTime,
     windStrength: uWindStrength,
     windDirection: uWindDirection,
-    cardAtlas: uniform(cardAtlas), // For external access
+    cardAtlas: texture(cardAtlas),
     lodFade: uLodFade,
     cameraPos: uCameraPos,
   };
@@ -505,7 +506,7 @@ export function createInstancedLeafMaterial(): InstancedLeafMaterial {
       uDayNightMix,
     );
 
-    return mul(uSubsurfaceColor, sssIntensity);
+    return mul(vec3(uSubsurfaceColor), sssIntensity);
   })();
 
   // Alpha test node - required for TSL materials to enable alpha cutoff
@@ -556,7 +557,7 @@ export function createInstancedLeafMaterial(): InstancedLeafMaterial {
  */
 export function addLODCrossFade(
   material: THREE.MeshStandardNodeMaterial,
-  fadeUniform: ReturnType<typeof uniform<number>>,
+  fadeUniform: UniformNode<"float", number>,
 ): void {
   // Create dithered fade opacity node
   const fadeOpacityNode = Fn(() => {

@@ -13,6 +13,7 @@
 
 import * as THREE from "three";
 import { MeshStandardNodeMaterial } from "three/webgpu";
+import type { UniformNode } from "three/webgpu";
 import {
   Fn,
   positionWorld,
@@ -41,19 +42,19 @@ import { WoodType } from "../types";
 // TSL TYPES
 // ============================================================================
 
-type TSLUniform<T> = ReturnType<typeof uniform<T>> & { value: T };
+type TSLUniform<TNodeType, TValue> = UniformNode<TNodeType, TValue>;
 
 /**
  * Uniform values for TSL dock material
  */
 export interface DockMaterialUniforms {
-  woodColor: TSLUniform<THREE.Color>;
-  woodColorSecondary: TSLUniform<THREE.Color>;
-  grainScale: TSLUniform<number>;
-  grainIntensity: TSLUniform<number>;
-  weathering: TSLUniform<number>;
-  wetness: TSLUniform<number>;
-  waterLevel: TSLUniform<number>;
+  woodColor: TSLUniform<"color", THREE.Color>;
+  woodColorSecondary: TSLUniform<"color", THREE.Color>;
+  grainScale: TSLUniform<"float", number>;
+  grainIntensity: TSLUniform<"float", number>;
+  weathering: TSLUniform<"float", number>;
+  wetness: TSLUniform<"float", number>;
+  waterLevel: TSLUniform<"float", number>;
 }
 
 /**
@@ -299,17 +300,13 @@ export function createDockMaterial(
 
   // Create uniforms
   const uniforms: DockMaterialUniforms = {
-    woodColor: uniform(colors.primary) as TSLUniform<THREE.Color>,
-    woodColorSecondary: uniform(colors.secondary) as TSLUniform<THREE.Color>,
-    grainScale: uniform(1.0) as TSLUniform<number>,
-    grainIntensity: uniform(0.4) as TSLUniform<number>,
-    weathering: uniform(
-      woodType === WoodType.Weathered ? 0.6 : 0.2,
-    ) as TSLUniform<number>,
-    wetness: uniform(
-      woodType === WoodType.Mossy ? 0.5 : 0.1,
-    ) as TSLUniform<number>,
-    waterLevel: uniform(5.0) as TSLUniform<number>,
+    woodColor: uniform(colors.primary),
+    woodColorSecondary: uniform(colors.secondary),
+    grainScale: uniform(1.0),
+    grainIntensity: uniform(0.4),
+    weathering: uniform(woodType === WoodType.Weathered ? 0.6 : 0.2),
+    wetness: uniform(woodType === WoodType.Mossy ? 0.5 : 0.1),
+    waterLevel: uniform(5.0),
   };
 
   const isMossy = float(woodType === WoodType.Mossy ? 1.0 : 0.0);
@@ -322,7 +319,7 @@ export function createDockMaterial(
   material.colorNode = Fn(() => {
     const worldPos = positionWorld;
     const uvCoord = uv();
-    const vertexColor = attribute("color");
+    const vertexColor = attribute<"vec3">("color", "vec3");
 
     // Get base wood color from uniform, modulated by vertex color
     const baseWood = mix(

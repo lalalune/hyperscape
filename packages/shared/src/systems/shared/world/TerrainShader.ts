@@ -44,8 +44,8 @@ import {
   normalize,
   Fn,
   output,
-  type ShaderNode,
 } from "../../../extras/three/three";
+import type { Node, UniformNode } from "three/webgpu";
 import { getRoadInfluenceTextureState } from "./RoadInfluenceMask";
 import { getLamppostLightTextureState } from "./LamppostLightMask";
 import { TERRAIN_CONSTANTS } from "../../../constants/GameConstants";
@@ -84,10 +84,10 @@ export const TERRAIN_SHADE = {
  * Used by both terrain and grass so the shading stays in sync.
  */
 export function applyAnimeShade(
-  baseColor: any,
-  normal: any,
-  sunDirNode: any,
-): any {
+  baseColor: Node<"vec3">,
+  normal: Node<"vec3">,
+  sunDirNode: Node<"vec3">,
+): Node<"vec3"> {
   const sDir = normalize(vec3(sunDirNode));
   const NdotL = dot(normal, sDir);
   const halfLambert = add(mul(NdotL, float(0.5)), float(0.5));
@@ -269,15 +269,15 @@ const WATER_EDGE = vec3(0.08, 0.06, 0.04);
  * cliff/dirt/shoreline boundaries instead of clean smoothstep bands.
  */
 export function computeTerrainBaseColor(
-  height: any,
-  slope: any,
-  noiseVal: any,
-  noiseVal2: any,
-  distortNoise: any,
-  variationNoise: any,
-  forestWeight?: any,
-  canyonWeight?: any,
-) {
+  height: Node<"float">,
+  slope: Node<"float">,
+  noiseVal: Node<"float">,
+  noiseVal2: Node<"float">,
+  distortNoise: Node<"float">,
+  variationNoise: Node<"float">,
+  forestWeight?: Node<"float">,
+  canyonWeight?: Node<"float">,
+): Node<"vec3"> {
   const fW = forestWeight ?? float(0.0);
   const dW = canyonWeight ?? float(0.0);
   const tW = sub(float(1.0), add(fW, dW));
@@ -306,7 +306,7 @@ export function computeTerrainBaseColor(
   const tundraGrass = mix(TUNDRA_GRASS, TUNDRA_GRASS_DARK, grassVariation);
   const forestGrass = mix(FOREST_GRASS, FOREST_GRASS_DARK, grassVariation);
   const canyonGrass = mix(CANYON_SAND, CANYON_SAND_DARK, grassVariation);
-  let c: ShaderNode = add(
+  let c: Node<"vec3"> = add(
     add(mul(tundraGrass, tW), mul(forestGrass, fW)),
     mul(canyonGrass, dW),
   );
@@ -349,7 +349,7 @@ export function computeTerrainBaseColor(
   const tundraCliff = mix(TUNDRA_CLIFF, TUNDRA_CLIFF_DARK, cliffVariation);
   const forestCliff = mix(FOREST_CLIFF, FOREST_CLIFF_DARK, cliffVariation);
   const canyonCliff = mix(CANYON_CLIFF, CANYON_CLIFF_DARK, cliffVariation);
-  let cliffColor: any = add(
+  let cliffColor: Node<"vec3"> = add(
     add(mul(tundraCliff, tW), mul(forestCliff, fW)),
     mul(canyonCliff, dW),
   );
@@ -1032,15 +1032,15 @@ export function computeTerrainColorCPU(
 export const MAX_VERTEX_LIGHTS = 8;
 
 export type TerrainUniforms = {
-  sunPosition: { value: THREE.Vector3 };
-  sunDirection: { value: THREE.Vector3 };
-  time: { value: number };
-  fogEnabled: { value: number }; // 1.0 = fog enabled, 0.0 = fog disabled (for minimap)
-  dayIntensity: { value: number }; // 0 = night, 1 = day
+  sunPosition: UniformNode<"vec3", THREE.Vector3>;
+  sunDirection: UniformNode<"vec3", THREE.Vector3>;
+  time: UniformNode<"float", number>;
+  fogEnabled: UniformNode<"float", number>; // 1.0 = fog enabled, 0.0 = fog disabled (for minimap)
+  dayIntensity: UniformNode<"float", number>; // 0 = night, 1 = day
   // Vertex lighting uniforms (lampposts, etc.)
-  vertexLightPositions: { value: THREE.Vector3 }[]; // Array of 8 light positions
-  vertexLightColors: { value: THREE.Vector3 }[]; // Array of 8 light colors
-  vertexLightParams: { value: THREE.Vector2 }[]; // Array of 8 (intensity, range) pairs
+  vertexLightPositions: UniformNode<"vec3", THREE.Vector3>[]; // Array of 8 light positions
+  vertexLightColors: UniformNode<"vec3", THREE.Vector3>[]; // Array of 8 light colors
+  vertexLightParams: UniformNode<"vec2", THREE.Vector2>[]; // Array of 8 (intensity, range) pairs
 };
 
 /**
@@ -1090,27 +1090,29 @@ export function createTerrainMaterial(): THREE.Material & {
   // Ensure noise texture is generated (still used for dirt patch variation)
   const noiseTex = generateNoiseTexture();
 
-  const sunPositionUniform = uniform(vec3(100, 100, 100));
-  const sunDirectionUniform = uniform(vec3(...SUN_LIGHT.DEFAULT_DIRECTION));
-  const timeUniform = uniform(float(0));
-  const noiseScale = uniform(float(TERRAIN_SHADER_CONSTANTS.NOISE_SCALE));
+  const sunPositionUniform = uniform(new THREE.Vector3(100, 100, 100));
+  const sunDirectionUniform = uniform(
+    new THREE.Vector3(...SUN_LIGHT.DEFAULT_DIRECTION),
+  );
+  const timeUniform = uniform(0);
+  const noiseScale = uniform(TERRAIN_SHADER_CONSTANTS.NOISE_SCALE);
 
   // Sky-color fog: uses the shared render target texture (updated in-place by SkySystem)
   const fogTexNode = texture(fogRenderTarget.texture, screenUV);
-  const fogEnabledUniform = uniform(float(1.0));
+  const fogEnabledUniform = uniform(1.0);
 
   // ============================================================================
   // VERTEX LIGHTING UNIFORMS (for lampposts, torches, etc.)
   // ============================================================================
   // Create arrays of uniforms for each light
-  const vertexLightPositionUniforms: ReturnType<typeof uniform>[] = [];
-  const vertexLightColorUniforms: ReturnType<typeof uniform>[] = [];
-  const vertexLightParamUniforms: ReturnType<typeof uniform>[] = []; // (intensity, range)
+  const vertexLightPositionUniforms: UniformNode<"vec3", THREE.Vector3>[] = [];
+  const vertexLightColorUniforms: UniformNode<"vec3", THREE.Vector3>[] = [];
+  const vertexLightParamUniforms: UniformNode<"vec2", THREE.Vector2>[] = []; // (intensity, range)
 
   for (let i = 0; i < MAX_VERTEX_LIGHTS; i++) {
-    vertexLightPositionUniforms.push(uniform(vec3(0, 0, 0)));
-    vertexLightColorUniforms.push(uniform(vec3(1, 0.9, 0.6))); // Warm lamplight default
-    vertexLightParamUniforms.push(uniform(vec2(0, 15))); // intensity=0 (off), range=15m
+    vertexLightPositionUniforms.push(uniform(new THREE.Vector3(0, 0, 0)));
+    vertexLightColorUniforms.push(uniform(new THREE.Vector3(1, 0.9, 0.6))); // Warm lamplight default
+    vertexLightParamUniforms.push(uniform(new THREE.Vector2(0, 15))); // intensity=0 (off), range=15m
   }
 
   const worldPos = positionWorld;
@@ -1158,8 +1160,8 @@ export function createTerrainMaterial(): THREE.Material & {
   );
 
   // Biome weight attributes (computed per-vertex by QuadChunkWorker)
-  const biomeForestW = attribute("biomeForestWeight", "float");
-  const biomeCanyonW = attribute("biomeCanyonWeight", "float");
+  const biomeForestW = attribute<"float">("biomeForestWeight", "float");
+  const biomeCanyonW = attribute<"float">("biomeCanyonWeight", "float");
   const fW = biomeForestW;
   const dW = biomeCanyonW;
   const tW = sub(float(1.0), add(fW, dW));
@@ -1262,7 +1264,7 @@ export function createTerrainMaterial(): THREE.Material & {
     mul(sDesertGrass, TEX_DARKEN),
     grassVar,
   );
-  let baseColor: ShaderNode = add(
+  let baseColor: Node<"vec3"> = add(
     add(mul(tundraGrassC, tW), mul(forestGrassC, fW)),
     mul(canyonGrassC, dW),
   );
@@ -1309,7 +1311,7 @@ export function createTerrainMaterial(): THREE.Material & {
     mul(sDesertCliff, TEX_DARKEN),
     cliffVar,
   );
-  let cliffColor: any = add(
+  let cliffColor: Node<"vec3"> = add(
     add(mul(tundraCliffC, tW), mul(forestCliffC, fW)),
     mul(canyonCliffC, dW),
   );
@@ -1375,7 +1377,7 @@ export function createTerrainMaterial(): THREE.Material & {
 
   // === RIVER BED / BANK COLORING ===
   // riverProximity: 1.0 = in channel (muddy brown), smoothstep to 0.0 at bank edge
-  const riverProx = attribute("riverProximity", "float");
+  const riverProx = attribute<"float">("riverProximity", "float");
   const riverbedColor = vec3(0.32, 0.22, 0.12); // dark muddy brown
   const riverBankColor = vec3(0.45, 0.35, 0.22); // sandy bank brown
   // In channel (proximity > 0.7): full riverbed, bank zone: blend sandy brown → natural
@@ -1396,7 +1398,7 @@ export function createTerrainMaterial(): THREE.Material & {
   );
 
   // === ROAD OVERLAY ===
-  const roadInfluenceAttr = attribute("roadInfluence", "float");
+  const roadInfluenceAttr = attribute<"float">("roadInfluence", "float");
   const roadMaskState = getRoadInfluenceTextureState();
   const roadHalfWorld = roadMaskState.uWorldSize.mul(0.5);
   const roadUvX = worldPos.x
@@ -1454,10 +1456,10 @@ export function createTerrainMaterial(): THREE.Material & {
   // Helper to calculate single light contribution
   // Returns additive light color contribution
   const calculateLightContribution = (
-    lightPos: ReturnType<typeof uniform>,
-    lightColor: ReturnType<typeof uniform>,
-    lightParams: ReturnType<typeof uniform>, // x=intensity, y=range
-  ) => {
+    lightPos: UniformNode<"vec3", THREE.Vector3>,
+    lightColor: UniformNode<"vec3", THREE.Vector3>,
+    lightParams: UniformNode<"vec2", THREE.Vector2>, // x=intensity, y=range
+  ): Node<"vec3"> => {
     // Vector from world position to light
     const toLightVec = sub(lightPos, worldPos);
     const distToLight = add(
@@ -1482,7 +1484,7 @@ export function createTerrainMaterial(): THREE.Material & {
   // Accumulate light contributions from all 8 lights
   // Start with zero (no extra light)
   // Use ShaderNode type to allow reassignment from add() operations
-  let lightAccum: ShaderNode = vec3(0, 0, 0);
+  let lightAccum: Node<"vec3"> = vec3(0, 0, 0);
 
   // Unroll loop for all 8 lights (TSL doesn't support dynamic loops well)
   lightAccum = add(
@@ -1610,20 +1612,14 @@ export function createTerrainMaterial(): THREE.Material & {
 
   const terrainUniforms: TerrainUniforms = {
     sunPosition: sunPositionUniform,
-    sunDirection: sunDirectionUniform as unknown as { value: THREE.Vector3 },
+    sunDirection: sunDirectionUniform,
     time: timeUniform,
     fogEnabled: fogEnabledUniform,
-    dayIntensity: dayIntensityUniform as unknown as { value: number },
+    dayIntensity: dayIntensityUniform,
     // Vertex lighting arrays
-    vertexLightPositions: vertexLightPositionUniforms.map(
-      (u) => u as unknown as { value: THREE.Vector3 },
-    ),
-    vertexLightColors: vertexLightColorUniforms.map(
-      (u) => u as unknown as { value: THREE.Vector3 },
-    ),
-    vertexLightParams: vertexLightParamUniforms.map(
-      (u) => u as unknown as { value: THREE.Vector2 },
-    ),
+    vertexLightPositions: vertexLightPositionUniforms,
+    vertexLightColors: vertexLightColorUniforms,
+    vertexLightParams: vertexLightParamUniforms,
   };
   const result = material as typeof material & {
     terrainUniforms: TerrainUniforms;

@@ -80,6 +80,26 @@ export class ProjectileService {
   private readonly _tickToRemove: string[] = [];
 
   /**
+   * Validate the synchronous capacity/position conditions used by
+   * createProjectile. Callers that must durably consume ammunition first can
+   * fail closed before committing that cost.
+   */
+  canCreateProjectile(
+    sourceId: string,
+    sourcePosition: { x: number; z: number },
+    targetPosition: { x: number; z: number },
+  ): boolean {
+    return (
+      Number.isFinite(sourcePosition.x) &&
+      Number.isFinite(sourcePosition.z) &&
+      Number.isFinite(targetPosition.x) &&
+      Number.isFinite(targetPosition.z) &&
+      this.getActiveCountForAttacker(sourceId) <
+        MAX_ACTIVE_PROJECTILES_PER_PLAYER
+    );
+  }
+
+  /**
    * Create a new projectile
    *
    * @param params - Projectile creation parameters
@@ -99,19 +119,7 @@ export class ProjectileService {
       xpReward,
     } = params;
 
-    // Validate position components to prevent NaN propagation
-    if (
-      !Number.isFinite(sourcePosition.x) ||
-      !Number.isFinite(sourcePosition.z) ||
-      !Number.isFinite(targetPosition.x) ||
-      !Number.isFinite(targetPosition.z)
-    ) {
-      return null;
-    }
-
-    // Enforce per-player projectile limit to prevent abuse
-    const activeForAttacker = this.getActiveCountForAttacker(sourceId);
-    if (activeForAttacker >= MAX_ACTIVE_PROJECTILES_PER_PLAYER) {
+    if (!this.canCreateProjectile(sourceId, sourcePosition, targetPosition)) {
       return null;
     }
 
@@ -249,6 +257,35 @@ export class ProjectileService {
     }
 
     // Remove immediately instead of waiting for next processTick
+    for (const id of toRemove) {
+      this.removeProjectile(id);
+    }
+
+    return toRemove.length;
+  }
+
+  /**
+   * Cancel every in-flight projectile exchanged by one combat pair.
+   *
+   * Pair-scoped cancellation is intentionally narrower than cancelling every
+   * projectile involving either entity: ending one fight must not discard a
+   * third party's valid projectile in multi-combat areas.
+   */
+  cancelProjectilesBetween(entityAId: string, entityBId: string): number {
+    const toRemove: string[] = [];
+
+    for (const projectile of this.activeProjectiles.values()) {
+      const belongsToPair =
+        (projectile.attackerId === entityAId &&
+          projectile.targetId === entityBId) ||
+        (projectile.attackerId === entityBId &&
+          projectile.targetId === entityAId);
+      if (belongsToPair && !projectile.processed) {
+        projectile.cancelled = true;
+        toRemove.push(projectile.id);
+      }
+    }
+
     for (const id of toRemove) {
       this.removeProjectile(id);
     }

@@ -44,9 +44,8 @@ import THREE, {
   linearDepth,
   cameraNear,
   cameraFar,
-  type ShaderNode,
-  type ShaderNodeInput,
 } from "../../../extras/three/three";
+import type { Node, UniformNode } from "three/webgpu";
 import type { World } from "../../../types";
 import type { TerrainTile } from "../../../types/world/terrain";
 import type { Wind } from "./Wind";
@@ -162,8 +161,8 @@ const WAVES: WaveParams[] = [
 // TYPES
 // ============================================================================
 
-type UniformFloat = { value: number };
-type UniformVec3 = { value: THREE.Vector3 };
+type UniformFloat = UniformNode<"float", number>;
+type UniformVec3 = UniformNode<"vec3", THREE.Vector3>;
 
 export type WaterUniforms = {
   time: UniformFloat;
@@ -605,20 +604,20 @@ export class WaterSystem {
    * MeshStandardNodeMaterial + outputNode override + applySunShade + nightDim.
    */
   private createLakeMaterial(): MeshStandardNodeMaterial {
-    const uTime = uniform(float(0));
-    const uSunDir = uniform(vec3(0.4, 0.8, 0.4));
-    const uWind = uniform(float(1.0));
-    const uDayIntensity = uniform(float(1.0));
-    const uSunIntensity = uniform(float(1.0));
+    const uTime = uniform(0);
+    const uSunDir = uniform(new THREE.Vector3(0.4, 0.8, 0.4));
+    const uWind = uniform(1.0);
+    const uDayIntensity = uniform(1.0);
+    const uSunIntensity = uniform(1.0);
     const uShadeColor = uniform(new THREE.Color(...SUN_SHADE.TINT_COLOR));
     const fogTexNode = texture(fogRenderTarget.texture, screenUV);
     const uReflectionIntensity = uniform(
-      float(this._reflectionsEnabled ? WATER.REFLECTION_INTENSITY : 0.0),
+      this._reflectionsEnabled ? WATER.REFLECTION_INTENSITY : 0.0,
     );
 
     this.uniforms = {
       time: uTime,
-      sunDirection: uSunDir as unknown as UniformVec3,
+      sunDirection: uSunDir,
       windStrength: uWind,
       reflectionIntensity: uReflectionIntensity,
       dayIntensity: uDayIntensity,
@@ -646,16 +645,12 @@ export class WaterSystem {
 
     // Wind affects amplitude only — phase speed is purely from dispersion relation
     const wavePhase = (
-      wp: ShaderNodeInput,
-      t: ShaderNodeInput,
-      _w: ShaderNodeInput,
+      wp: Node<"vec3">,
+      t: Node<"float">,
+      _w: Node<"float">,
       wave: WaveParams,
     ) => {
-      const wpNode = wp as ShaderNode;
-      const dotDP = add(
-        mul(wpNode.x, float(wave.Dx)),
-        mul(wpNode.z, float(wave.Dz)),
-      );
+      const dotDP = add(mul(wp.x, float(wave.Dx)), mul(wp.z, float(wave.Dz)));
       return add(mul(float(wave.w), dotDP), mul(float(wave.phi), t));
     };
 
@@ -666,12 +661,12 @@ export class WaterSystem {
       const shoreMask = smoothstep(
         float(0),
         float(WATER.WAVE_DAMP_DISTANCE),
-        attribute("shoreDistance", "float"),
+        attribute<"float">("shoreDistance", "float"),
       );
 
-      let dx: ShaderNode = float(0),
-        dy: ShaderNode = float(0),
-        dz: ShaderNode = float(0);
+      let dx: Node<"float"> = float(0),
+        dy: Node<"float"> = float(0),
+        dz: Node<"float"> = float(0);
       for (const wave of WAVES) {
         const phase = wavePhase(wp, uTime, uWind, wave);
         const c = cos(phase),
@@ -863,8 +858,8 @@ export class WaterSystem {
         float(WATER.WAVE_DAMP_DISTANCE),
         shoreDist,
       );
-      let nx: ShaderNode = float(0),
-        nz: ShaderNode = float(0);
+      let nx: Node<"float"> = float(0),
+        nz: Node<"float"> = float(0);
       for (const wave of WAVES) {
         const c = cos(wavePhase(wp, uTime, uWind, wave));
         nx = add(nx, mul(float(wave.wADx), c));
@@ -941,7 +936,7 @@ export class WaterSystem {
         mul(reflectPart, uReflectionIntensity),
         reflectance,
       );
-      let color: ShaderNode = mix(albedo, waterColor, float(0.8));
+      let color: Node<"vec3"> = mix(albedo, waterColor, float(0.8));
 
       // Foam
       color = mix(
@@ -981,18 +976,18 @@ export class WaterSystem {
    * Uses MeshBasicNodeMaterial with ALL computation in outputNode (no PBR).
    */
   private createOceanMaterial(): MeshStandardNodeMaterial {
-    const uTime = uniform(float(0));
-    const uSunDir = uniform(vec3(0.4, 0.8, 0.4));
-    const uWind = uniform(float(1.2));
-    const uDayIntensity = uniform(float(1.0));
-    const uSunIntensity = uniform(float(1.0));
+    const uTime = uniform(0);
+    const uSunDir = uniform(new THREE.Vector3(0.4, 0.8, 0.4));
+    const uWind = uniform(1.2);
+    const uDayIntensity = uniform(1.0);
+    const uSunIntensity = uniform(1.0);
     const uShadeColor = uniform(new THREE.Color(...SUN_SHADE.TINT_COLOR));
-    const uReflectionIntensity = uniform(float(0));
+    const uReflectionIntensity = uniform(0);
     const fogTexNode = texture(fogRenderTarget.texture, screenUV);
 
     this.oceanUniforms = {
       time: uTime,
-      sunDirection: uSunDir as unknown as UniformVec3,
+      sunDirection: uSunDir,
       windStrength: uWind,
       reflectionIntensity: uReflectionIntensity,
       dayIntensity: uDayIntensity,
@@ -1012,16 +1007,12 @@ export class WaterSystem {
     const foamTex = this.foamTex!;
 
     const wavePhase = (
-      wp: ShaderNodeInput,
-      t: ShaderNodeInput,
-      _w: ShaderNodeInput,
+      wp: Node<"vec3">,
+      t: Node<"float">,
+      _w: Node<"float">,
       wave: WaveParams,
     ) => {
-      const wpNode = wp as ShaderNode;
-      const dotDP = add(
-        mul(wpNode.x, float(wave.Dx)),
-        mul(wpNode.z, float(wave.Dz)),
-      );
+      const dotDP = add(mul(wp.x, float(wave.Dx)), mul(wp.z, float(wave.Dz)));
       return add(mul(float(wave.w), dotDP), mul(float(wave.phi), t));
     };
 
@@ -1032,12 +1023,12 @@ export class WaterSystem {
       const shoreMask = smoothstep(
         float(0),
         float(6),
-        attribute("shoreDistance", "float"),
+        attribute<"float">("shoreDistance", "float"),
       );
 
-      let dx: ShaderNode = float(0),
-        dy: ShaderNode = float(0),
-        dz: ShaderNode = float(0);
+      let dx: Node<"float"> = float(0),
+        dy: Node<"float"> = float(0),
+        dz: Node<"float"> = float(0);
       for (const wave of WAVES) {
         const phase = wavePhase(wp, uTime, uWind, wave);
         const c = cos(phase),
@@ -1056,7 +1047,7 @@ export class WaterSystem {
 
     // OPACITY (feeds into PBR → output.a)
     material.opacityNode = Fn(() => {
-      const shoreDist = attribute("shoreDistance", "float");
+      const shoreDist = attribute<"float">("shoreDistance", "float");
       const edgeFade = smoothstep(float(0), float(0.4), shoreDist);
       const depthFade = smoothstep(float(0.4), float(8.0), shoreDist);
       const depthOpacity = mix(float(0.3), float(0.85), depthFade);
@@ -1074,7 +1065,7 @@ export class WaterSystem {
     material.outputNode = Fn(() => {
       const pbrOut = output;
       const wp = positionWorld;
-      const shoreDist = attribute("shoreDistance", "float");
+      const shoreDist = attribute<"float">("shoreDistance", "float");
       const shoreMask = smoothstep(float(0), float(6), shoreDist);
       const wUV = vec2(wp.x, wp.z);
 
@@ -1209,8 +1200,8 @@ export class WaterSystem {
       );
 
       // --- Gerstner wave normals for foam ---
-      let nx: ShaderNode = float(0),
-        nz: ShaderNode = float(0);
+      let nx: Node<"float"> = float(0),
+        nz: Node<"float"> = float(0);
       for (const wave of WAVES) {
         const c = cos(wavePhase(wp, uTime, uWind, wave));
         nx = add(nx, mul(float(wave.wADx), c));
@@ -1245,7 +1236,7 @@ export class WaterSystem {
         mul(vec3(1, 1, 1), mul(diffuseLight, float(0.3))),
         scatter,
       );
-      let color: ShaderNode = mix(albedo, waterColor, float(0.8));
+      let color: Node<"vec3"> = mix(albedo, waterColor, float(0.8));
 
       // Fresnel sky approximation
       const NdotV = max(dot(surfaceNormal, V), float(0));

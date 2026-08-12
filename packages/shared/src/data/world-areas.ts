@@ -81,8 +81,10 @@ export const ALL_WORLD_AREAS: Record<string, WorldArea> = {
       maxZ: ZONE_BOUNDS_MAX_Z,
     },
     biomeType: "plains",
-    safeZone: true, // Lobby area is safe
-    pvpEnabled: true, // Arenas allow PvP
+    // Generic PvP remains disabled across the complex. Active duel sessions
+    // bypass this zone gate only for their exact opponent.
+    safeZone: true,
+    pvpEnabled: false,
     npcs: [],
     resources: [],
     mobSpawns: [],

@@ -164,6 +164,8 @@ import {
   handleBankDeposit,
   handleBankWithdraw,
   handleBankDepositAll,
+  handleExternalAgentBankTransfer,
+  handleExternalAgentBankRecovery,
   handleBankDepositCoins,
   handleBankWithdrawCoins,
   handleBankClose,
@@ -220,6 +222,8 @@ import {
   handleProcessingFletching,
   handleProcessingTanning,
   handleRunecraftingAltarInteract,
+  handleProcessingRequestStatus,
+  handleProcessingRequestRecovery,
   type ProcessingHandlerContext,
 } from "./handlers/processing";
 import { PendingAttackManager } from "./PendingAttackManager";
@@ -331,6 +335,81 @@ import { executeDuelStakeTransferWithRetry } from "./duel-settlement";
 const defaultSpawn = '{ "position": [0, 50, 0], "quaternion": [0, 0, 0, 1] }';
 
 /**
+ * Normalize manifest weapon metadata into the runtime attack enum. Item JSON
+ * uses uppercase values while the runtime enum is lowercase; returning the raw
+ * manifest string makes ranged pathfinding fall through to melee positioning.
+ * Magic weapons without a selected spell intentionally remain melee here.
+ */
+export function resolveWeaponAttackType(
+  attackType?: string | null,
+  weaponType?: string | null,
+): AttackType {
+  const normalizedAttackType = String(attackType ?? "")
+    .trim()
+    .toLowerCase();
+  if (normalizedAttackType === AttackType.RANGED) {
+    return AttackType.RANGED;
+  }
+
+  const normalizedWeaponType = String(weaponType ?? "")
+    .trim()
+    .toLowerCase();
+  if (normalizedWeaponType === "bow" || normalizedWeaponType === "crossbow") {
+    return AttackType.RANGED;
+  }
+
+  return AttackType.MELEE;
+}
+
+/**
+ * Classify whether an attack request repeats an already authoritative intent.
+ * Kept pure so socket and server-agent request behavior can share a precise,
+ * directly testable target/type contract.
+ */
+export function classifyRedundantAttackRequest(
+  targetId: string,
+  targetType: "mob" | "player",
+  combatData:
+    | {
+        inCombat?: boolean;
+        targetId?: string;
+        targetType?: "mob" | "player";
+      }
+    | null
+    | undefined,
+  pendingTargetId: string | null,
+): "active_same_target" | "pending_same_target" | null {
+  if (
+    combatData?.inCombat &&
+    combatData.targetType === targetType &&
+    String(combatData.targetId ?? "") === targetId
+  ) {
+    return "active_same_target";
+  }
+
+  if (pendingTargetId === targetId) {
+    return "pending_same_target";
+  }
+
+  return null;
+}
+
+/**
+ * DuelCombatAI is the single movement owner while an arena fight is active.
+ * Generic combat-follow is correct for normal click-to-attack play, but if it
+ * also steers an AI dueler it replaces the kiting path and makes both actors
+ * converge on the same target tile.
+ */
+export function isDuelAiMovementOwned(entityData: unknown): boolean {
+  return (
+    typeof entityData === "object" &&
+    entityData !== null &&
+    (entityData as { duelAiControlsMovement?: boolean })
+      .duelAiControlsMovement === true
+  );
+}
+
+/**
  * ServerNetwork - Authoritative multiplayer networking system
  *
  * Coordinates between specialized modules to handle all server networking.
@@ -377,6 +456,26 @@ export class ServerNetwork extends System implements NetworkWithSocket {
   /** Agent available goals storage (characterId -> available goals) for dashboard selection */
   static agentAvailableGoals: Map<string, unknown[]> = new Map();
 
+  /** Recent embedded-agent activity and aggregate session counters. */
+  static agentActivity: Map<
+    string,
+    {
+      recentActions: Array<{
+        type: string;
+        description: string;
+        xpGained?: number;
+        timestamp: number;
+      }>;
+      sessionStats: {
+        kills: number;
+        deaths: number;
+        totalXpGained: number;
+        goldEarned: number;
+        resourcesGathered: Record<string, number>;
+      };
+    }
+  > = new Map();
+
   /** Per-phase timing (ms) for tickHealth diagnostics */
   private _lastMobAITime = 0;
   private _lastMobMoveTime = 0;
@@ -422,11 +521,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         urgency: "critical" | "warning" | "safe";
       };
       decisionPath?:
-        | "short-circuit"
-        | "llm"
-        | "scripted"
-        | "planner"
-        | "curiosity";
+        "short-circuit" | "llm" | "scripted" | "planner" | "curiosity";
       providers?: string[];
     }>
   > = new Map();
@@ -580,6 +675,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
   private trimAgentDashboardCaches(): void {
     ServerNetwork.capAgentDashboardMap(ServerNetwork.agentGoals);
     ServerNetwork.capAgentDashboardMap(ServerNetwork.agentAvailableGoals);
+    ServerNetwork.capAgentDashboardMap(ServerNetwork.agentActivity);
     ServerNetwork.capAgentDashboardMap(ServerNetwork.agentGoalsPaused);
     ServerNetwork.capAgentDashboardMap(ServerNetwork.agentThoughts);
     ServerNetwork.capAgentDashboardMap(ServerNetwork.characterSockets);
@@ -764,12 +860,21 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     // Register tile movement to run on each tick (after inputs)
     this.tickSystem.onTick(
       (tickNumber) => {
-        const t0 = Date.now();
+        const wallStart = performance.now();
+        const cpuStart = process.cpuUsage();
         this.tileMovementManager.onTick(tickNumber);
-        const elapsed = Date.now() - t0;
-        if (elapsed > 50) {
+        const wallMs = performance.now() - wallStart;
+        if (wallMs > 50) {
+          const cpu = process.cpuUsage(cpuStart);
+          const context = this.tileMovementManager.getPerformanceContext();
           console.warn(
-            `[Tick] playerMovement: ${elapsed}ms for ${this.tileMovementManager.getPlayerCount()} players`,
+            `[Tick] playerMovement slow ${JSON.stringify({
+              tickNumber,
+              wallMs: Number(wallMs.toFixed(2)),
+              cpuUserMs: Number((cpu.user / 1000).toFixed(2)),
+              cpuSystemMs: Number((cpu.system / 1000).toFixed(2)),
+              ...context,
+            })}`,
           );
         }
       },
@@ -1174,30 +1279,32 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         player.position.z = position.z;
       }
 
-      // CRITICAL: Update spatial index so sendToNearby() finds players at new location.
-      // Without this, post-teleport tile movement broadcasts (e.g., combat follow)
-      // won't reach players whose spatial index is still at their pre-teleport position.
-      const teleportRegionChange = this.spatialIndex.updatePlayerPosition(
-        playerId,
-        position.x,
-        position.z,
-      );
-      // Full region resubscription on teleport (may jump many regions)
-      if (teleportRegionChange) {
-        this.resubscribePlayerRegionTopics(
-          playerId,
-          teleportRegionChange.oldKey,
-          position.x,
-          position.z,
-        );
-      }
-
       // Clear any in-progress movement by cleaning up the player's movement state
       this.tileMovementManager.cleanup(playerId);
 
       // CRITICAL: Sync position to TileMovementManager after teleport
       // Without this, movement system uses stale position and player appears stuck
-      this.tileMovementManager.syncPlayerPosition(playerId, position);
+      const resolvedPosition = this.tileMovementManager.syncPlayerPosition(
+        playerId,
+        position,
+      );
+
+      // Update the spatial index only after collision-safe relocation has resolved
+      // the authoritative destination. Otherwise nearby routing and the teleport
+      // packet can disagree about the player's actual tile.
+      const teleportRegionChange = this.spatialIndex.updatePlayerPosition(
+        playerId,
+        resolvedPosition.x,
+        resolvedPosition.z,
+      );
+      if (teleportRegionChange) {
+        this.resubscribePlayerRegionTopics(
+          playerId,
+          teleportRegionChange.oldKey,
+          resolvedPosition.x,
+          resolvedPosition.z,
+        );
+      }
 
       // Clear any pending actions from before teleport (e.g., queued movements, combat actions)
       // This prevents stale actions from executing after teleport
@@ -1207,11 +1314,11 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       const socket = this.getSocketByPlayerId(playerId);
       const teleportPacket = {
         playerId,
-        position: [position.x, position.y, position.z] as [
-          number,
-          number,
-          number,
-        ],
+        position: [
+          resolvedPosition.x,
+          resolvedPosition.y,
+          resolvedPosition.z,
+        ] as [number, number, number],
         rotation,
         ...(suppressEffect ? { suppressEffect: true } : {}),
       };
@@ -1347,8 +1454,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     this.tickSystem.onTick(
       (tickNumber) => {
         const lootSystem = this.world.getSystem("loot") as unknown as
-          | PlayerDeathSystemWithTick
-          | undefined;
+          PlayerDeathSystemWithTick | undefined;
         if (lootSystem && typeof lootSystem.processTick === "function") {
           lootSystem.processTick(tickNumber);
         }
@@ -1450,6 +1556,8 @@ export class ServerNetwork extends System implements NetworkWithSocket {
           payload.transport =
             process.env.UWS_ENABLED !== "false" ? "uws" : "ws";
           payload.connections = this.sockets.size;
+          payload.handlerTimings =
+            this.tickSystem.getHandlerTimingPercentiles();
         }
         this.broadcastManager.sendToAll("tickHealth", payload);
       },
@@ -1483,6 +1591,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       ServerNetwork.characterSockets.delete(event.playerId);
       ServerNetwork.agentGoals.delete(event.playerId);
       ServerNetwork.agentAvailableGoals.delete(event.playerId);
+      ServerNetwork.agentActivity.delete(event.playerId);
       ServerNetwork.agentGoalsPaused.delete(event.playerId);
       ServerNetwork.agentThoughts.delete(event.playerId);
       ServerNetwork.agentPersonality.delete(event.playerId);
@@ -1494,19 +1603,23 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     this.onWorld(EventType.PLAYER_JOINED, (payload: unknown) => {
       const event = payload as {
         playerId: string;
-        player: { position: { x: number; z: number } };
+        player: { position: { x: number; y: number; z: number } };
       };
       if (event.player?.position) {
+        const resolvedPosition = this.tileMovementManager.syncPlayerPosition(
+          event.playerId,
+          event.player.position,
+        );
         this.spatialIndex.updatePlayerPosition(
           event.playerId,
-          event.player.position.x,
-          event.player.position.z,
+          resolvedPosition.x,
+          resolvedPosition.z,
         );
         // Subscribe to region topics for pub/sub
         this.subscribePlayerRegionTopics(
           event.playerId,
-          event.player.position.x,
-          event.player.position.z,
+          resolvedPosition.x,
+          resolvedPosition.z,
         );
       }
     });
@@ -1560,25 +1673,28 @@ export class ServerNetwork extends System implements NetworkWithSocket {
           );
           return;
         }
-        this.tileMovementManager.syncPlayerPosition(event.playerId, position);
+        const resolvedPosition = this.tileMovementManager.syncPlayerPosition(
+          event.playerId,
+          position,
+        );
         const respawnRegionChange = this.spatialIndex.updatePlayerPosition(
           event.playerId,
-          position.x,
-          position.z,
+          resolvedPosition.x,
+          resolvedPosition.z,
         );
         // Full region resubscription on respawn
         if (respawnRegionChange) {
           this.resubscribePlayerRegionTopics(
             event.playerId,
             respawnRegionChange.oldKey,
-            position.x,
-            position.z,
+            resolvedPosition.x,
+            resolvedPosition.z,
           );
         }
         // Also clear any pending actions from before death
         this.actionQueue.cleanup(event.playerId);
         console.log(
-          `[ServerNetwork] Synced tile position for respawned player ${event.playerId} at (${position.x}, ${position.z})`,
+          `[ServerNetwork] Synced tile position for respawned player ${event.playerId} at (${resolvedPosition.x}, ${resolvedPosition.z})`,
         );
       }
     });
@@ -1603,10 +1719,23 @@ export class ServerNetwork extends System implements NetworkWithSocket {
           );
           return;
         }
-        this.tileMovementManager.syncPlayerPosition(
+        const resolvedPosition = this.tileMovementManager.syncPlayerPosition(
           event.playerId,
           event.position,
         );
+        const homeRegionChange = this.spatialIndex.updatePlayerPosition(
+          event.playerId,
+          resolvedPosition.x,
+          resolvedPosition.z,
+        );
+        if (homeRegionChange) {
+          this.resubscribePlayerRegionTopics(
+            event.playerId,
+            homeRegionChange.oldKey,
+            resolvedPosition.x,
+            resolvedPosition.z,
+          );
+        }
         // Clear any pending actions from before teleport
         this.actionQueue.cleanup(event.playerId);
       }
@@ -1677,6 +1806,10 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     this.onWorld(EventType.COMBAT_FOLLOW_TARGET, (event) => {
       const followEvent =
         event as EventMap[typeof EventType.COMBAT_FOLLOW_TARGET];
+      const follower = this.world.entities.get(followEvent.playerId);
+      if (isDuelAiMovementOwned(follower?.data)) {
+        return;
+      }
       // Use classic MMORPG-style pathfinding with appropriate range and type
       // MELEE: Cardinal-only for range 1, RANGED/MAGIC: Chebyshev distance
       this.tileMovementManager.movePlayerToward(
@@ -1686,6 +1819,15 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         followEvent.attackRange ?? 1, // Default to standard melee range
         followEvent.attackType ?? AttackType.MELEE, // Default to melee if not specified
       );
+    });
+
+    this.onWorld(EventType.COMBAT_STARTED, (event) => {
+      const { attackerId, targetId } =
+        event as EventMap[typeof EventType.COMBAT_STARTED];
+      this.cancelPendingPreparationApproaches(attackerId);
+      if (targetId !== attackerId) {
+        this.cancelPendingPreparationApproaches(targetId);
+      }
     });
 
     // rules-accurate: Cancel pending attack when player clicks elsewhere
@@ -1938,6 +2080,16 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     this.handlers["runecraftingAltarInteract"] =
       this.handlers["onRunecraftingAltarInteract"];
 
+    this.handlers["onProcessingRequestStatus"] = (socket, data) =>
+      handleProcessingRequestStatus(socket, data, processingCtx);
+    this.handlers["processingRequestStatus"] =
+      this.handlers["onProcessingRequestStatus"];
+
+    this.handlers["onProcessingRequestRecovery"] = (socket, data) =>
+      handleProcessingRequestRecovery(socket, data, processingCtx);
+    this.handlers["processingRequestRecovery"] =
+      this.handlers["onProcessingRequestRecovery"];
+
     // Movement is processed immediately — pathfinding and tileMovementStart broadcast
     // happen on packet receipt, not at the next tick boundary. Walking itself still
     // advances on the 600ms tick schedule via onTick(). This matches the documented
@@ -2032,6 +2184,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       this.world.emit(EventType.COMBAT_STOP_ATTACK, {
         attackerId: playerEntity.id,
       });
+      this.cancelPendingPreparationApproaches(playerEntity.id);
       this.pendingAttackManager.cancelPendingAttack(playerEntity.id);
       this.actionQueue.cancelActions(playerEntity.id);
       this.followManager.stopFollowing(playerEntity.id);
@@ -2143,6 +2296,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       this.world.emit(EventType.COMBAT_STOP_ATTACK, {
         attackerId: playerEntity.id,
       });
+      this.cancelPendingPreparationApproaches(playerEntity.id);
       this.pendingAttackManager.cancelPendingAttack(playerEntity.id);
       this.actionQueue.cancelActions(playerEntity.id);
       this.followManager.stopFollowing(playerEntity.id);
@@ -2325,8 +2479,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         // Validate player is actually dead before allowing respawn
         // This prevents clients from sending fake respawn requests
         const entityData = playerEntity.data as
-          | { deathState?: DeathState }
-          | undefined;
+          { deathState?: DeathState } | undefined;
         const isDead =
           entityData?.deathState === DeathState.DYING ||
           entityData?.deathState === DeathState.DEAD;
@@ -2670,6 +2823,14 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     this.handlers["bankDeposit"] = this.handlers["onBankDeposit"];
     this.handlers["bankWithdraw"] = this.handlers["onBankWithdraw"];
     this.handlers["bankDepositAll"] = this.handlers["onBankDepositAll"];
+    this.handlers["onExternalAgentBankTransfer"] = (socket, data) =>
+      handleExternalAgentBankTransfer(socket, data, this.world);
+    this.handlers["externalAgentBankTransfer"] =
+      this.handlers["onExternalAgentBankTransfer"];
+    this.handlers["onExternalAgentBankRecovery"] = (socket, data) =>
+      handleExternalAgentBankRecovery(socket, data, this.world);
+    this.handlers["externalAgentBankRecovery"] =
+      this.handlers["onExternalAgentBankRecovery"];
     this.handlers["bankDepositCoins"] = this.handlers["onBankDepositCoins"];
     this.handlers["bankWithdrawCoins"] = this.handlers["onBankWithdrawCoins"];
     this.handlers["bankClose"] = this.handlers["onBankClose"];
@@ -2760,11 +2921,13 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     this.handlers["onStoreOpen"] = (socket, data) =>
       handleStoreOpen(socket, data as StoreOpenPayload, this.world);
 
-    this.handlers["onStoreBuy"] = (socket, data) =>
-      handleStoreBuy(socket, data as StoreItemPayload, this.world);
+    this.handlers["onStoreBuy"] = async (socket, data) => {
+      await handleStoreBuy(socket, data as StoreItemPayload, this.world);
+    };
 
-    this.handlers["onStoreSell"] = (socket, data) =>
-      handleStoreSell(socket, data as StoreItemPayload, this.world);
+    this.handlers["onStoreSell"] = async (socket, data) => {
+      await handleStoreSell(socket, data as StoreItemPayload, this.world);
+    };
 
     this.handlers["onStoreClose"] = (socket, data) =>
       handleStoreClose(socket, data as StoreClosePayload, this.world);
@@ -2802,6 +2965,28 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       console.log(
         `[ServerNetwork] Found entity: type=${entity.type}, name=${entity.name}`,
       );
+
+      // Autonomous clients may select the Tanner service without navigating a
+      // conversational UI. Bind that shortcut to the exact live NPC identity;
+      // TanningSystem independently revalidates type, manifest ID, range, and
+      // duel state before creating the session.
+      if (payload.interactionType === "tan") {
+        const networkData = entity.getNetworkData();
+        const npcType = networkData.npcType;
+        const npcId = networkData.npcId;
+        if (npcType !== "tanner" || typeof npcId !== "string" || !npcId) {
+          console.warn(
+            `[ServerNetwork] Rejected tanning interaction for non-Tanner entity ${payload.entityId}`,
+          );
+          return;
+        }
+        this.world.emit(EventType.TANNING_INTERACT, {
+          playerId: playerEntity.id,
+          npcId,
+          npcEntityId: payload.entityId,
+        });
+        return;
+      }
 
       // Check if entity has handleInteraction method
       const interactableEntity = entity as unknown as {
@@ -3260,6 +3445,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     ServerNetwork.characterSockets.clear();
     ServerNetwork.agentGoals.clear();
     ServerNetwork.agentAvailableGoals.clear();
+    ServerNetwork.agentActivity.clear();
     ServerNetwork.agentGoalsPaused.clear();
     ServerNetwork.agentThoughts.clear();
     ServerNetwork.agentPersonality.clear();
@@ -3373,6 +3559,11 @@ export class ServerNetwork extends System implements NetworkWithSocket {
    */
   sendToSpectators<T = unknown>(name: string, data: T): void {
     this.broadcastManager.sendToSpectators(name, data);
+  }
+
+  /** Keep long-lived canonical stream viewers aligned with matchup rotation. */
+  syncStreamingContestants(contestantIds: string[]): void {
+    this.connectionHandler.syncStreamingContestants(contestantIds);
   }
 
   /**
@@ -3540,17 +3731,54 @@ export class ServerNetwork extends System implements NetworkWithSocket {
   requestServerMove(
     playerId: string,
     target: [number, number, number],
-    options?: { runMode?: boolean },
+    options?: {
+      runMode?: boolean;
+      interactionArrival?: {
+        interactionRange: number;
+        footprintWidth: number;
+        footprintDepth: number;
+      };
+    },
   ): boolean {
     if (!this.tileMovementManager || !this.world.entities.get(playerId)) {
       return false;
     }
 
+    this.cancelPendingPreparationApproaches(playerId);
     this.tileMovementManager.movePlayerToward(
       playerId,
       { x: target[0], y: target[1], z: target[2] },
       options?.runMode ?? false,
       0, // non-combat destination
+      undefined,
+      options?.interactionArrival,
+    );
+    return true;
+  }
+
+  /**
+   * Server-owned combat approach for embedded duel agents. Unlike a ground
+   * click, this preserves combat intent/cooldown and paths to the nearest valid
+   * tile for the equipped weapon. DuelCombatAI uses it for melee pressure while
+   * retaining explicit ownership of projectile-role spacing.
+   */
+  requestServerCombatApproach(playerId: string, targetId: string): boolean {
+    if (!this.tileMovementManager || !this.world.entities.get(playerId)) {
+      return false;
+    }
+    const targetEntity = this.world.entities.get(targetId) as {
+      position?: { x: number; y: number; z: number };
+    } | null;
+    if (!targetEntity?.position) {
+      return false;
+    }
+
+    this.tileMovementManager.movePlayerToward(
+      playerId,
+      targetEntity.position,
+      true,
+      this.getPlayerWeaponRange(playerId),
+      this.getPlayerAttackType(playerId),
     );
     return true;
   }
@@ -3565,6 +3793,21 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
     this.tileMovementManager.stopPlayer(playerId);
     return true;
+  }
+
+  /** Read-only path state for launch diagnostics on embedded duel agents. */
+  getServerMovementDebug(playerId: string): {
+    activePath: boolean;
+    currentTile: { x: number; z: number } | null;
+    nextTile: { x: number; z: number } | null;
+    destinationTile: { x: number; z: number } | null;
+    remainingPathTiles: number;
+    moveSeq: number;
+  } | null {
+    if (!this.tileMovementManager || !this.world.entities.get(playerId)) {
+      return null;
+    }
+    return this.tileMovementManager.getPlayerMovementDebug(playerId);
   }
 
   /**
@@ -3586,22 +3829,16 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     } | null;
 
     const combatData = combatSystem?.getCombatData?.(playerId);
-    if (
-      combatData?.inCombat &&
-      combatData.targetType === targetType &&
-      String(combatData.targetId ?? "") === targetId
-    ) {
-      return "active_same_target";
-    }
+    const pendingTargetId = this.pendingAttackManager.hasPendingAttack(playerId)
+      ? this.pendingAttackManager.getPendingAttackTarget(playerId)
+      : null;
 
-    if (
-      this.pendingAttackManager.hasPendingAttack(playerId) &&
-      this.pendingAttackManager.getPendingAttackTarget(playerId) === targetId
-    ) {
-      return "pending_same_target";
-    }
-
-    return null;
+    return classifyRedundantAttackRequest(
+      targetId,
+      targetType,
+      combatData,
+      pendingTargetId,
+    );
   }
 
   /**
@@ -3625,6 +3862,16 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       return false;
     }
 
+    // Match the socket attack handlers: re-clicking an authoritative active
+    // or pending target is idempotent. DuelCombatAI periodically verifies its
+    // engagement, and allowing that keep-alive through would compete with its
+    // standoff movement (a pending ranged attack can stop the separation path
+    // as soon as the actors become adjacent). It can also reset combat cadence.
+    if (this.getRedundantAttackReason(playerId, targetId, targetType)) {
+      return true;
+    }
+
+    this.cancelPendingPreparationApproaches(playerId);
     this.pendingAttackManager.cancelPendingAttack(playerId);
 
     const attackRange = this.getPlayerWeaponRange(playerId);
@@ -3648,6 +3895,12 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         attackType,
       });
     } else {
+      // The duel AI has already installed a deliberate standoff path. Queueing
+      // generic walk-to-attack here would replace it; the AI retries engagement
+      // after its own controller brings the fighter into authoritative range.
+      if (isDuelAiMovementOwned(playerEntity.data)) {
+        return false;
+      }
       this.pendingAttackManager.queuePendingAttack(
         playerId,
         targetId,
@@ -3814,7 +4067,8 @@ export class ServerNetwork extends System implements NetworkWithSocket {
 
   /**
    * Get player's attack range in tiles
-   * Cancel all pending actions for a player (attack, follow, trade, duel, home teleport).
+   * Cancel all pending actions for a player (attack, gather, cook, follow,
+   * trade, duel, home teleport).
    * Called when a player initiates a new action that supersedes existing ones.
    */
   private cancelAllPendingActions(
@@ -3822,6 +4076,7 @@ export class ServerNetwork extends System implements NetworkWithSocket {
     socket?: { send: (name: string, data: unknown) => void },
   ): void {
     this.pendingAttackManager.cancelPendingAttack(playerId);
+    this.cancelPendingPreparationApproaches(playerId);
     this.followManager.stopFollowing(playerId);
     this.pendingTradeManager.cancelPendingTrade(playerId);
     this.pendingDuelChallengeManager.cancelPendingChallenge(playerId);
@@ -3838,6 +4093,11 @@ export class ServerNetwork extends System implements NetworkWithSocket {
         });
       }
     }
+  }
+
+  private cancelPendingPreparationApproaches(playerId: string): void {
+    this.pendingGatherManager.cancelPendingGather(playerId);
+    this.pendingCookManager.cancelPendingCook(playerId, "interrupted");
   }
 
   /**
@@ -3928,8 +4188,8 @@ export class ServerNetwork extends System implements NetworkWithSocket {
           getPlayerEquipment?: (id: string) => {
             weapon?: {
               item?: {
-                attackType?: AttackType;
-                weaponType?: WeaponType;
+                attackType?: string;
+                weaponType?: string;
               };
             };
           } | null;
@@ -3942,32 +4202,10 @@ export class ServerNetwork extends System implements NetworkWithSocket {
       if (equipment?.weapon?.item) {
         const weaponItem = equipment.weapon.item;
 
-        // Check explicit attackType first
-        if (weaponItem.attackType) {
-          // rules-accurate: Magic weapons (staffs/wands) without autocast use
-          // melee crush attack (bonk). The selectedSpell check above already
-          // returns MAGIC when a spell is selected.
-          const isMagicAttackType =
-            String(weaponItem.attackType).toLowerCase() === "magic";
-          if (!isMagicAttackType) {
-            return weaponItem.attackType as AttackType;
-          }
-          // Magic attack type without autocast → melee bonk
-          return AttackType.MELEE;
-        }
-
-        // Fall back to weaponType for legacy compatibility
-        if (weaponItem.weaponType === WeaponType.BOW) {
-          return AttackType.RANGED;
-        }
-        // rules-accurate: Staffs/wands without autocast use melee (crush bonk)
-        // The selectedSpell check above already handles the autocast case
-        if (
-          weaponItem.weaponType === WeaponType.STAFF ||
-          weaponItem.weaponType === WeaponType.WAND
-        ) {
-          return AttackType.MELEE;
-        }
+        return resolveWeaponAttackType(
+          weaponItem.attackType,
+          weaponItem.weaponType,
+        );
       }
     }
 

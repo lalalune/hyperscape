@@ -19,6 +19,7 @@ export const ARENA_COLUMNS = 2;
 export const ARENA_ROWS = 3;
 export const ARENA_COUNT = 6;
 export const ARENA_SPAWN_OFFSET = 8;
+export const ARENA_FORFEIT_PILLAR_INSET = 2;
 
 // ---------------------------------------------------------------------------
 // Lobby (south of arenas, right side)

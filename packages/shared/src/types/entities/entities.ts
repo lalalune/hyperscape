@@ -166,6 +166,10 @@ export enum DeathState {
 export interface PlayerEntityData extends BaseEntityData {
   playerId: string;
   playerName: string;
+  /** Server-owned AI player, retained through PlayerEntity serialization. */
+  isAgent?: boolean;
+  /** AI player whose runtime is embedded in the authoritative server. */
+  isEmbeddedAgent?: boolean;
   level: number;
   health: number;
   maxHealth: number;
@@ -273,6 +277,8 @@ export interface MobEntityConfig extends EntityConfig<MobEntityProperties> {
 export interface NPCEntityConfig extends EntityConfig<NPCEntityProperties> {
   npcType: NPCType;
   npcId: string;
+  /** Exact stores.json identity for store-capable NPCs. */
+  storeId?: string;
   dialogueLines: string[];
   services: string[];
   questIds?: string[];

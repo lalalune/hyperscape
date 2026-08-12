@@ -73,6 +73,22 @@ export interface ICollisionMatrix {
   /** Remove flags from a tile (bitwise AND NOT) */
   removeFlags(tileX: number, tileZ: number, flags: number): void;
 
+  /**
+   * Replace a masked subset of flags across a rectangular tile region.
+   *
+   * `flags` is X-major (`localX * height + localZ`). Flags outside `mask`
+   * are preserved, allowing terrain to refresh WATER/STEEP_SLOPE without
+   * disturbing buildings, entities, walls, bridges, or docks.
+   */
+  replaceFlagsInRegion(
+    originX: number,
+    originZ: number,
+    width: number,
+    height: number,
+    mask: number,
+    flags: ArrayLike<number>,
+  ): void;
+
   /** Check if tile has specific flags (any of them) */
   hasFlags(tileX: number, tileZ: number, flags: number): boolean;
 
@@ -240,6 +256,97 @@ export class CollisionMatrix implements ICollisionMatrix {
     if (!zone) return; // Nothing to remove from unallocated zone
     const index = this.getTileIndex(tileX, tileZ);
     zone[index] &= ~flags;
+  }
+
+  /**
+   * Replace a masked subset of collision flags across a rectangular region.
+   *
+   * Terrain baking updates 10,000 movement tiles at a time. Calling
+   * addFlags/removeFlags for each tile repeats validation, BigInt key packing,
+   * and Map lookup work thousands of times. This zone-oriented path performs
+   * one lookup per intersected 8x8 zone while preserving every non-masked bit.
+   */
+  replaceFlagsInRegion(
+    originX: number,
+    originZ: number,
+    width: number,
+    height: number,
+    mask: number,
+    flags: ArrayLike<number>,
+  ): void {
+    if (
+      !Number.isInteger(originX) ||
+      !Number.isInteger(originZ) ||
+      !Number.isInteger(width) ||
+      !Number.isInteger(height) ||
+      width < 0 ||
+      height < 0 ||
+      !Number.isFinite(mask)
+    ) {
+      throw new Error(
+        `[CollisionMatrix] replaceFlagsInRegion: invalid region (${originX}, ${originZ}, ${width}, ${height}) or mask ${mask}`,
+      );
+    }
+
+    const requiredLength = width * height;
+    if (flags.length < requiredLength) {
+      throw new Error(
+        `[CollisionMatrix] replaceFlagsInRegion: flags length ${flags.length} is smaller than ${requiredLength}`,
+      );
+    }
+    if (requiredLength === 0 || mask === 0) return;
+
+    const endX = originX + width;
+    const endZ = originZ + height;
+    const firstZoneX = Math.floor(originX / ZONE_SIZE);
+    const lastZoneX = Math.floor((endX - 1) / ZONE_SIZE);
+    const firstZoneZ = Math.floor(originZ / ZONE_SIZE);
+    const lastZoneZ = Math.floor((endZ - 1) / ZONE_SIZE);
+    const inverseMask = ~mask;
+
+    for (let zoneX = firstZoneX; zoneX <= lastZoneX; zoneX++) {
+      const zoneOriginX = zoneX * ZONE_SIZE;
+      const worldStartX = Math.max(originX, zoneOriginX);
+      const worldEndX = Math.min(endX, zoneOriginX + ZONE_SIZE);
+
+      for (let zoneZ = firstZoneZ; zoneZ <= lastZoneZ; zoneZ++) {
+        const zoneOriginZ = zoneZ * ZONE_SIZE;
+        const worldStartZ = Math.max(originZ, zoneOriginZ);
+        const worldEndZ = Math.min(endZ, zoneOriginZ + ZONE_SIZE);
+        const zoneKey = (BigInt(zoneX) << 32n) | BigInt(zoneZ >>> 0);
+        let zone = this.zones.get(zoneKey);
+
+        // Clearing terrain flags in an unallocated zone is a no-op unless at
+        // least one replacement value actually sets a masked bit.
+        if (!zone) {
+          let needsZone = false;
+          for (let worldX = worldStartX; worldX < worldEndX; worldX++) {
+            const sourceX = (worldX - originX) * height;
+            for (let worldZ = worldStartZ; worldZ < worldEndZ; worldZ++) {
+              if ((flags[sourceX + worldZ - originZ] & mask) !== 0) {
+                needsZone = true;
+                break;
+              }
+            }
+            if (needsZone) break;
+          }
+          if (!needsZone) continue;
+          zone = new Int32Array(TILES_PER_ZONE);
+          this.zones.set(zoneKey, zone);
+        }
+
+        for (let worldX = worldStartX; worldX < worldEndX; worldX++) {
+          const localX = worldX - zoneOriginX;
+          const sourceX = (worldX - originX) * height;
+          for (let worldZ = worldStartZ; worldZ < worldEndZ; worldZ++) {
+            const localZ = worldZ - zoneOriginZ;
+            const tileIndex = localX + localZ * ZONE_SIZE;
+            const replacement = flags[sourceX + worldZ - originZ] & mask;
+            zone[tileIndex] = (zone[tileIndex] & inverseMask) | replacement;
+          }
+        }
+      }
+    }
   }
 
   /**

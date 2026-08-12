@@ -1,4 +1,8 @@
 import fs from "node:fs/promises";
+import {
+  normalizeStreamingPerformanceSnapshot,
+  type StreamingPerformanceSnapshot,
+} from "@hyperforge/shared";
 
 /** A single RTMP destination entry from the external status file. */
 export interface ExternalRtmpDestination {
@@ -17,6 +21,14 @@ export interface ExternalRtmpStreamStats {
   bytesReceived?: number;
   droppedFrames?: number;
   healthy?: boolean;
+  ffmpegRunning?: boolean;
+  clientConnected?: boolean;
+  audioSource?: "uninitialized" | "browser" | "pulse" | "silent";
+  audioHealthy?: boolean;
+  audioLastChunkAt?: number | null;
+  audioChunks?: number;
+  audioDroppedChunks?: number;
+  audioTrimmedChunks?: number;
   /** External encoders may include additional fields. */
   [key: string]: unknown;
 }
@@ -29,6 +41,15 @@ export interface ExternalRendererHealthBlob {
   phase?: string | null;
 }
 
+export interface ExternalCaptureHealthBlob {
+  mode: "cdp" | "mediarecorder" | "webcodecs";
+  targetFps: number;
+  measuredFps: number | null;
+  receivedFrames: number | null;
+  droppedFrames: number | null;
+  acknowledgementPacing: boolean;
+}
+
 /**
  * Typed snapshot from the external RTMP status file. Only allowlisted fields
  * are preserved after parsing — unknown keys in the source JSON are stripped
@@ -38,7 +59,9 @@ export interface ExternalRtmpStatusSnapshot {
   destinations: ExternalRtmpDestination[];
   stats: ExternalRtmpStreamStats;
   updatedAt: number;
+  captureHealth?: ExternalCaptureHealthBlob;
   rendererHealth?: ExternalRendererHealthBlob;
+  rendererPerformance?: StreamingPerformanceSnapshot;
 }
 
 type ExternalStatusPoller = {
@@ -54,12 +77,62 @@ function asFiniteNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+function normalizeExternalRendererHealth(
+  value: unknown,
+): ExternalRendererHealthBlob | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const candidate = value as Record<string, unknown>;
+  return {
+    ready: candidate.ready === true,
+    degradedReason:
+      typeof candidate.degradedReason === "string"
+        ? candidate.degradedReason.slice(0, 180)
+        : null,
+    updatedAt: asFiniteNumber(candidate.updatedAt),
+    phase:
+      typeof candidate.phase === "string" ? candidate.phase.slice(0, 32) : null,
+  };
+}
+
+function normalizeCounter(value: unknown): number | null {
+  const normalized = asFiniteNumber(value);
+  if (normalized === null || normalized < 0) return null;
+  return Math.floor(normalized);
+}
+
+function normalizeExternalCaptureHealth(
+  value: unknown,
+): ExternalCaptureHealthBlob | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const candidate = value as Record<string, unknown>;
+  const mode = candidate.mode;
+  if (mode !== "cdp" && mode !== "mediarecorder" && mode !== "webcodecs") {
+    return null;
+  }
+  const targetFps = asFiniteNumber(candidate.targetFps);
+  if (targetFps === null || targetFps < 1 || targetFps > 60) return null;
+  const measuredFps = asFiniteNumber(candidate.measuredFps);
+  if (measuredFps !== null && (measuredFps < 0 || measuredFps > 240)) {
+    return null;
+  }
+
+  return {
+    mode,
+    targetFps,
+    measuredFps,
+    receivedFrames: normalizeCounter(candidate.receivedFrames),
+    droppedFrames: normalizeCounter(candidate.droppedFrames),
+    acknowledgementPacing: candidate.acknowledgementPacing === true,
+  };
+}
+
 /**
  * Parse and validate the external RTMP status JSON, stripping unknown keys.
  *
- * Only `destinations`, `stats`, `updatedAt`, and `rendererHealth` are
- * forwarded. Any extra keys in the source file are silently dropped so
- * tampered files cannot inject arbitrary data into API responses.
+ * Only `destinations`, `stats`, `updatedAt`, bounded capture/renderer health,
+ * and a validated `rendererPerformance` snapshot are forwarded. Any extra
+ * keys in the source file are silently dropped so tampered files cannot inject
+ * arbitrary data into API responses.
  */
 export function parseExternalRtmpStatusSnapshot(
   raw: string,
@@ -91,9 +164,19 @@ export function parseExternalRtmpStatusSnapshot(
       updatedAt,
     };
 
-    if (parsed.rendererHealth && typeof parsed.rendererHealth === "object") {
-      snapshot.rendererHealth =
-        parsed.rendererHealth as ExternalRendererHealthBlob;
+    const rendererHealth = normalizeExternalRendererHealth(
+      parsed.rendererHealth,
+    );
+    if (rendererHealth) snapshot.rendererHealth = rendererHealth;
+
+    const captureHealth = normalizeExternalCaptureHealth(parsed.captureHealth);
+    if (captureHealth) snapshot.captureHealth = captureHealth;
+
+    const rendererPerformance = normalizeStreamingPerformanceSnapshot(
+      parsed.rendererPerformance,
+    );
+    if (rendererPerformance) {
+      snapshot.rendererPerformance = rendererPerformance;
     }
 
     return snapshot;
@@ -116,6 +199,18 @@ export async function loadExternalRtmpStatusSnapshot(
       options,
     );
   } catch (error) {
+    // The bridge creates this file only after the renderer and encoder are
+    // ready. Absence is therefore an expected startup/unavailable state, not
+    // an operational warning. Preserve warnings for permission, I/O, and
+    // other unexpected failures that an operator can act on.
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "ENOENT"
+    ) {
+      return null;
+    }
     console.warn(
       `[ExternalRtmpStatus] Failed to read status file "${externalStatusFile}":`,
       error instanceof Error ? error.message : error,

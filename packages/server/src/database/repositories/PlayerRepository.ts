@@ -16,7 +16,8 @@
 import { eq, sql } from "drizzle-orm";
 import { BaseRepository } from "./BaseRepository";
 import * as schema from "../schema";
-import type { PlayerRow } from "../../shared/types";
+import type { PlayerPersistenceUpdate, PlayerRow } from "../../shared/types";
+import { assertGenericPlayerUpdateExcludesPrayerAuthority } from "../prayer-custody-policy";
 
 /**
  * PlayerRepository class
@@ -73,8 +74,12 @@ export class PlayerRepository extends BaseRepository {
    * Shared by savePlayerAsync and batchSavePlayersAsync.
    */
   private buildUpdateData(
-    data: Partial<PlayerRow>,
+    data: PlayerPersistenceUpdate,
   ): Partial<Omit<typeof schema.characters.$inferInsert, "id" | "accountId">> {
+    assertGenericPlayerUpdateExcludesPrayerAuthority(
+      data,
+      "PlayerRepository.buildUpdateData",
+    );
     type CharacterUpdate = Partial<
       Omit<typeof schema.characters.$inferInsert, "id" | "accountId">
     >;
@@ -136,20 +141,12 @@ export class PlayerRepository extends BaseRepository {
     if (data.autoRetaliate !== undefined) u.autoRetaliate = data.autoRetaliate;
     if (data.attackStyle !== undefined) u.attackStyle = data.attackStyle;
     if (data.selectedSpell !== undefined) u.selectedSpell = data.selectedSpell;
-    // Prayer
-    if (data.prayerLevel !== undefined) u.prayerLevel = data.prayerLevel;
-    if (data.prayerXp !== undefined) u.prayerXp = data.prayerXp;
-    if (data.prayerPoints !== undefined) u.prayerPoints = data.prayerPoints;
-    if (data.prayerMaxPoints !== undefined)
-      u.prayerMaxPoints = data.prayerMaxPoints;
-    if (data.activePrayers !== undefined) u.activePrayers = data.activePrayers;
-
     return u;
   }
 
   async savePlayerAsync(
     playerId: string,
-    data: Partial<PlayerRow>,
+    data: PlayerPersistenceUpdate,
   ): Promise<void> {
     if (this.isDestroying) {
       return;
@@ -184,7 +181,7 @@ export class PlayerRepository extends BaseRepository {
    * @param players - Map of playerId → partial data to save
    */
   async batchSavePlayersAsync(
-    players: Map<string, Partial<PlayerRow>>,
+    players: Map<string, PlayerPersistenceUpdate>,
   ): Promise<void> {
     if (this.isDestroying || players.size === 0) {
       return;

@@ -82,6 +82,26 @@ describe("BFSPathfinder", () => {
       expect(isValidPath(path, start)).toBe(true);
     });
 
+    it("owns path coordinates when callers reuse a mutable destination", () => {
+      const sharedDestination = { x: 0, z: 4 };
+      const firstPath = pathfinder.findPath(
+        { x: 0, z: 0 },
+        sharedDestination,
+        () => true,
+      );
+
+      sharedDestination.x = 7;
+      sharedDestination.z = 3;
+      const secondPath = pathfinder.findPath(
+        { x: 5, z: 3 },
+        sharedDestination,
+        () => true,
+      );
+
+      expect(firstPath[firstPath.length - 1]).toEqual({ x: 0, z: 4 });
+      expect(secondPath[secondPath.length - 1]).toEqual({ x: 7, z: 3 });
+    });
+
     it("finds diagonal path (naive diagonal)", () => {
       const start = { x: 0, z: 0 };
       const end = { x: 3, z: 3 };
@@ -112,6 +132,24 @@ describe("BFSPathfinder", () => {
       // Should be 5 steps: 2 diagonal + 3 vertical
       expect(path.length).toBe(5);
       expect(path[path.length - 1]).toEqual(end);
+      expect(isValidPath(path, start)).toBe(true);
+    });
+
+    it.each([
+      ["north", 0, -1],
+      ["north-east", 1, -1],
+      ["east", 1, 0],
+      ["south-east", 1, 1],
+      ["south", 0, 1],
+      ["south-west", -1, 1],
+      ["west", -1, 0],
+      ["north-west", -1, -1],
+    ] as const)("supports one-tile %s movement", (_label, x, z) => {
+      const start = { x: 0, z: 0 };
+      const end = { x, z };
+      const path = pathfinder.findPath(start, end, () => true);
+
+      expect(path).toEqual([end]);
       expect(isValidPath(path, start)).toBe(true);
     });
   });

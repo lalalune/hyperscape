@@ -41,7 +41,11 @@ import {
   BuildingCollisionService,
   type EntityID,
 } from "@hyperforge/shared";
-import type { TileCoord, TileMovementState } from "@hyperforge/shared";
+import type {
+  TileCoord,
+  TileInteractionArrival,
+  TileMovementState,
+} from "@hyperforge/shared";
 
 // Security: Input validation and anti-cheat
 import {
@@ -61,10 +65,82 @@ import {
 const AGILITY_TILES_PER_XP_GRANT = 100; // Tiles needed before XP is granted
 const AGILITY_XP_PER_GRANT = 50; // XP granted per threshold (effectively 1 XP per 2 tiles)
 
+type DuelMovementIntent = {
+  targetId: string;
+  startTile: TileCoord;
+  steps: TileCoord[];
+};
+
+function tileSegmentsIntersect(
+  leftStart: TileCoord,
+  leftEnd: TileCoord,
+  rightStart: TileCoord,
+  rightEnd: TileCoord,
+): boolean {
+  const orientation = (first: TileCoord, second: TileCoord, third: TileCoord) =>
+    (second.z - first.z) * (third.x - second.x) -
+    (second.x - first.x) * (third.z - second.z);
+  const onSegment = (first: TileCoord, middle: TileCoord, last: TileCoord) =>
+    middle.x >= Math.min(first.x, last.x) &&
+    middle.x <= Math.max(first.x, last.x) &&
+    middle.z >= Math.min(first.z, last.z) &&
+    middle.z <= Math.max(first.z, last.z);
+
+  const leftToRightStart = orientation(leftStart, leftEnd, rightStart);
+  const leftToRightEnd = orientation(leftStart, leftEnd, rightEnd);
+  const rightToLeftStart = orientation(rightStart, rightEnd, leftStart);
+  const rightToLeftEnd = orientation(rightStart, rightEnd, leftEnd);
+  if (
+    ((leftToRightStart > 0 && leftToRightEnd < 0) ||
+      (leftToRightStart < 0 && leftToRightEnd > 0)) &&
+    ((rightToLeftStart > 0 && rightToLeftEnd < 0) ||
+      (rightToLeftStart < 0 && rightToLeftEnd > 0))
+  ) {
+    return true;
+  }
+  return (
+    (leftToRightStart === 0 && onSegment(leftStart, rightStart, leftEnd)) ||
+    (leftToRightEnd === 0 && onSegment(leftStart, rightEnd, leftEnd)) ||
+    (rightToLeftStart === 0 && onSegment(rightStart, leftStart, rightEnd)) ||
+    (rightToLeftEnd === 0 && onSegment(rightStart, leftEnd, rightEnd))
+  );
+}
+
+function duelMovementIntentShouldYield(
+  playerId: string,
+  intent: DuelMovementIntent,
+  opponentIntent: DuelMovementIntent,
+): boolean {
+  if (intent.steps.length === 0) return false;
+
+  let ownFrom = intent.startTile;
+  for (const ownTo of intent.steps) {
+    if (tilesEqual(ownTo, opponentIntent.startTile)) return true;
+
+    let opponentFrom = opponentIntent.startTile;
+    for (const opponentTo of opponentIntent.steps) {
+      if (tileSegmentsIntersect(ownFrom, ownTo, opponentFrom, opponentTo)) {
+        // The opponent is trying to enter our start tile, so its reciprocal
+        // check will yield. Let this path move away instead of stopping both.
+        if (tilesEqual(opponentTo, intent.startTile)) {
+          opponentFrom = opponentTo;
+          continue;
+        }
+        return playerId > intent.targetId;
+      }
+      opponentFrom = opponentTo;
+    }
+    ownFrom = ownTo;
+  }
+  return false;
+}
+
 /**
  * Tile-based movement manager for classic fantasy MMORPG-style movement
  */
 export class TileMovementManager {
+  /** Bounded safety envelope for collision-free joins, respawns, and teleports. */
+  private static readonly SPAWN_RELOCATION_RADIUS = 32;
   private playerStates: Map<string, TileMovementState> = new Map();
   private pathfinder: BFSPathfinder;
 
@@ -95,6 +171,11 @@ export class TileMovementManager {
    * at the start (or the end) of the tick not when they actually move"
    */
   private tickStartTiles: Map<string, TileCoord> = new Map();
+  /**
+   * Bounded per-tick duel paths used to prevent two AI contestants from
+   * swapping tiles or crossing diagonal segments in the same 600ms step.
+   */
+  private duelMovementIntents: Map<string, DuelMovementIntent> = new Map();
 
   // Security: Input validation and anti-cheat monitoring
   private readonly inputValidator = new MovementInputValidator();
@@ -383,6 +464,7 @@ export class TileMovementManager {
   findClosestWalkableTile(
     targetPos: { x: number; z: number },
     maxSearchRadius: number = 10,
+    acceptsTile?: (tile: TileCoord) => boolean,
   ): TileCoord | null {
     const targetTile = worldToTile(targetPos.x, targetPos.z);
 
@@ -391,7 +473,10 @@ export class TileMovementManager {
     const floorIndex = 0;
 
     // If target tile is already walkable, return it
-    if (this.isTileWalkable(targetTile, floorIndex)) {
+    if (
+      this.isTileWalkable(targetTile, floorIndex) &&
+      (acceptsTile?.(targetTile) ?? true)
+    ) {
       return targetTile;
     }
 
@@ -413,7 +498,10 @@ export class TileMovementManager {
             z: targetTile.z + dz,
           };
 
-          if (this.isTileWalkable(tile, floorIndex)) {
+          if (
+            this.isTileWalkable(tile, floorIndex) &&
+            (acceptsTile?.(tile) ?? true)
+          ) {
             // Use Euclidean distance for sorting (more accurate than Chebyshev)
             const euclidean = Math.sqrt(dx * dx + dz * dz);
             candidates.push({ tile, dist: euclidean });
@@ -432,6 +520,11 @@ export class TileMovementManager {
     return null;
   }
 
+  /** Ground-floor availability for server-owned interaction positioning. */
+  isTileAvailableForPlayer(playerId: string, tile: TileCoord): boolean {
+    return this.isTileTraversableForPlayer(playerId, tile, 0);
+  }
+
   /**
    * Get or create movement state for a player
    */
@@ -447,7 +540,66 @@ export class TileMovementManager {
       state = createTileMovementState(currentTile);
       this.playerStates.set(playerId, state);
     }
+    this.ensurePlayerOccupancy(playerId, state.currentTile);
     return state;
+  }
+
+  private getEntityOccupancy(): World["entityOccupancy"] | null {
+    return (
+      (
+        this.world as World & {
+          entityOccupancy?: World["entityOccupancy"];
+        }
+      ).entityOccupancy ?? null
+    );
+  }
+
+  /** Register a player's current authoritative tile without overwriting another actor. */
+  private ensurePlayerOccupancy(playerId: string, tile: TileCoord): boolean {
+    const occupancy = this.getEntityOccupancy();
+    if (!occupancy) return true;
+    const entityId = playerId as EntityID;
+    const occupant = occupancy.getOccupant(tile);
+    if (occupant?.entityId === entityId) return true;
+    if (occupant) return false;
+    occupancy.occupy(entityId, [tile], 1, "player", false);
+    return occupancy.getOccupant(tile)?.entityId === entityId;
+  }
+
+  /**
+   * Commit one already-validated player step to occupancy. A player whose
+   * legacy/saved spawn overlaps another actor may leave that tile, but cannot
+   * overwrite the actor that currently owns it.
+   */
+  private commitPlayerOccupancyStep(
+    playerId: string,
+    fromTile: TileCoord,
+    nextTile: TileCoord,
+  ): void {
+    const occupancy = this.getEntityOccupancy();
+    if (!occupancy) return;
+    const entityId = playerId as EntityID;
+    if (occupancy.getOccupant(fromTile)?.entityId === entityId) {
+      occupancy.move(entityId, [nextTile], 1);
+    } else {
+      occupancy.occupy(entityId, [nextTile], 1, "player", false);
+    }
+  }
+
+  /** Dynamic actors are deliberately excluded from the static walkability cache. */
+  private isTileTraversableForPlayer(
+    playerId: string,
+    tile: TileCoord,
+    floorIndex: number = 0,
+    fromTile?: TileCoord,
+    playerBuildingId?: string | null,
+  ): boolean {
+    if (!this.isTileWalkable(tile, floorIndex, fromTile, playerBuildingId)) {
+      return false;
+    }
+    return (
+      this.getEntityOccupancy()?.isBlocked(tile, playerId as EntityID) !== true
+    );
   }
 
   /**
@@ -507,6 +659,10 @@ export class TileMovementManager {
     }
 
     const payload = validation.payload!;
+    this._pendingObstructionReplans.delete(playerId);
+    this._pendingNonCombatMoves.delete(playerId);
+    this._precomputedPathSegments.delete(playerId);
+    this._interactionApproachReservations.delete(playerId);
 
     // RULES ACCURACY: Emit click-to-move event for weak queue cancellation
     // This MUST happen before any early returns (same-tile, cancel, etc.)
@@ -599,7 +755,13 @@ export class TileMovementManager {
       state.currentTile,
       payload.targetTile,
       (tile, fromTile) =>
-        this.isTileWalkable(tile, currentFloor, fromTile, currentBuildingId),
+        this.isTileTraversableForPlayer(
+          playerId,
+          tile,
+          currentFloor,
+          fromTile,
+          currentBuildingId,
+        ),
       remainingBudget > 0 ? remainingBudget : undefined,
     );
     this._bfsIterationsThisTick += this.pathfinder.getLastIterationsUsed();
@@ -623,6 +785,7 @@ export class TileMovementManager {
       x: payload.targetTile.x,
       z: payload.targetTile.z,
     };
+    state.requestedInteractionArrival = null;
 
     // Any new click cancels a precomputed segment that hasn't been consumed yet.
     // The stale tileMovementStart (isContinuation) will be rejected client-side via moveSeq.
@@ -677,7 +840,9 @@ export class TileMovementManager {
       // Server sends COMPLETE authoritative path - client follows exactly, no recalculation
       // startTile: where server knows player IS (client uses this, not its visual position)
       // path: tiles to walk through (server's BFS result)
-      // destinationTile: final target (for verification)
+      // destinationTile: endpoint of this authoritative segment. Long routes
+      // are continued server-side; clients must never append an unvalidated
+      // straight-line jump from a partial path to the ultimate target.
       // moveSeq: packet ordering to ignore stale packets
       // emote: bundled animation (classic MMORPG-style, no separate packet)
 
@@ -696,7 +861,10 @@ export class TileMovementManager {
         startTile: { x: state.currentTile.x, z: state.currentTile.z },
         path: this._networkPathBuffer,
         running: state.isRunning,
-        destinationTile: { x: payload.targetTile.x, z: payload.targetTile.z },
+        destinationTile: {
+          x: path[path.length - 1].x,
+          z: path[path.length - 1].z,
+        },
         moveSeq: state.moveSeq,
         emote: state.isRunning ? "run" : "walk",
       });
@@ -760,21 +928,79 @@ export class TileMovementManager {
   private _walkabilityCache = new Map<number, boolean>();
   /** Separate cache for directional blocking (from→to collision checks) */
   private _directionalBlockCache = new Map<number, boolean>();
+  /** Tick whose shared pathfinding caches and budget are currently serving. */
+  private _movementCacheTick = -1;
+  /**
+   * Non-combat routes interrupted by a newly blocked step. Replanning is
+   * deferred to the next authoritative tick so collision caches are fresh and
+   * the global BFS budget remains fair across agents.
+   */
+  private _pendingObstructionReplans = new Map<
+    string,
+    {
+      destination: TileCoord;
+      isRunning: boolean;
+      interactionArrival: TileInteractionArrival | null;
+      attempts: number;
+    }
+  >();
+  private static readonly MAX_OBSTRUCTION_REPLAN_ATTEMPTS = 3;
+  /**
+   * Shared workstations expose many legal arrival tiles. Temporary player
+   * occupancy should wait through a full behavior-planning interval instead
+   * of abandoning an otherwise reachable preparation action after 1.8s.
+   */
+  private static readonly MAX_INTERACTION_REPLAN_ATTEMPTS = 16;
 
   /**
-   * Called every server tick (600ms) - advance all players along their paths
+   * Server-owned non-combat route requests deferred by the shared BFS budget.
+   * One latest intent is retained per player and retried on authoritative ticks,
+   * avoiding an eight-second wait for the next agent-planning cadence.
    */
-  onTick(tickNumber: number): void {
-    // Reset global BFS iteration budget and walkability cache for this tick
+  private _pendingNonCombatMoves = new Map<
+    string,
+    {
+      destination: TileCoord;
+      isRunning: boolean;
+      interactionArrival: TileInteractionArrival | null;
+    }
+  >();
+
+  /**
+   * Short-lived destination reservations keep simultaneous embedded agents
+   * from all selecting the same outer workstation tile. Inner interaction
+   * rings fill first so later arrivals cannot form an impassable player wall.
+   */
+  private _interactionApproachReservations = new Map<
+    string,
+    { tile: TileCoord; destination: TileCoord }
+  >();
+
+  /**
+   * Look-ahead continuations already sent to clients but not yet activated by
+   * the authoritative server path state.
+   */
+  private _precomputedPathSegments = new Map<
+    string,
+    {
+      path: TileCoord[];
+      destination: TileCoord;
+      interactionArrival: TileInteractionArrival | null;
+      lastPathPartial: boolean;
+    }
+  >();
+
+  private beginMovementTick(tickNumber: number): void {
+    if (this._movementCacheTick === tickNumber) return;
+    this._movementCacheTick = tickNumber;
     this._bfsIterationsThisTick = 0;
     this._walkabilityCache.clear();
     this._directionalBlockCache.clear();
+    this.captureTickStartTiles();
+    this.captureDuelMovementIntents();
+  }
 
-    // RULES-ACCURATE: Capture tick-start positions for ALL players FIRST
-    // This happens BEFORE any movement, so FollowManager can see where
-    // players were at the START of this tick (creating 1-tick delay effect)
-    // Overwrite existing tile objects in-place to avoid per-tick allocations.
-    // New players get a fresh object; removed players are cleaned up below.
+  private captureTickStartTiles(): void {
     for (const [playerId, state] of this.playerStates) {
       const existing = this.tickStartTiles.get(playerId);
       if (existing) {
@@ -787,11 +1013,321 @@ export class TileMovementManager {
         });
       }
     }
-    // Remove stale entries for players no longer tracked
     for (const id of this.tickStartTiles.keys()) {
-      if (!this.playerStates.has(id)) {
-        this.tickStartTiles.delete(id);
+      if (!this.playerStates.has(id)) this.tickStartTiles.delete(id);
+    }
+  }
+
+  private captureDuelMovementIntents(): void {
+    this.duelMovementIntents.clear();
+    for (const [playerId, state] of this.playerStates) {
+      const entity = this.world.entities.get(playerId);
+      const data = entity?.data as
+        | {
+            inStreamingDuel?: boolean;
+            duelAiControlsMovement?: boolean;
+            streamingDuelOpponentId?: unknown;
+            combatTarget?: unknown;
+            attackTarget?: unknown;
+          }
+        | undefined;
+      if (
+        data?.inStreamingDuel !== true ||
+        data.duelAiControlsMovement !== true
+      ) {
+        continue;
       }
+      const rawTargetId =
+        data.streamingDuelOpponentId ?? data.combatTarget ?? data.attackTarget;
+      if (typeof rawTargetId !== "string" || rawTargetId.length === 0) continue;
+      const startTile = this.tickStartTiles.get(playerId);
+      if (!startTile) continue;
+      const maximumSteps = state.isRunning
+        ? TILES_PER_TICK_RUN
+        : TILES_PER_TICK_WALK;
+      const steps: TileCoord[] = [];
+      for (
+        let index = state.pathIndex;
+        index < state.path.length && steps.length < maximumSteps;
+        index++
+      ) {
+        steps.push({ x: state.path[index].x, z: state.path[index].z });
+      }
+      this.duelMovementIntents.set(playerId, {
+        targetId: rawTargetId,
+        startTile: { x: startTile.x, z: startTile.z },
+        steps,
+      });
+    }
+  }
+
+  /**
+   * A duel path yields before movement when it would enter the opponent's
+   * tick-start tile. For an interior diagonal crossing, the stable id order
+   * lets exactly one path proceed. The yielded path is cancelled and the duel
+   * controller replans from the unchanged authoritative tile on its next turn.
+   */
+  private shouldYieldStreamingDuelMovement(playerId: string): boolean {
+    const intent = this.duelMovementIntents.get(playerId);
+    if (!intent || intent.steps.length === 0) return false;
+    const opponentIntent = this.duelMovementIntents.get(intent.targetId);
+    if (!opponentIntent) return false;
+    return duelMovementIntentShouldYield(playerId, intent, opponentIntent);
+  }
+
+  private resolveStreamingDuelPathInstallation(
+    playerId: string,
+    state: TileMovementState,
+    path: readonly TileCoord[],
+    running: boolean,
+  ): boolean {
+    const entity = this.world.entities.get(playerId);
+    const data = entity?.data as
+      | {
+          inStreamingDuel?: boolean;
+          duelAiControlsMovement?: boolean;
+          streamingDuelOpponentId?: unknown;
+          combatTarget?: unknown;
+          attackTarget?: unknown;
+        }
+      | undefined;
+    if (
+      data?.inStreamingDuel !== true ||
+      data.duelAiControlsMovement !== true
+    ) {
+      return true;
+    }
+
+    const rawTargetId =
+      data.streamingDuelOpponentId ?? data.combatTarget ?? data.attackTarget;
+    if (typeof rawTargetId !== "string" || rawTargetId.length === 0) {
+      return true;
+    }
+    const opponentEntity = this.world.entities.get(rawTargetId);
+    const opponentData = opponentEntity?.data as
+      | { inStreamingDuel?: boolean; duelAiControlsMovement?: boolean }
+      | undefined;
+    const opponentState = this.playerStates.get(rawTargetId);
+    if (
+      opponentData?.inStreamingDuel !== true ||
+      opponentData.duelAiControlsMovement !== true ||
+      !opponentState
+    ) {
+      return true;
+    }
+
+    const copySteps = (
+      source: readonly TileCoord[],
+      startIndex: number,
+      maximumSteps: number,
+    ): TileCoord[] => {
+      const steps: TileCoord[] = [];
+      for (
+        let index = startIndex;
+        index < source.length && steps.length < maximumSteps;
+        index++
+      ) {
+        steps.push({ x: source[index].x, z: source[index].z });
+      }
+      return steps;
+    };
+    const intent: DuelMovementIntent = {
+      targetId: rawTargetId,
+      startTile: { x: state.currentTile.x, z: state.currentTile.z },
+      steps: copySteps(
+        path,
+        0,
+        running ? TILES_PER_TICK_RUN : TILES_PER_TICK_WALK,
+      ),
+    };
+    const opponentIntent: DuelMovementIntent = {
+      targetId: playerId,
+      startTile: {
+        x: opponentState.currentTile.x,
+        z: opponentState.currentTile.z,
+      },
+      steps: copySteps(
+        opponentState.path,
+        opponentState.pathIndex,
+        opponentState.isRunning ? TILES_PER_TICK_RUN : TILES_PER_TICK_WALK,
+      ),
+    };
+    const playerYields = duelMovementIntentShouldYield(
+      playerId,
+      intent,
+      opponentIntent,
+    );
+    const opponentYields = duelMovementIntentShouldYield(
+      rawTargetId,
+      opponentIntent,
+      intent,
+    );
+
+    if (playerYields) {
+      if (opponentYields && this.isMoving(rawTargetId)) {
+        this.stopPlayer(rawTargetId);
+      }
+      if (this.isMoving(playerId)) this.stopPlayer(playerId);
+      return false;
+    }
+    if (opponentYields && this.isMoving(rawTargetId)) {
+      this.stopPlayer(rawTargetId);
+    }
+    return true;
+  }
+
+  private isPathStepWalkable(
+    playerId: string,
+    state: TileMovementState,
+    nextTile: TileCoord,
+  ): boolean {
+    const buildingService = this.getBuildingCollision();
+    const currentFloor = buildingService
+      ? buildingService.getPlayerFloor(playerId as EntityID)
+      : 0;
+    const currentBuildingId = buildingService
+      ? buildingService.getBuildingAt(state.currentTile.x, state.currentTile.z)
+      : null;
+    return this.isTileTraversableForPlayer(
+      playerId,
+      nextTile,
+      currentFloor,
+      state.currentTile,
+      currentBuildingId,
+    );
+  }
+
+  private queueObstructionReplan(
+    playerId: string,
+    state: TileMovementState,
+  ): void {
+    const wasMoving = state.path.length > 0;
+    const destination = state.requestedDestination;
+    if (destination) {
+      const existing = this._pendingObstructionReplans.get(playerId);
+      this._pendingObstructionReplans.set(playerId, {
+        destination: { x: destination.x, z: destination.z },
+        isRunning: state.isRunning,
+        interactionArrival: state.requestedInteractionArrival,
+        attempts: existing?.attempts ?? 0,
+      });
+    }
+
+    state.path.length = 0;
+    state.pathIndex = 0;
+    state.requestedDestination = null;
+    state.requestedInteractionArrival = null;
+    state.lastPathPartial = false;
+    state.nextSegmentPrecomputed = false;
+    this._precomputedPathSegments.delete(playerId);
+
+    if (wasMoving) {
+      state.moveSeq = (state.moveSeq || 0) + 1;
+      const entity = this.world.entities.get(playerId);
+      if (entity?.data) entity.data.tileMovementActive = false;
+      const worldPosition = tileToWorld(state.currentTile);
+      if (entity?.position) worldPosition.y = entity.position.y;
+      this.sendFn("tileMovementEnd", {
+        id: playerId,
+        tile: state.currentTile,
+        worldPos: [worldPosition.x, worldPosition.y, worldPosition.z],
+        moveSeq: state.moveSeq,
+        emote: "idle",
+        reason: "dynamic_obstruction",
+      });
+    }
+  }
+
+  private processPendingObstructionReplan(playerId: string): void {
+    const pending = this._pendingObstructionReplans.get(playerId);
+    if (!pending) return;
+
+    const outcome = this._continuePathToDestination(
+      playerId,
+      pending.destination,
+      pending.isRunning,
+      pending.interactionArrival,
+    );
+    if (outcome === "started") {
+      this._pendingObstructionReplans.delete(playerId);
+      return;
+    }
+    if (outcome === "deferred") return;
+
+    pending.attempts++;
+    const maximumAttempts = pending.interactionArrival
+      ? TileMovementManager.MAX_INTERACTION_REPLAN_ATTEMPTS
+      : TileMovementManager.MAX_OBSTRUCTION_REPLAN_ATTEMPTS;
+    if (pending.attempts >= maximumAttempts) {
+      this._pendingObstructionReplans.delete(playerId);
+      this._interactionApproachReservations.delete(playerId);
+    }
+  }
+
+  private queueNonCombatMove(
+    playerId: string,
+    destination: TileCoord,
+    isRunning: boolean,
+    interactionArrival: TileInteractionArrival | null = null,
+  ): void {
+    if (this.isMoving(playerId)) {
+      this.stopPlayer(playerId);
+    }
+    this._pendingNonCombatMoves.set(playerId, {
+      destination: { x: destination.x, z: destination.z },
+      isRunning,
+      interactionArrival,
+    });
+  }
+
+  private processPendingNonCombatMove(playerId: string): void {
+    const pending = this._pendingNonCombatMoves.get(playerId);
+    if (!pending) return;
+
+    const outcome = this._continuePathToDestination(
+      playerId,
+      pending.destination,
+      pending.isRunning,
+      pending.interactionArrival,
+    );
+    if (outcome !== "deferred") {
+      this._pendingNonCombatMoves.delete(playerId);
+    }
+  }
+
+  private activatePrecomputedSegment(
+    playerId: string,
+    state: TileMovementState,
+  ): boolean {
+    const segment = this._precomputedPathSegments.get(playerId);
+    this._precomputedPathSegments.delete(playerId);
+    state.nextSegmentPrecomputed = false;
+    if (!segment || segment.path.length === 0) return false;
+
+    state.path = segment.path;
+    state.pathIndex = 0;
+    state.lastPathPartial = segment.lastPathPartial;
+    state.requestedDestination = {
+      x: segment.destination.x,
+      z: segment.destination.z,
+    };
+    state.requestedInteractionArrival = segment.interactionArrival;
+    return true;
+  }
+
+  /**
+   * Called every server tick (600ms) - advance all players along their paths
+   */
+  onTick(tickNumber: number): void {
+    // Reset the shared BFS budget/caches exactly once even when legacy and
+    // per-player processors both observe this authoritative tick.
+    this.beginMovementTick(tickNumber);
+
+    for (const playerId of this._pendingObstructionReplans.keys()) {
+      this.processPendingObstructionReplan(playerId);
+    }
+    for (const playerId of this._pendingNonCombatMoves.keys()) {
+      this.processPendingNonCombatMove(playerId);
     }
 
     // Initialize previousTile for newly spawned players only
@@ -820,7 +1356,13 @@ export class TileMovementManager {
 
       const entity = this.world.entities.get(playerId);
       if (!entity) {
+        this.getEntityOccupancy()?.vacate(playerId as EntityID);
         this.playerStates.delete(playerId);
+        continue;
+      }
+
+      if (this.shouldYieldStreamingDuelMovement(playerId)) {
+        this.stopPlayer(playerId);
         continue;
       }
 
@@ -839,10 +1381,26 @@ export class TileMovementManager {
         // RULES-ACCURATE: Capture the tile we're stepping OFF of
         // This ensures previousTile is always 1 tile behind currentTile
         // Used by FollowManager for 1-tile trailing effect
-        state.previousTile!.x = state.currentTile.x;
-        state.previousTile!.z = state.currentTile.z;
+        // A newly spawned/teleported actor legitimately has no previous tile.
+        // Establish the reusable buffer on its first authoritative step instead
+        // of relying on a non-null assertion that can crash the whole game tick.
+        state.previousTile ??= {
+          x: state.currentTile.x,
+          z: state.currentTile.z,
+        };
+        state.previousTile.x = state.currentTile.x;
+        state.previousTile.z = state.currentTile.z;
 
         const nextTile = state.path[state.pathIndex];
+
+        // Paths can become stale after they are computed (for example when a
+        // resource, station, door, or terrain bake adds collision). Never step
+        // through the new obstruction; ordinary movement keeps its original
+        // destination and receives a bounded fresh route on the next tick.
+        if (!this.isPathStepWalkable(playerId, state, nextTile)) {
+          this.queueObstructionReplan(playerId, state);
+          break;
+        }
 
         // Bridge railing guard: block any step that crosses a bridge railing
         const bridgeGuard = this.getBridgeSystem();
@@ -867,6 +1425,7 @@ export class TileMovementManager {
           );
         }
 
+        this.commitPlayerOccupancyStep(playerId, state.currentTile, nextTile);
         // Copy values instead of spread (zero allocation)
         state.currentTile.x = nextTile.x;
         state.currentTile.z = nextTile.z;
@@ -1024,20 +1583,22 @@ export class TileMovementManager {
           )
         ) {
           const pathEnd = state.path[state.path.length - 1];
-          this._precomputeAndSendNextSegment(
+          const precomputed = this._precomputeAndSendNextSegment(
             playerId,
             pathEnd,
             state.requestedDestination,
             state.isRunning,
             state,
           );
-          state.nextSegmentPrecomputed = true;
-          pathContinuationsThisTick++;
+          state.nextSegmentPrecomputed = precomputed;
+          if (precomputed) pathContinuationsThisTick++;
         }
       }
 
       // Check if arrived at destination
       if (state.pathIndex >= state.path.length) {
+        let reachedRequestedDestination = true;
+
         // Path continuation: if BFS hit its iteration limit before reaching the
         // requested destination, immediately re-pathfind from the new tile so
         // movement continues seamlessly without a stop frame.
@@ -1046,37 +1607,75 @@ export class TileMovementManager {
           state.requestedDestination &&
           !tilesEqual(state.currentTile, state.requestedDestination)
         ) {
+          const dest = state.requestedDestination;
+          const interactionArrival = state.requestedInteractionArrival;
           if (state.nextSegmentPrecomputed) {
-            // Already sent the next segment early — just clear flags so the
-            // client's appended path plays through without an extra BFS here.
-            state.requestedDestination = null;
-            state.lastPathPartial = false;
-            state.nextSegmentPrecomputed = false;
-          } else if (
+            // The client already has this segment; install the exact same path
+            // into authoritative state before allowing either side to advance.
+            if (this.activatePrecomputedSegment(playerId, state)) {
+              continue;
+            }
+
+            // Defensive recovery: if the marker and stored segment ever drift,
+            // replan from the authoritative tile instead of reporting arrival.
+            state.requestedDestination = dest;
+            state.lastPathPartial = true;
+          }
+
+          if (
             pathContinuationsThisTick <
             TileMovementManager.MAX_PATH_CONTINUATIONS_PER_TICK
           ) {
-            const dest = state.requestedDestination;
             // Clear before re-pathfind so an unreachable tile cannot loop forever
             state.requestedDestination = null;
+            state.requestedInteractionArrival = null;
             state.lastPathPartial = false;
-            this._continuePathToDestination(playerId, dest, state.isRunning);
+            const outcome = this._continuePathToDestination(
+              playerId,
+              dest,
+              state.isRunning,
+              interactionArrival,
+            );
             pathContinuationsThisTick++;
-            // If continuation found a new path, skip tileMovementEnd to keep animation continuous
-            if (state.path.length > 0) {
+            if (outcome === "started") {
               continue;
             }
+            if (outcome === "deferred") {
+              this.queueNonCombatMove(
+                playerId,
+                dest,
+                state.isRunning,
+                interactionArrival,
+              );
+              continue;
+            }
+            reachedRequestedDestination = false;
+          } else {
+            // Preserve fairness when more than the bounded number of agents need
+            // a continuation in one tick. The retained intent is retried before
+            // movement processing on the next authoritative tick.
+            this.queueNonCombatMove(
+              playerId,
+              dest,
+              state.isRunning,
+              interactionArrival,
+            );
+            continue;
           }
         } else {
           // Reached the true destination (or it became unreachable)
           state.requestedDestination = null;
+          state.requestedInteractionArrival = null;
+          this._interactionApproachReservations.delete(playerId);
           state.lastPathPartial = false;
           state.nextSegmentPrecomputed = false;
         }
 
         // Get any pending arrival emote (e.g., "fishing" for gathering actions)
         // This is bundled with tileMovementEnd to prevent race conditions
-        const arrivalEmote = this.arrivalEmotes.get(playerId) || "idle";
+        const arrivalEmote = reachedRequestedDestination
+          ? this.arrivalEmotes.get(playerId) || "idle"
+          : "idle";
         this.arrivalEmotes.delete(playerId);
 
         // Broadcast movement end with emote (atomic delivery)
@@ -1123,6 +1722,10 @@ export class TileMovementManager {
    * @param tickNumber - Current tick number
    */
   processPlayerTick(playerId: string, tickNumber: number): void {
+    this.beginMovementTick(tickNumber);
+    this.processPendingObstructionReplan(playerId);
+    this.processPendingNonCombatMove(playerId);
+
     const state = this.playerStates.get(playerId);
     if (!state) return;
 
@@ -1133,7 +1736,13 @@ export class TileMovementManager {
 
     const entity = this.world.entities.get(playerId);
     if (!entity) {
+      this.getEntityOccupancy()?.vacate(playerId as EntityID);
       this.playerStates.delete(playerId);
+      return;
+    }
+
+    if (this.shouldYieldStreamingDuelMovement(playerId)) {
+      this.stopPlayer(playerId);
       return;
     }
 
@@ -1155,10 +1764,22 @@ export class TileMovementManager {
       // RULES-ACCURATE: Capture the tile we're stepping OFF of
       // This ensures previousTile is always 1 tile behind currentTile
       // Used by FollowManager for 1-tile trailing effect
-      state.previousTile!.x = state.currentTile.x;
-      state.previousTile!.z = state.currentTile.z;
+      // syncPlayerPosition() creates a valid state whose previous tile is null
+      // until the first step. Initialize it here before reusing the hot-path
+      // buffer so server-controlled agents cannot crash on their opening move.
+      state.previousTile ??= {
+        x: state.currentTile.x,
+        z: state.currentTile.z,
+      };
+      state.previousTile.x = state.currentTile.x;
+      state.previousTile.z = state.currentTile.z;
 
       const nextTile = state.path[state.pathIndex];
+
+      if (!this.isPathStepWalkable(playerId, state, nextTile)) {
+        this.queueObstructionReplan(playerId, state);
+        break;
+      }
 
       // Bridge railing guard: block any step that crosses a bridge railing
       const bridgeGuardPT = this.getBridgeSystem();
@@ -1183,6 +1804,7 @@ export class TileMovementManager {
         );
       }
 
+      this.commitPlayerOccupancyStep(playerId, state.currentTile, nextTile);
       // Copy values instead of spread (zero allocation)
       state.currentTile.x = nextTile.x;
       state.currentTile.z = nextTile.z;
@@ -1293,19 +1915,21 @@ export class TileMovementManager {
         )
       ) {
         const pathEnd = state.path[state.path.length - 1];
-        this._precomputeAndSendNextSegment(
+        const precomputed = this._precomputeAndSendNextSegment(
           playerId,
           pathEnd,
           state.requestedDestination,
           state.isRunning,
           state,
         );
-        state.nextSegmentPrecomputed = true;
+        state.nextSegmentPrecomputed = precomputed;
       }
     }
 
     // Check if arrived at destination
     if (state.pathIndex >= state.path.length) {
+      let reachedRequestedDestination = true;
+
       // Path continuation: if BFS hit its iteration limit before reaching the
       // requested destination, immediately re-pathfind from the new tile so
       // movement continues seamlessly without a stop frame.
@@ -1314,28 +1938,49 @@ export class TileMovementManager {
         state.requestedDestination &&
         !tilesEqual(state.currentTile, state.requestedDestination)
       ) {
+        const dest = state.requestedDestination;
+        const interactionArrival = state.requestedInteractionArrival;
         if (state.nextSegmentPrecomputed) {
-          // Already sent the next segment early — just clear flags.
-          state.requestedDestination = null;
-          state.lastPathPartial = false;
-          state.nextSegmentPrecomputed = false;
-        } else {
-          const dest = state.requestedDestination;
-          state.requestedDestination = null;
-          state.lastPathPartial = false;
-          this._continuePathToDestination(playerId, dest, state.isRunning);
-          // If continuation found a new path, skip tileMovementEnd to keep animation continuous
-          if (state.path.length > 0) return;
+          if (this.activatePrecomputedSegment(playerId, state)) return;
+
+          state.requestedDestination = dest;
+          state.lastPathPartial = true;
         }
+
+        state.requestedDestination = null;
+        state.requestedInteractionArrival = null;
+        this._interactionApproachReservations.delete(playerId);
+        state.lastPathPartial = false;
+        const outcome = this._continuePathToDestination(
+          playerId,
+          dest,
+          state.isRunning,
+          interactionArrival,
+        );
+        if (outcome === "started") return;
+        if (outcome === "deferred") {
+          this.queueNonCombatMove(
+            playerId,
+            dest,
+            state.isRunning,
+            interactionArrival,
+          );
+          return;
+        }
+        reachedRequestedDestination = false;
       } else {
         state.requestedDestination = null;
+        state.requestedInteractionArrival = null;
+        this._interactionApproachReservations.delete(playerId);
         state.lastPathPartial = false;
         state.nextSegmentPrecomputed = false;
       }
 
       // Get any pending arrival emote (e.g., "fishing" for gathering actions)
       // This is bundled with tileMovementEnd to prevent race conditions
-      const arrivalEmote = this.arrivalEmotes.get(playerId) || "idle";
+      const arrivalEmote = reachedRequestedDestination
+        ? this.arrivalEmotes.get(playerId) || "idle"
+        : "idle";
       this.arrivalEmotes.delete(playerId);
 
       // Broadcast movement end with emote (atomic delivery)
@@ -1380,18 +2025,21 @@ export class TileMovementManager {
     playerId: string,
     destination: TileCoord,
     isRunning: boolean,
-  ): void {
+    interactionArrival: TileInteractionArrival | null = null,
+  ): "started" | "deferred" | "failed" {
     const state = this.playerStates.get(playerId);
     const entity = this.world.entities.get(playerId);
-    if (!state || !entity) return;
+    if (!state || !entity) return "failed";
 
     // Respect the same guards as handleMoveRequest — don't continue moving if
     // the player died or became frozen mid-path (e.g. duel countdown started)
     const deathState = entity.data?.deathState as DeathState | undefined;
     if (deathState === DeathState.DYING || deathState === DeathState.DEAD) {
       state.requestedDestination = null;
+      state.requestedInteractionArrival = null;
+      this._interactionApproachReservations.delete(playerId);
       state.lastPathPartial = false;
-      return;
+      return "failed";
     }
 
     const duelSystem = this.world.getSystem("duel") as {
@@ -1399,8 +2047,10 @@ export class TileMovementManager {
     } | null;
     if (duelSystem?.canMove && !duelSystem.canMove(playerId)) {
       state.requestedDestination = null;
+      state.requestedInteractionArrival = null;
+      this._interactionApproachReservations.delete(playerId);
       state.lastPathPartial = false;
-      return;
+      return "failed";
     }
 
     // Global BFS iteration budget check
@@ -1408,7 +2058,7 @@ export class TileMovementManager {
       this._bfsIterationsThisTick >=
       TileMovementManager.MAX_BFS_ITERATIONS_PER_TICK
     ) {
-      return; // Will retry next tick
+      return "deferred"; // Will retry next tick
     }
 
     const buildingService = this.getBuildingCollision();
@@ -1422,17 +2072,33 @@ export class TileMovementManager {
     const remainingBudget =
       TileMovementManager.MAX_BFS_ITERATIONS_PER_TICK -
       this._bfsIterationsThisTick;
-    const path = this.pathfinder.findPath(
+    if (
+      interactionArrival &&
+      this.isTileWithinInteractionArrival(
+        state.currentTile,
+        destination,
+        interactionArrival,
+      )
+    ) {
+      state.requestedDestination = null;
+      state.requestedInteractionArrival = null;
+      this._interactionApproachReservations.delete(playerId);
+      return "failed";
+    }
+
+    const path = this.findNonCombatPath(
+      playerId,
       state.currentTile,
       destination,
-      (tile, fromTile) =>
-        this.isTileWalkable(tile, currentFloor, fromTile, currentBuildingId),
+      interactionArrival,
+      currentFloor,
+      currentBuildingId,
       remainingBudget,
     );
     this._bfsIterationsThisTick += this.pathfinder.getLastIterationsUsed();
 
     // Empty path means destination is unreachable — stop here
-    if (path.length === 0) return;
+    if (path.length === 0) return "failed";
 
     state.path = path;
     state.pathIndex = 0;
@@ -1440,11 +2106,10 @@ export class TileMovementManager {
     state.moveSeq = (state.moveSeq || 0) + 1;
     state.lastPathPartial = this.pathfinder.wasLastPathPartial();
 
-    // If this segment is also partial, keep the destination so onTick
-    // will trigger another continuation when this segment ends
-    if (state.lastPathPartial) {
-      state.requestedDestination = { x: destination.x, z: destination.z };
-    }
+    // Keep the ultimate non-combat destination for both partial-path
+    // continuation and dynamic obstruction recovery. Normal arrival clears it.
+    state.requestedDestination = { x: destination.x, z: destination.z };
+    state.requestedInteractionArrival = interactionArrival;
 
     entity.data.tileMovementActive = true;
 
@@ -1463,10 +2128,14 @@ export class TileMovementManager {
       startTile: { x: state.currentTile.x, z: state.currentTile.z },
       path: this._networkPathBuffer,
       running: isRunning,
-      destinationTile: { x: destination.x, z: destination.z },
+      destinationTile: {
+        x: path[path.length - 1].x,
+        z: path[path.length - 1].z,
+      },
       moveSeq: state.moveSeq,
       emote: isRunning ? "run" : "walk",
     });
+    return "started";
   }
 
   /**
@@ -1474,11 +2143,9 @@ export class TileMovementManager {
    * the current segment ends, allowing seamless path-appending on the client
    * with no idle frame between segments.
    *
-   * Unlike _continuePathToDestination this method does NOT overwrite state.path /
-   * state.pathIndex — the player continues walking the current segment unchanged.
-   * It does update state.moveSeq, state.lastPathPartial, and
-   * state.requestedDestination so the server stays consistent when the current
-   * segment does finish on the next tick.
+   * Unlike _continuePathToDestination this method does NOT overwrite the active
+   * path or its destination metadata. It stores the exact look-ahead segment
+   * separately until the authoritative server reaches the segment boundary.
    */
   private _precomputeAndSendNextSegment(
     playerId: string,
@@ -1486,25 +2153,21 @@ export class TileMovementManager {
     destination: TileCoord,
     isRunning: boolean,
     state: TileMovementState,
-  ): void {
+  ): boolean {
     const entity = this.world.entities.get(playerId);
-    if (!entity) return;
+    if (!entity) return false;
 
     // Apply the same movement guards as handleMoveRequest
     const deathState = entity.data?.deathState as DeathState | undefined;
     if (deathState === DeathState.DYING || deathState === DeathState.DEAD) {
-      state.requestedDestination = null;
-      state.lastPathPartial = false;
-      return;
+      return false;
     }
 
     const duelSystem = this.world.getSystem("duel") as {
       canMove?: (playerId: string) => boolean;
     } | null;
     if (duelSystem?.canMove && !duelSystem.canMove(playerId)) {
-      state.requestedDestination = null;
-      state.lastPathPartial = false;
-      return;
+      return false;
     }
 
     // Global BFS iteration budget check
@@ -1512,7 +2175,7 @@ export class TileMovementManager {
       this._bfsIterationsThisTick >=
       TileMovementManager.MAX_BFS_ITERATIONS_PER_TICK
     ) {
-      return; // Will be picked up by continuation on next tick
+      return false; // Will be picked up by continuation on next tick
     }
 
     const buildingService = this.getBuildingCollision();
@@ -1528,11 +2191,13 @@ export class TileMovementManager {
     const remainingBudget =
       TileMovementManager.MAX_BFS_ITERATIONS_PER_TICK -
       this._bfsIterationsThisTick;
-    const path = this.pathfinder.findPath(
+    const path = this.findNonCombatPath(
+      playerId,
       fromTile,
       destination,
-      (tile, prevTile) =>
-        this.isTileWalkable(tile, currentFloor, prevTile, currentBuildingId),
+      state.requestedInteractionArrival,
+      currentFloor,
+      currentBuildingId,
       remainingBudget,
     );
     this._bfsIterationsThisTick += this.pathfinder.getLastIterationsUsed();
@@ -1540,20 +2205,19 @@ export class TileMovementManager {
     if (path.length === 0) {
       // Destination is unreachable from the path-end tile; let normal end-of-path
       // handling deal with it when the current segment finishes.
-      return;
+      return false;
     }
 
     // Advance moveSeq so the client can validate ordering (stale precomputed
     // packets sent before a re-click are rejected via the existing moveSeq check)
     state.moveSeq = (state.moveSeq || 0) + 1;
-    state.lastPathPartial = this.pathfinder.wasLastPathPartial();
-
-    if (state.lastPathPartial) {
-      // Another continuation will be needed; keep the ultimate destination alive
-      state.requestedDestination = { x: destination.x, z: destination.z };
-    } else {
-      state.requestedDestination = null;
-    }
+    const lastPathPartial = this.pathfinder.wasLastPathPartial();
+    this._precomputedPathSegments.set(playerId, {
+      path,
+      destination: { x: destination.x, z: destination.z },
+      interactionArrival: state.requestedInteractionArrival,
+      lastPathPartial,
+    });
 
     // Build network path buffer (zero-allocation pattern)
     this._networkPathBuffer.length = path.length;
@@ -1570,11 +2234,15 @@ export class TileMovementManager {
       startTile: { x: fromTile.x, z: fromTile.z },
       path: this._networkPathBuffer,
       running: isRunning,
-      destinationTile: { x: destination.x, z: destination.z },
+      destinationTile: {
+        x: path[path.length - 1].x,
+        z: path[path.length - 1].z,
+      },
       moveSeq: state.moveSeq,
       emote: isRunning ? "run" : "walk",
       isContinuation: true,
     });
+    return true;
   }
 
   /**
@@ -1589,7 +2257,12 @@ export class TileMovementManager {
    * Cleanup state for a player
    */
   cleanup(playerId: string): void {
+    this.getEntityOccupancy()?.vacate(playerId as EntityID);
     this.playerStates.delete(playerId);
+    this._pendingObstructionReplans.delete(playerId);
+    this._pendingNonCombatMoves.delete(playerId);
+    this._precomputedPathSegments.delete(playerId);
+    this._interactionApproachReservations.delete(playerId);
     this.arrivalEmotes.delete(playerId);
     this.tilesTraveledForXP.delete(playerId);
     this.antiCheat.cleanup(playerId);
@@ -1637,8 +2310,28 @@ export class TileMovementManager {
   syncPlayerPosition(
     playerId: string,
     position: { x: number; y: number; z: number },
-  ): void {
-    const newTile = worldToTile(position.x, position.z);
+  ): { x: number; y: number; z: number } {
+    let newTile = worldToTile(position.x, position.z);
+    const occupancy = this.getEntityOccupancy();
+    const entityId = playerId as EntityID;
+    let positionWasRelocated = false;
+    if (occupancy?.isOccupied(newTile, entityId)) {
+      const availableTile = this.findClosestWalkableTile(
+        position,
+        TileMovementManager.SPAWN_RELOCATION_RADIUS,
+        (tile) => occupancy.isOccupied(tile, entityId) === false,
+      );
+      if (availableTile) {
+        newTile = availableTile;
+        positionWasRelocated = true;
+      }
+    }
+    occupancy?.vacate(entityId);
+    this._pendingObstructionReplans.delete(playerId);
+    this._pendingNonCombatMoves.delete(playerId);
+    this._precomputedPathSegments.delete(playerId);
+    this._interactionApproachReservations.delete(playerId);
+    this.arrivalEmotes.delete(playerId);
 
     // Get existing state or create new one
     let state = this.playerStates.get(playerId);
@@ -1648,11 +2341,13 @@ export class TileMovementManager {
       state.currentTile = newTile;
       state.path.length = 0; // Zero-allocation clear
       state.pathIndex = 0;
+      state.previousTile = null;
       state.moveSeq = (state.moveSeq || 0) + 1; // Increment to invalidate stale client packets
 
       // Cancel any pending path continuation — the player has teleported/respawned
       // so the original destination is no longer valid
       state.requestedDestination = null;
+      state.requestedInteractionArrival = null;
       state.lastPathPartial = false;
       state.nextSegmentPrecomputed = false;
 
@@ -1673,6 +2368,61 @@ export class TileMovementManager {
         `[TileMovement] Created new state for ${playerId} at tile (${newTile.x},${newTile.z})`,
       );
     }
+    this.ensurePlayerOccupancy(playerId, newTile);
+    this.tickStartTiles.set(playerId, { x: newTile.x, z: newTile.z });
+
+    let resolvedPosition = {
+      x: position.x,
+      y: position.y,
+      z: position.z,
+    };
+    const entity = this.world.entities.get(playerId);
+    if (positionWasRelocated) {
+      const corrected = tileToWorld(newTile);
+      corrected.y = position.y;
+      const terrain = this.getTerrain();
+      const height = terrain?.getHeightAt(corrected.x, corrected.z);
+      if (height !== null && height !== undefined && Number.isFinite(height)) {
+        corrected.y = height + 0.01;
+      }
+      entity?.position?.set(corrected.x, corrected.y, corrected.z);
+      if (entity?.data) {
+        entity.data.position = [corrected.x, corrected.y, corrected.z];
+      }
+      resolvedPosition = corrected;
+      this.sendFn("tileMovementEnd", {
+        id: playerId,
+        tile: newTile,
+        worldPos: [corrected.x, corrected.y, corrected.z],
+        moveSeq: state.moveSeq,
+        emote: "idle",
+        reason: "occupied_spawn_relocation",
+      });
+      console.warn(
+        `[TileMovement] Relocated ${playerId} to unoccupied tile (${newTile.x},${newTile.z}) during spawn/teleport sync`,
+      );
+    }
+    if (entity?.position) {
+      if (typeof entity.position.set === "function") {
+        entity.position.set(
+          resolvedPosition.x,
+          resolvedPosition.y,
+          resolvedPosition.z,
+        );
+      } else {
+        entity.position.x = resolvedPosition.x;
+        entity.position.y = resolvedPosition.y;
+        entity.position.z = resolvedPosition.z;
+      }
+    }
+    if (entity?.data) {
+      entity.data.position = [
+        resolvedPosition.x,
+        resolvedPosition.y,
+        resolvedPosition.z,
+      ];
+    }
+    return resolvedPosition;
   }
 
   /**
@@ -1694,7 +2444,6 @@ export class TileMovementManager {
    * - If no previous tile (just spawned/teleported): use tile WEST of current
    * - This matches classic MMORPG behavior per private server community research
    *
-   * @see https://rune-server.org/threads/help-with-player-dancing-spinning-when-following-each-other.706121/
    */
   getPreviousTile(playerId: string): TileCoord {
     const state = this.playerStates.get(playerId);
@@ -1750,14 +2499,71 @@ export class TileMovementManager {
   }
 
   /**
+   * Snapshot lightweight movement workload counters for a slow-tick report.
+   * This intentionally scans only when the caller has already observed a slow
+   * tick, keeping the ordinary 600ms movement loop allocation-free.
+   */
+  getPerformanceContext(): {
+    players: number;
+    activePaths: number;
+    queuedPathTiles: number;
+    bfsIterations: number;
+    walkabilityCacheEntries: number;
+    directionalBlockCacheEntries: number;
+    pendingObstructionReplans: number;
+    pendingNonCombatMoves: number;
+    precomputedPathSegments: number;
+    occupiedPlayerTiles: number;
+    occupiedMobTiles: number;
+    trackedOccupants: number;
+  } {
+    let activePaths = 0;
+    let queuedPathTiles = 0;
+
+    for (const state of this.playerStates.values()) {
+      const remaining = Math.max(0, state.path.length - state.pathIndex);
+      if (remaining > 0) {
+        activePaths++;
+        queuedPathTiles += remaining;
+      }
+    }
+
+    const occupancy = this.getEntityOccupancy()?.getStats();
+    return {
+      players: this.playerStates.size,
+      activePaths,
+      queuedPathTiles,
+      bfsIterations: this._bfsIterationsThisTick,
+      walkabilityCacheEntries: this._walkabilityCache.size,
+      directionalBlockCacheEntries: this._directionalBlockCache.size,
+      pendingObstructionReplans: this._pendingObstructionReplans.size,
+      pendingNonCombatMoves: this._pendingNonCombatMoves.size,
+      precomputedPathSegments: this._precomputedPathSegments.size,
+      occupiedPlayerTiles: occupancy?.playerTileCount ?? 0,
+      occupiedMobTiles: occupancy?.mobTileCount ?? 0,
+      trackedOccupants: occupancy?.trackedEntityCount ?? 0,
+    };
+  }
+
+  /**
    * Stop a player's current movement immediately.
    * Clears their path and sends tileMovementEnd so the client's TileInterpolator
    * stops interpolating along the old path.
    * Used when starting actions like firemaking that require the player to stand still.
    */
   stopPlayer(playerId: string): void {
+    this._pendingObstructionReplans.delete(playerId);
+    this._pendingNonCombatMoves.delete(playerId);
+    this._precomputedPathSegments.delete(playerId);
+    this._interactionApproachReservations.delete(playerId);
     const state = this.playerStates.get(playerId);
-    if (!state || state.path.length === 0) return;
+    if (!state) return;
+
+    state.requestedDestination = null;
+    state.requestedInteractionArrival = null;
+    state.lastPathPartial = false;
+    state.nextSegmentPrecomputed = false;
+    if (state.path.length === 0) return;
 
     state.path.length = 0;
     state.pathIndex = 0;
@@ -1781,6 +2587,47 @@ export class TileMovementManager {
       moveSeq: state.moveSeq,
       emote: "idle",
     });
+  }
+
+  /**
+   * Read-only movement diagnostics for server-controlled actors. This is kept
+   * out of the normal tick path and is used by duel telemetry to prove whether
+   * a requested reposition actually installed an authoritative tile path.
+   */
+  getPlayerMovementDebug(playerId: string): {
+    activePath: boolean;
+    currentTile: { x: number; z: number } | null;
+    nextTile: { x: number; z: number } | null;
+    destinationTile: { x: number; z: number } | null;
+    remainingPathTiles: number;
+    moveSeq: number;
+  } {
+    const state = this.playerStates.get(playerId);
+    if (!state) {
+      return {
+        activePath: false,
+        currentTile: null,
+        nextTile: null,
+        destinationTile: null,
+        remainingPathTiles: 0,
+        moveSeq: 0,
+      };
+    }
+
+    const remainingPathTiles = Math.max(0, state.path.length - state.pathIndex);
+    const nextTile = state.path[state.pathIndex];
+    const destinationTile =
+      state.requestedDestination ?? state.path[state.path.length - 1];
+    return {
+      activePath: remainingPathTiles > 0,
+      currentTile: { x: state.currentTile.x, z: state.currentTile.z },
+      nextTile: nextTile ? { x: nextTile.x, z: nextTile.z } : null,
+      destinationTile: destinationTile
+        ? { x: destinationTile.x, z: destinationTile.z }
+        : null,
+      remainingPathTiles,
+      moveSeq: state.moveSeq,
+    };
   }
 
   /**
@@ -1820,12 +2667,139 @@ export class TileMovementManager {
    * @param attackType - Attack type (MELEE, RANGED, MAGIC) - affects positioning logic
    *
    */
+  private normalizeInteractionArrival(
+    arrival: TileInteractionArrival | null | undefined,
+  ): TileInteractionArrival | null {
+    if (!arrival) return null;
+    const interactionRange = Math.floor(arrival.interactionRange);
+    const footprintWidth = Math.floor(arrival.footprintWidth);
+    const footprintDepth = Math.floor(arrival.footprintDepth);
+    if (
+      !Number.isFinite(arrival.interactionRange) ||
+      !Number.isFinite(arrival.footprintWidth) ||
+      !Number.isFinite(arrival.footprintDepth) ||
+      interactionRange < 1 ||
+      interactionRange > 10 ||
+      footprintWidth < 1 ||
+      footprintWidth > 10 ||
+      footprintDepth < 1 ||
+      footprintDepth > 10
+    ) {
+      return null;
+    }
+    return { interactionRange, footprintWidth, footprintDepth };
+  }
+
+  private isTileWithinInteractionArrival(
+    tile: TileCoord,
+    destination: TileCoord,
+    arrival: TileInteractionArrival,
+  ): boolean {
+    const minX = destination.x - Math.floor(arrival.footprintWidth / 2);
+    const maxX = minX + arrival.footprintWidth - 1;
+    const minZ = destination.z - Math.floor(arrival.footprintDepth / 2);
+    const maxZ = minZ + arrival.footprintDepth - 1;
+    const dx = tile.x < minX ? minX - tile.x : Math.max(0, tile.x - maxX);
+    const dz = tile.z < minZ ? minZ - tile.z : Math.max(0, tile.z - maxZ);
+    return Math.max(dx, dz) <= arrival.interactionRange;
+  }
+
+  private findNonCombatPath(
+    playerId: string,
+    start: TileCoord,
+    destination: TileCoord,
+    arrival: TileInteractionArrival | null,
+    currentFloor: number,
+    currentBuildingId: string | null,
+    remainingBudget: number,
+  ): TileCoord[] {
+    const canTraverse = (tile: TileCoord, fromTile?: TileCoord) =>
+      this.isTileTraversableForPlayer(
+        playerId,
+        tile,
+        currentFloor,
+        fromTile,
+        currentBuildingId,
+      );
+    if (!arrival) {
+      return this.pathfinder.findPath(
+        start,
+        destination,
+        canTraverse,
+        remainingBudget,
+      );
+    }
+
+    const offsetX = Math.floor(arrival.footprintWidth / 2);
+    const offsetZ = Math.floor(arrival.footprintDepth / 2);
+    const footprintMinX = destination.x - offsetX;
+    const footprintMaxX = footprintMinX + arrival.footprintWidth - 1;
+    const footprintMinZ = destination.z - offsetZ;
+    const footprintMaxZ = footprintMinZ + arrival.footprintDepth - 1;
+    const reservedByOther = new Set<string>();
+    for (const [reservedPlayerId, reservation] of this
+      ._interactionApproachReservations) {
+      if (reservedPlayerId === playerId) continue;
+      reservedByOther.add(`${reservation.tile.x},${reservation.tile.z}`);
+    }
+    const destinationsByDistance = new Map<number, TileCoord[]>();
+    for (
+      let x = footprintMinX - arrival.interactionRange;
+      x <= footprintMaxX + arrival.interactionRange;
+      x++
+    ) {
+      for (
+        let z = footprintMinZ - arrival.interactionRange;
+        z <= footprintMaxZ + arrival.interactionRange;
+        z++
+      ) {
+        const tile = { x, z };
+        if (!canTraverse(tile) || reservedByOther.has(`${x},${z}`)) continue;
+        const dx =
+          x < footprintMinX
+            ? footprintMinX - x
+            : Math.max(0, x - footprintMaxX);
+        const dz =
+          z < footprintMinZ
+            ? footprintMinZ - z
+            : Math.max(0, z - footprintMaxZ);
+        const distance = Math.max(dx, dz);
+        const destinations = destinationsByDistance.get(distance) ?? [];
+        destinations.push(tile);
+        destinationsByDistance.set(distance, destinations);
+      }
+    }
+    let validDestinations: TileCoord[] = [];
+    for (let distance = 0; distance <= arrival.interactionRange; distance++) {
+      const candidates = destinationsByDistance.get(distance);
+      if (candidates?.length) {
+        validDestinations = candidates;
+        break;
+      }
+    }
+    const path = this.pathfinder.findPathToAny(
+      start,
+      validDestinations,
+      canTraverse,
+      remainingBudget,
+    );
+    if (path.length > 0 && !this.pathfinder.wasLastPathPartial()) {
+      const reservedTile = path[path.length - 1];
+      this._interactionApproachReservations.set(playerId, {
+        tile: { x: reservedTile.x, z: reservedTile.z },
+        destination: { x: destination.x, z: destination.z },
+      });
+    }
+    return path;
+  }
+
   movePlayerToward(
     playerId: string,
     targetPosition: { x: number; y: number; z: number },
     running: boolean = true,
     attackRange: number = 0, // 0 = non-combat, 1+ = combat range
     attackType: AttackType = AttackType.MELEE,
+    interactionArrival?: TileInteractionArrival | null,
   ): void {
     const entity = this.world.entities.get(playerId);
     if (!entity) {
@@ -1885,6 +2859,41 @@ export class TileMovementManager {
 
     // Convert target to tile (zero allocation)
     worldToTileInto(targetPosition.x, targetPosition.z, this._targetTile);
+    const normalizedInteractionArrival =
+      attackRange === 0
+        ? this.normalizeInteractionArrival(interactionArrival)
+        : null;
+    const previousInteractionArrival = state.requestedInteractionArrival;
+    const sameInteractionArrival =
+      previousInteractionArrival === null
+        ? normalizedInteractionArrival === null
+        : normalizedInteractionArrival !== null &&
+          previousInteractionArrival.interactionRange ===
+            normalizedInteractionArrival.interactionRange &&
+          previousInteractionArrival.footprintWidth ===
+            normalizedInteractionArrival.footprintWidth &&
+          previousInteractionArrival.footprintDepth ===
+            normalizedInteractionArrival.footprintDepth;
+
+    // The behavior planner may restate the same destination while a segmented
+    // route is active. Preserve its server/client look-ahead segment so the
+    // planning cadence cannot introduce an avoidable stop at the boundary.
+    if (
+      attackRange === 0 &&
+      state.requestedDestination?.x === this._targetTile.x &&
+      state.requestedDestination.z === this._targetTile.z &&
+      sameInteractionArrival &&
+      state.isRunning === running &&
+      this.isMoving(playerId)
+    ) {
+      return;
+    }
+
+    this._pendingObstructionReplans.delete(playerId);
+    this._pendingNonCombatMoves.delete(playerId);
+    this._precomputedPathSegments.delete(playerId);
+    this._interactionApproachReservations.delete(playerId);
+    state.nextSegmentPrecomputed = false;
 
     // Determine current floor index for floor-aware pathfinding
     const buildingService = this.getBuildingCollision();
@@ -1907,6 +2916,11 @@ export class TileMovementManager {
         const nearestWalkable = this.findClosestWalkableTile(
           { x: entity.position.x, z: entity.position.z },
           15,
+          (tile) =>
+            this.getEntityOccupancy()?.isOccupied(
+              tile,
+              playerId as EntityID,
+            ) !== true,
         );
         if (nearestWalkable) {
           tileToWorldInto(nearestWalkable, this._worldPos);
@@ -1917,8 +2931,10 @@ export class TileMovementManager {
             wy,
             this._worldPos.z,
           ];
+          this.getEntityOccupancy()?.vacate(playerId as EntityID);
           state.currentTile.x = nearestWalkable.x;
           state.currentTile.z = nearestWalkable.z;
+          this.ensurePlayerOccupancy(playerId, state.currentTile);
           console.warn(
             `[TileMov-UNSTUCK] ${playerId.slice(-8)} teleported from unwalkable (${this._actualEntityTile.x},${this._actualEntityTile.z}) to (${nearestWalkable.x},${nearestWalkable.z})`,
           );
@@ -1969,7 +2985,8 @@ export class TileMovementManager {
           this._targetTile,
           attackRange,
           (tile) =>
-            this.isTileWalkable(
+            this.isTileTraversableForPlayer(
+              playerId,
               tile,
               currentFloor,
               undefined,
@@ -1980,7 +2997,13 @@ export class TileMovementManager {
         );
       } else {
         validTiles = getValidMeleeTiles(this._targetTile, attackRange, (tile) =>
-          this.isTileWalkable(tile, currentFloor, undefined, currentBuildingId),
+          this.isTileTraversableForPlayer(
+            playerId,
+            tile,
+            currentFloor,
+            undefined,
+            currentBuildingId,
+          ),
         );
       }
 
@@ -1996,21 +3019,46 @@ export class TileMovementManager {
         state.currentTile,
         validTiles,
         (tile: TileCoord, fromTile?: TileCoord) =>
-          this.isTileWalkable(tile, currentFloor, fromTile, currentBuildingId),
+          this.isTileTraversableForPlayer(
+            playerId,
+            tile,
+            currentFloor,
+            fromTile,
+            currentBuildingId,
+          ),
         remainingBudget,
       );
       this._bfsIterationsThisTick += this.pathfinder.getLastIterationsUsed();
     } else {
-      // NON-COMBAT MOVEMENT: Go directly to target tile
-      if (tilesEqual(this._targetTile, state.currentTile)) {
-        return; // Already at target
+      // NON-COMBAT MOVEMENT: either reach the exact target tile or any legal
+      // tile in the exact interaction boundary around a blocked footprint.
+      const alreadyAtDestination = normalizedInteractionArrival
+        ? this.isTileWithinInteractionArrival(
+            state.currentTile,
+            this._targetTile,
+            normalizedInteractionArrival,
+          )
+        : tilesEqual(this._targetTile, state.currentTile);
+      if (alreadyAtDestination) {
+        if (this.isMoving(playerId)) this.stopPlayer(playerId);
+        state.requestedDestination = null;
+        state.requestedInteractionArrival = null;
+        this._interactionApproachReservations.delete(playerId);
+        return;
       }
 
-      // BFS iteration budget check — skip pathfinding this tick, caller retries next tick
+      // Retain the latest non-combat intent when the shared budget is exhausted;
+      // the movement tick retries it instead of waiting for another agent plan.
       if (
         this._bfsIterationsThisTick >=
         TileMovementManager.MAX_BFS_ITERATIONS_PER_TICK
       ) {
+        this.queueNonCombatMove(
+          playerId,
+          this._targetTile,
+          running,
+          normalizedInteractionArrival,
+        );
         return;
       }
 
@@ -2018,11 +3066,13 @@ export class TileMovementManager {
       const remainingBudget =
         TileMovementManager.MAX_BFS_ITERATIONS_PER_TICK -
         this._bfsIterationsThisTick;
-      path = this.pathfinder.findPath(
+      path = this.findNonCombatPath(
+        playerId,
         state.currentTile,
         this._targetTile,
-        (tile, fromTile) =>
-          this.isTileWalkable(tile, currentFloor, fromTile, currentBuildingId),
+        normalizedInteractionArrival,
+        currentFloor,
+        currentBuildingId,
         remainingBudget,
       );
       this._bfsIterationsThisTick += this.pathfinder.getLastIterationsUsed();
@@ -2030,6 +3080,15 @@ export class TileMovementManager {
 
     if (path.length === 0) {
       return; // No path found
+    }
+
+    // Resolve contestant path conflicts before tileMovementStart reaches the
+    // renderer. Waiting until the next 600ms movement tick is too late: both
+    // clients have already begun interpolating through the crossing segments.
+    if (
+      !this.resolveStreamingDuelPathInstallation(playerId, state, path, running)
+    ) {
+      return;
     }
 
     // If we're already following the same remaining path at the same speed,
@@ -2050,6 +3109,13 @@ export class TileMovementManager {
         }
       }
       if (samePath) {
+        state.lastPathPartial = this.pathfinder.wasLastPathPartial();
+        state.requestedDestination =
+          attackRange === 0
+            ? { x: this._targetTile.x, z: this._targetTile.z }
+            : null;
+        state.requestedInteractionArrival =
+          attackRange === 0 ? normalizedInteractionArrival : null;
         return;
       }
     }
@@ -2059,6 +3125,14 @@ export class TileMovementManager {
     state.pathIndex = 0;
     state.isRunning = running;
     state.moveSeq = (state.moveSeq || 0) + 1;
+    state.lastPathPartial = this.pathfinder.wasLastPathPartial();
+    state.requestedDestination =
+      attackRange === 0
+        ? { x: this._targetTile.x, z: this._targetTile.z }
+        : null;
+    state.requestedInteractionArrival =
+      attackRange === 0 ? normalizedInteractionArrival : null;
+    state.nextSegmentPrecomputed = false;
 
     // modern MMORPG-style: Set movement flag to suppress combat while moving
     entity.data.tileMovementActive = true;

@@ -17,8 +17,9 @@ function parseTruthy(value: string | null | undefined): boolean {
 }
 
 function getWindowRef(win?: Window): HyperiaViewportWindow | undefined {
+  if (win) return win as HyperiaViewportWindow;
   if (typeof window === "undefined") return undefined;
-  return (win ?? window) as HyperiaViewportWindow;
+  return window as HyperiaViewportWindow;
 }
 
 function getSearchParams(win: HyperiaViewportWindow): URLSearchParams | null {
@@ -61,4 +62,50 @@ export function isEmbeddedSpectatorViewport(win?: Window): boolean {
 
 export function isStreamingLikeViewport(win?: Window): boolean {
   return isStreamPageRoute(win) || isEmbeddedSpectatorViewport(win);
+}
+
+export function shouldStreamVegetationBackgroundLods(win?: Window): boolean {
+  return !isStreamingLikeViewport(win);
+}
+
+export interface ClientViewportRuntimeProfile {
+  streamingLike: boolean;
+  enableLocalPhysics: boolean;
+  enableProceduralExplorationSystems: boolean;
+  prewarmTreeCache: boolean;
+}
+
+/**
+ * Resolve expensive client-world capabilities once, before systems register.
+ * Broadcast/spectator viewports render authoritative arena state and never
+ * control an exploration character, so they do not need local physics or the
+ * world-wide procedural town/POI planning pass. Interactive clients retain the
+ * complete exploration runtime.
+ */
+export function resolveClientViewportRuntimeProfile(
+  win?: Window,
+): ClientViewportRuntimeProfile {
+  const streamingLike = isStreamingLikeViewport(win);
+  const interactive = !streamingLike;
+  return {
+    streamingLike,
+    enableLocalPhysics: interactive,
+    enableProceduralExplorationSystems: interactive,
+    prewarmTreeCache: interactive,
+  };
+}
+
+export function resolveStreamingRenderFrameRate(
+  win?: Window,
+  fallback = 30,
+): number {
+  const safeFallback = Number.isFinite(fallback)
+    ? Math.min(60, Math.max(1, Math.round(fallback)))
+    : 30;
+  const windowRef = getWindowRef(win);
+  if (!windowRef) return safeFallback;
+  const rawValue = getSearchParams(windowRef)?.get("streamFps") || "";
+  const parsed = Number.parseInt(rawValue, 10);
+  if (!Number.isFinite(parsed)) return safeFallback;
+  return Math.min(60, Math.max(1, parsed));
 }

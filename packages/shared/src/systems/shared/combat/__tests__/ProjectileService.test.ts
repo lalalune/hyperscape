@@ -364,6 +364,31 @@ describe("ProjectileService", () => {
     });
   });
 
+  describe("cancelProjectilesBetween", () => {
+    it("cancels both directions for one pair without affecting third parties", () => {
+      const create = (sourceId: string, targetId: string) =>
+        service.createProjectile({
+          sourceId,
+          targetId,
+          attackType: AttackType.RANGED,
+          damage: 10,
+          currentTick: 100,
+          sourcePosition: { x: 0, z: 0 },
+          targetPosition: { x: 5, z: 0 },
+        });
+
+      create("player-1", "player-2");
+      create("player-2", "player-1");
+      create("player-1", "player-3");
+      create("player-4", "player-2");
+
+      expect(service.cancelProjectilesBetween("player-1", "player-2")).toBe(2);
+      expect(service.getActiveCount()).toBe(2);
+      expect(service.getProjectilesForTarget("player-3")).toHaveLength(1);
+      expect(service.getProjectilesForTarget("player-2")).toHaveLength(1);
+    });
+  });
+
   describe("getProjectilesForTarget", () => {
     it("returns empty array when no projectiles", () => {
       expect(service.getProjectilesForTarget("mob-1")).toHaveLength(0);

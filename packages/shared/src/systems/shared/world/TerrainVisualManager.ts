@@ -37,6 +37,14 @@ export interface TerrainVisualChunk {
   heightData: Float32Array;
 }
 
+export interface TerrainVisualReadiness {
+  ready: boolean;
+  criticalRadius: number;
+  requiredChunks: number;
+  readyChunks: number;
+  pendingChunks: number;
+}
+
 interface SettledWorkerResult {
   nodeId: number;
   node: TerrainQuadNode;
@@ -81,7 +89,8 @@ export class TerrainVisualManager implements QuadTreeListener {
   private maxAssembliesPerFrame: number;
 
   private framesSinceInit = 0;
-  private static BURST_FRAMES = 30;
+  /** Give healthy workers two seconds at 60 FPS before bounded sync failover. */
+  private static SYNC_BOOTSTRAP_DELAY_FRAMES = 120;
   private static MAX_GENERATION_RETRIES = 5;
 
   constructor(
@@ -128,7 +137,8 @@ export class TerrainVisualManager implements QuadTreeListener {
 
     if (
       !this.syncBootstrapped &&
-      this.framesSinceInit >= 1 &&
+      this.framesSinceInit >=
+        TerrainVisualManager.SYNC_BOOTSTRAP_DELAY_FRAMES &&
       this.chunks.size === 0 &&
       this.pendingNodeIds.size > 0
     ) {
@@ -165,6 +175,50 @@ export class TerrainVisualManager implements QuadTreeListener {
     return this.chunks;
   }
 
+  /**
+   * Compile the exact quad-tree terrain pipeline before the first generated
+   * chunk reaches the scene. A flat-grid terrain tile is not representative:
+   * quad chunks have additional biome/road attributes, skirts, and a Uint32
+   * index, all of which participate in WebGPU pipeline creation.
+   */
+  async precompileRepresentativeChunk(
+    centerX: number,
+    centerZ: number,
+    precompileObject: (object: THREE.Object3D) => Promise<void>,
+  ): Promise<void> {
+    const config = this.quadTree.config;
+    const workerData = generateQuadChunkDataSync(
+      centerX,
+      centerZ,
+      config.minSize,
+      config.resolution,
+      this.provider,
+    );
+    const { geometry } = assembleQuadChunkGeometry(
+      workerData,
+      this.provider,
+      config.skirtDrop,
+    );
+
+    const ownsMaterial = this.debugWireframe;
+    const material = ownsMaterial
+      ? new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true })
+      : this.material;
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.set(centerX, 0, centerZ);
+    mesh.name = "QuadTerrain_PrecompileSample";
+    mesh.receiveShadow = this.receiveShadow;
+    mesh.castShadow = this.castShadow;
+    mesh.frustumCulled = true;
+
+    try {
+      await precompileObject(mesh);
+    } finally {
+      geometry.dispose();
+      if (ownsMaterial) material.dispose();
+    }
+  }
+
   getStats(): {
     totalNodes: number;
     visualChunks: number;
@@ -178,6 +232,42 @@ export class TerrainVisualManager implements QuadTreeListener {
       pendingWorkers: this.pendingNodeIds.size,
       settledQueue: this.settledResults.length,
       syncQueue: this.syncQueue.length,
+    };
+  }
+
+  /**
+   * Report whether every terrain leaf intersecting the stream's critical
+   * camera radius has reached the scene. Far-world streaming may continue in
+   * the background without allowing a visible arena hole or late GPU upload
+   * to pass the capture readiness gate.
+   */
+  getStreamingReadiness(criticalRadius = 250): TerrainVisualReadiness {
+    const safeRadius = Math.max(1, criticalRadius);
+    const radiusSquared = safeRadius * safeRadius;
+    const requiredNodes = this.quadTree.getFinalNodes().filter((node) => {
+      const box = node.boundingBox;
+      const nearestX = THREE.MathUtils.clamp(this.playerX, box.xMin, box.xMax);
+      const nearestZ = THREE.MathUtils.clamp(this.playerZ, box.zMin, box.zMax);
+      const dx = this.playerX - nearestX;
+      const dz = this.playerZ - nearestZ;
+      return dx * dx + dz * dz <= radiusSquared;
+    });
+    let readyChunks = 0;
+    for (const node of requiredNodes) {
+      if (
+        node.visualChunkKey !== null &&
+        this.chunks.has(node.visualChunkKey)
+      ) {
+        readyChunks++;
+      }
+    }
+    const requiredChunks = requiredNodes.length;
+    return {
+      ready: requiredChunks > 0 && readyChunks === requiredChunks,
+      criticalRadius: safeRadius,
+      requiredChunks,
+      readyChunks,
+      pendingChunks: requiredChunks - readyChunks,
     };
   }
 
@@ -299,14 +389,10 @@ export class TerrainVisualManager implements QuadTreeListener {
       return da - db;
     });
 
-    // During initial burst or when many results are pending, process all
-    // of them to avoid prolonged holes.
-    const isBurst =
-      this.framesSinceInit < TerrainVisualManager.BURST_FRAMES ||
-      this.settledResults.length > this.maxAssembliesPerFrame * 3;
-    const limit = isBurst
-      ? this.settledResults.length
-      : this.maxAssembliesPerFrame;
+    // A backlog is expected when the worker pool settles. Never convert it
+    // into one unbounded main-thread frame; startup readiness can wait for the
+    // bounded queue to drain.
+    const limit = this.maxAssembliesPerFrame;
     const batch = this.settledResults.splice(0, limit);
 
     for (const entry of batch) {
@@ -340,10 +426,7 @@ export class TerrainVisualManager implements QuadTreeListener {
       return da - db;
     });
 
-    const isBurst =
-      this.framesSinceInit < TerrainVisualManager.BURST_FRAMES ||
-      this.syncQueue.length > this.maxSyncChunksPerFrame * 3;
-    const limit = isBurst ? this.syncQueue.length : this.maxSyncChunksPerFrame;
+    const limit = this.maxSyncChunksPerFrame;
 
     let generated = 0;
     while (this.syncQueue.length > 0 && generated < limit) {
@@ -391,10 +474,11 @@ export class TerrainVisualManager implements QuadTreeListener {
 
       if (this.pendingNodeIds.has(node.id)) {
         this.cancelledNodeIds.add(node.id);
-        this.pendingNodeIds.delete(node.id);
       }
 
-      this.generateChunkSync(node);
+      if (!this.syncQueue.includes(node)) {
+        this.syncQueue.push(node);
+      }
       count++;
     }
   }

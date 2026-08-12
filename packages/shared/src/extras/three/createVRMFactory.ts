@@ -46,6 +46,8 @@ import type { VRMHumanBoneName } from "@pixiv/three-vrm";
 
 import { getTextureBytesFromMaterial } from "./getTextureBytesFromMaterial";
 import { getTrianglesFromGeometry } from "./getTrianglesFromGeometry";
+import { PlayerHitReactionController } from "./PlayerHitReactionController";
+import type { HitReactionSide } from "../../utils/rendering/HitReaction";
 import THREE, {
   MeshBasicNodeMaterial,
   MeshStandardNodeMaterial,
@@ -126,13 +128,13 @@ export function createVRMFactory(
   glb.scene.matrixAutoUpdate = false;
   glb.scene.matrixWorldAutoUpdate = false;
   // remove expressions from scene
-  const expressions = glb.scene.children.filter(n => n.type === 'VRMExpression') // prettier-ignore
+  const expressions = glb.scene.children.filter(n => n.type === 'VRMExpression'); // prettier-ignore
   for (const node of expressions) node.removeFromParent();
   // KEEP VRMHumanoidRig - we need normalized bones for A-pose support (Asset Forge approach)
   // const vrmHumanoidRigs = glb.scene.children.filter(n => n.name === 'VRMHumanoidRig') // prettier-ignore
   // for (const node of vrmHumanoidRigs) node.removeFromParent()
   // remove secondary
-  const secondaries = glb.scene.children.filter(n => n.name === 'secondary') // prettier-ignore
+  const secondaries = glb.scene.children.filter(n => n.name === 'secondary'); // prettier-ignore
   for (const node of secondaries) node.removeFromParent();
   // enable shadows and convert MToon materials to MeshStandardMaterial for proper lighting
   glb.scene.traverse((obj) => {
@@ -451,6 +453,24 @@ export function createVRMFactory(
         setEmote() {
           // Static fallback: no animation system when skeleton binding is unavailable.
         },
+        triggerHitReaction() {
+          // Static fallback has no independently animatable humanoid bones.
+        },
+        clearHitReaction() {
+          // Static fallback has no additive reaction state to restore.
+        },
+        getHitReactionDiagnostics() {
+          return {
+            schemaVersion: 1,
+            availableBoneCount: 0,
+            triggerCount: 0,
+            active: false,
+            elapsedSeconds: null,
+            currentWeight: 0,
+            lastIntensity: 0,
+            lastSide: 1,
+          } as const;
+        },
         setFirstPerson() {
           // Static fallback: no reliable neck bone access.
         },
@@ -630,6 +650,15 @@ export function createVRMFactory(
     // Each clone has its own vrm.scene with cloned normalized bones
     // CRITICAL: Mixer must be on vrm.scene where normalized bones live
     const mixer = new THREE.AnimationMixer(vrm.scene);
+    // Track death animation state for future debugging/logging
+    let _deathAnimationActive = false;
+    let _deathUpdateLogCount = 0;
+
+    const hitReaction = new PlayerHitReactionController(clonedHumanoid);
+    const triggerHitReaction = (intensity = 1, side: HitReactionSide = 1) => {
+      if (!_deathAnimationActive) hitReaction.trigger(intensity, side);
+    };
+    const clearHitReaction = () => hitReaction.clear();
 
     // IDEA: we should use a global frame "budget" to distribute across avatars
     // https://chatgpt.com/c/4bbd469d-982e-4987-ad30-97e9c5ee6729
@@ -639,9 +668,6 @@ export function createVRMFactory(
     let rateCheckedAt = 999;
     let rateCheck = true;
     let hasLoggedUpdatePipeline = false;
-    // Track death animation state for future debugging/logging
-    let _deathAnimationActive = false;
-    let _deathUpdateLogCount = 0;
     const update = (delta) => {
       elapsed += delta;
       let should = true;
@@ -650,10 +676,10 @@ export function createVRMFactory(
         rateCheckedAt += delta;
         if (rateCheckedAt >= DIST_CHECK_RATE) {
           const vrmPos = v1.setFromMatrixPosition(vrm.scene.matrix);
-          const camPos = v2.setFromMatrixPosition((hooks.camera as THREE.Camera).matrixWorld) // prettier-ignore
+          const camPos = v2.setFromMatrixPosition((hooks.camera as THREE.Camera).matrixWorld); // prettier-ignore
           const distance = vrmPos.distanceTo(camPos);
           const clampedDistance = Math.max(distance - DIST_MIN, 0);
-          const normalizedDistance = Math.min(clampedDistance / (DIST_MAX - DIST_MIN), 1) // prettier-ignore
+          const normalizedDistance = Math.min(clampedDistance / (DIST_MAX - DIST_MIN), 1); // prettier-ignore
           rate = DIST_MAX_RATE + normalizedDistance * (DIST_MIN_RATE - DIST_MAX_RATE) // prettier-ignore
           rateCheckedAt = 0;
         }
@@ -663,9 +689,19 @@ export function createVRMFactory(
       if (should) {
         // HYBRID APPROACH - Asset Forge animation pipeline:
 
+        // Remove the prior additive recoil before the authored mixer writes its
+        // next base pose. This prevents accumulation when a clip omits a bone.
+        hitReaction.beforeMixerUpdate();
+
         // Step 1: Update AnimationMixer (animates normalized bones)
         if (mixer) {
           mixer.update(elapsed);
+        }
+
+        // Step 1b: Apply a short additive upper-body recoil without replacing
+        // locomotion, attacks, or the server-controlled scene transform.
+        if (!_deathAnimationActive) {
+          hitReaction.afterMixerUpdate(elapsed);
         }
 
         // Step 2: CRITICAL - Propagate normalized bone transforms to raw bones
@@ -709,6 +745,9 @@ export function createVRMFactory(
     const setEmote = (url) => {
       if (currentEmote?.url === url) {
         return;
+      }
+      if (url?.includes("death") || !url) {
+        hitReaction.clear();
       }
       if (currentEmote) {
         currentEmote.action?.fadeOut(0.15);
@@ -839,6 +878,9 @@ export function createVRMFactory(
       height,
       headToHeight,
       setEmote,
+      triggerHitReaction,
+      clearHitReaction,
+      getHitReactionDiagnostics: () => hitReaction.getDiagnostics(),
       setFirstPerson,
       update: wrappedUpdate,
       getBoneTransform,

@@ -272,12 +272,49 @@ describe("DeathStateManager", () => {
         timestamp: Date.now(),
         zoneType: ZoneType.SAFE_AREA,
         itemCount: 5,
+        items: [{ itemId: "bronze_sword", quantity: 1 }],
+        keptItems: [{ itemId: "shrimp", quantity: 2 }],
+        deathOperationId: "safe-death-operation-1",
+        killedBy: "wolf",
+        recovered: false,
       });
 
       const lock = await manager.getDeathLock("player1");
 
       expect(lock?.playerId).toBe("player1");
       expect(lock?.gravestoneId).toBe("gravestone_recovered");
+      expect(lock?.keptItems).toEqual([{ itemId: "shrimp", quantity: 2 }]);
+      expect(lock?.deathOperationId).toBe("safe-death-operation-1");
+      expect(databaseSystem.getDeathLockAsync).toHaveBeenCalledWith("player1");
+    });
+
+    it("refreshes a cached lock from authoritative database state", async () => {
+      await manager.createDeathLock("player1", {
+        position: TEST_POSITION,
+        zoneType: ZoneType.SAFE_AREA,
+        itemCount: 1,
+        deathOperationId: "safe-death-operation-1",
+        keptItems: [{ itemId: "shrimp", quantity: 1 }],
+      });
+      databaseSystem.getDeathLockAsync.mockResolvedValue({
+        playerId: "player1",
+        gravestoneId: "gravestone_committed",
+        groundItemIds: [],
+        position: TEST_POSITION,
+        timestamp: Date.now(),
+        zoneType: ZoneType.SAFE_AREA,
+        itemCount: 1,
+        items: [{ itemId: "bronze_sword", quantity: 1 }],
+        keptItems: [],
+        deathOperationId: "safe-death-operation-1",
+        killedBy: "wolf",
+        recovered: false,
+      });
+
+      const refreshed = await manager.refreshDeathLock("player1");
+
+      expect(refreshed?.gravestoneId).toBe("gravestone_committed");
+      expect(refreshed?.keptItems).toEqual([]);
       expect(databaseSystem.getDeathLockAsync).toHaveBeenCalledWith("player1");
     });
 

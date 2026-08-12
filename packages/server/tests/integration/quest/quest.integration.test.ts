@@ -170,14 +170,19 @@ class MockQuestRepository {
     return this.questPoints.get(playerId) ?? 0;
   }
 
-  async startQuest(playerId: string, questId: string, initialStage: string) {
+  async startQuest(
+    playerId: string,
+    questId: string,
+    initialStage: string,
+    startedAt: number = Date.now(),
+  ) {
     this.questProgress.set(`${playerId}:${questId}`, {
       playerId,
       questId,
       status: "in_progress",
       currentStage: initialStage,
       stageProgress: {},
-      startedAt: Date.now(),
+      startedAt,
       completedAt: null,
     });
   }
@@ -531,6 +536,11 @@ describe("QuestSystem Integration Tests", () => {
       expect(dbProgress).toBeDefined();
       expect(dbProgress?.status).toBe("in_progress");
       expect(dbProgress?.currentStage).toBe("kill_goblins");
+      expect(dbProgress?.startedAt).toBe(
+        questSystem
+          .getActiveQuests("player-1")
+          .find((quest) => quest.questId === "goblin_slayer")?.startedAt,
+      );
     });
   });
 
@@ -556,15 +566,22 @@ describe("QuestSystem Integration Tests", () => {
       expect(quest?.stageProgress.kills).toBe(1);
     });
 
-    it("emits QUEST_PROGRESSED event on kill", () => {
+    it("emits QUEST_PROGRESSED event on kill", async () => {
       mockWorld.$eventBus!.emitEvent(EventType.NPC_DIED, {
         killedBy: "player-1",
         mobType: "goblin",
         npcId: "goblin-1",
       });
 
+      await vi.waitFor(() =>
+        expect(
+          emittedEvents.some(
+            (event) => event.event === EventType.QUEST_PROGRESSED,
+          ),
+        ).toBe(true),
+      );
       const progressEvent = emittedEvents.find(
-        (e) => e.event === EventType.QUEST_PROGRESSED,
+        (event) => event.event === EventType.QUEST_PROGRESSED,
       );
       expect(progressEvent).toBeDefined();
       expect(progressEvent?.data).toMatchObject({
@@ -644,13 +661,19 @@ describe("QuestSystem Integration Tests", () => {
       expect(quest?.stageProgress.kills).toBeUndefined();
     });
 
-    it("updates database on kill progress", () => {
+    it("updates database on kill progress", async () => {
       mockWorld.$eventBus!.emitEvent(EventType.NPC_DIED, {
         killedBy: "player-1",
         mobType: "goblin",
         npcId: "goblin-1",
       });
 
+      await vi.waitFor(() =>
+        expect(
+          mockQuestRepo.getProgress("player-1", "goblin_slayer")?.stageProgress
+            .kills,
+        ).toBe(1),
+      );
       const dbProgress = mockQuestRepo.getProgress("player-1", "goblin_slayer");
       expect(dbProgress?.stageProgress.kills).toBe(1);
     });

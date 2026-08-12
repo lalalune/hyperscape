@@ -154,6 +154,13 @@ export class RigidBody extends Node {
   mount() {
     this.needsRebuild = false;
     if (this.ctx!.moving) return; // physics ignored when moving apps around
+
+    // Stream/spectator worlds intentionally omit physics and must not probe or
+    // warn about a runtime they will never use.
+    if (!this.ctx?.physics) {
+      return;
+    }
+
     const physx = getRuntimePhysX();
     if (!physx) {
       console.warn(
@@ -167,11 +174,6 @@ export class RigidBody extends Node {
       this._tm = new physx.PxTransform(
         physx.PxIDENTITYEnum.PxIdentity,
       ) as PxTransform;
-    }
-
-    // Guard: physics system may be removed in stream/spectator viewports
-    if (!this.ctx?.physics) {
-      return;
     }
 
     // Force decompose using temporary plain vectors
@@ -254,8 +256,7 @@ export class RigidBody extends Node {
     }
 
     const entity = this.ctx!.entity as
-      | { isPlayer?: boolean; data?: EntityData }
-      | undefined;
+      { isPlayer?: boolean; data?: EntityData } | undefined;
     // Strong type assumption - entity.data is always EntityData if entity exists
     const playerId = entity?.isPlayer && entity.data ? entity.data.id : null;
     const handleOptions = {

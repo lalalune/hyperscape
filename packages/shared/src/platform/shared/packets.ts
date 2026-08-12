@@ -422,7 +422,24 @@ const names = [
   'entitiesBatchAdded', // Server -> Client: batch of newly spawned entities for a tile
   // Dev diagnostics
   'tickHealth',         // Server -> Client: tick system health stats for DevStats panel
-]
+  // Authoritative projectile impact (appended to preserve all existing packet IDs)
+  'projectileHit',      // Server -> Client: remove projectile at server damage time
+  // Appended to preserve every existing positional packet ID.
+  'runecraftingComplete', // Server -> Client: runecrafting transaction finished
+  // Correlated negative processing acknowledgement (append-only protocol).
+  'processingRejected', // Server -> Client: requested processing action was rejected
+  // Correlated processing liveness acknowledgement (append-only protocol).
+  'processingProgress', // Server -> Client: authority still owns the processing request
+  // Player-scoped durable processing receipt lookup (bidirectional, append-only).
+  'processingRequestStatus',
+  // Player-scoped durable command reconstruction and terminal acknowledgement.
+  'processingRequestRecovery',
+  // Correlated Prayer acknowledgement (append-only protocol).
+  'prayerActionReceipt', // Server -> Client: exact authoritative Prayer receipt
+  // Durable ordinary external-agent banking (append-only protocol).
+  'externalAgentBankTransfer', // Bidirectional: execute/return exact bank receipt
+  'externalAgentBankRecovery', // Bidirectional: recover/ack one durable bank command
+];
 
 const byName: Record<string, PacketInfo> = {};
 const byId: Record<number, PacketInfo> = {};

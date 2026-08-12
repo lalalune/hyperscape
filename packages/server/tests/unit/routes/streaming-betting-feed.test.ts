@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 import { describe, it, expect } from "vitest";
 import {
   buildBettingFeedDedupKey,
@@ -6,6 +9,7 @@ import {
 } from "../../../src/routes/streaming-betting-feed.js";
 import type { BettingFeedFrame } from "../../../src/routes/streaming-betting-feed.js";
 import type { StreamingDuelCycle } from "../../../src/systems/StreamingDuelScheduler/types.js";
+import { serializeBettingFeedSchemaV3ContractFixture } from "../../../scripts/generate-betting-feed-schema-v3-fixtures.js";
 
 function createCycle(
   overrides: Partial<StreamingDuelCycle> = {},
@@ -54,6 +58,9 @@ function createCycle(
     },
     duelId: "duel-1",
     duelKeyHex: "0xabcdef",
+    competitiveSnapshotVersion: null,
+    competitiveSnapshotDigest: null,
+    competitiveSnapshot: null,
     arenaId: null,
     betOpenTime: 1_000,
     betCloseTime: 2_000,
@@ -66,6 +73,7 @@ function createCycle(
     },
     winnerId: null,
     loserId: null,
+    outcome: null,
     winReason: null,
     seed: null,
     replayHash: null,
@@ -100,6 +108,19 @@ function createFrame(seq: number): BettingFeedFrame {
 }
 
 describe("streaming-betting-feed", () => {
+  it("keeps the checked-in Hyperbet schema-v3 contract fixture aligned with the production producer", () => {
+    const fixturePath = fileURLToPath(
+      new URL(
+        "../../fixtures/hyperbet/betting-feed-schema-v3.json",
+        import.meta.url,
+      ),
+    );
+
+    expect(readFileSync(fixturePath, "utf8")).toBe(
+      serializeBettingFeedSchemaV3ContractFixture(),
+    );
+  });
+
   it("builds betting payloads with stable schema and phase version data", () => {
     const payload = buildBettingFeedPayload({
       sourceEpoch: 42,
@@ -119,7 +140,7 @@ describe("streaming-betting-feed", () => {
     });
 
     expect(payload).toMatchObject({
-      schemaVersion: 1,
+      schemaVersion: 3,
       sourceEpoch: 42,
       seq: 7,
       emittedAt: 123_456,
@@ -133,7 +154,11 @@ describe("streaming-betting-feed", () => {
       duelEndTime: null,
       winnerId: "agent-b",
       winnerName: "Agent B",
+      outcome: null,
+      cancellationReason: null,
       winReason: "damage_advantage",
+      seed: null,
+      replayHash: null,
       arenaPositions: {
         agent1: [10, 11, 12],
         agent2: [20, 21, 22],
@@ -147,6 +172,32 @@ describe("streaming-betting-feed", () => {
 
     expect(payload.agent1?.id).toBe("agent-a");
     expect(payload.agent2?.hp).toBe(20);
+  });
+
+  it("builds a durable cancelled terminal payload from the captured cycle", () => {
+    const payload = buildBettingFeedPayload({
+      sourceEpoch: 42,
+      seq: 8,
+      emittedAt: 123_456,
+      cycle: createCycle({ phase: "FIGHTING" }),
+      terminal: {
+        outcome: "cancelled",
+        cancellationReason: "combat_engagement_failed",
+        duelEndTime: 123_456,
+      },
+    });
+
+    expect(payload).toMatchObject({
+      schemaVersion: 3,
+      duelId: "duel-1",
+      duelKey: "0xabcdef",
+      phase: "FIGHTING",
+      duelEndTime: 123_456,
+      winnerId: null,
+      winnerName: null,
+      outcome: "cancelled",
+      cancellationReason: "combat_engagement_failed",
+    });
   });
 
   it("selects replay, bootstrap, and reset delivery modes deterministically", () => {
@@ -188,7 +239,7 @@ describe("streaming-betting-feed", () => {
     });
   });
 
-  it("deduplicates independently of emittedAt and renderer health timestamps", () => {
+  it("deduplicates independently of transport sequence and timestamps", () => {
     const basePayload = buildBettingFeedPayload({
       sourceEpoch: 42,
       seq: 7,
@@ -202,6 +253,7 @@ describe("streaming-betting-feed", () => {
     });
     const laterPayload = {
       ...basePayload,
+      seq: 8,
       emittedAt: 999_999,
       rendererHealth: basePayload.rendererHealth
         ? {

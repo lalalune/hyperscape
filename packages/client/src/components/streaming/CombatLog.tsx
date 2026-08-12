@@ -6,7 +6,14 @@
  */
 
 import React, { useEffect, useRef, useState } from "react";
-import type { StreamingState, AgentInfo } from "../../screens/StreamingMode";
+import type {
+  StreamingCombatRole,
+  StreamingState,
+} from "../../screens/StreamingMode";
+import {
+  formatStreamingCombatRole,
+  resolveActiveStreamingCombatRole,
+} from "./streamingCombatRole";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -19,7 +26,8 @@ type EventKind =
   | "big_hit"
   | "heal"
   | "critical"
-  | "kill";
+  | "kill"
+  | "style_switch";
 
 interface LogEvent {
   id: number;
@@ -56,6 +64,8 @@ function kindColor(kind: EventKind): string {
       return "#f87171";
     case "heal":
       return "#34d399";
+    case "style_switch":
+      return "#67e8f9";
     case "hit":
       return "#cbd5e1";
     default:
@@ -78,6 +88,8 @@ function kindGlyph(kind: EventKind): string {
       return "☠";
     case "heal":
       return "💚";
+    case "style_switch":
+      return "↻";
     case "hit":
       return "•";
     default:
@@ -92,9 +104,13 @@ const MAX_EVENTS = 28;
 // ---------------------------------------------------------------------------
 
 function useCombatEvents(state: StreamingState | null): LogEvent[] {
-  const [events, setEvents] = useState<LogEvent[]>([]);
+  const [eventState, setEventState] = useState<{
+    cycleId: string | null;
+    events: LogEvent[];
+  }>({ cycleId: null, events: [] });
 
   // Refs for previous-tick values
+  const prevCycleIdRef = useRef<string | null>(null);
   const prevPhaseRef = useRef<string | null>(null);
   const prevA1HpRef = useRef<number | null>(null);
   const prevA2HpRef = useRef<number | null>(null);
@@ -102,11 +118,27 @@ function useCombatEvents(state: StreamingState | null): LogEvent[] {
   const prevA2HealRef = useRef<number>(0);
   const prevA1HitRef = useRef<number>(0);
   const prevA2HitRef = useRef<number>(0);
+  const prevA1RoleRef = useRef<StreamingCombatRole | null>(null);
+  const prevA2RoleRef = useRef<StreamingCombatRole | null>(null);
 
   useEffect(() => {
     if (!state) return;
     const { cycle } = state;
-    const { phase, agent1, agent2, winnerName, winReason } = cycle;
+    const { cycleId, phase, agent1, agent2, winnerName, winReason } = cycle;
+
+    const isNewCycle = cycleId !== prevCycleIdRef.current;
+    if (isNewCycle) {
+      prevCycleIdRef.current = cycleId;
+      prevPhaseRef.current = null;
+      prevA1HpRef.current = null;
+      prevA2HpRef.current = null;
+      prevA1HealRef.current = 0;
+      prevA2HealRef.current = 0;
+      prevA1HitRef.current = 0;
+      prevA2HitRef.current = 0;
+      prevA1RoleRef.current = null;
+      prevA2RoleRef.current = null;
+    }
 
     const newEvents: LogEvent[] = [];
 
@@ -123,16 +155,20 @@ function useCombatEvents(state: StreamingState | null): LogEvent[] {
         prevA2HealRef.current = agent2.healsUsed ?? 0;
         prevA1HitRef.current = agent1.highestHit ?? 0;
         prevA2HitRef.current = agent2.highestHit ?? 0;
+        prevA1RoleRef.current = resolveActiveStreamingCombatRole(agent1);
+        prevA2RoleRef.current = resolveActiveStreamingCombatRole(agent2);
       }
       if (phase === "RESOLUTION") {
         const reason =
           winReason === "kill"
             ? "by knockout"
-            : winReason === "hp_advantage"
-              ? "by HP advantage"
-              : winReason === "damage_advantage"
-                ? "by damage"
-                : "— draw";
+            : winReason === "forfeit"
+              ? "by forfeit"
+              : winReason === "hp_advantage"
+                ? "by HP advantage"
+                : winReason === "damage_advantage"
+                  ? "by damage"
+                  : "— draw";
         newEvents.push(
           mkEvent(
             winReason === "kill" ? "kill" : "fight_end",
@@ -145,11 +181,39 @@ function useCombatEvents(state: StreamingState | null): LogEvent[] {
 
     // Only track hits/heals during FIGHTING
     if (phase !== "FIGHTING" || !agent1 || !agent2) {
-      if (newEvents.length > 0) {
-        setEvents((prev) => [...prev, ...newEvents].slice(-MAX_EVENTS));
+      if (isNewCycle || newEvents.length > 0) {
+        setEventState((previous) => ({
+          cycleId,
+          events: [
+            ...(previous.cycleId === cycleId ? previous.events : []),
+            ...newEvents,
+          ].slice(-MAX_EVENTS),
+        }));
       }
       return;
     }
+
+    // --- Authoritative frozen-loadout style switches ---
+    const a1Role = resolveActiveStreamingCombatRole(agent1);
+    const a2Role = resolveActiveStreamingCombatRole(agent2);
+    if (prevA1RoleRef.current && a1Role && a1Role !== prevA1RoleRef.current) {
+      newEvents.push(
+        mkEvent(
+          "style_switch",
+          `${agent1.name} switches to ${formatStreamingCombatRole(a1Role)}`,
+        ),
+      );
+    }
+    if (prevA2RoleRef.current && a2Role && a2Role !== prevA2RoleRef.current) {
+      newEvents.push(
+        mkEvent(
+          "style_switch",
+          `${agent2.name} switches to ${formatStreamingCombatRole(a2Role)}`,
+        ),
+      );
+    }
+    if (a1Role) prevA1RoleRef.current = a1Role;
+    if (a2Role) prevA2RoleRef.current = a2Role;
 
     const prevA1Hp = prevA1HpRef.current ?? agent1.hp;
     const prevA2Hp = prevA2HpRef.current ?? agent2.hp;
@@ -226,11 +290,17 @@ function useCombatEvents(state: StreamingState | null): LogEvent[] {
     prevA2HitRef.current = a2Hit;
 
     if (newEvents.length > 0) {
-      setEvents((prev) => [...prev, ...newEvents].slice(-MAX_EVENTS));
+      setEventState((previous) => ({
+        cycleId,
+        events: [
+          ...(previous.cycleId === cycleId ? previous.events : []),
+          ...newEvents,
+        ].slice(-MAX_EVENTS),
+      }));
     }
   }, [state]);
 
-  return events;
+  return eventState.cycleId === state?.cycle.cycleId ? eventState.events : [];
 }
 
 // ---------------------------------------------------------------------------
@@ -251,25 +321,42 @@ export function CombatLog({ state }: CombatLogProps) {
   const visible =
     phase === "FIGHTING" || phase === "RESOLUTION" || phase === "COUNTDOWN";
 
-  if (!visible || events.length === 0) return null;
+  if (!visible) return null;
+
+  const emptyCopy =
+    phase === "COUNTDOWN"
+      ? "Waiting for the opening bell"
+      : phase === "FIGHTING"
+        ? "Waiting for the opening strike"
+        : "Finalizing the result";
 
   return (
-    <div style={styles.root}>
+    <div
+      className="streaming-combat-log"
+      style={styles.root}
+      aria-label="Fight log"
+    >
       <div style={styles.header}>
         <span style={styles.headerDot} />
         <span style={styles.headerText}>FIGHT LOG</span>
       </div>
       <div ref={scrollRef} style={styles.scroll}>
-        {events.map((ev) => (
-          <div key={ev.id} style={styles.row}>
-            <span style={{ ...styles.glyph, color: kindColor(ev.kind) }}>
-              {kindGlyph(ev.kind)}
-            </span>
-            <span style={{ ...styles.text, color: kindColor(ev.kind) }}>
-              {ev.text}
-            </span>
+        {events.length === 0 ? (
+          <div className="streaming-combat-log-empty" style={styles.empty}>
+            {emptyCopy}
           </div>
-        ))}
+        ) : (
+          events.map((ev) => (
+            <div key={ev.id} style={styles.row} data-event-kind={ev.kind}>
+              <span style={{ ...styles.glyph, color: kindColor(ev.kind) }}>
+                {kindGlyph(ev.kind)}
+              </span>
+              <span style={{ ...styles.text, color: kindColor(ev.kind) }}>
+                {ev.text}
+              </span>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
@@ -337,6 +424,15 @@ const styles: Record<string, React.CSSProperties> = {
     // Hide scrollbar
     scrollbarWidth: "none",
     msOverflowStyle: "none",
+  },
+  empty: {
+    padding: "10px 12px 11px",
+    color: "rgba(191,219,254,0.72)",
+    fontSize: "0.68rem",
+    fontWeight: 600,
+    fontFamily: "'IBM Plex Mono', monospace",
+    letterSpacing: "0.04em",
+    textTransform: "uppercase",
   },
   row: {
     display: "flex",

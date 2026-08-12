@@ -64,6 +64,7 @@ import {
   getGlobalCullingManager,
 } from "../../../utils/compute";
 import { isPositionInsideDuelArenaZone } from "../../../data/duel-manifest";
+import { shouldStreamVegetationBackgroundLods } from "../../../runtime/clientViewportMode";
 // Octahedral impostor for high-quality multi-angle billboard rendering
 import {
   OctahedralImpostor,
@@ -369,6 +370,7 @@ interface ChunkLODState {
  * VegetationSystem - GPU Instanced Vegetation Rendering
  */
 export class VegetationSystem extends System {
+  private streamBackgroundLods = true;
   private scene: THREE.Scene | null = null;
   private vegetationGroup: THREE.Group | null = null;
 
@@ -567,8 +569,7 @@ export class VegetationSystem extends System {
 
     // Get renderer (supports both WebGL and WebGPU renderers)
     const graphics = this.world.graphics as
-      | { renderer?: THREE.WebGPURenderer }
-      | undefined;
+      { renderer?: THREE.WebGPURenderer } | undefined;
     const renderer = graphics?.renderer;
     if (!renderer) {
       console.warn("[VegetationSystem] Cannot init impostor: no renderer");
@@ -578,8 +579,7 @@ export class VegetationSystem extends System {
     // Detect if we're using WebGPU (TSL) or WebGL (GLSL)
     // WebGPU backend has isWebGPUBackend = true on renderer.backend
     const backend = renderer.backend as
-      | { isWebGPUBackend?: boolean }
-      | undefined;
+      { isWebGPUBackend?: boolean } | undefined;
     this.usesTSL = !!backend?.isWebGPUBackend;
 
     // Create the octahedral impostor system (WebGPU)
@@ -773,6 +773,7 @@ export class VegetationSystem extends System {
     if (!this.world.stage?.scene) return;
 
     this.scene = this.world.stage.scene as THREE.Scene;
+    this.streamBackgroundLods = shouldStreamVegetationBackgroundLods();
 
     // Sync vegetation fade distances with shadow quality
     // Vegetation must dissolve BEFORE shadow cutoff to avoid unshadowed trees
@@ -3108,8 +3109,10 @@ export class VegetationSystem extends System {
       }
     }
 
-    // Stream LOD1/LOD2 models in background (non-blocking)
-    this.processStreamingLODQueue();
+    // Exploration clients stream distant vegetation LODs as they move. The
+    // fixed broadcast viewport keeps LOD0 arena-adjacent vegetation and avoids
+    // deferred model decode/GPU uploads that otherwise interrupt early frames.
+    if (this.streamBackgroundLods) this.processStreamingLODQueue();
 
     // Periodic stats logging (debug only)
     if (now - this.lastStatsLog > 30000) {

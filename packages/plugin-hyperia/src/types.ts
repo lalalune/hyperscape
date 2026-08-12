@@ -40,6 +40,10 @@ export type EventType =
   | "ITEM_DROPPED"
   | "PLAYER_EQUIPMENT_CHANGED"
   | "CHAT_MESSAGE"
+  | "CRAFTING_COMPLETE"
+  | "CRAFTING_PROGRESS"
+  | "CRAFTING_REJECTED"
+  | "CRAFTING_STATUS"
   | "DUEL_FIGHT_START"
   | "DUEL_SESSION_STARTED"
   | "DUEL_COMPLETED"
@@ -136,17 +140,14 @@ export interface Entity {
   resourceId?: string;
   requiredLevel?: number;
   harvestSkill?:
-    | "woodcutting"
-    | "fishing"
-    | "mining"
-    | "firemaking"
-    | "cooking";
+    "woodcutting" | "fishing" | "mining" | "firemaking" | "cooking";
   depleted?: boolean;
   itemId?: string;
   playerId?: string;
   playerName?: string;
   health?: { current: number; max: number };
   npcType?: string;
+  runeType?: string;
 }
 
 // Player entity structure (what we receive from server)
@@ -174,6 +175,71 @@ export interface PlayerEntity extends Entity {
   combatStyle: CombatStyle;
   inCombat: boolean;
   combatTarget: string | null;
+
+  // Server-authoritative Prayer custody state
+  activePrayers?: string[];
+  prayerPointUnits?: number;
+  prayerPoints?: number;
+  prayerMaxPoints?: number;
+}
+
+export type PrayerActionFailureReason =
+  | "invalid_request"
+  | "player_not_initialized"
+  | "unknown_prayer"
+  | "level_requirement"
+  | "no_prayer_points"
+  | "too_many_active"
+  | "rate_limited"
+  | "atomic_persistence_unavailable"
+  | "state_conflict"
+  | "persistence_failed";
+
+/** Exact server receipt returned for one correlated Prayer request. */
+export interface PrayerActionReceipt {
+  success: boolean;
+  committed: boolean;
+  playerId: string;
+  operationId: string;
+  replayed: boolean;
+  pointUnits: number;
+  points: number;
+  maxPoints: number;
+  activePrayers: string[];
+  reason?: PrayerActionFailureReason;
+  message?: string;
+}
+
+export interface ExternalAgentBankRetainedItem {
+  itemId: string;
+  quantity: number;
+}
+
+export type ExternalAgentBankAction = "deposit" | "withdraw" | "deposit_all";
+
+export interface ExternalAgentBankEnvelope {
+  action: ExternalAgentBankAction;
+  bankId: string;
+  itemId: string | null;
+  quantity: number;
+  retainedItems: ExternalAgentBankRetainedItem[];
+}
+
+/** Exact server-owned receipt for one ordinary external-agent bank command. */
+export interface ExternalAgentBankActionReceipt {
+  success: boolean;
+  operationId: string;
+  commitState: "not_committed" | "committed" | "unknown";
+  replayed: boolean;
+  action: ExternalAgentBankAction;
+  playerId: string | null;
+  bankId: string | null;
+  itemId: string | null;
+  requestedQuantity: number;
+  committedQuantity: number;
+  inventoryQuantityAfter: number | null;
+  bankQuantityAfter: number | null;
+  failureReason?: string;
 }
 
 // Mob/NPC entity (for type checking)
@@ -187,11 +253,7 @@ export interface ResourceEntity extends Entity {
   resourceType: string;
   requiredLevel?: number;
   harvestSkill?:
-    | "woodcutting"
-    | "fishing"
-    | "mining"
-    | "firemaking"
-    | "cooking";
+    "woodcutting" | "fishing" | "mining" | "firemaking" | "cooking";
   depleted?: boolean;
 }
 
@@ -493,12 +555,36 @@ export interface HyperiaServiceInterface {
   executeEquipItem(command: EquipItemCommand): Promise<void>;
   executeChatMessage(command: ChatMessageCommand): Promise<void>;
   executeGatherResource(command: GatherResourceCommand): Promise<void>;
-  openBank(bankId: string): Promise<void>;
-  bankDeposit(itemId: string, quantity: number): Promise<void>;
-  bankDepositAll(): Promise<void>;
-  bankWithdraw(itemId: string, quantity: number): Promise<void>;
+  executeTanning(
+    tannerEntityId: string,
+    inputItemId: "cowhide" | "green_dragonhide",
+    quantity: number,
+  ): Promise<boolean>;
+  executeSmelting(
+    furnaceEntityId: string,
+    barItemId: string,
+    quantity: number,
+  ): Promise<boolean>;
+  executeSmithing(
+    anvilEntityId: string,
+    recipeId: string,
+    quantity: number,
+  ): Promise<boolean>;
+  executeRunecrafting(
+    altarEntityId: string,
+    runeType: string,
+  ): Promise<boolean>;
+  executeFletching(recipeId: string, quantity: number): Promise<boolean>;
+  executeCooking(): Promise<boolean>;
+  executeFiremaking(): Promise<boolean>;
+  openBank(bankId: string): Promise<boolean>;
+  bankDeposit(itemId: string, quantity: number): Promise<boolean>;
+  bankDepositAll(
+    retainedItems?: ExternalAgentBankRetainedItem[],
+  ): Promise<boolean>;
+  bankWithdraw(itemId: string, quantity: number): Promise<boolean>;
   closeBank(): Promise<void>;
-  executeTogglePrayer(prayerId: string): Promise<void>;
+  executeTogglePrayer(prayerId: string): Promise<PrayerActionReceipt>;
   executeChangeAttackStyle(newStyle: string): Promise<void>;
 
   // Event registration

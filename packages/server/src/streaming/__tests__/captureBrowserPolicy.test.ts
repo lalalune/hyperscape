@@ -1,12 +1,45 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyCaptureFrameRateToUrl,
   buildDefaultCaptureLaunchArgs,
+  DEFAULT_CAPTURE_GAME_URL,
   resolveAllowedCaptureOrigins,
+  resolveCaptureUrlCandidates,
   resolveUnexpectedCaptureOrigin,
   shouldAcceptCaptureReadiness,
 } from "../captureBrowserPolicy";
 
 describe("captureBrowserPolicy", () => {
+  it("uses only the canonical stream page when no fallback is explicit", () => {
+    expect(resolveCaptureUrlCandidates({})).toEqual([DEFAULT_CAPTURE_GAME_URL]);
+    expect(DEFAULT_CAPTURE_GAME_URL.endsWith("/stream.html")).toBe(true);
+  });
+
+  it("passes a bounded render rate to the capture page", () => {
+    expect(
+      applyCaptureFrameRateToUrl(
+        "https://game.example/stream.html?existing=1#access",
+        60,
+      ),
+    ).toBe("https://game.example/stream.html?existing=1&streamFps=60#access");
+    expect(
+      applyCaptureFrameRateToUrl("https://game.example/stream.html", 240),
+    ).toBe("https://game.example/stream.html?streamFps=60");
+  });
+
+  it("accepts only explicitly configured capture fallbacks and deduplicates them", () => {
+    expect(
+      resolveCaptureUrlCandidates({
+        primaryUrl: "https://game.example/stream.html",
+        fallbackUrls:
+          "https://game.example/spectator, https://game.example/stream.html",
+      }),
+    ).toEqual([
+      "https://game.example/stream.html",
+      "https://game.example/spectator",
+    ]);
+  });
+
   it("does not include disable-web-security in the default launch args", () => {
     const args = buildDefaultCaptureLaunchArgs({
       angleBackend: "metal",

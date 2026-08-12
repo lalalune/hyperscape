@@ -20,6 +20,7 @@ import type { InventorySystem } from "../character/InventorySystem";
 import { getEntityPosition } from "../../../utils/game/EntityPositionUtils";
 import { STARTER_TOWNS } from "../../../data/world-areas";
 import { isPositionInsideDuelArenaZone } from "../../../data/duel-manifest";
+import { generateTransactionId } from "../../../utils/IdGenerator";
 import type {
   PlayerSystemLike,
   DatabaseSystemLike,
@@ -562,14 +563,6 @@ export class PlayerDeathSystem extends SystemBase {
       return;
     }
 
-    // Check for existing death lock - if player dies again before looting, clear old one
-    // This matches classic MMORPG behavior where dying again replaces your old gravestone
-    const existingDeathLock =
-      await this.deathStateManager.getDeathLock(playerId);
-    if (existingDeathLock) {
-      await this.deathStateManager.clearDeathLock(playerId);
-    }
-
     // Update last death time (use cached timestamp)
     this.lastDeathTime.set(playerId, now);
 
@@ -614,6 +607,119 @@ export class PlayerDeathSystem extends SystemBase {
       "equipment",
     ) as unknown as EquipmentSystemLike | null;
 
+    const zoneType = this.zoneDetection.getZoneType(deathPosition);
+    const existingDeathLock =
+      await this.deathStateManager.getDeathLock(playerId);
+
+    if (
+      zoneType === ZoneType.SAFE_AREA &&
+      databaseSystem.commitSafeAreaDeathOperationAsync
+    ) {
+      // A second death must never destroy unresolved custody from the first.
+      // Agents are expected to recover their own grave before resuming combat.
+      if (existingDeathLock) {
+        throw new Error("safe_death_active_lock_exists");
+      }
+      if (equipmentSystem && !equipmentSystem.reloadFromDatabase) {
+        throw new Error("safe_death_equipment_reload_unavailable");
+      }
+      if (!inventorySystem.reloadFromDatabase) {
+        throw new Error("safe_death_inventory_reload_unavailable");
+      }
+
+      const operationId = `safe-death:${generateTransactionId()}`;
+      const receipt = await databaseSystem.commitSafeAreaDeathOperationAsync({
+        operationId,
+        playerId,
+        deathTimestamp: now,
+        position: deathPosition,
+        killedBy,
+      });
+      const toInventoryItems = (
+        prefix: string,
+        items: Array<{ itemId: string; quantity: number }>,
+      ): InventoryItem[] =>
+        items.map((item, index) => ({
+          id: `${prefix}_${receipt.operationId}_${index}`,
+          itemId: item.itemId,
+          quantity: item.quantity,
+          slot: -1,
+          metadata: null,
+        }));
+      const itemsToDrop = toInventoryItems("death", receipt.dropped);
+      const itemsKept = toInventoryItems("kept", receipt.kept);
+
+      // Database custody is already committed. Strictly replace live state from
+      // that snapshot rather than performing a second write. A transient reload
+      // failure is safe while the player remains dead: respawn retries both
+      // authoritative reloads before making the player alive.
+      let liveMirrorFailed = false;
+      try {
+        await equipmentSystem?.reloadFromDatabase?.(playerId);
+      } catch (error) {
+        liveMirrorFailed = true;
+        this.logger.error(
+          "Safe death equipment reload failed; retaining dead-state fence",
+          error instanceof Error ? error : undefined,
+          { playerId, operationId: receipt.operationId },
+        );
+      }
+      try {
+        await inventorySystem.reloadFromDatabase(playerId);
+      } catch (error) {
+        liveMirrorFailed = true;
+        this.logger.error(
+          "Safe death inventory reload failed; retaining dead-state fence",
+          error instanceof Error ? error : undefined,
+          { playerId, operationId: receipt.operationId },
+        );
+      }
+      try {
+        await this.deathStateManager.refreshDeathLock(playerId);
+      } catch (error) {
+        liveMirrorFailed = true;
+        this.logger.error(
+          "Safe death lock refresh failed; durable custody remains authoritative",
+          error instanceof Error ? error : undefined,
+          { playerId, operationId: receipt.operationId },
+        );
+      }
+
+      if (liveMirrorFailed) {
+        this.emitTypedEvent(EventType.AUDIT_LOG, {
+          action: "SAFE_DEATH_LIVE_RELOAD_DEFERRED",
+          playerId,
+          actorId: playerId,
+          success: false,
+          transactionId: receipt.operationId,
+          timestamp: Date.now(),
+        });
+      }
+
+      if (itemsToDrop.length > 0) {
+        this.pendingGravestones.set(playerId, {
+          position: deathPosition,
+          items: itemsToDrop,
+          killedBy,
+          zoneType,
+        });
+      }
+      this.postDeathCleanup(
+        playerId,
+        deathPosition,
+        itemsToDrop,
+        killedBy,
+        itemsKept,
+      );
+      return;
+    }
+
+    // Legacy/wilderness path only. Safe-area production custody above rejects a
+    // second death rather than deleting unresolved items.
+    if (existingDeathLock) {
+      await this.deathStateManager.clearDeathLock(playerId);
+    }
+
     let itemsToDrop: InventoryItem[] = [];
     let itemsKept: InventoryItem[] = [];
 
@@ -651,8 +757,6 @@ export class PlayerDeathSystem extends SystemBase {
         }
 
         const allItems = [...inventoryItems, ...equipmentItems];
-        const zoneType = this.zoneDetection.getZoneType(deathPosition);
-
         // classic MMORPG-style: In safe zones, keep 3 most valuable items
         if (zoneType === ZoneType.SAFE_AREA) {
           const split = splitItemsForSafeDeath(allItems, ITEMS_KEPT_ON_DEATH);
@@ -1031,9 +1135,6 @@ export class PlayerDeathSystem extends SystemBase {
     const spawnTownName =
       centralHaven?.name ?? COMBAT_CONSTANTS.DEATH.DEFAULT_RESPAWN_TOWN;
 
-    // CRITICAL: Must await to ensure death lock is cleared before next death
-    await this.respawnPlayer(playerId, spawnPosition, spawnTownName);
-
     const gravestoneData = this.pendingGravestones.get(playerId);
     if (gravestoneData && gravestoneData.items.length > 0) {
       this.logger.info("Spawning gravestone", {
@@ -1051,13 +1152,27 @@ export class PlayerDeathSystem extends SystemBase {
         gravestoneData.items,
         gravestoneData.killedBy,
       );
-      if (gravestoneId) {
+      if (!gravestoneId) {
+        throw new Error("safe_death_gravestone_spawn_failed");
+      }
+      try {
         await this.deathStateManager.updateGravestoneId(playerId, gravestoneId);
+      } catch (error) {
+        this.safeAreaHandler.cancelGravestoneTimer(gravestoneId);
+        const entityManager = this.world.getSystem(
+          "entity-manager",
+        ) as EntityManager | null;
+        entityManager?.destroyEntity(gravestoneId);
+        throw error;
       }
       this.pendingGravestones.delete(playerId);
     } else {
       this.logger.info("No pending gravestone data", { playerId });
     }
+
+    // Kept-item return and player revival happen only after any dropped-item
+    // gravestone has a durable, exact identity.
+    await this.respawnPlayer(playerId, spawnPosition, spawnTownName);
   }
 
   private async respawnPlayer(
@@ -1065,6 +1180,39 @@ export class PlayerDeathSystem extends SystemBase {
     spawnPosition: { x: number; y: number; z: number },
     townName: string,
   ): Promise<void> {
+    const deathLock = await this.deathStateManager?.getDeathLock(playerId);
+    let atomicKeptReturnCommitted = false;
+    if (deathLock?.deathOperationId) {
+      const databaseSystem = this.world.getSystem(
+        "database",
+      ) as unknown as DatabaseSystemLike | null;
+      const inventorySystem = this.world.getSystem(
+        "inventory",
+      ) as InventorySystem | null;
+      const equipmentSystem = this.world.getSystem(
+        "equipment",
+      ) as unknown as EquipmentSystemLike | null;
+      if (
+        !databaseSystem?.commitSafeAreaDeathKeptReturnAsync ||
+        !inventorySystem?.reloadFromDatabase ||
+        (equipmentSystem !== null && !equipmentSystem.reloadFromDatabase)
+      ) {
+        throw new Error("safe_death_kept_return_unavailable");
+      }
+
+      // Return conserved items before making the player alive. A crash or
+      // database rejection leaves the player dead and safely retryable.
+      await databaseSystem.commitSafeAreaDeathKeptReturnAsync({
+        playerId,
+        deathOperationId: deathLock.deathOperationId,
+      });
+      await inventorySystem.reloadFromDatabase(playerId);
+      await equipmentSystem?.reloadFromDatabase?.(playerId);
+      await this.deathStateManager.refreshDeathLock(playerId);
+      this.itemsKeptOnDeath.delete(playerId);
+      atomicKeptReturnCommitted = true;
+    }
+
     const playerEntity = this.world.entities?.get?.(playerId);
     if (playerEntity) {
       if ("setHealth" in playerEntity && "getMaxHealth" in playerEntity) {
@@ -1185,11 +1333,14 @@ export class PlayerDeathSystem extends SystemBase {
 
     // classic MMORPG-style: Return kept items to inventory after respawn.
     // Prefer in-memory (fast path), fall back to death lock DB (crash recovery).
-    let keptItems = this.itemsKeptOnDeath.get(playerId);
-    if (!keptItems || keptItems.length === 0) {
-      const deathLock = await this.deathStateManager?.getDeathLock(playerId);
-      if (deathLock?.keptItems && deathLock.keptItems.length > 0) {
-        keptItems = deathLock.keptItems.map((item) => ({
+    let keptItems = atomicKeptReturnCommitted
+      ? undefined
+      : this.itemsKeptOnDeath.get(playerId);
+    if (!atomicKeptReturnCommitted && (!keptItems || keptItems.length === 0)) {
+      const legacyDeathLock =
+        await this.deathStateManager?.getDeathLock(playerId);
+      if (legacyDeathLock?.keptItems && legacyDeathLock.keptItems.length > 0) {
+        keptItems = legacyDeathLock.keptItems.map((item) => ({
           id: `kept_${playerId}_${Date.now()}_${item.itemId}`,
           itemId: item.itemId,
           quantity: item.quantity,
@@ -1326,7 +1477,7 @@ export class PlayerDeathSystem extends SystemBase {
       );
       const deathAge = Date.now() - deathLock.timestamp;
 
-      if (deathAge > MAX_DEATH_LOCK_AGE) {
+      if (deathAge > MAX_DEATH_LOCK_AGE && !deathLock.deathOperationId) {
         await this.deathStateManager.clearDeathLock(playerId);
         return { blockInventoryLoad: false };
       }
@@ -1529,8 +1680,7 @@ export class PlayerDeathSystem extends SystemBase {
 
   private despawnDeathItems(playerId: string): void {
     const deathData = this.deathLocations.get(playerId) as
-      | DeathLocationDataWithHeadstone
-      | undefined;
+      DeathLocationDataWithHeadstone | undefined;
     if (!deathData) return;
 
     const headstoneId = deathData.headstoneId;
@@ -1673,8 +1823,7 @@ export class PlayerDeathSystem extends SystemBase {
   // Headstone API (now uses EntityManager instead of HeadstoneApp objects)
   getPlayerHeadstoneId(playerId: string): string | undefined {
     const deathData = this.deathLocations.get(playerId) as
-      | DeathLocationDataWithHeadstone
-      | undefined;
+      DeathLocationDataWithHeadstone | undefined;
     if (!deathData) return undefined;
     return deathData.headstoneId;
   }

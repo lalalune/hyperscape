@@ -18,6 +18,7 @@ interface PostFightStatsCardProps {
 
 const WIN_REASON_LABELS: Record<string, string> = {
   kill: "Knockout",
+  forfeit: "Forfeit",
   hp_advantage: "HP Advantage",
   damage_advantage: "Damage Advantage",
   draw: "Draw",
@@ -32,7 +33,7 @@ export function PostFightStatsCard({
   const reasonLabel = WIN_REASON_LABELS[winReason] ?? winReason;
 
   return (
-    <div style={styles.container}>
+    <div className="streaming-post-fight-card" style={styles.container}>
       <div style={styles.reasonBadge}>{reasonLabel}</div>
       <div style={styles.table}>
         <AgentColumn agent={agent1} isWinner={agent1.id === winnerId} />

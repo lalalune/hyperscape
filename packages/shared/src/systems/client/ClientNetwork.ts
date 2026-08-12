@@ -116,8 +116,10 @@ import type {
   FriendRequest,
   FriendStatusUpdateData,
 } from "../../types/game/social-types";
+import type { AttackType } from "../../types/game/item-types";
 import { uuid } from "../../utils";
 import { SystemBase } from "../shared/infrastructure/SystemBase";
+import { resolveClientConnectionAuthMode } from "./clientNetworkAuthPolicy";
 import { PendingActionTracker } from "./network/PendingActionTracker";
 import { isStreamingLikeViewport } from "../../runtime/clientViewportMode";
 import { PlayerLocal } from "../../entities/player/PlayerLocal";
@@ -129,6 +131,8 @@ type ClientNetworkEnv = {
   DISABLE_NETWORK?: string;
   PUBLIC_INTERPOLATION_MAX_PER_FRAME?: string;
   INTERPOLATION_MAX_PER_FRAME?: string;
+  LOAD_TEST_MODE?: string;
+  NODE_ENV?: string;
 };
 
 const isTruthy = (value?: string): boolean =>
@@ -171,6 +175,7 @@ const readPositiveIntegerEnv = (...keys: string[]): number | null => {
 
 const _v3_1 = new THREE.Vector3();
 const _quat_1 = new THREE.Quaternion();
+const _combatFaceAxis = new THREE.Vector3(0, 1, 0);
 
 /**
  * Entity interpolation state for smooth remote entity movement
@@ -283,6 +288,8 @@ export class ClientNetwork extends SystemBase {
   // topics, so players near region boundaries receive the same packet multiple times.
   // Map key → timestamp for periodic sweep (no per-key setTimeout).
   private readonly _recentDamageKeys = new Map<string, number>();
+  private readonly _recentProjectileLaunchKeys = new Map<string, number>();
+  private readonly _recentProjectileHitKeys = new Map<string, number>();
   // Single tracker for all optimistic inventory mutations (shared by all callers).
   // Snapshots the cache before mutation; rolls back after 5s if no server confirmation.
   private inventoryTracker = new PendingActionTracker<InventorySnapshot>(5000);
@@ -309,9 +316,7 @@ export class ClientNetwork extends SystemBase {
   private spectatorFollowEntity: string | undefined;
   private spectatorTargetPending = false;
   private spectatorRetryInterval:
-    | ReturnType<typeof setInterval>
-    | number
-    | null = null;
+    ReturnType<typeof setInterval> | number | null = null;
 
   // Entity interpolation for smooth remote entity movement
   private interpolationStates: Map<string, InterpolationState> = new Map();
@@ -322,6 +327,19 @@ export class ClientNetwork extends SystemBase {
   // Tile-based interpolation for classic fantasy MMORPG-style movement
   // Public to allow position sync on respawn/teleport
   public tileInterpolator: TileInterpolator = new TileInterpolator();
+
+  // Authoritative combat target identity is retained separately from movement
+  // packets. Streaming spectators render only remote players, so they cannot
+  // rely on PlayerLocal's per-frame combat-facing path.
+  private combatFaceTargets: Map<string, string> = new Map();
+  // The streaming scheduler owns its frozen contestant pair for the entire
+  // FIGHTING phase. Generic combat subsystems may transiently clear their own
+  // engagement while an agent repositions; those packets must not release the
+  // broadcast client's opponent-facing lock between scheduler ticks.
+  private streamingDuelCombatFaceTargets: Map<string, string> = new Map();
+  private streamingDuelContestantIds: Set<string> = new Set();
+  private streamingDuelFacingLocked = false;
+  private streamingDuelFighting = false;
 
   // Track dead players to prevent position updates from entityModified packets
   // CRITICAL: Prevents race condition where entityModified packets arrive after death
@@ -693,15 +711,19 @@ export class ClientNetwork extends SystemBase {
 
     const isStreamingConnection = /[?&]mode=streaming(?:[&#]|$)/.test(url);
     const isSpectatorConnection = /[?&]mode=spectator(?:[&#]|$)/.test(url);
-    const allowsAnonymousMode =
-      isStreamingConnection ||
-      isSpectatorConnection ||
-      this.isEmbeddedSpectator;
-    // If URL auth is unavailable (no token), fall back to first-message auth.
-    // Spectator/streaming modes are intentionally anonymous and should not
-    // block waiting for onAuthResult.
-    const useFirstMessageAuth =
-      !urlHasAuthToken && !authToken && !allowsAnonymousMode;
+    // Load-test clients are authenticated by the server from their explicit
+    // connection flag and receive a snapshot immediately. Waiting for an
+    // auth-result packet here deadlocks that supported local-only handshake.
+    const connectionAuthMode = resolveClientConnectionAuthMode({
+      url,
+      urlHasAuthToken,
+      authToken,
+      embeddedSpectator: this.isEmbeddedSpectator,
+      allowLoadTestBypass:
+        process.env.LOAD_TEST_MODE === "true" &&
+        process.env.NODE_ENV !== "production",
+    });
+    const useFirstMessageAuth = connectionAuthMode === "first-message";
     const connectionTimeoutMs =
       isStreamingConnection || isSpectatorConnection ? 120_000 : 30_000;
 
@@ -1004,14 +1026,12 @@ export class ClientNetwork extends SystemBase {
       if (handler === undefined) {
         // First time seeing this method - look it up and cache
         handler = (this as Record<string, unknown>)[method] as
-          | Function
-          | undefined;
+          Function | undefined;
         if (!handler) {
           // Try onX format (e.g., onSnapshot)
           const onName = `on${method.charAt(0).toUpperCase()}${method.slice(1)}`;
           handler = (this as Record<string, unknown>)[onName] as
-            | Function
-            | undefined;
+            Function | undefined;
         }
         // Cache result (even if null, to avoid repeated lookups)
         this._handlerCache.set(method, handler ?? null);
@@ -1159,8 +1179,7 @@ export class ClientNetwork extends SystemBase {
     // Ensure Physics is fully initialized before processing entities
     // This is needed because PlayerLocal uses physics extensions during construction
     const physicsSystem = this.world.physics as
-      | { physics?: unknown }
-      | undefined;
+      { physics?: unknown } | undefined;
     const needsLocalPhysics = !isSpectatorMode;
     if (physicsSystem && !physicsSystem.physics && needsLocalPhysics) {
       // Wait a bit for Physics to initialize
@@ -1360,14 +1379,11 @@ export class ClientNetwork extends SystemBase {
       const setCameraTarget = (entity: unknown) => {
         const camera =
           (this.world.getSystem("client-camera-system") as
-            | { setTarget?: (target: unknown) => void }
-            | undefined) ??
+            { setTarget?: (target: unknown) => void } | undefined) ??
           (this.world.getSystem("client-camera") as
-            | { setTarget?: (target: unknown) => void }
-            | undefined) ??
+            { setTarget?: (target: unknown) => void } | undefined) ??
           (this.world.getSystem("camera") as
-            | { setTarget?: (target: unknown) => void }
-            | undefined);
+            { setTarget?: (target: unknown) => void } | undefined);
         if (camera?.setTarget) {
           this.logger.info(
             `👁️ Setting camera target to entity ${spectatorFollowId}`,
@@ -1562,14 +1578,11 @@ export class ClientNetwork extends SystemBase {
         // Set camera to follow this entity
         const camera =
           (this.world.getSystem("client-camera-system") as
-            | { setTarget?: (target: unknown) => void }
-            | undefined) ??
+            { setTarget?: (target: unknown) => void } | undefined) ??
           (this.world.getSystem("client-camera") as
-            | { setTarget?: (target: unknown) => void }
-            | undefined) ??
+            { setTarget?: (target: unknown) => void } | undefined) ??
           (this.world.getSystem("camera") as
-            | { setTarget?: (target: unknown) => void }
-            | undefined);
+            { setTarget?: (target: unknown) => void } | undefined);
         if (camera?.setTarget) {
           this.logger.info(
             `👁️ Setting camera target to newly spawned entity ${spectatorFollowId}`,
@@ -2365,6 +2378,10 @@ export class ClientNetwork extends SystemBase {
     fireId: string;
     playerId: string;
     position: { x: number; y: number; z: number };
+    createdAt: number;
+    expiresAt: number;
+    serverObservedAt: number;
+    requestId?: string;
   }) => {
     // Debug log removed — fires per fire spell during combat
     this.world.emit(EventType.FIRE_CREATED, data);
@@ -2608,6 +2625,26 @@ export class ClientNetwork extends SystemBase {
     this.world.emit(EventType.PRAYER_TOGGLED, data);
   };
 
+  /**
+   * Consume the correlated server receipt. Browser clients rely on the normal
+   * Prayer events for UI, while agent transports use this packet to gate local
+   * decisions. Keeping a handler here prevents append-only protocol warnings.
+   */
+  onPrayerActionReceipt = (data: {
+    playerId: string;
+    pointUnits: number;
+    points: number;
+    maxPoints: number;
+    activePrayers: string[];
+  }) => {
+    if (!data?.playerId || !Array.isArray(data.activePrayers)) return;
+    this.lastPrayerStateByPlayerId[data.playerId] = {
+      points: data.points,
+      maxPoints: data.maxPoints,
+      active: [...data.activePrayers],
+    };
+  };
+
   onPrayerPointsChanged = (data: {
     playerId: string;
     points: number;
@@ -2733,6 +2770,7 @@ export class ClientNetwork extends SystemBase {
     resultItemId: string;
     wasBurnt: boolean;
     xpGained: number;
+    requestId?: string;
   }) => {
     this.world.emit(EventType.COOKING_COMPLETE, {
       playerId: this.world?.entities?.player?.id || "",
@@ -2766,6 +2804,7 @@ export class ClientNetwork extends SystemBase {
     totalSmelted: number;
     totalFailed: number;
     totalXp: number;
+    requestId?: string;
   }) => {
     this.world.emit(EventType.SMELTING_COMPLETE, {
       playerId: this.world?.entities?.player?.id || "",
@@ -2801,6 +2840,7 @@ export class ClientNetwork extends SystemBase {
     outputItemId: string;
     totalSmithed: number;
     totalXp: number;
+    requestId?: string;
   }) => {
     this.world.emit(EventType.SMITHING_COMPLETE, {
       playerId: this.world?.entities?.player?.id || "",
@@ -2845,6 +2885,7 @@ export class ClientNetwork extends SystemBase {
     outputItemId: string;
     totalCrafted: number;
     totalXp: number;
+    requestId?: string;
   }) => {
     this.world.emit(EventType.CRAFTING_COMPLETE, {
       playerId: this.world?.entities?.player?.id || "",
@@ -2867,6 +2908,7 @@ export class ClientNetwork extends SystemBase {
     outputItemId: string;
     totalCrafted: number;
     totalXp: number;
+    requestId?: string;
   }) => {
     this.world.emit(EventType.FLETCHING_COMPLETE, {
       playerId: this.world?.entities?.player?.id || "",
@@ -2913,8 +2955,91 @@ export class ClientNetwork extends SystemBase {
     outputItemId: string;
     totalTanned: number;
     totalCost: number;
+    requestId?: string;
   }) => {
     this.world.emit(EventType.TANNING_COMPLETE, {
+      playerId: this.world?.entities?.player?.id || "",
+      ...data,
+    });
+  };
+
+  onRunecraftingComplete = (data: {
+    runeType: string;
+    runeItemId: string;
+    essenceConsumed: number;
+    runesProduced: number;
+    multiplier: number;
+    xpAwarded: number;
+    requestId?: string;
+  }) => {
+    this.world.emit(EventType.RUNECRAFTING_COMPLETE, {
+      playerId: this.world?.entities?.player?.id || "",
+      ...data,
+    });
+  };
+
+  onProcessingRejected = (data: {
+    requestId: string;
+    skill:
+      | "firemaking"
+      | "cooking"
+      | "smelting"
+      | "smithing"
+      | "crafting"
+      | "fletching"
+      | "runecrafting"
+      | "tanning";
+    reason:
+      | "busy"
+      | "invalid_request"
+      | "not_authorized"
+      | "requirements_not_met"
+      | "resources_unavailable"
+      | "capacity_unavailable"
+      | "interrupted"
+      | "persistence_rejected";
+    retryable: boolean;
+  }) => {
+    this.world.emit(EventType.PROCESSING_REQUEST_REJECTED, {
+      playerId: this.world?.entities?.player?.id || "",
+      ...data,
+    });
+  };
+
+  onProcessingProgress = (data: {
+    requestId: string;
+    skill:
+      | "firemaking"
+      | "cooking"
+      | "smelting"
+      | "smithing"
+      | "crafting"
+      | "fletching"
+      | "runecrafting"
+      | "tanning";
+    phase: "accepted" | "working" | "reconciling" | "committed";
+  }) => {
+    this.world.emit(EventType.PROCESSING_REQUEST_PROGRESS, {
+      playerId: this.world?.entities?.player?.id || "",
+      ...data,
+    });
+  };
+
+  onProcessingRequestStatus = (data: {
+    requestId: string;
+    queryId: string;
+    skill:
+      | "firemaking"
+      | "cooking"
+      | "smelting"
+      | "smithing"
+      | "crafting"
+      | "fletching"
+      | "runecrafting"
+      | "tanning";
+    status: "committed" | "not_found" | "unavailable";
+  }) => {
+    this.world.emit(EventType.PROCESSING_REQUEST_STATUS, {
       playerId: this.world?.entities?.player?.id || "",
       ...data,
     });
@@ -3893,6 +4018,25 @@ export class ClientNetwork extends SystemBase {
   }
 
   onEntityRemoved = (id: string) => {
+    // An entity can disappear before the explicit combat-clear packet during a
+    // death/disconnect. Drop both its own target and any references to it so a
+    // stale facing mode cannot survive entity removal.
+    this.combatFaceTargets.delete(id);
+    this.streamingDuelCombatFaceTargets.delete(id);
+    this.streamingDuelContestantIds.delete(id);
+    for (const [playerId, targetId] of this.streamingDuelCombatFaceTargets) {
+      if (targetId !== id) continue;
+      this.streamingDuelCombatFaceTargets.delete(playerId);
+      this.streamingDuelContestantIds.delete(playerId);
+      this.combatFaceTargets.delete(playerId);
+      this.tileInterpolator.clearCombatRotation(playerId);
+    }
+    for (const [playerId, targetId] of this.combatFaceTargets) {
+      if (targetId !== id) continue;
+      this.combatFaceTargets.delete(playerId);
+      this.streamingDuelCombatFaceTargets.delete(playerId);
+      this.tileInterpolator.clearCombatRotation(playerId);
+    }
     // Remove from interpolation tracking
     this.deleteInterpolationState(id);
     // Remove from tile interpolation tracking (classic fantasy MMORPG-style movement)
@@ -3916,6 +4060,11 @@ export class ClientNetwork extends SystemBase {
    */
   lateUpdate(delta: number): void {
     this.updateInterpolation(delta);
+
+    // Recompute against current remote positions every frame. This keeps a
+    // strafing/kiting fighter visually locked to a moving opponent instead of
+    // preserving the direction from the first attack packet.
+    this.refreshCombatFaceRotations();
 
     // Get terrain system for height lookups
     const terrain = this.world.getSystem("terrain") as {
@@ -4440,7 +4589,9 @@ export class ClientNetwork extends SystemBase {
     attackerId: string;
     targetId: string;
     damage: number;
+    attackType?: AttackType;
     targetType: "player" | "mob";
+    isCritical?: boolean;
     position: { x: number; y: number; z: number };
     tick?: number;
   }) => {
@@ -4492,22 +4643,283 @@ export class ClientNetwork extends SystemBase {
     targetPosition: { x: number; y: number; z: number };
     spellId?: string;
     delayMs?: number;
+    arrowId?: string;
+    travelDurationMs?: number;
+    tick?: number;
+    networkEventId?: string;
   }) => {
+    const eventIdentity = this.getProjectileNetworkEventIdentity(
+      data.networkEventId,
+      data.tick,
+    );
+    const source = data.sourcePosition;
+    const target = data.targetPosition;
+    const dedupKey = eventIdentity.startsWith("event:")
+      ? `launch|${eventIdentity}`
+      : [
+          "launch",
+          eventIdentity,
+          data.attackerId,
+          data.targetId,
+          data.projectileType,
+          data.spellId ?? "",
+          data.arrowId ?? "",
+          data.delayMs ?? "",
+          data.travelDurationMs ?? "",
+          source.x,
+          source.y,
+          source.z,
+          target.x,
+          target.y,
+          target.z,
+        ].join("|");
+    if (
+      !this.shouldProcessSpatialCombatPacket(
+        this._recentProjectileLaunchKeys,
+        dedupKey,
+      )
+    ) {
+      return;
+    }
+
     // Forward to local event system so ProjectileRenderer can show visual effects
     this.world.emit(EventType.COMBAT_PROJECTILE_LAUNCHED, data);
   };
 
+  onProjectileHit = (data: {
+    attackerId: string;
+    targetId: string;
+    damage: number;
+    projectileType: string;
+    position?: { x: number; y: number; z: number } | null;
+    tick?: number;
+    networkEventId?: string;
+  }) => {
+    const eventIdentity = this.getProjectileNetworkEventIdentity(
+      data.networkEventId,
+      data.tick,
+    );
+    const position = data.position;
+    const dedupKey = eventIdentity.startsWith("event:")
+      ? `hit|${eventIdentity}`
+      : [
+          "hit",
+          eventIdentity,
+          data.attackerId,
+          data.targetId,
+          data.damage,
+          data.projectileType,
+          position?.x ?? "",
+          position?.y ?? "",
+          position?.z ?? "",
+        ].join("|");
+    if (
+      !this.shouldProcessSpatialCombatPacket(
+        this._recentProjectileHitKeys,
+        dedupKey,
+      )
+    ) {
+      return;
+    }
+
+    this.world.emit(EventType.COMBAT_PROJECTILE_HIT, data);
+  };
+
+  private getProjectileNetworkEventIdentity(
+    networkEventId: string | undefined,
+    tick: number | undefined,
+  ): string {
+    if (
+      typeof networkEventId === "string" &&
+      networkEventId.length > 0 &&
+      networkEventId.length <= 160
+    ) {
+      return `event:${networkEventId}`;
+    }
+    if (Number.isSafeInteger(tick) && (tick as number) >= 0) {
+      return `tick:${tick}`;
+    }
+    // Rolling-deploy compatibility for packets from an older server. Multiple
+    // nearby-topic copies arrive together, while a genuine later projectile is
+    // assigned to a different 125 ms server-tick-sized bucket.
+    return `legacy:${Math.floor(performance.now() / 125)}`;
+  }
+
+  private shouldProcessSpatialCombatPacket(
+    recentKeys: Map<string, number>,
+    dedupKey: string,
+  ): boolean {
+    if (recentKeys.has(dedupKey)) return false;
+
+    const now = performance.now();
+    if (recentKeys.size > 150) {
+      for (const [key, timestamp] of recentKeys) {
+        if (now - timestamp > 5_000) recentKeys.delete(key);
+      }
+      if (recentKeys.size > 200) {
+        const excess = recentKeys.size - 100;
+        let dropped = 0;
+        for (const key of recentKeys.keys()) {
+          recentKeys.delete(key);
+          if (++dropped >= excess) break;
+        }
+      }
+    }
+
+    recentKeys.set(dedupKey, now);
+    return true;
+  }
+
+  private applyCombatFaceRotation(playerId: string, targetId: string): boolean {
+    const player = this.world.entities.get(playerId);
+    const target = this.world.entities.get(targetId);
+    if (!player?.position || !target?.position) return false;
+
+    const dx = target.position.x - player.position.x;
+    const dz = target.position.z - player.position.z;
+    if (!Number.isFinite(dx) || !Number.isFinite(dz)) return false;
+    if (dx * dx + dz * dz < 1e-8) return false;
+
+    // Registered player avatars face local -Z, so the target-space yaw needs
+    // a half-turn compensation before TileInterpolator owns the rendered base.
+    const angle = Math.atan2(dx, dz) + Math.PI;
+    _quat_1.setFromAxisAngle(_combatFaceAxis, angle);
+    const lockTarget =
+      this.streamingDuelFacingLocked &&
+      this.streamingDuelCombatFaceTargets.get(playerId) === targetId;
+    return this.tileInterpolator.setCombatRotation(
+      playerId,
+      _quat_1,
+      player.position,
+      lockTarget,
+    );
+  }
+
+  private refreshCombatFaceRotations(): void {
+    for (const [playerId, targetId] of this.combatFaceTargets) {
+      this.applyCombatFaceRotation(playerId, targetId);
+    }
+  }
+
+  private clearPlayerHitReaction(playerId: string): void {
+    const player = this.world.entities.get(playerId) as
+      { avatar?: { clearHitReaction?: () => void } } | null | undefined;
+    player?.avatar?.clearHitReaction?.();
+  }
+
+  private clearCombatFaceRotation(playerId: string, force = false): void {
+    const streamingTarget = this.streamingDuelCombatFaceTargets.get(playerId);
+    if (!force && this.streamingDuelFacingLocked && streamingTarget) {
+      this.combatFaceTargets.set(playerId, streamingTarget);
+      this.applyCombatFaceRotation(playerId, streamingTarget);
+      return;
+    }
+    this.combatFaceTargets.delete(playerId);
+    this.tileInterpolator.clearCombatRotation(playerId);
+  }
+
+  private syncStreamingDuelCombatFaceTargets(cycle: {
+    phase: string;
+    agent1: unknown | null;
+    agent2: unknown | null;
+  }): void {
+    const readId = (agent: unknown): string | null => {
+      if (!agent || typeof agent !== "object") return null;
+      const id = (agent as { id?: unknown }).id;
+      return typeof id === "string" && id.trim().length > 0 ? id.trim() : null;
+    };
+    const wasFighting = this.streamingDuelFighting;
+    const previousContestantIds = [...this.streamingDuelContestantIds];
+    const agent1Id = readId(cycle.agent1);
+    const agent2Id = readId(cycle.agent2);
+    const contestantIds = [agent1Id, agent2Id].filter(
+      (id): id is string => id !== null,
+    );
+    this.streamingDuelContestantIds = new Set(contestantIds);
+    const fighting =
+      cycle.phase === "FIGHTING" &&
+      agent1Id !== null &&
+      agent2Id !== null &&
+      agent1Id !== agent2Id;
+    const facingLocked =
+      (cycle.phase === "COUNTDOWN" || fighting) &&
+      agent1Id !== null &&
+      agent2Id !== null &&
+      agent1Id !== agent2Id;
+    const nextTargets = facingLocked
+      ? new Map([
+          [agent1Id, agent2Id],
+          [agent2Id, agent1Id],
+        ])
+      : new Map<string, string>();
+
+    // A draw, cancellation, or ordinary resolution can arrive while a recent
+    // recoil is still active. Clear the additive pose at the authoritative
+    // FIGHTING boundary instead of letting it bleed into terminal presentation.
+    if (wasFighting && !fighting) {
+      for (const playerId of new Set([
+        ...previousContestantIds,
+        ...contestantIds,
+      ])) {
+        this.clearPlayerHitReaction(playerId);
+      }
+    }
+
+    for (const [playerId, previousTarget] of this
+      .streamingDuelCombatFaceTargets) {
+      if (nextTargets.get(playerId) === previousTarget) continue;
+      this.streamingDuelCombatFaceTargets.delete(playerId);
+      if (this.combatFaceTargets.get(playerId) === previousTarget) {
+        this.clearCombatFaceRotation(playerId, true);
+      }
+    }
+    this.streamingDuelFacingLocked = facingLocked;
+    this.streamingDuelFighting = fighting;
+    for (const [playerId, targetId] of nextTargets) {
+      this.streamingDuelCombatFaceTargets.set(playerId, targetId);
+      this.combatFaceTargets.set(playerId, targetId);
+      this.applyCombatFaceRotation(playerId, targetId);
+    }
+  }
+
   onCombatFaceTarget = (data: { playerId: string; targetId: string }) => {
-    // Forward to local event system so PlayerLocal rotates toward combat target
+    const streamingTarget = this.streamingDuelCombatFaceTargets.get(
+      data.playerId,
+    );
+    if (this.streamingDuelFacingLocked && streamingTarget) {
+      this.combatFaceTargets.set(data.playerId, streamingTarget);
+      this.applyCombatFaceRotation(data.playerId, streamingTarget);
+      this.world.emit(EventType.COMBAT_FACE_TARGET, {
+        playerId: data.playerId,
+        targetId: streamingTarget,
+      });
+      return;
+    }
+    if (
+      !this.streamingDuelFacingLocked &&
+      this.streamingDuelContestantIds.has(data.playerId)
+    ) {
+      return;
+    }
+    this.combatFaceTargets.set(data.playerId, data.targetId);
+    // Apply immediately when both entities already exist; the retained mapping
+    // retries in lateUpdate when packet ordering delivers an entity later.
+    this.applyCombatFaceRotation(data.playerId, data.targetId);
+    // Preserve the local event for PlayerLocal and existing presentation hooks.
     this.world.emit(EventType.COMBAT_FACE_TARGET, data);
   };
 
   onCombatEnded = (data: { attackerId: string; targetId: string }) => {
+    // Explicit face-clear packets remain the normal path. Combat-ended is a
+    // defensive terminal cleanup for disconnect/death ordering.
+    this.clearCombatFaceRotation(data.attackerId);
+    this.clearCombatFaceRotation(data.targetId);
     this.world.emit(EventType.COMBAT_ENDED, data);
   };
 
   onCombatClearFaceTarget = (data: { playerId: string }) => {
-    // Forward to local event system so PlayerLocal stops rotating toward target
+    this.clearCombatFaceRotation(data.playerId);
+    // Forward to local event system so PlayerLocal stops rotating toward target.
     this.world.emit(EventType.COMBAT_CLEAR_FACE_TARGET, data);
   };
 
@@ -4779,6 +5191,22 @@ export class ClientNetwork extends SystemBase {
     maxLateness: number;
     lastResetTick: number;
     lastTickDuration: number;
+    tickDurations?: {
+      samples: number;
+      average: number;
+      p50: number;
+      p95: number;
+      p99: number;
+      max: number;
+    };
+    tickLateness?: {
+      samples: number;
+      average: number;
+      p50: number;
+      p95: number;
+      p99: number;
+      max: number;
+    };
     isHealthy: boolean;
     phaseTimings?: { mobAI: number; mobMove: number; combat: number };
     eventLoopLag?: number;
@@ -4972,6 +5400,16 @@ export class ClientNetwork extends SystemBase {
     // Get entity's current position for smooth start (fallback if startTile not provided)
     const entity = this.world.entities.get(data.id);
     const currentPosition = entity?.position as THREE.Vector3 | undefined;
+
+    // A movement state can be absent after lifecycle cleanup even though the
+    // canonical stream pairing is still frozen. Re-establish the locked duel
+    // rotation before the path is interpreted so a newly-created interpolator
+    // state never initializes from the travel heading for one rendered frame.
+    const streamingTarget = this.streamingDuelCombatFaceTargets.get(data.id);
+    if (this.streamingDuelFacingLocked && streamingTarget) {
+      this.combatFaceTargets.set(data.id, streamingTarget);
+      this.applyCombatFaceRotation(data.id, streamingTarget);
+    }
 
     // Pass server's authoritative path to interpolator
     // startTile: where server knows entity IS (authoritative)
@@ -5364,11 +5802,19 @@ export class ClientNetwork extends SystemBase {
     this.interpolationStates.clear();
     // Clear tile interpolation states
     this.tileInterpolator.clear();
+    this.combatFaceTargets.clear();
+    this.streamingDuelCombatFaceTargets.clear();
+    this.streamingDuelContestantIds.clear();
+    this.streamingDuelFacingLocked = false;
+    this.streamingDuelFighting = false;
     // Clear pending modifications tracking
     this.pendingModifications.clear();
     this.pendingModificationTimestamps.clear();
     this.pendingModificationLimitReached.clear();
     this.totalPendingModificationCount = 0;
+    this._recentDamageKeys.clear();
+    this._recentProjectileLaunchKeys.clear();
+    this._recentProjectileHitKeys.clear();
     // Clear dead players tracking
     this.deadPlayers.clear();
   };
@@ -5437,11 +5883,13 @@ export class ClientNetwork extends SystemBase {
       } | null;
       winnerId: string | null;
       winnerName: string | null;
+      outcome: "win" | "draw" | null;
       winReason: string | null;
     };
     leaderboard: unknown[];
     cameraTarget: string | null;
   }) => {
+    this.syncStreamingDuelCombatFaceTargets(data.cycle);
     // Re-emit on world for streaming UI components to consume
     this.world.emit("streaming:state:update", data);
 
@@ -5503,14 +5951,11 @@ export class ClientNetwork extends SystemBase {
 
     const camera =
       (this.world.getSystem("client-camera-system") as
-        | { setTarget?: (target: unknown) => void }
-        | undefined) ??
+        { setTarget?: (target: unknown) => void } | undefined) ??
       (this.world.getSystem("client-camera") as
-        | { setTarget?: (target: unknown) => void }
-        | undefined) ??
+        { setTarget?: (target: unknown) => void } | undefined) ??
       (this.world.getSystem("camera") as
-        | { setTarget?: (target: unknown) => void }
-        | undefined);
+        { setTarget?: (target: unknown) => void } | undefined);
 
     const findTargetEntity = () =>
       this.resolveSpectatorTargetEntity(nextTargetId);

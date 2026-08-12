@@ -740,6 +740,7 @@ export function getWindowStyleForBuildingType(
     // Religious - ornate leaded glass
     church: "leaded",
     cathedral: "leaded",
+    chapel: "leaded",
     // Fortified - defensive slits
     keep: "slit",
     fortress: "slit",

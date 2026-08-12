@@ -32,6 +32,7 @@ import {
   startDissolve as startDissolveAnim,
   tickDissolveAnims,
 } from "./DissolveAnimation";
+import { shouldStreamVegetationBackgroundLods } from "../../../runtime/clientViewportMode";
 
 const MAX_INSTANCES = 512;
 
@@ -335,8 +336,7 @@ function enableTextureRepeat(mat: DissolveMaterial): void {
   ] as const;
   for (const key of texProps) {
     const tex = (mat as unknown as Record<string, unknown>)[key] as
-      | THREE.Texture
-      | undefined;
+      THREE.Texture | undefined;
     if (tex) {
       tex.wrapS = THREE.RepeatWrapping;
       tex.wrapT = THREE.RepeatWrapping;
@@ -435,11 +435,18 @@ async function ensureTreeTypePool(
     // Compute bounds from first variant
     const bounds = computeModelBounds(lod0Scenes[0], 1);
 
+    // Broadcast/spectator viewports do not traverse the exploration world.
+    // Keep their LOD0 fallback and omit the two background model/decode/upload
+    // waves that otherwise interrupt the first arena frames.
+    const loadBackgroundLods = shouldStreamVegetationBackgroundLods();
+
     // Load LOD1 variants in parallel
     let lod1Pool: BatchedLODPool | null = null;
-    const lod1Results = await Promise.all(
-      variantPaths.map((vp) => loadLODParts(inferLOD1Path(vp))),
-    );
+    const lod1Results = loadBackgroundLods
+      ? await Promise.all(
+          variantPaths.map((vp) => loadLODParts(inferLOD1Path(vp))),
+        )
+      : [];
     const validLod1 = lod1Results.filter(
       (r): r is MeshPart[] => r !== null && r.length === numSlots,
     );
@@ -463,9 +470,11 @@ async function ensureTreeTypePool(
 
     // Load LOD2 variants in parallel
     let lod2Pool: BatchedLODPool | null = null;
-    const lod2Results = await Promise.all(
-      variantPaths.map((vp) => loadLODParts(inferLOD2Path(vp))),
-    );
+    const lod2Results = loadBackgroundLods
+      ? await Promise.all(
+          variantPaths.map((vp) => loadLODParts(inferLOD2Path(vp))),
+        )
+      : [];
     const validLod2 = lod2Results.filter(
       (r): r is MeshPart[] => r !== null && r.length === numSlots,
     );

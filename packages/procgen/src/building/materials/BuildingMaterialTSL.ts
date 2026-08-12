@@ -452,7 +452,7 @@ export function createBuildingMaterial(
 
     // Get vertex color for tinting (if available)
     const vertexColor = fullConfig.useVertexColors
-      ? attribute("color", "vec3")
+      ? attribute<"vec3">("color", "vec3")
       : vec3(1.0, 1.0, 1.0);
 
     // Pattern result placeholder

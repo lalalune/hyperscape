@@ -237,6 +237,14 @@ export class Avatar extends Node {
     this.emote = url;
   }
 
+  triggerHitReaction(intensity = 1, side: -1 | 1 = 1) {
+    this.instance?.triggerHitReaction(intensity, side);
+  }
+
+  clearHitReaction() {
+    this.instance?.clearHitReaction();
+  }
+
   get height() {
     // DEPRECATED: use .getHeight()
     return this.getHeight();
@@ -287,6 +295,12 @@ export class Avatar extends Node {
         setEmote(url: string | null) {
           // DEPRECATED: use .emote
           return self.setEmote(url);
+        },
+        triggerHitReaction(intensity?: number, side?: -1 | 1) {
+          return self.triggerHitReaction(intensity, side);
+        },
+        clearHitReaction() {
+          return self.clearHitReaction();
         },
         get height() {
           // DEPRECATED: use .getHeight()

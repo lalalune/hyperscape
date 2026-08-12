@@ -12,9 +12,17 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { EventType, getDuelArenaConfig } from "@hyperforge/shared";
+import {
+  EventType,
+  PlayerEntity,
+  getDuelArenaConfig,
+} from "@hyperforge/shared";
 import { DuelSystem } from "../index";
 import { createMockWorld, createDuelPlayers, type MockWorld } from "./mocks";
+import {
+  STREAMING_DUEL_ARENA_ID,
+  STREAMING_DUEL_ARENA_RESERVATION_ID,
+} from "../streaming-arena";
 
 // Helper to create a challenge with proper parameters
 function createTestChallenge(
@@ -33,6 +41,67 @@ function createTestChallenge(
     targetId,
     targetName,
   );
+}
+
+function installAuthoritativePlayerEntity(
+  world: MockWorld,
+  playerId: string,
+  name: string,
+): PlayerEntity {
+  const skill = { level: 1, xp: 0 };
+  const entity = new PlayerEntity(
+    {
+      ...world,
+      stage: { scene: { add: vi.fn() } },
+    } as never,
+    {
+      id: playerId,
+      type: "player",
+      name,
+      playerId,
+      playerName: name,
+      level: 1,
+      health: 10,
+      maxHealth: 10,
+      stamina: 100,
+      maxStamina: 100,
+      combatStyle: "attack",
+      equipment: {},
+      inventory: [],
+      skills: {
+        attack: skill,
+        strength: skill,
+        defense: skill,
+        constitution: { level: 10, xp: 0 },
+        ranged: skill,
+        magic: skill,
+        prayer: skill,
+        woodcutting: skill,
+        mining: skill,
+        fishing: skill,
+        firemaking: skill,
+        cooking: skill,
+        smithing: skill,
+        agility: skill,
+        crafting: skill,
+        fletching: skill,
+        runecrafting: skill,
+      },
+      position: [70, 0, 70],
+      quaternion: [0, 0, 0, 1],
+    } as never,
+  );
+  (world.entities.players as unknown as Map<string, PlayerEntity>).set(
+    playerId,
+    entity,
+  );
+  return entity;
+}
+
+async function flushLifecyclePromises(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
 }
 
 describe("DuelSystem", () => {
@@ -64,6 +133,62 @@ describe("DuelSystem", () => {
   // ============================================================================
   // Challenge Flow
   // ============================================================================
+
+  describe("streaming arena ownership", () => {
+    it("holds arena 1 outside ordinary allocation for the server lifetime", () => {
+      const previous = process.env.STREAMING_DUEL_ENABLED;
+      process.env.STREAMING_DUEL_ENABLED = "true";
+      const streamingWorld = createMockWorld();
+      const streamingDuelSystem = new DuelSystem(streamingWorld as never);
+
+      try {
+        streamingDuelSystem.init();
+        expect(
+          streamingDuelSystem.arenaPool.getDuelIdForArena(
+            STREAMING_DUEL_ARENA_ID,
+          ),
+        ).toBe(STREAMING_DUEL_ARENA_RESERVATION_ID);
+        expect(streamingDuelSystem.reserveArena("ordinary-duel")).toBe(2);
+
+        streamingDuelSystem.destroy();
+        expect(
+          streamingDuelSystem.arenaPool.getDuelIdForArena(
+            STREAMING_DUEL_ARENA_ID,
+          ),
+        ).toBeNull();
+      } finally {
+        if (previous === undefined) {
+          delete process.env.STREAMING_DUEL_ENABLED;
+        } else {
+          process.env.STREAMING_DUEL_ENABLED = previous;
+        }
+      }
+    });
+
+    it("fails startup closed when streaming arena ownership is contested", () => {
+      const previous = process.env.STREAMING_DUEL_ENABLED;
+      process.env.STREAMING_DUEL_ENABLED = "true";
+      const contestedWorld = createMockWorld();
+      const contestedDuelSystem = new DuelSystem(contestedWorld as never);
+      contestedDuelSystem.arenaPool.reserveSpecificArena(
+        STREAMING_DUEL_ARENA_ID,
+        "unexpected-owner",
+      );
+
+      try {
+        expect(() => contestedDuelSystem.init()).toThrow(
+          /refusing to start with split arena ownership/,
+        );
+      } finally {
+        contestedDuelSystem.destroy();
+        if (previous === undefined) {
+          delete process.env.STREAMING_DUEL_ENABLED;
+        } else {
+          process.env.STREAMING_DUEL_ENABLED = previous;
+        }
+      }
+    });
+  });
 
   describe("createChallenge", () => {
     it("creates a challenge successfully", () => {
@@ -708,6 +833,115 @@ describe("DuelSystem", () => {
         expect.objectContaining({ count: 1 }),
       );
     });
+
+    it("keeps combat closed until both prayer restores commit", async () => {
+      installAuthoritativePlayerEntity(world, "player1", "P1");
+      installAuthoritativePlayerEntity(world, "player2", "P2");
+      const resolvers = new Map<
+        string,
+        (receipt: { success: boolean; reason?: string }) => void
+      >();
+      const restorePrayerPoints = vi.fn(
+        (playerId: string) =>
+          new Promise<{ success: boolean; reason?: string }>((resolve) => {
+            resolvers.set(playerId, resolve);
+          }),
+      );
+      world.getSystem.mockImplementation((name: string) =>
+        name === "prayer"
+          ? { restorePrayerPoints, getMaxPrayerPoints: () => 10 }
+          : null,
+      );
+
+      advanceTicks(5);
+
+      expect(duelSystem.getDuelSession(duelId)?.state).toBe("COUNTDOWN");
+      expect(world._emit).not.toHaveBeenCalledWith(
+        "duel:fight:start",
+        expect.anything(),
+      );
+      expect(restorePrayerPoints).toHaveBeenCalledTimes(2);
+      expect(restorePrayerPoints).toHaveBeenCalledWith(
+        "player1",
+        10,
+        `ordinary-duel-start-prayer:${duelId}:player1`,
+      );
+
+      resolvers.get("player1")?.({ success: true });
+      await flushLifecyclePromises();
+      expect(duelSystem.getDuelSession(duelId)?.state).toBe("COUNTDOWN");
+
+      resolvers.get("player2")?.({ success: true });
+      await flushLifecyclePromises();
+      expect(duelSystem.getDuelSession(duelId)?.state).toBe("FIGHTING");
+      expect(world._emit).toHaveBeenCalledWith(
+        "duel:fight:start",
+        expect.objectContaining({ duelId }),
+      );
+    });
+
+    it("cancels before combat when a prayer restore is rejected", async () => {
+      installAuthoritativePlayerEntity(world, "player1", "P1");
+      installAuthoritativePlayerEntity(world, "player2", "P2");
+      world.getSystem.mockImplementation((name: string) =>
+        name === "prayer"
+          ? {
+              restorePrayerPoints: vi.fn(async (playerId: string) =>
+                playerId === "player1"
+                  ? { success: false, reason: "persistence_failed" }
+                  : { success: true },
+              ),
+              getMaxPrayerPoints: () => 10,
+            }
+          : null,
+      );
+
+      advanceTicks(5);
+      await flushLifecyclePromises();
+
+      expect(duelSystem.getDuelSession(duelId)).toBeUndefined();
+      expect(world._emit).not.toHaveBeenCalledWith(
+        "duel:fight:start",
+        expect.anything(),
+      );
+      expect(world._emit).toHaveBeenCalledWith(
+        "duel:cancelled",
+        expect.objectContaining({ duelId, reason: "prayer_restore_failed" }),
+      );
+    });
+
+    it("does not start a delayed fight after system teardown", async () => {
+      installAuthoritativePlayerEntity(world, "player1", "P1");
+      installAuthoritativePlayerEntity(world, "player2", "P2");
+      const resolvers = new Map<
+        string,
+        (receipt: { success: boolean }) => void
+      >();
+      world.getSystem.mockImplementation((name: string) =>
+        name === "prayer"
+          ? {
+              restorePrayerPoints: (playerId: string) =>
+                new Promise<{ success: boolean }>((resolve) => {
+                  resolvers.set(playerId, resolve);
+                }),
+              getMaxPrayerPoints: () => 10,
+            }
+          : null,
+      );
+
+      advanceTicks(5);
+      duelSystem.destroy();
+      world._emit.mockClear();
+
+      resolvers.get("player1")?.({ success: true });
+      resolvers.get("player2")?.({ success: true });
+      await flushLifecyclePromises();
+
+      expect(world._emit).not.toHaveBeenCalledWith(
+        "duel:fight:start",
+        expect.anything(),
+      );
+    });
   });
 
   describe("processTick - combat arena ejection", () => {
@@ -741,6 +975,67 @@ describe("DuelSystem", () => {
       );
     });
 
+    it("does not sample procedural terrain when nobody needs ejection", () => {
+      const getHeightAt = vi.fn(() => 7);
+      world.getSystem.mockReturnValue({ getHeightAt });
+
+      duelSystem.processTick();
+
+      expect(getHeightAt).not.toHaveBeenCalled();
+    });
+
+    it("samples one egress height for an entire ejection batch", () => {
+      const arenaPos = getCombatArenaPosition();
+      const getHeightAt = vi.fn(() => 7);
+      world.getSystem.mockReturnValue({ getHeightAt });
+      world.setPlayerPosition("player1", arenaPos.x, arenaPos.y, arenaPos.z);
+      world.setPlayerPosition(
+        "player2",
+        arenaPos.x + 1,
+        arenaPos.y,
+        arenaPos.z,
+      );
+      world.addPlayer({
+        id: "player3",
+        position: { x: arenaPos.x + 2, y: arenaPos.y, z: arenaPos.z },
+      });
+      world._emit.mockClear();
+
+      duelSystem.processTick();
+
+      expect(getHeightAt).toHaveBeenCalledOnce();
+      expect(getHeightAt).toHaveBeenCalledWith(0, 0);
+      const teleports = world._emit.mock.calls.filter(
+        (call: unknown[]) => call[0] === "player:teleport",
+      );
+      expect(teleports).toHaveLength(3);
+      expect(
+        teleports.every(
+          (call: unknown[]) =>
+            (call[1] as { position?: { y?: number } }).position?.y === 7.1,
+        ),
+      ).toBe(true);
+    });
+
+    it("prunes expired per-player ejection cooldowns", () => {
+      const arenaPos = getCombatArenaPosition();
+      world.setPlayerPosition("player1", arenaPos.x, arenaPos.y, arenaPos.z);
+      duelSystem.processTick();
+      expect(
+        (duelSystem as unknown as { _ejectionCooldowns: Map<string, number> })
+          ._ejectionCooldowns.size,
+      ).toBe(1);
+
+      world.setPlayerPosition("player1", 0, 0, 0);
+      vi.advanceTimersByTime(30_000);
+      duelSystem.processTick();
+
+      expect(
+        (duelSystem as unknown as { _ejectionCooldowns: Map<string, number> })
+          ._ejectionCooldowns.size,
+      ).toBe(0);
+    });
+
     it("does not teleport players who are in a duel session", () => {
       const arenaPos = getCombatArenaPosition();
       const challenge = createTestChallenge(
@@ -769,8 +1064,7 @@ describe("DuelSystem", () => {
     it("does not teleport players marked in streaming/pvp duels", () => {
       const arenaPos = getCombatArenaPosition();
       const player = world.entities.players.get("player1") as
-        | { data?: { inStreamingDuel?: boolean } }
-        | undefined;
+        { data?: { inStreamingDuel?: boolean } } | undefined;
       if (player) {
         player.data = { inStreamingDuel: true };
       }
@@ -854,6 +1148,49 @@ describe("DuelSystem", () => {
           loserId: "player1",
           reason: "forfeit",
         }),
+      );
+    });
+
+    it("retains the finished session and arena until prayer restoration answers", async () => {
+      installAuthoritativePlayerEntity(world, "player1", "P1");
+      installAuthoritativePlayerEntity(world, "player2", "P2");
+      const resolvers = new Map<
+        string,
+        (receipt: { success: boolean }) => void
+      >();
+      const restorePrayerPoints = vi.fn(
+        (playerId: string) =>
+          new Promise<{ success: boolean }>((resolve) => {
+            resolvers.set(playerId, resolve);
+          }),
+      );
+      world.getSystem.mockImplementation((name: string) =>
+        name === "prayer"
+          ? { restorePrayerPoints, getMaxPrayerPoints: () => 10 }
+          : null,
+      );
+      const arenaId = duelSystem.getDuelSession(duelId)?.arenaId;
+      world._emit.mockClear();
+
+      expect(duelSystem.forfeitDuel("player1").success).toBe(true);
+
+      expect(duelSystem.getDuelSession(duelId)?.state).toBe("FINISHED");
+      expect(duelSystem.arenaPool.isArenaAvailable(arenaId!)).toBe(false);
+      expect(world._emit).not.toHaveBeenCalledWith(
+        "duel:completed",
+        expect.anything(),
+      );
+
+      resolvers.get("player1")?.({ success: true });
+      resolvers.get("player2")?.({ success: true });
+      await flushLifecyclePromises();
+      await flushLifecyclePromises();
+
+      expect(duelSystem.getDuelSession(duelId)).toBeUndefined();
+      expect(duelSystem.arenaPool.isArenaAvailable(arenaId!)).toBe(true);
+      expect(world._emit).toHaveBeenCalledWith(
+        "duel:completed",
+        expect.objectContaining({ duelId, reason: "forfeit" }),
       );
     });
   });

@@ -30,8 +30,13 @@ import { errMsg } from "../../shared/errMsg.js";
  * Check if load test mode is enabled
  * When enabled, allows anonymous connections without database insertion
  */
-export function isLoadTestMode(): boolean {
-  return process.env.LOAD_TEST_MODE === "true";
+export function isLoadTestMode(
+  environment: NodeJS.ProcessEnv = process.env,
+): boolean {
+  return (
+    environment.LOAD_TEST_MODE === "true" &&
+    environment.NODE_ENV !== "production"
+  );
 }
 
 /**
@@ -188,8 +193,7 @@ export async function authenticateUser(
             .first()) as User | undefined;
         } catch (_e) {
           dbResult = (await db("users").where("id", privyUserId).first()) as
-            | User
-            | undefined;
+            User | undefined;
         }
 
         if (dbResult) {

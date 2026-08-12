@@ -17,6 +17,7 @@ import { PlayerDeathSystem } from "../PlayerDeathSystem";
 import { DeathState } from "../../../../types/entities";
 import { COMBAT_CONSTANTS } from "../../../../constants/CombatConstants";
 import { EventType } from "../../../../types/events";
+import { ZoneType } from "../../../../types/death";
 
 // =============================================================================
 // MOCK INFRASTRUCTURE
@@ -521,6 +522,332 @@ describe("PlayerDeathSystem — kept items on respawn", () => {
     await respawnPlayer("player1", { x: 0, y: 10, z: 0 }, "Central Haven");
 
     expect(mockInventorySystem.addItemDirect).not.toHaveBeenCalled();
+  });
+});
+
+// =============================================================================
+// ATOMIC SAFE-AREA CUSTODY
+// =============================================================================
+
+describe("PlayerDeathSystem — atomic safe-area custody", () => {
+  it("commits persisted custody before clearing live inventory and equipment", async () => {
+    const world = createMockWorld(true, 1000);
+    const order: string[] = [];
+    const database = {
+      executeInTransaction: vi.fn(),
+      commitSafeAreaDeathOperationAsync: vi.fn(async () => {
+        order.push("commit-custody");
+        return {
+          operationId: "safe-death-operation-1",
+          replayed: false,
+          dropped: [{ itemId: "bronze_sword", quantity: 1 }],
+          kept: [{ itemId: "shrimp", quantity: 2 }],
+        };
+      }),
+    };
+    const equipment = {
+      reloadFromDatabase: vi.fn(async () => {
+        order.push("reload-equipment");
+      }),
+    };
+    const inventory = {
+      reloadFromDatabase: vi.fn(async () => {
+        order.push("reload-inventory");
+      }),
+    };
+    world.getSystem.mockImplementation((name: string) =>
+      name === "database"
+        ? database
+        : name === "equipment"
+          ? equipment
+          : name === "inventory"
+            ? inventory
+            : null,
+    );
+    const player = createMockPlayerEntity({
+      data: { deathState: DeathState.DYING },
+      position: { x: 500, y: 0, z: 500 },
+    });
+    world.entities.get.mockReturnValue(player);
+    const system = new PlayerDeathSystem(createSystemWorld(world));
+    const refreshDeathLock = vi.fn(async () => ({
+      deathOperationId: "safe-death-operation-1",
+    }));
+    (
+      system as unknown as {
+        deathStateManager: {
+          getDeathLock: Mock;
+          refreshDeathLock: Mock;
+        };
+        zoneDetection: { getZoneType: Mock };
+        postDeathCleanup: Mock;
+      }
+    ).deathStateManager = {
+      getDeathLock: vi.fn().mockResolvedValue(null),
+      refreshDeathLock,
+    };
+    (
+      system as unknown as {
+        zoneDetection: { getZoneType: Mock };
+      }
+    ).zoneDetection = {
+      getZoneType: vi.fn().mockReturnValue(ZoneType.SAFE_AREA),
+    };
+    const cleanup = vi.fn();
+    (
+      system as unknown as {
+        postDeathCleanup: Mock;
+      }
+    ).postDeathCleanup = cleanup;
+
+    await (
+      system as unknown as {
+        _processPlayerDeathInner: (
+          playerId: string,
+          position: { x: number; y: number; z: number },
+          killedBy: string,
+        ) => Promise<void>;
+      }
+    )._processPlayerDeathInner("player1", { x: 500, y: 0, z: 500 }, "wolf");
+
+    expect(order).toEqual([
+      "commit-custody",
+      "reload-equipment",
+      "reload-inventory",
+    ]);
+    expect(refreshDeathLock).toHaveBeenCalledWith("player1");
+    expect(database.executeInTransaction).not.toHaveBeenCalled();
+    expect(cleanup).toHaveBeenCalledWith(
+      "player1",
+      { x: 500, y: 0, z: 500 },
+      [expect.objectContaining({ itemId: "bronze_sword", quantity: 1 })],
+      "wolf",
+      [expect.objectContaining({ itemId: "shrimp", quantity: 2 })],
+    );
+  });
+
+  it("leaves live custody untouched when database capture rejects", async () => {
+    const world = createMockWorld(true, 1000);
+    const database = {
+      executeInTransaction: vi.fn(),
+      commitSafeAreaDeathOperationAsync: vi
+        .fn()
+        .mockRejectedValue(new Error("database unavailable")),
+    };
+    const equipment = {
+      reloadFromDatabase: vi.fn(),
+    };
+    const inventory = {
+      reloadFromDatabase: vi.fn(),
+    };
+    world.getSystem.mockImplementation((name: string) =>
+      name === "database"
+        ? database
+        : name === "equipment"
+          ? equipment
+          : name === "inventory"
+            ? inventory
+            : null,
+    );
+    world.entities.get.mockReturnValue(
+      createMockPlayerEntity({ position: { x: 500, y: 0, z: 500 } }),
+    );
+    const system = new PlayerDeathSystem(createSystemWorld(world));
+    (
+      system as unknown as {
+        deathStateManager: { getDeathLock: Mock };
+        zoneDetection: { getZoneType: Mock };
+      }
+    ).deathStateManager = {
+      getDeathLock: vi.fn().mockResolvedValue(null),
+    };
+    (
+      system as unknown as {
+        zoneDetection: { getZoneType: Mock };
+      }
+    ).zoneDetection = {
+      getZoneType: vi.fn().mockReturnValue(ZoneType.SAFE_AREA),
+    };
+
+    await expect(
+      (
+        system as unknown as {
+          _processPlayerDeathInner: (
+            playerId: string,
+            position: { x: number; y: number; z: number },
+            killedBy: string,
+          ) => Promise<void>;
+        }
+      )._processPlayerDeathInner("player1", { x: 500, y: 0, z: 500 }, "wolf"),
+    ).rejects.toThrow("database unavailable");
+    expect(equipment.reloadFromDatabase).not.toHaveBeenCalled();
+    expect(inventory.reloadFromDatabase).not.toHaveBeenCalled();
+  });
+
+  it("keeps the player dead and schedules recovery when live reload fails after capture", async () => {
+    const world = createMockWorld(true, 1000);
+    const database = {
+      executeInTransaction: vi.fn(),
+      commitSafeAreaDeathOperationAsync: vi.fn(async () => ({
+        operationId: "safe-death-operation-1",
+        replayed: false,
+        dropped: [{ itemId: "bronze_sword", quantity: 1 }],
+        kept: [{ itemId: "shrimp", quantity: 2 }],
+      })),
+    };
+    const equipment = {
+      reloadFromDatabase: vi
+        .fn()
+        .mockRejectedValue(new Error("equipment reload unavailable")),
+    };
+    const inventory = {
+      reloadFromDatabase: vi
+        .fn()
+        .mockRejectedValue(new Error("inventory reload unavailable")),
+    };
+    world.getSystem.mockImplementation((name: string) =>
+      name === "database"
+        ? database
+        : name === "equipment"
+          ? equipment
+          : name === "inventory"
+            ? inventory
+            : null,
+    );
+    const player = createMockPlayerEntity({
+      data: { deathState: DeathState.DYING },
+      position: { x: 500, y: 0, z: 500 },
+    });
+    world.entities.get.mockReturnValue(player);
+    const system = new PlayerDeathSystem(createSystemWorld(world));
+    const emitTypedEvent = vi.spyOn(
+      system as unknown as {
+        emitTypedEvent: (type: string, data: unknown) => void;
+      },
+      "emitTypedEvent",
+    );
+    const refreshDeathLock = vi
+      .fn()
+      .mockRejectedValue(new Error("cache reload unavailable"));
+    (
+      system as unknown as {
+        deathStateManager: {
+          getDeathLock: Mock;
+          refreshDeathLock: Mock;
+        };
+        zoneDetection: { getZoneType: Mock };
+      }
+    ).deathStateManager = {
+      getDeathLock: vi.fn().mockResolvedValue(null),
+      refreshDeathLock,
+    };
+    (
+      system as unknown as {
+        zoneDetection: { getZoneType: Mock };
+      }
+    ).zoneDetection = {
+      getZoneType: vi.fn().mockReturnValue(ZoneType.SAFE_AREA),
+    };
+
+    await (
+      system as unknown as {
+        _processPlayerDeathInner: (
+          playerId: string,
+          position: { x: number; y: number; z: number },
+          killedBy: string,
+        ) => Promise<void>;
+      }
+    )._processPlayerDeathInner("player1", { x: 500, y: 0, z: 500 }, "wolf");
+
+    expect(player.data.deathState).toBe(DeathState.DYING);
+    expect(player.setHealth).not.toHaveBeenCalled();
+    expect(player.data.respawnTick).toBe(
+      COMBAT_CONSTANTS.DEATH.ANIMATION_TICKS,
+    );
+    expect(emitTypedEvent).toHaveBeenCalledWith(
+      EventType.AUDIT_LOG,
+      expect.objectContaining({
+        action: "SAFE_DEATH_LIVE_RELOAD_DEFERRED",
+        playerId: "player1",
+        transactionId: "safe-death-operation-1",
+      }),
+    );
+  });
+
+  it("returns kept custody before reviving the player", async () => {
+    const world = createMockWorld(true, 1000);
+    const order: string[] = [];
+    const database = {
+      commitSafeAreaDeathKeptReturnAsync: vi.fn(async () => {
+        order.push("commit-kept-return");
+        return {
+          operationId: "kept-return-1",
+          replayed: false,
+          returned: [{ itemId: "shrimp", quantity: 2 }],
+        };
+      }),
+    };
+    const inventory = {
+      reloadFromDatabase: vi.fn(async () => {
+        order.push("reload-inventory");
+      }),
+      addItemDirect: vi.fn(),
+    };
+    const equipment = {
+      reloadFromDatabase: vi.fn(async () => {
+        order.push("reload-equipment");
+      }),
+    };
+    world.getSystem.mockImplementation((name: string) =>
+      name === "database"
+        ? database
+        : name === "inventory"
+          ? inventory
+          : name === "equipment"
+            ? equipment
+            : null,
+    );
+    const player = createMockPlayerEntity({
+      data: { deathState: DeathState.DYING, visible: false },
+    });
+    player.setHealth.mockImplementation(() => {
+      order.push("revive-player");
+    });
+    world.entities.get.mockReturnValue(player);
+    const system = new PlayerDeathSystem(createSystemWorld(world));
+    const refreshDeathLock = vi.fn(async () => null);
+    (
+      system as unknown as {
+        deathStateManager: {
+          getDeathLock: Mock;
+          refreshDeathLock: Mock;
+        };
+      }
+    ).deathStateManager = {
+      getDeathLock: vi.fn().mockResolvedValue({
+        deathOperationId: "safe-death-operation-1",
+      }),
+      refreshDeathLock,
+    };
+
+    await (
+      system as unknown as {
+        respawnPlayer: (
+          playerId: string,
+          spawnPosition: { x: number; y: number; z: number },
+          townName: string,
+        ) => Promise<void>;
+      }
+    ).respawnPlayer("player1", { x: 0, y: 10, z: 0 }, "Central Haven");
+
+    expect(order.slice(0, 4)).toEqual([
+      "commit-kept-return",
+      "reload-inventory",
+      "reload-equipment",
+      "revive-player",
+    ]);
+    expect(refreshDeathLock).toHaveBeenCalledWith("player1");
+    expect(inventory.addItemDirect).not.toHaveBeenCalled();
   });
 });
 

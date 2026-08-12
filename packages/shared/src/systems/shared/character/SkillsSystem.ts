@@ -42,6 +42,7 @@ import {
   requireStatsComponent,
 } from "../../../utils/game/ComponentUtils";
 import { COMBAT_CONSTANTS } from "../../../constants/CombatConstants";
+import { Logger } from "../../../utils/Logger";
 
 /** Skill name constants for type-safe skill references */
 export const Skill = {
@@ -185,6 +186,10 @@ export class SkillsSystem extends SystemBase {
     skill: keyof Skills,
     amount: number,
   ): void {
+    if (this.rejectNonAtomicPrayerProgression(entityId, skill)) return;
+    if (!Number.isFinite(amount) || amount <= 0 || amount > 1_000_000) {
+      return;
+    }
     const entity = this.world.entities.get(entityId) as Entity;
     if (!entity) return;
 
@@ -266,12 +271,100 @@ export class SkillsSystem extends SystemBase {
    * Routes through event system to maintain consistency
    */
   public grantXP(entityId: string, skill: keyof Skills, amount: number): void {
+    if (this.rejectNonAtomicPrayerProgression(entityId, skill)) return;
     // Use event system for consistency with other XP sources
     this.emitTypedEvent(EventType.SKILLS_XP_GAINED, {
       playerId: entityId,
       skill,
       amount,
     });
+  }
+
+  /**
+   * Converge live Prayer skill state on an already committed database result.
+   * This deliberately bypasses the ordinary XP path: custody, XP, level, and
+   * prayer points were committed together, so emitting another XP mutation or
+   * asynchronous point transition would duplicate durable work.
+   */
+  public reconcileCommittedPrayerProgression(
+    entityId: string,
+    currentXp: number,
+    currentLevel: number,
+    awardedXp: number,
+    replayed: boolean,
+  ): boolean {
+    if (
+      !entityId ||
+      !Number.isSafeInteger(currentXp) ||
+      currentXp < 0 ||
+      currentXp > SkillsSystem.MAX_XP ||
+      !Number.isSafeInteger(currentLevel) ||
+      currentLevel < 1 ||
+      currentLevel > SkillsSystem.MAX_LEVEL ||
+      this.getLevelForXP(currentXp) !== currentLevel ||
+      !Number.isSafeInteger(awardedXp) ||
+      awardedXp < 0 ||
+      awardedXp > 1_000_000
+    ) {
+      return false;
+    }
+    const entity = this.world.entities.get(entityId) as Entity | undefined;
+    if (!entity) return false;
+    const stats = getStatsComponent(entity);
+    const prayer = stats?.prayer as SkillData | undefined;
+    if (!stats || !prayer) return false;
+
+    const oldLevel = Number.isSafeInteger(prayer.level) ? prayer.level : 1;
+    prayer.xp = currentXp;
+    prayer.level = currentLevel;
+    this.updateCombatLevel(entity, stats);
+    this.updateTotalLevel(entity, stats);
+
+    if (!replayed && currentLevel > oldLevel) {
+      const milestones = this.skillMilestones.get(Skill.PRAYER) ?? [];
+      for (const milestone of milestones) {
+        if (milestone.level > oldLevel && milestone.level <= currentLevel) {
+          this.emitTypedEvent(EventType.SKILLS_MILESTONE, {
+            entityId,
+            skill: Skill.PRAYER,
+            milestone,
+          });
+        }
+      }
+      this.emitTypedEvent(EventType.SKILLS_LEVEL_UP, {
+        entityId,
+        skill: Skill.PRAYER,
+        oldLevel,
+        newLevel: currentLevel,
+        totalLevel: stats.totalLevel,
+      });
+    }
+
+    if (!replayed && awardedXp > 0) {
+      this.xpDrops.push({
+        entityId,
+        playerId: entityId,
+        skill: Skill.PRAYER,
+        amount: awardedXp,
+        timestamp: Date.now(),
+        position: { x: 0, y: 0, z: 0 },
+      });
+      const position = entity.position || { x: 0, y: 0, z: 0 };
+      this.emitTypedEvent(EventType.XP_DROP_BROADCAST, {
+        playerId: entityId,
+        skill: Skill.PRAYER,
+        amount: awardedXp,
+        newXp: currentXp,
+        newLevel: currentLevel,
+        position: { x: position.x, y: position.y, z: position.z },
+      });
+    }
+
+    this.emitTypedEvent(EventType.SKILLS_UPDATED, {
+      playerId: entityId,
+      skills: this.getSkills(entityId) || {},
+    });
+    return true;
   }
 
   /**
@@ -377,8 +470,8 @@ export class SkillsSystem extends SystemBase {
       Skill.STRENGTH,
       Skill.DEFENSE,
       Skill.RANGE,
-      Skill.CONSTITUTION,
       Skill.MAGIC,
+      Skill.CONSTITUTION,
       Skill.PRAYER,
       Skill.WOODCUTTING,
       Skill.MINING,
@@ -411,8 +504,8 @@ export class SkillsSystem extends SystemBase {
       Skill.STRENGTH,
       Skill.DEFENSE,
       Skill.RANGE,
-      Skill.CONSTITUTION,
       Skill.MAGIC,
+      Skill.CONSTITUTION,
       Skill.PRAYER,
       Skill.WOODCUTTING,
       Skill.MINING,
@@ -438,6 +531,7 @@ export class SkillsSystem extends SystemBase {
    * Reset a skill to level 1
    */
   public resetSkill(entityId: string, skill: keyof Skills): void {
+    if (this.rejectNonAtomicPrayerProgression(entityId, skill)) return;
     const entity = this.world.entities.get(entityId) as Entity;
     if (!entity) return;
 
@@ -483,6 +577,7 @@ export class SkillsSystem extends SystemBase {
     skill: keyof Skills,
     level: number,
   ): void {
+    if (this.rejectNonAtomicPrayerProgression(entityId, skill)) return;
     if (level < 1 || level > SkillsSystem.MAX_LEVEL) {
       console.warn(`Invalid level ${level} for skill ${skill}`);
       return;
@@ -558,7 +653,9 @@ export class SkillsSystem extends SystemBase {
       Skill.STRENGTH,
       Skill.DEFENSE,
       Skill.RANGE,
+      Skill.MAGIC,
       Skill.CONSTITUTION,
+      Skill.PRAYER,
       Skill.WOODCUTTING,
       Skill.MINING,
       Skill.FISHING,
@@ -568,6 +665,7 @@ export class SkillsSystem extends SystemBase {
       Skill.AGILITY,
       Skill.CRAFTING,
       Skill.FLETCHING,
+      Skill.RUNECRAFTING,
     ];
 
     for (const skill of skills) {
@@ -590,6 +688,19 @@ export class SkillsSystem extends SystemBase {
         reward: null,
       },
     );
+  }
+
+  private rejectNonAtomicPrayerProgression(
+    entityId: string,
+    skill: keyof Skills,
+  ): boolean {
+    if (skill !== Skill.PRAYER) return false;
+    Logger.systemWarn(
+      "SkillsSystem",
+      `Rejected non-atomic Prayer progression for ${entityId}`,
+      { entityId },
+    );
+    return true;
   }
 
   private handleLevelUp(
@@ -631,20 +742,6 @@ export class SkillsSystem extends SystemBase {
       stats.health.max = newMax;
       // If current HP is higher than new max, cap it (floor for integer health)
       stats.health.current = Math.floor(Math.min(stats.health.current, newMax));
-    }
-
-    // Special handling for Prayer level up
-    // Prayer level = max prayer points (rules-accurate)
-    if (skill === Skill.PRAYER) {
-      const prayerSystem = this.world.getSystem("prayer") as unknown as {
-        setMaxPrayerPoints?: (id: string, max: number) => void;
-        restorePrayerPoints?: (id: string, amount: number) => void;
-      } | null;
-      if (prayerSystem?.setMaxPrayerPoints) {
-        prayerSystem.setMaxPrayerPoints(entity.id, newLevel);
-        // Also restore prayer points to new max (classic MMORPG behavior on level-up)
-        prayerSystem.restorePrayerPoints?.(entity.id, newLevel);
-      }
     }
 
     this.emitTypedEvent(EventType.SKILLS_LEVEL_UP, {
@@ -700,7 +797,8 @@ export class SkillsSystem extends SystemBase {
 
     // Note: inventory component access reserved for future XP bonus calculations
 
-    return Math.floor(baseXP * modifier);
+    const modified = baseXP * modifier;
+    return Number.isFinite(modified) && modified > 0 ? modified : 0;
   }
 
   // Event handlers

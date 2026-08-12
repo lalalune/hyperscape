@@ -40,6 +40,7 @@ import type { Entity } from "../../../../entities/Entity";
 import type { MobEntity } from "../../../../entities/npc/MobEntity";
 import type { Item } from "../../../../types/game/item-types";
 import { getNPCById } from "../../../../data/npcs";
+import { uuid } from "../../../../utils/IdGenerator";
 
 export class MagicAttackHandler {
   /**
@@ -399,6 +400,21 @@ export class MagicAttackHandler {
     const attackerPos = getEntityPosition(attacker)!;
     const targetPos = getEntityPosition(target)!;
 
+    if (
+      !this.ctx.projectileService.canCreateProjectile(
+        attackerId,
+        { x: attackerPos.x, z: attackerPos.z },
+        { x: targetPos.x, z: targetPos.z },
+      )
+    ) {
+      this.ctx.emitTypedEvent(EventType.UI_MESSAGE, {
+        playerId: attackerId,
+        message: "You cannot launch another projectile yet.",
+        type: "error",
+      });
+      return;
+    }
+
     // Check cooldown
     const typedAttackerId = createEntityID(attackerId);
     if (!this.ctx.checkAttackCooldown(typedAttackerId, currentTick)) {
@@ -412,26 +428,10 @@ export class MagicAttackHandler {
     // handleMagicAttack is async (awaits consumeRunesForSpell), so two concurrent
     // invocations (event handler + tick auto-attack) can both pass checkAttackCooldown
     // before either sets the cooldown, resulting in duplicate projectiles.
-    this.ctx.nextAttackTicks.set(
-      typedAttackerId,
-      currentTick + attackSpeedTicks,
-    );
-
-    // Face target
-    this.ctx.rotationManager.rotateTowardsTarget(
-      attackerId,
-      targetId,
-      attackerType,
-      targetType,
-    );
-
-    // Play attack animation
-    this.ctx.animationManager.setCombatEmote(
-      attackerId,
-      attackerType,
-      currentTick,
-      attackSpeedTicks,
-    );
+    const previousNextAttackTick =
+      this.ctx.nextAttackTicks.get(typedAttackerId);
+    const claimedNextAttackTick = currentTick + attackSpeedTicks;
+    this.ctx.nextAttackTicks.set(typedAttackerId, claimedNextAttackTick);
 
     // Calculate damage
     const damage = this.calculatePlayerMagicDamage(
@@ -442,11 +442,33 @@ export class MagicAttackHandler {
       spell,
     );
 
-    // Create projectile and emit visual event BEFORE consuming runes.
-    // consumeRunesForSpell is async (inventory writes), so awaiting it lets
-    // game ticks advance. If we emit the visual event after the await, the
-    // client receives it late and the projectile arrives after the damage splat.
-    // Rune availability was already validated above (hasRequiredRunes).
+    const runeDebit = await this.consumeRunesForSpell(
+      attackerId,
+      spell,
+      weapon,
+      `spell-runes:${uuid()}${uuid()}`,
+    );
+    if (!runeDebit.ok) {
+      if (
+        this.ctx.nextAttackTicks.get(typedAttackerId) === claimedNextAttackTick
+      ) {
+        if (previousNextAttackTick === undefined) {
+          this.ctx.nextAttackTicks.delete(typedAttackerId);
+        } else {
+          this.ctx.nextAttackTicks.set(typedAttackerId, previousNextAttackTick);
+        }
+      }
+      this.ctx.emitTypedEvent(EventType.UI_MESSAGE, {
+        playerId: attackerId,
+        message:
+          runeDebit.reason === "insufficient_items"
+            ? "You don't have enough runes."
+            : "The spell was cancelled before launch. Your inventory is being synchronized.",
+        type: "error",
+      });
+      return;
+    }
+
     const projectileParams: CreateProjectileParams = {
       sourceId: attackerId,
       targetId,
@@ -459,7 +481,27 @@ export class MagicAttackHandler {
       xpReward: spell.baseXp,
     };
 
-    this.ctx.projectileService.createProjectile(projectileParams);
+    const projectile =
+      this.ctx.projectileService.createProjectile(projectileParams);
+    if (!projectile) {
+      console.error(
+        `[MagicAttackHandler] Projectile capacity changed after committed spell debit for ${attackerId}`,
+      );
+      return;
+    }
+
+    this.ctx.rotationManager.rotateTowardsTarget(
+      attackerId,
+      targetId,
+      attackerType,
+      targetType,
+    );
+    this.ctx.animationManager.setCombatEmote(
+      attackerId,
+      attackerType,
+      currentTick,
+      attackSpeedTicks,
+    );
 
     this.emitMagicProjectile(
       attackerId,
@@ -478,10 +520,6 @@ export class MagicAttackHandler {
       attackSpeedTicks,
       AttackType.MAGIC,
     );
-
-    // Consume runes after projectile/visual are dispatched.
-    // This is async (inventory writes) but runes were already validated.
-    await this.consumeRunesForSpell(attackerId, spell, weapon);
   }
 
   /**
@@ -524,17 +562,23 @@ export class MagicAttackHandler {
     playerId: string,
     spell: Spell,
     weapon: Item | null,
-  ): Promise<void> {
-    if (!this.ctx.inventorySystem) return;
+    operationId: string,
+  ): Promise<{ ok: true } | { ok: false; reason: string }> {
+    if (!this.ctx.inventorySystem) {
+      return { ok: false, reason: "atomic_persistence_unavailable" };
+    }
 
     const runesToConsume = runeService.getRunesToConsume(spell.runes, weapon);
-
-    for (const requirement of runesToConsume) {
-      await this.ctx.inventorySystem.removeItemDirect(playerId, {
+    if (runesToConsume.length === 0) return { ok: true };
+    const receipt = await this.ctx.inventorySystem.debitItemsAtomic(
+      playerId,
+      operationId,
+      runesToConsume.map((requirement) => ({
         itemId: requirement.runeId,
         quantity: requirement.quantity,
-      });
-    }
+      })),
+    );
+    return receipt.ok ? { ok: true } : { ok: false, reason: receipt.reason };
   }
 
   /**

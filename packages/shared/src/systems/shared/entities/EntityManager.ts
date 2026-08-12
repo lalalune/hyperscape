@@ -257,6 +257,7 @@ export class EntityManager extends SystemBase {
       position: { x: number; y: number; z: number };
       services?: string[];
       modelPath?: string;
+      storeId?: string;
     }>(EventType.NPC_SPAWN_REQUEST, (data) => this.handleNPCSpawnRequest(data));
     this.subscribe(EventType.MOB_NPC_ATTACKED, (data) => {
       const typedData = data as {
@@ -1960,14 +1961,30 @@ export class EntityManager extends SystemBase {
     position: { x: number; y: number; z: number };
     services?: string[];
     modelPath?: string;
+    storeId?: string;
   }): Promise<void> {
+    const externalNPC = getExternalNPC(data.npcId);
+    const resolvedName = data.name?.trim() || externalNPC?.name || data.npcId;
+    const resolvedServices =
+      data.services && data.services.length > 0
+        ? data.services
+        : externalNPC?.services.enabled
+          ? externalNPC.services.types
+          : [];
+
     // Determine NPC type prefix based on services/type
     let typePrefix = "NPC";
-    if (data.type === "bank" || data.services?.includes("banking")) {
+    if (
+      data.type === "bank" ||
+      resolvedServices.includes("bank") ||
+      resolvedServices.includes("banking")
+    ) {
       typePrefix = "Bank";
     } else if (
+      data.storeId ||
       data.type === "general_store" ||
-      data.services?.includes("buy_items")
+      resolvedServices.includes("shop") ||
+      resolvedServices.includes("buy_items")
     ) {
       typePrefix = "Store";
     } else if (data.type === "skill_trainer") {
@@ -1981,7 +1998,6 @@ export class EntityManager extends SystemBase {
     if (data.modelPath) {
       modelPath = data.modelPath;
     } else {
-      const externalNPC = getExternalNPC(data.npcId);
       if (externalNPC && externalNPC.appearance.modelPath) {
         modelPath = externalNPC.appearance.modelPath as string;
       }
@@ -1989,7 +2005,7 @@ export class EntityManager extends SystemBase {
 
     const config: NPCEntityConfig = {
       id: `npc_${data.npcId}_${this.nextEntityId++}`,
-      name: `${typePrefix}: ${data.name}`,
+      name: `${typePrefix}: ${resolvedName}`,
       type: EntityType.NPC,
       position: data.position,
       rotation: { x: 0, y: 0, z: 0, w: 1 },
@@ -1998,12 +2014,14 @@ export class EntityManager extends SystemBase {
       interactable: true,
       interactionType: InteractionType.TALK,
       interactionDistance: 3,
-      description: data.name,
+      description: externalNPC?.description || resolvedName,
       model: modelPath,
       npcType: this.mapTypeToNPCType(data.type),
       npcId: data.npcId,
+      storeId: data.storeId,
       dialogueLines: [],
-      services: data.services || [],
+      services: resolvedServices,
+      questIds: externalNPC?.services.questIds,
       inventory: [],
       skillsOffered: [],
       questsAvailable: [],
@@ -2026,7 +2044,7 @@ export class EntityManager extends SystemBase {
           aggressionLevel: 0,
           dialogueLines: [],
           dialogue: null,
-          services: data.services || [],
+          services: resolvedServices,
         },
         dialogue: [],
         shopInventory: [],
@@ -2034,36 +2052,16 @@ export class EntityManager extends SystemBase {
       },
     };
 
-    await this.spawnEntity(config);
+    const npcEntity = await this.spawnEntity(config);
 
-    // If it's a store, register it with the store system
-    if (data.type === "general_store" || data.services?.includes("buy_items")) {
-      // Map NPC ID to store ID based on position
-      // NPCs are named like "central_haven_shopkeeper", stores are like "store_town_0"
-      let storeId = "store_town_0"; // Default to central
-      if (
-        data.npcId.includes("central_haven") ||
-        (data.position.x < 50 &&
-          data.position.x > -50 &&
-          data.position.z < 50 &&
-          data.position.z > -50)
-      ) {
-        storeId = "store_town_0"; // Central Haven
-      } else if (data.position.x > 50) {
-        storeId = "store_town_1"; // Eastern
-      } else if (data.position.x < -50) {
-        storeId = "store_town_2"; // Western
-      } else if (data.position.z > 50) {
-        storeId = "store_town_3"; // Northern
-      } else if (data.position.z < -50) {
-        storeId = "store_town_4"; // Southern
-      }
-
+    // Register only the exact manifest identity. Positional guesses can silently
+    // connect an NPC to the wrong inventory and are unsafe for conserved items.
+    if (data.storeId && npcEntity) {
       this.emitTypedEvent(EventType.STORE_REGISTER_NPC, {
-        npcId: data.npcId,
-        storeId: storeId,
+        npcId: npcEntity.id,
+        storeId: data.storeId,
         position: data.position,
-        name: data.name,
+        name: resolvedName,
         area: "town",
       });
     }
@@ -2074,6 +2072,10 @@ export class EntityManager extends SystemBase {
       case "bank":
         return NPCType.BANK;
       case "general_store":
+      case "armor_store":
+      case "crafting_store":
+      case "magic_store":
+      case "range_store":
         return NPCType.STORE;
       case "skill_trainer":
         return NPCType.TRAINER;

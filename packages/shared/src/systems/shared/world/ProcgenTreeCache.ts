@@ -461,6 +461,7 @@ const {
   uniform,
   float,
   vec2,
+  vec3,
   vec4,
   add,
   sub,
@@ -558,8 +559,7 @@ export function setProcgenTreeWorld(world: World): void {
 
   // Initialize tree card baker if renderer is available
   const graphics = world.graphics as
-    | { renderer?: CardBakerRenderer }
-    | undefined;
+    { renderer?: CardBakerRenderer } | undefined;
   if (graphics?.renderer) {
     const baker = getTreeCardBaker();
     if (!baker.isReady()) {
@@ -1077,8 +1077,8 @@ function createProceduralCrownMaterialTSL(
     const clusterDark = smoothstep(float(0.3), float(0.7), internalNoise);
 
     // Color variation - simulate light/shadow on leaf clusters
-    const darkColor = mul(uColor, float(0.6));
-    const lightColor = mul(uColor, float(1.2));
+    const darkColor = vec3(uColor).mul(0.6);
+    const lightColor = vec3(uColor).mul(1.2);
     const baseColor = mix(darkColor, lightColor, clusterDark);
 
     // Add slight ambient occlusion at edges

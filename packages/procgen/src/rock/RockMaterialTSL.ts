@@ -15,6 +15,7 @@
 
 import * as THREE from "three";
 import { MeshStandardNodeMaterial } from "three/webgpu";
+import type { UniformNode } from "three/webgpu";
 import {
   Fn,
   positionWorld,
@@ -43,24 +44,24 @@ import { TexturePattern } from "./types";
 // TSL TYPES
 // ============================================================================
 
-type TSLUniform<T> = ReturnType<typeof uniform<T>> & { value: T };
+type TSLUniform<TNodeType, TValue> = UniformNode<TNodeType, TValue>;
 
 /**
  * Uniform values for TSL rock material
  */
 export interface RockMaterialUniforms {
-  baseColor: TSLUniform<THREE.Color>;
-  secondaryColor: TSLUniform<THREE.Color>;
-  accentColor: TSLUniform<THREE.Color>;
-  textureScale: TSLUniform<number>;
-  textureDetail: TSLUniform<number>;
-  textureContrast: TSLUniform<number>;
-  heightBlend: TSLUniform<number>;
-  slopeBlend: TSLUniform<number>;
-  variation: TSLUniform<number>;
-  aoIntensity: TSLUniform<number>;
-  textureBlend: TSLUniform<number>;
-  triplanarSharpness: TSLUniform<number>;
+  baseColor: TSLUniform<"color", THREE.Color>;
+  secondaryColor: TSLUniform<"color", THREE.Color>;
+  accentColor: TSLUniform<"color", THREE.Color>;
+  textureScale: TSLUniform<"float", number>;
+  textureDetail: TSLUniform<"float", number>;
+  textureContrast: TSLUniform<"float", number>;
+  heightBlend: TSLUniform<"float", number>;
+  slopeBlend: TSLUniform<"float", number>;
+  variation: TSLUniform<"float", number>;
+  aoIntensity: TSLUniform<"float", number>;
+  textureBlend: TSLUniform<"float", number>;
+  triplanarSharpness: TSLUniform<"float", number>;
 }
 
 /**
@@ -91,7 +92,7 @@ export const tslHash3 = Fn(([p]: [ReturnType<typeof vec3>]) => {
     dot(p, vec3(127.1, 311.7, 74.7)),
     dot(p, vec3(269.5, 183.3, 246.1)),
   );
-  return fract(sin(p2).mul(43758.5453123));
+  return fract(vec2(sin(p2.x), sin(p2.y)).mul(43758.5453123));
 });
 
 /**
@@ -295,10 +296,9 @@ const triplanarSample = Fn(
     number,
   ]) => {
     // Triplanar blend weights
-    const blendWeights = pow(
-      abs(worldNormal),
-      vec3(sharpness, sharpness, sharpness),
-    );
+    const blendWeights = worldNormal
+      .abs()
+      .pow(vec3(sharpness, sharpness, sharpness));
     const blendSum = blendWeights.x
       .add(blendWeights.y)
       .add(blendWeights.z)
@@ -379,24 +379,18 @@ export function createRockMaterial(
 ): RockMaterialResult {
   // Create uniforms
   const uniforms: RockMaterialUniforms = {
-    baseColor: uniform(
-      new THREE.Color(params.colors.baseColor),
-    ) as TSLUniform<THREE.Color>,
-    secondaryColor: uniform(
-      new THREE.Color(params.colors.secondaryColor),
-    ) as TSLUniform<THREE.Color>,
-    accentColor: uniform(
-      new THREE.Color(params.colors.accentColor),
-    ) as TSLUniform<THREE.Color>,
-    textureScale: uniform(params.texture.scale) as TSLUniform<number>,
-    textureDetail: uniform(params.texture.detail) as TSLUniform<number>,
-    textureContrast: uniform(params.texture.contrast) as TSLUniform<number>,
-    heightBlend: uniform(params.colors.heightBlend) as TSLUniform<number>,
-    slopeBlend: uniform(params.colors.slopeBlend) as TSLUniform<number>,
-    variation: uniform(params.colors.variation) as TSLUniform<number>,
-    aoIntensity: uniform(params.colors.aoIntensity) as TSLUniform<number>,
-    textureBlend: uniform(params.textureBlend) as TSLUniform<number>,
-    triplanarSharpness: uniform(4.0) as TSLUniform<number>,
+    baseColor: uniform(new THREE.Color(params.colors.baseColor)),
+    secondaryColor: uniform(new THREE.Color(params.colors.secondaryColor)),
+    accentColor: uniform(new THREE.Color(params.colors.accentColor)),
+    textureScale: uniform(params.texture.scale),
+    textureDetail: uniform(params.texture.detail),
+    textureContrast: uniform(params.texture.contrast),
+    heightBlend: uniform(params.colors.heightBlend),
+    slopeBlend: uniform(params.colors.slopeBlend),
+    variation: uniform(params.colors.variation),
+    aoIntensity: uniform(params.colors.aoIntensity),
+    textureBlend: uniform(params.textureBlend),
+    triplanarSharpness: uniform(4.0),
   };
 
   const patternIndex = PATTERN_INDICES[params.texture.pattern];

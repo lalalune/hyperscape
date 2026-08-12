@@ -22,23 +22,26 @@ import THREE, {
   mul,
   step,
 } from "../../extras/three/three";
-import type { ShaderNode, ShaderNodeInput } from "../../extras/three/three";
+import type { Node } from "three/webgpu";
 import type { WebGPURenderer } from "./RendererFactory";
+
+type ColorNode = Node<"vec4">;
+type FloatNode = Node<"float">;
 
 // Dynamic module types
 type LUT3DFunction = (
-  input: ShaderNodeInput,
-  lutTexture: ShaderNodeInput,
+  input: ColorNode,
+  lutTexture: ColorNode,
   size: number,
-  intensity: ShaderNodeInput,
-) => ShaderNode;
+  intensity: FloatNode,
+) => ColorNode;
 type LUTLoaderResult = { texture3D: THREE.Data3DTexture };
 type LUTLoader = { loadAsync: (url: string) => Promise<LUTLoaderResult> };
 type HashBlurFunction = (
-  input: ShaderNodeInput,
-  blurAmount: ShaderNodeInput,
-  options?: { repeats?: ShaderNodeInput; premultipliedAlpha?: boolean },
-) => ShaderNode;
+  input: ColorNode,
+  blurAmount: FloatNode,
+  options?: { repeats?: FloatNode; premultipliedAlpha?: boolean },
+) => ColorNode;
 
 // Outline node types (dynamically loaded from three/addons/tsl/display/OutlineNode.js)
 type OutlineFunction = (
@@ -176,7 +179,9 @@ async function loadModules(): Promise<void> {
     hashBlurModule ? null : import("three/addons/tsl/display/hashBlur.js"),
   ]);
 
-  if (imports[0]) lut3DModule = imports[0] as { lut3D: LUT3DFunction };
+  if (imports[0]) {
+    lut3DModule = imports[0] as unknown as { lut3D: LUT3DFunction };
+  }
   if (imports[1])
     lutCubeLoaderModule = imports[1] as { LUTCubeLoader: new () => LUTLoader };
   if (imports[2])
@@ -293,7 +298,7 @@ export async function createPostProcessing(
   // PostProcessing instance
   type PostProcessingType = {
     outputColorTransform: boolean;
-    outputNode: ShaderNode;
+    outputNode: Node;
     render: () => void;
     renderAsync: () => Promise<void>;
     dispose: () => void;
@@ -315,8 +320,8 @@ export async function createPostProcessing(
   // Build TSL pipeline: scene -> depth blur -> tone map -> LUT -> outline
   const scenePass = pass(scene, camera);
   type ScenePassWithNodes = typeof scenePass & {
-    getTextureNode: () => ShaderNode;
-    getViewZNode: () => ShaderNode;
+    getTextureNode: () => ColorNode;
+    getViewZNode: () => FloatNode;
   };
   const sceneColor = (scenePass as ScenePassWithNodes).getTextureNode();
   const sceneViewZ = (scenePass as ScenePassWithNodes).getViewZNode();
@@ -324,21 +329,18 @@ export async function createPostProcessing(
   // Depth blur: only blur objects BEYOND the focus distance (far blur only)
   // hashBlur uses randomized sampling for smooth, organic blur (no grid artifacts)
   const blurredColor = hashBlurModule!.hashBlur(
-    sceneColor as ShaderNodeInput,
-    depthBlurAmountUniform as ShaderNodeInput,
-    { repeats: depthBlurRepeatsUniform as ShaderNodeInput },
+    sceneColor,
+    depthBlurAmountUniform,
+    { repeats: depthBlurRepeatsUniform },
   );
 
   // viewZ is negative in view space, so we negate it to get positive depth
-  const depth = mul(sceneViewZ as ShaderNodeInput, -1);
+  const depth = mul(sceneViewZ, -1);
   // Only blur objects further than focus distance (max clamps negative to 0 = no blur for near)
-  const depthBeyondFocus = max(
-    sub(depth, depthBlurFocusUniform as ShaderNodeInput),
-    uniform(0),
-  );
+  const depthBeyondFocus = max(sub(depth, depthBlurFocusUniform), uniform(0));
   const blurFactor = smoothstep(
     uniform(0),
-    depthBlurRangeUniform as ShaderNodeInput,
+    depthBlurRangeUniform,
     depthBeyondFocus,
   );
   // Exclude sky from blur: step returns 1 when depth >= skyDistance, we subtract to get 0
@@ -347,14 +349,10 @@ export async function createPostProcessing(
     step(uniform(DEPTH_BLUR_DEFAULTS.skyDistance), depth),
   );
   const finalBlurFactor = mul(
-    mul(blurFactor, depthBlurIntensityUniform as ShaderNodeInput),
+    mul(blurFactor, depthBlurIntensityUniform),
     skyMask,
   );
-  const depthBlurOutput = mix(
-    sceneColor as ShaderNodeInput,
-    blurredColor,
-    finalBlurFactor,
-  );
+  const depthBlurOutput = mix(sceneColor, blurredColor, finalBlurFactor);
 
   // Tone mapping
   const toneMapped = renderOutput(depthBlurOutput);

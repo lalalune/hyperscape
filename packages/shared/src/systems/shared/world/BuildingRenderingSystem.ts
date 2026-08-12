@@ -81,8 +81,8 @@ import THREE, {
   select,
   dFdx,
   dFdy,
-  type ShaderNode,
 } from "../../../extras/three/three";
+import type { Node, UniformNode } from "three/webgpu";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { MAX_VERTEX_LIGHTS } from "./TerrainShader";
 import type { VertexLight } from "./TerrainShader";
@@ -431,8 +431,8 @@ const tslNoise2D = Fn(([p]: [ReturnType<typeof vec2>]) => {
  */
 const calcProceduralLOD = Fn(([uvIn]: [ReturnType<typeof vec2>]) => {
   // Calculate how fast UVs change per pixel (filter width)
-  const dUVdx = vec2(dFdx(uvIn.x), dFdx(uvIn.y));
-  const dUVdy = vec2(dFdy(uvIn.x), dFdy(uvIn.y));
+  const dUVdx = dFdx(uvIn);
+  const dUVdy = dFdy(uvIn);
 
   // Maximum UV change per pixel (approximates mip level)
   const maxDeriv = max(
@@ -454,7 +454,8 @@ const aaStep = Fn(
   ([edge, x]: [ReturnType<typeof float>, ReturnType<typeof float>]) => {
     // Calculate filter width from screen-space derivatives
     // fwidth(x) = abs(dFdx(x)) + abs(dFdy(x))
-    const fw = abs(dFdx(x)).add(abs(dFdy(x)));
+    const derivativeInput = vec2(x, float(0));
+    const fw = abs(dFdx(derivativeInput).x).add(abs(dFdy(derivativeInput).x));
     // Scale filter width more aggressively to prevent aliasing
     const filterWidth = max(fw.mul(1.5), float(0.001));
     // Use smoothstep for anti-aliased transition
@@ -468,7 +469,8 @@ const aaStep = Fn(
  */
 const aaStepLt = Fn(
   ([edge, x]: [ReturnType<typeof float>, ReturnType<typeof float>]) => {
-    const fw = abs(dFdx(x)).add(abs(dFdy(x)));
+    const derivativeInput = vec2(x, float(0));
+    const fw = abs(dFdx(derivativeInput).x).add(abs(dFdy(derivativeInput).x));
     const filterWidth = max(fw.mul(1.5), float(0.001));
     // Inverted: 1 when x < edge
     return float(1.0).sub(
@@ -1052,18 +1054,18 @@ const LAMP_LIGHT_SEARCH_RANGE = 45;
  * Uniforms for building occlusion material.
  */
 export type BuildingOcclusionUniforms = {
-  playerPos: { value: THREE.Vector3 };
-  cameraPos: { value: THREE.Vector3 };
+  playerPos: UniformNode<"vec3", THREE.Vector3>;
+  cameraPos: UniformNode<"vec3", THREE.Vector3>;
   // Lighting uniforms
-  sunDirection: { value: THREE.Vector3 };
-  sunColor: { value: THREE.Color };
-  sunIntensity: { value: number };
-  ambientColor: { value: THREE.Color };
-  ambientIntensity: { value: number };
+  sunDirection: UniformNode<"vec3", THREE.Vector3>;
+  sunColor: UniformNode<"color", THREE.Color>;
+  sunIntensity: UniformNode<"float", number>;
+  ambientColor: UniformNode<"color", THREE.Color>;
+  ambientIntensity: UniformNode<"float", number>;
   // Vertex lighting uniforms (lampposts)
-  vertexLightPositions: Array<ReturnType<typeof uniform<THREE.Vector3>>>;
-  vertexLightColors: Array<ReturnType<typeof uniform<THREE.Vector3>>>;
-  vertexLightParams: Array<ReturnType<typeof uniform<THREE.Vector2>>>;
+  vertexLightPositions: Array<UniformNode<"vec3", THREE.Vector3>>;
+  vertexLightColors: Array<UniformNode<"vec3", THREE.Vector3>>;
+  vertexLightParams: Array<UniformNode<"vec2", THREE.Vector2>>;
 };
 
 /**
@@ -1097,12 +1099,9 @@ function createBuildingOcclusionMaterial(): BuildingOcclusionMaterial {
   const uAmbientIntensity = uniform(0.4);
 
   // Vertex lighting uniforms (lampposts)
-  const vertexLightPositions: Array<ReturnType<typeof uniform<THREE.Vector3>>> =
-    [];
-  const vertexLightColors: Array<ReturnType<typeof uniform<THREE.Vector3>>> =
-    [];
-  const vertexLightParams: Array<ReturnType<typeof uniform<THREE.Vector2>>> =
-    [];
+  const vertexLightPositions: Array<UniformNode<"vec3", THREE.Vector3>> = [];
+  const vertexLightColors: Array<UniformNode<"vec3", THREE.Vector3>> = [];
+  const vertexLightParams: Array<UniformNode<"vec2", THREE.Vector2>> = [];
 
   for (let i = 0; i < MAX_VERTEX_LIGHTS; i++) {
     vertexLightPositions.push(uniform(new THREE.Vector3(0, 0, 0)));
@@ -1313,7 +1312,7 @@ function createBuildingOcclusionMaterial(): BuildingOcclusionMaterial {
     // Get material ID and surface type from UV2
     // UV2.x = material ID (0.0=brick, 0.2=stone, 0.4=timber, 0.6=stucco, 0.8=wood (vertical), 0.85=siding (horizontal), 1.0=solid)
     // UV2.y = surface type (0.0=wall, 0.33=floor, 0.67=roof, 1.0=ceiling)
-    const uv2Attr = attribute("uv2", "vec2");
+    const uv2Attr = attribute<"vec2">("uv2", "vec2");
     const materialId = uv2Attr.x;
     const surfaceType = uv2Attr.y;
 
@@ -1645,7 +1644,7 @@ function createBuildingOcclusionMaterial(): BuildingOcclusionMaterial {
     // the "color" attribute. In that case, attribute() returns zeros which would
     // make roofs black. We detect this by checking if the vertex color sum is
     // near zero (invalid) and fall back to white (1,1,1).
-    const rawVertexColor = attribute("color", "vec3");
+    const rawVertexColor = attribute<"vec3">("color", "vec3");
 
     // Check if vertex colors are valid (sum > 0.1 means they exist and are non-black)
     // If vertex colors don't exist or are black (sum ~0), use white instead
@@ -1669,10 +1668,10 @@ function createBuildingOcclusionMaterial(): BuildingOcclusionMaterial {
     // Simple additive point lights with smooth attenuation
     // ============================================================================
     const calculateLightContribution = (
-      lightPos: ReturnType<typeof uniform>,
-      lightColor: ReturnType<typeof uniform>,
-      lightParams: ReturnType<typeof uniform>, // x=intensity, y=range
-    ) => {
+      lightPos: UniformNode<"vec3", THREE.Vector3>,
+      lightColor: UniformNode<"vec3", THREE.Vector3>,
+      lightParams: UniformNode<"vec2", THREE.Vector2>, // x=intensity, y=range
+    ): Node<"vec3"> => {
       const toLightVec = sub(lightPos, worldPos);
       const distToLight = add(
         add(mul(toLightVec.x, toLightVec.x), mul(toLightVec.y, toLightVec.y)),
@@ -1686,7 +1685,7 @@ function createBuildingOcclusionMaterial(): BuildingOcclusionMaterial {
       return mul(lightColor, attenuation);
     };
 
-    let lightAccum: ShaderNode = vec3(0, 0, 0);
+    let lightAccum: Node<"vec3"> = vec3(0, 0, 0);
     lightAccum = add(
       lightAccum,
       calculateLightContribution(
@@ -1800,7 +1799,7 @@ function createBuildingOcclusionMaterial(): BuildingOcclusionMaterial {
     const scaledUV = meshUV.div(uTextureScale);
 
     // Get material ID and surface type from UV2
-    const uv2Attr = attribute("uv2", "vec2");
+    const uv2Attr = attribute<"vec2">("uv2", "vec2");
     const materialId = uv2Attr.x;
     const surfaceType = uv2Attr.y;
 
@@ -2077,12 +2076,9 @@ function createBuildingRoofMaterial(): RoofOcclusionMaterial {
   const uAmbientIntensity = uniform(0.4);
 
   // Vertex lighting uniforms (lampposts)
-  const vertexLightPositions: Array<ReturnType<typeof uniform<THREE.Vector3>>> =
-    [];
-  const vertexLightColors: Array<ReturnType<typeof uniform<THREE.Vector3>>> =
-    [];
-  const vertexLightParams: Array<ReturnType<typeof uniform<THREE.Vector2>>> =
-    [];
+  const vertexLightPositions: Array<UniformNode<"vec3", THREE.Vector3>> = [];
+  const vertexLightColors: Array<UniformNode<"vec3", THREE.Vector3>> = [];
+  const vertexLightParams: Array<UniformNode<"vec2", THREE.Vector2>> = [];
 
   for (let i = 0; i < MAX_VERTEX_LIGHTS; i++) {
     vertexLightPositions.push(uniform(new THREE.Vector3(0, 0, 0)));
@@ -2100,9 +2096,9 @@ function createBuildingRoofMaterial(): RoofOcclusionMaterial {
     defaultCenters.push(new THREE.Vector2(-99999, -99999)); // Far away = not hidden
     defaultRadii.push(0);
   }
-  const uHiddenBuildingCenters = uniform(defaultCenters);
-  const uHiddenBuildingRadii = uniform(defaultRadii);
-  const uHiddenBuildingCount = uniform(0);
+  const uHiddenBuildingCenters = { value: defaultCenters };
+  const uHiddenBuildingRadii = { value: defaultRadii };
+  const uHiddenBuildingCount = { value: 0 };
 
   // Config as shader constants - Player occlusion cone
   const occlusionCameraRadius = float(BUILDING_OCCLUSION_CONFIG.CAMERA_RADIUS);
@@ -2136,8 +2132,8 @@ function createBuildingRoofMaterial(): RoofOcclusionMaterial {
 
     // ========== READ BUILDING CENTER FROM VERTEX ATTRIBUTE ==========
     // Each roof vertex has the XZ center of its building baked in
-    const buildingCenter = attribute("buildingCenter", "vec2");
-    const buildingRadius = attribute("buildingRadius", "float");
+    const buildingCenter = attribute<"vec2">("buildingCenter", "vec2");
+    const buildingRadius = attribute<"float">("buildingRadius", "float");
 
     // ========== PER-BUILDING ROOF HIDING (DITHERED FADE) ==========
     // Check distance of player AND camera to this building on XZ plane
@@ -2304,7 +2300,7 @@ function createBuildingRoofMaterial(): RoofOcclusionMaterial {
 
   material.colorNode = Fn(() => {
     // Read vertex color for tinting
-    const vertexColor = attribute("color", "vec3");
+    const vertexColor = attribute<"vec3">("color", "vec3");
 
     // World position for texture coordinates
     const worldPos = positionWorld;
@@ -2342,10 +2338,10 @@ function createBuildingRoofMaterial(): RoofOcclusionMaterial {
     // VERTEX LIGHTING (lampposts, torches, etc.)
     // ============================================================================
     const calculateLightContribution = (
-      lightPos: ReturnType<typeof uniform>,
-      lightColor: ReturnType<typeof uniform>,
-      lightParams: ReturnType<typeof uniform>, // x=intensity, y=range
-    ) => {
+      lightPos: UniformNode<"vec3", THREE.Vector3>,
+      lightColor: UniformNode<"vec3", THREE.Vector3>,
+      lightParams: UniformNode<"vec2", THREE.Vector2>, // x=intensity, y=range
+    ): Node<"vec3"> => {
       const toLightVec = sub(lightPos, worldPos);
       const distToLight = add(
         add(mul(toLightVec.x, toLightVec.x), mul(toLightVec.y, toLightVec.y)),
@@ -2359,7 +2355,7 @@ function createBuildingRoofMaterial(): RoofOcclusionMaterial {
       return mul(lightColor, attenuation);
     };
 
-    let lightAccum: ShaderNode = vec3(0, 0, 0);
+    let lightAccum: Node<"vec3"> = vec3(0, 0, 0);
     lightAccum = add(
       lightAccum,
       calculateLightContribution(
@@ -2775,8 +2771,7 @@ export class BuildingRenderingSystem extends SystemBase {
 
   /** Cached physics material for collision shapes (avoid recreating for every building) */
   private _cachedPhysicsMaterial:
-    | import("../../../types/systems/physics").PxMaterial
-    | null = null;
+    import("../../../types/systems/physics").PxMaterial | null = null;
 
   // ============================================
   // ROOF AUTO-HIDE FEATURE
@@ -3468,8 +3463,7 @@ export class BuildingRenderingSystem extends SystemBase {
             getBuildingLayout?: (
               id: string,
             ) =>
-              | import("@hyperforge/procgen/building").BuildingLayout
-              | undefined;
+              import("@hyperforge/procgen/building").BuildingLayout | undefined;
           } | null;
           const cachedLayout = townSystem?.getBuildingLayout?.(building.id);
 
@@ -5209,8 +5203,7 @@ export class BuildingRenderingSystem extends SystemBase {
 
     // Handle both TSL (WebGPU) and GLSL (WebGL) materials
     const material = impostorMesh.material as
-      | THREE.ShaderMaterial
-      | TSLImpostorMaterial;
+      THREE.ShaderMaterial | TSLImpostorMaterial;
     if (isTSLImpostorMaterial(material)) {
       // TSL material uses updateView method
       material.updateView(this._imposterFaceIndices, this._imposterFaceWeights);
@@ -5507,6 +5500,8 @@ export class BuildingRenderingSystem extends SystemBase {
     // Dispose shared materials
     this.batchedMaterial.dispose();
     this.roofMaterial.dispose();
+    this.floorMaterial.dispose();
+    this.glassMaterial.dispose();
 
     // Dispose dynamic impostor atlas
     if (this.dynamicAtlas) {

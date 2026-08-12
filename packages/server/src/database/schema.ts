@@ -81,15 +81,18 @@ import {
   pgTable,
   text,
   integer,
+  doublePrecision,
   bigint,
   real,
   timestamp,
   serial,
+  bigserial,
   unique,
   uniqueIndex,
   index,
   jsonb,
   boolean,
+  primaryKey,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 
@@ -218,20 +221,21 @@ export const characters = pgTable(
     rangedXp: integer("rangedXp").default(0),
     magicXp: integer("magicXp").default(0),
     prayerXp: integer("prayerXp").default(0),
-    woodcuttingXp: integer("woodcuttingXp").default(0),
-    miningXp: integer("miningXp").default(0),
-    fishingXp: integer("fishingXp").default(0),
-    firemakingXp: integer("firemakingXp").default(0),
-    cookingXp: integer("cookingXp").default(0),
-    smithingXp: integer("smithingXp").default(0),
+    woodcuttingXp: doublePrecision("woodcuttingXp").notNull().default(0),
+    miningXp: doublePrecision("miningXp").notNull().default(0),
+    fishingXp: doublePrecision("fishingXp").notNull().default(0),
+    firemakingXp: doublePrecision("firemakingXp").notNull().default(0),
+    cookingXp: doublePrecision("cookingXp").notNull().default(0),
+    smithingXp: doublePrecision("smithingXp").notNull().default(0),
     agilityXp: integer("agilityXp").default(0),
-    craftingXp: integer("craftingXp").default(0),
-    fletchingXp: integer("fletchingXp").default(0),
-    runecraftingXp: integer("runecraftingXp").default(0),
+    craftingXp: doublePrecision("craftingXp").notNull().default(0),
+    fletchingXp: doublePrecision("fletchingXp").notNull().default(0),
+    runecraftingXp: doublePrecision("runecraftingXp").notNull().default(0),
 
     // Prayer points (current and max)
     prayerPoints: integer("prayerPoints").default(1),
-    prayerMaxPoints: integer("prayerMaxPoints").default(1),
+    prayerPointUnits: integer("prayerPointUnits").notNull().default(1_000_000),
+    prayerMaxPoints: integer("prayerMaxPoints").notNull().default(1),
 
     /**
      * Active prayers stored as JSONB array of prayer ID strings.
@@ -242,6 +246,11 @@ export const characters = pgTable(
      * JSONB provides better performance for JSON operations and allows indexing.
      */
     activePrayers: jsonb("activePrayers").$type<string[]>().default([]),
+
+    processingConsumableUses: jsonb("processingConsumableUses")
+      .$type<Record<string, { usesPerItem: number; remainingUses: number }>>()
+      .notNull()
+      .default({}),
 
     // Status
     health: integer("health").default(100),
@@ -480,6 +489,446 @@ export const bankStorage = pgTable(
 );
 
 /**
+ * Durable idempotency receipts for server-owned agent bank transfers.
+ *
+ * The row is inserted in the same transaction as the inventory/bank mutation.
+ * Reusing the operation ID therefore returns the original outcome without
+ * moving items a second time, including after a process restart or a lost
+ * COMMIT response.
+ */
+export const agentBankOperations = pgTable(
+  "agent_bank_operations",
+  {
+    operationId: text("operationId").primaryKey(),
+    playerId: text("playerId")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    action: text("action").notNull(),
+    bankId: text("bankId").notNull(),
+    itemId: text("itemId"),
+    requestedQuantity: integer("requestedQuantity").notNull(),
+    committedQuantity: integer("committedQuantity").notNull(),
+    inventoryQuantityAfter: integer("inventoryQuantityAfter").notNull(),
+    bankQuantityAfter: integer("bankQuantityAfter"),
+    requestFingerprint: text("requestFingerprint").notNull(),
+    itemCount: integer("itemCount").notNull().default(1),
+    createdAt: bigint("createdAt", { mode: "number" })
+      .notNull()
+      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
+  },
+  (table) => ({
+    playerCreatedIdx: index("idx_agent_bank_operations_player_created").on(
+      table.playerId,
+      table.createdAt,
+    ),
+  }),
+);
+
+/** Exact private components committed by one composite bank withdrawal. */
+export const agentBankOperationItems = pgTable(
+  "agent_bank_operation_items",
+  {
+    operationId: text("operationId")
+      .notNull()
+      .references(() => agentBankOperations.operationId, {
+        onDelete: "cascade",
+      }),
+    itemId: text("itemId").notNull(),
+    requestedQuantity: integer("requestedQuantity").notNull(),
+    committedQuantity: integer("committedQuantity").notNull(),
+    inventoryQuantityAfter: integer("inventoryQuantityAfter").notNull(),
+    bankQuantityAfter: integer("bankQuantityAfter").notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.operationId, table.itemId] }),
+  }),
+);
+
+/**
+ * Immutable exactly-once receipts for server-owned agent store trades.
+ *
+ * Human store packets do not need a durable retry key. Autonomous purchases
+ * do: this row commits atomically with the coin/inventory mutation so a lost
+ * response or process restart can be reconciled without charging twice.
+ */
+export const agentStoreOperations = pgTable(
+  "agent_store_operations",
+  {
+    operationId: text("operation_id").primaryKey(),
+    playerId: text("player_id")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    action: text("action").notNull(),
+    storeId: text("store_id").notNull(),
+    itemId: text("item_id").notNull(),
+    requestedQuantity: integer("requested_quantity").notNull(),
+    unitPrice: integer("unit_price").notNull(),
+    totalValue: integer("total_value").notNull(),
+    coinBalanceAfter: integer("coin_balance_after").notNull(),
+    inventoryQuantityAfter: integer("inventory_quantity_after").notNull(),
+    requestFingerprint: text("request_fingerprint").notNull(),
+    createdAt: bigint("created_at", { mode: "number" })
+      .notNull()
+      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
+  },
+  (table) => ({
+    playerCreatedIdx: index("idx_agent_store_operations_player_created").on(
+      table.playerId,
+      table.createdAt,
+    ),
+  }),
+);
+
+/** Immutable exactly-once receipts for atomic bone custody and Prayer XP. */
+export const boneBurialOperations = pgTable(
+  "bone_burial_operations",
+  {
+    operationId: text("operation_id").primaryKey(),
+    playerId: text("player_id")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    itemId: text("item_id").notNull(),
+    xpAmount: integer("xp_amount").notNull(),
+    levelRequired: integer("level_required").notNull(),
+    awardedXp: integer("awarded_xp").notNull(),
+    operationCommittedXp: integer("operation_committed_xp").notNull(),
+    committedLevel: integer("committed_level").notNull(),
+    requestFingerprint: text("request_fingerprint").notNull(),
+    createdAt: bigint("created_at", { mode: "number" })
+      .notNull()
+      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
+  },
+  (table) => ({
+    playerCreatedIdx: index("idx_bone_burial_operations_player_created").on(
+      table.playerId,
+      table.createdAt,
+    ),
+  }),
+);
+
+/**
+ * Non-replayable durable context for ordinary embedded-agent autonomy.
+ *
+ * A checkpoint deliberately contains no pending action or action payload.
+ * After every process restart it can only be used as advisory context for a
+ * fresh decision against authoritative world state.
+ */
+export const agentAutonomyCheckpoints = pgTable(
+  "agent_autonomy_checkpoints",
+  {
+    characterId: text("character_id")
+      .primaryKey()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    schemaVersion: integer("schema_version").default(3).notNull(),
+    revision: bigint("revision", { mode: "number" }).default(1).notNull(),
+    goal: jsonb("goal").$type<unknown>(),
+    plan: jsonb("plan").$type<unknown>(),
+    memories: jsonb("memories").$type<string[]>().default([]).notNull(),
+    recentActionLog: jsonb("recent_action_log")
+      .$type<Array<{ tick: number; action: string; result: string }>>()
+      .default([])
+      .notNull(),
+    tickCounter: bigint("tick_counter", { mode: "number" })
+      .default(0)
+      .notNull(),
+    lastAppliedActionType: text("last_applied_action_type"),
+    lastAppliedAt: bigint("last_applied_at", { mode: "number" }),
+    lastAttemptedActionType: text("last_attempted_action_type"),
+    lastActionOutcome: text("last_action_outcome"),
+    lastAttemptedAt: bigint("last_attempted_at", { mode: "number" }),
+    requiresReassessment: boolean("requires_reassessment")
+      .default(true)
+      .notNull(),
+    updatedAt: bigint("updated_at", { mode: "number" })
+      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`)
+      .notNull(),
+  },
+  (table) => ({
+    updatedAtIdx: index("idx_agent_autonomy_checkpoints_updated_at").on(
+      table.updatedAt,
+    ),
+  }),
+);
+
+/**
+ * Immutable, privacy-safe causal history for ordinary pre-selection autonomy.
+ * Each non-idle action has one started edge and one terminal edge. The mutable
+ * head below is coordination state only; history rows are database-protected
+ * against update, delete, and truncate.
+ */
+export const agentAutonomyProgressionEvents = pgTable(
+  "agent_autonomy_progression_events",
+  {
+    eventSequence: bigserial("event_sequence", {
+      mode: "bigint",
+    }).primaryKey(),
+    eventKey: text("event_key").notNull(),
+    attemptId: text("attempt_id").notNull(),
+    characterId: text("character_id").notNull(),
+    eventSource: text("event_source").notNull(),
+    eventType: text("event_type").notNull(),
+    phase: text("phase").notNull(),
+    goalType: text("goal_type"),
+    actionType: text("action_type").notNull(),
+    decisionSource: text("decision_source").notNull(),
+    actionOutcome: text("action_outcome"),
+    appliedActionType: text("applied_action_type"),
+    checkpointRevision: bigint("checkpoint_revision", { mode: "number" }),
+    occurredAt: bigint("occurred_at", { mode: "number" }).notNull(),
+  },
+  (table) => ({
+    eventKeyUnique: uniqueIndex(
+      "uidx_agent_autonomy_progression_events_key",
+    ).on(table.eventKey),
+    attemptEdgeUnique: uniqueIndex(
+      "uidx_agent_autonomy_progression_events_attempt_edge",
+    ).on(table.attemptId, table.eventType),
+    characterSequenceIdx: index(
+      "idx_agent_autonomy_progression_events_character_sequence",
+    ).on(table.characterId, table.eventSequence),
+    actionTimeIdx: index(
+      "idx_agent_autonomy_progression_events_action_time",
+    ).on(table.actionType, table.occurredAt),
+    terminalCheckpointUnique: uniqueIndex(
+      "uidx_agent_autonomy_progression_events_terminal_checkpoint",
+    )
+      .on(table.characterId, table.checkpointRevision)
+      .where(sql`${table.eventType} = 'attempt_terminal'`),
+  }),
+);
+
+/** One-row lock and open-attempt fence per ordinary autonomous agent. */
+export const agentAutonomyProgressionHeads = pgTable(
+  "agent_autonomy_progression_heads",
+  {
+    characterId: text("character_id")
+      .primaryKey()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    openAttemptId: text("open_attempt_id"),
+    openPhase: text("open_phase"),
+    openGoalType: text("open_goal_type"),
+    openActionType: text("open_action_type"),
+    openDecisionSource: text("open_decision_source"),
+    openStartedAt: bigint("open_started_at", { mode: "number" }),
+    headRevision: bigint("head_revision", { mode: "number" })
+      .default(0)
+      .notNull(),
+    updatedAt: bigint("updated_at", { mode: "number" })
+      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`)
+      .notNull(),
+  },
+  (table) => ({
+    openAttemptUnique: uniqueIndex(
+      "uidx_agent_autonomy_progression_heads_open_attempt",
+    )
+      .on(table.openAttemptId)
+      .where(sql`${table.openAttemptId} IS NOT NULL`),
+  }),
+);
+
+/**
+ * Append-only, category-only lifecycle transitions for ordinary autonomy.
+ * These rows deliberately omit targets, descriptions, plans, prompts, items,
+ * inventory, and every other replayable/private payload.
+ */
+export const agentAutonomyLifecycleEvents = pgTable(
+  "agent_autonomy_lifecycle_events",
+  {
+    eventSequence: bigserial("event_sequence", {
+      mode: "bigint",
+    }).primaryKey(),
+    eventKey: text("event_key").notNull(),
+    characterId: text("character_id")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    attemptId: text("attempt_id").notNull(),
+    eventSource: text("event_source").notNull(),
+    eventType: text("event_type").notNull(),
+    lifecycleState: text("lifecycle_state").notNull(),
+    previousState: text("previous_state"),
+    previousGoalType: text("previous_goal_type"),
+    goalType: text("goal_type"),
+    actionType: text("action_type").notNull(),
+    actionOutcome: text("action_outcome"),
+    checkpointRevision: bigint("checkpoint_revision", { mode: "number" }),
+    occurredAt: bigint("occurred_at", { mode: "number" }).notNull(),
+  },
+  (table) => ({
+    eventKeyUnique: uniqueIndex("uidx_agent_autonomy_lifecycle_events_key").on(
+      table.eventKey,
+    ),
+    characterSequenceIdx: index(
+      "idx_agent_autonomy_lifecycle_events_character_sequence",
+    ).on(table.characterId, table.eventSequence),
+    stateTimeIdx: index("idx_agent_autonomy_lifecycle_events_state_time").on(
+      table.lifecycleState,
+      table.occurredAt,
+    ),
+  }),
+);
+
+/** Latest derived lifecycle category; immutable history remains in events. */
+export const agentAutonomyLifecycleHeads = pgTable(
+  "agent_autonomy_lifecycle_heads",
+  {
+    characterId: text("character_id")
+      .primaryKey()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    currentState: text("current_state").notNull().default("goal_selection"),
+    currentGoalType: text("current_goal_type"),
+    headRevision: bigint("head_revision", { mode: "number" })
+      .default(0)
+      .notNull(),
+    updatedAt: bigint("updated_at", { mode: "number" })
+      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`)
+      .notNull(),
+  },
+  (table) => ({
+    stateUpdatedIdx: index(
+      "idx_agent_autonomy_lifecycle_heads_state_updated",
+    ).on(table.currentState, table.updatedAt),
+  }),
+);
+
+/** Durable private preparation session that precedes every public duel market. */
+export const streamingDuelPreparations = pgTable(
+  "streaming_duel_preparations",
+  {
+    preparationId: text("preparationId").primaryKey(),
+    fencingToken: bigint("fencingToken", { mode: "bigint" }).notNull(),
+    agent1Id: text("agent1Id")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    agent2Id: text("agent2Id")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    allowedBankActions: text("allowedBankActions").array().notNull(),
+    status: text("status").notNull(),
+    selectedAt: bigint("selectedAt", { mode: "number" }).notNull(),
+    expiresAt: bigint("expiresAt", { mode: "number" }).notNull(),
+    agent1ReadyAt: bigint("agent1ReadyAt", { mode: "number" }),
+    agent2ReadyAt: bigint("agent2ReadyAt", { mode: "number" }),
+    agent1PlanEvidence:
+      jsonb("agent1PlanEvidence").$type<Record<string, unknown>>(),
+    agent2PlanEvidence:
+      jsonb("agent2PlanEvidence").$type<Record<string, unknown>>(),
+    frozenAt: bigint("frozenAt", { mode: "number" }),
+    cancelledAt: bigint("cancelledAt", { mode: "number" }),
+    cancellationReason: text("cancellationReason"),
+    version: integer("version").default(1).notNull(),
+  },
+  (table) => ({
+    activeStatusIdx: index("idx_streaming_duel_preparations_status").on(
+      table.status,
+      table.expiresAt,
+    ),
+    agent1Idx: index("idx_streaming_duel_preparations_agent1").on(
+      table.agent1Id,
+      table.selectedAt,
+    ),
+    agent2Idx: index("idx_streaming_duel_preparations_agent2").on(
+      table.agent2Id,
+      table.selectedAt,
+    ),
+  }),
+);
+
+/** Immutable public evidence committed before a streaming duel market opens. */
+export const streamingDuelCompetitiveSnapshots = pgTable(
+  "streaming_duel_competitive_snapshots",
+  {
+    preparationId: text("preparationId")
+      .primaryKey()
+      .references(() => streamingDuelPreparations.preparationId, {
+        onDelete: "cascade",
+      }),
+    snapshotVersion: integer("snapshotVersion").notNull(),
+    cycleId: text("cycleId").notNull(),
+    duelId: text("duelId").notNull(),
+    duelKey: text("duelKey").notNull(),
+    snapshotDigest: text("snapshotDigest").notNull(),
+    snapshot: jsonb("snapshot").$type<Record<string, unknown>>().notNull(),
+    frozenAt: bigint("frozenAt", { mode: "number" }).notNull(),
+    lockedAt: bigint("lockedAt", { mode: "number" }),
+    duelStartedAt: bigint("duelStartedAt", { mode: "number" }),
+    recoveredAt: bigint("recoveredAt", { mode: "number" }),
+    lifecycleStatus: text("lifecycleStatus").default("frozen").notNull(),
+    terminalOutcome: text("terminalOutcome"),
+    terminalWinnerId: text("terminalWinnerId"),
+    terminalWinReason: text("terminalWinReason"),
+    terminalCancellationReason: text("terminalCancellationReason"),
+    terminalSeed: text("terminalSeed"),
+    terminalReplayHash: text("terminalReplayHash"),
+    terminalAt: bigint("terminalAt", { mode: "number" }),
+  },
+  (table) => ({
+    cycleIdUnique: uniqueIndex(
+      "uidx_streaming_duel_competitive_snapshots_cycle",
+    ).on(table.cycleId),
+    duelIdUnique: uniqueIndex(
+      "uidx_streaming_duel_competitive_snapshots_duel",
+    ).on(table.duelId),
+    duelKeyUnique: uniqueIndex(
+      "uidx_streaming_duel_competitive_snapshots_key",
+    ).on(table.duelKey),
+    frozenAtIdx: index("idx_streaming_duel_competitive_snapshots_frozen").on(
+      table.frozenAt,
+    ),
+    lifecycleIdx: index(
+      "idx_streaming_duel_competitive_snapshots_lifecycle",
+    ).on(table.lifecycleStatus, table.frozenAt),
+  }),
+);
+
+/**
+ * Ordered, privacy-safe lifecycle evidence for duel preparation and every
+ * competitive snapshot edge. Database triggers reject mutation or truncation;
+ * runtime rows are inserted atomically with the state change they describe.
+ */
+export const streamingDuelTransitionEvents = pgTable(
+  "streaming_duel_transition_events",
+  {
+    eventSequence: bigserial("eventSequence", { mode: "bigint" }).primaryKey(),
+    eventKey: text("eventKey")
+      .notNull()
+      .unique("streaming_duel_transition_events_event_key_unique"),
+    eventSource: text("eventSource").notNull(),
+    eventType: text("eventType").notNull(),
+    preparationId: text("preparationId").notNull(),
+    occurredAt: bigint("occurredAt", { mode: "number" }).notNull(),
+    fencingToken: bigint("fencingToken", { mode: "bigint" }),
+    preparationVersion: integer("preparationVersion"),
+    agent1Id: text("agent1Id").notNull(),
+    agent2Id: text("agent2Id").notNull(),
+    actorAgentId: text("actorAgentId"),
+    cycleId: text("cycleId"),
+    duelId: text("duelId"),
+    snapshotDigest: text("snapshotDigest"),
+    terminalOutcome: text("terminalOutcome"),
+    winnerId: text("winnerId"),
+    winReason: text("winReason"),
+    reason: text("reason"),
+    terminalSeed: text("terminalSeed"),
+    replayHash: text("replayHash"),
+  },
+  (table) => ({
+    preparationSequenceIdx: index(
+      "idx_streaming_duel_transition_events_preparation",
+    ).on(table.preparationId, table.eventSequence),
+    cycleSequenceIdx: index("idx_streaming_duel_transition_events_cycle")
+      .on(table.cycleId, table.eventSequence)
+      .where(sql`${table.cycleId} IS NOT NULL`),
+    digestIdx: index("idx_streaming_duel_transition_events_digest")
+      .on(table.snapshotDigest)
+      .where(sql`${table.snapshotDigest} IS NOT NULL`),
+    typeTimeIdx: index("idx_streaming_duel_transition_events_type_time").on(
+      table.eventType,
+      table.occurredAt,
+    ),
+  }),
+);
+
+/**
  * Bank Tabs Table - Custom bank tab configuration
  *
  * Stores custom bank tabs created by players (classic MMORPG-style).
@@ -682,6 +1131,18 @@ export const storage = pgTable("storage", {
   ),
 });
 
+/** Durable, database-time lease used to elect exactly one streaming scheduler. */
+export const streamingSchedulerLeases = pgTable("streaming_scheduler_leases", {
+  leaseName: text("lease_name").primaryKey(),
+  holderId: text("holder_id").notNull(),
+  fencingToken: bigint("fencing_token", { mode: "bigint" })
+    .notNull()
+    .default(1n),
+  acquiredAt: bigint("acquired_at", { mode: "number" }).notNull(),
+  renewedAt: bigint("renewed_at", { mode: "number" }).notNull(),
+  expiresAt: bigint("expires_at", { mode: "number" }).notNull(),
+});
+
 /**
  * NPC Kills Table - Player kill statistics
  *
@@ -794,6 +1255,13 @@ export const playerDeaths = pgTable(
     items: jsonb("items")
       .default(sql`'[]'::jsonb`)
       .notNull(), // Array of {itemId, quantity} for recovery
+    keptItems: jsonb("keptItems")
+      .default(sql`'[]'::jsonb`)
+      .notNull(), // Conserved safe-area items returned atomically on respawn
+    deathOperationId: text("deathOperationId").references(
+      () => operationsLog.id,
+      { onDelete: "restrict" },
+    ), // Immutable operations_log identity for this death custody snapshot
     killedBy: text("killedBy").default("unknown").notNull(), // What killed the player
     recovered: boolean("recovered").default(false).notNull(), // Whether death was processed during crash recovery
     createdAt: bigint("createdAt", { mode: "number" })
@@ -810,6 +1278,11 @@ export const playerDeaths = pgTable(
       table.recovered,
       table.timestamp,
     ),
+    deathOperationIdUnique: uniqueIndex(
+      "player_deaths_death_operation_id_unique",
+    )
+      .on(table.deathOperationId)
+      .where(sql`${table.deathOperationId} IS NOT NULL`),
   }),
 );
 
@@ -1038,6 +1511,156 @@ export const operationsLog = pgTable(
     ),
     // Index for cleanup queries - find old completed operations
     timestampIdx: index("idx_operations_log_timestamp").on(table.timestamp),
+  }),
+);
+
+/**
+ * Current authoritative depletion deadline for stable gathering nodes. The
+ * row is replaced only by a later successful depletion; its matching
+ * immutable semantic receipt remains in operations_log.
+ */
+export const gatheringResourceStates = pgTable(
+  "gathering_resource_states",
+  {
+    resourceId: text("resource_id").primaryKey(),
+    operationId: text("operation_id")
+      .notNull()
+      .references(() => operationsLog.id, { onDelete: "restrict" }),
+    depletedAt: bigint("depleted_at", { mode: "number" }).notNull(),
+    respawnAt: bigint("respawn_at", { mode: "number" }).notNull(),
+  },
+  (table) => ({
+    operationUnique: uniqueIndex(
+      "gathering_resource_states_operation_unique",
+    ).on(table.operationId),
+    respawnIdx: index("idx_gathering_resource_states_respawn").on(
+      table.respawnAt,
+    ),
+  }),
+);
+
+/**
+ * Durable gathering edges captured inside the same transaction as reward
+ * custody. One row records that a specific active quest incarnation existed
+ * when the reward committed; QuestSystem later resolves it exactly once.
+ */
+export const questGatheringProgressReceipts = pgTable(
+  "quest_gathering_progress_receipts",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    operationId: text("operation_id")
+      .notNull()
+      .references(() => operationsLog.id, { onDelete: "restrict" }),
+    playerId: text("player_id")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    questId: text("quest_id").notNull(),
+    questStartedAt: bigint("quest_started_at", { mode: "number" }).notNull(),
+    capturedStage: text("captured_stage").notNull(),
+    rewardItemId: text("reward_item_id").notNull(),
+    rewardQuantity: integer("reward_quantity").notNull(),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
+    resolvedAt: bigint("resolved_at", { mode: "number" }),
+    resolution: text("resolution"),
+    resultingStage: text("resulting_stage"),
+    resultingProgress: jsonb("resulting_progress"),
+  },
+  (table) => ({
+    operationQuestUnique: uniqueIndex(
+      "quest_gathering_progress_receipts_operation_quest_unique",
+    ).on(table.operationId, table.questId),
+    pendingPlayerIdx: index(
+      "idx_quest_gathering_progress_receipts_pending_player",
+    ).on(table.playerId, table.resolvedAt, table.createdAt, table.id),
+    questIncarnationIdx: index(
+      "idx_quest_gathering_progress_receipts_incarnation",
+    ).on(table.playerId, table.questId, table.questStartedAt),
+  }),
+);
+
+/** Durable interact-stage edges captured with atomic processing custody. */
+export const questProcessingProgressReceipts = pgTable(
+  "quest_processing_progress_receipts",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    operationId: text("operation_id")
+      .notNull()
+      .references(() => operationsLog.id, { onDelete: "restrict" }),
+    playerId: text("player_id")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    questId: text("quest_id").notNull(),
+    questStartedAt: bigint("quest_started_at", { mode: "number" }).notNull(),
+    capturedStage: text("captured_stage").notNull(),
+    targetId: text("target_id").notNull(),
+    quantity: integer("quantity").notNull(),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
+    resolvedAt: bigint("resolved_at", { mode: "number" }),
+    resolution: text("resolution"),
+    resultingStage: text("resulting_stage"),
+    resultingProgress: jsonb("resulting_progress"),
+  },
+  (table) => ({
+    operationQuestTargetUnique: uniqueIndex(
+      "quest_processing_progress_receipts_operation_quest_target_unique",
+    ).on(table.operationId, table.questId, table.targetId),
+    pendingPlayerIdx: index(
+      "idx_quest_processing_progress_receipts_pending_player",
+    ).on(table.playerId, table.resolvedAt, table.createdAt, table.id),
+    questIncarnationIdx: index(
+      "idx_quest_processing_progress_receipts_incarnation",
+    ).on(table.playerId, table.questId, table.questStartedAt),
+  }),
+);
+
+/**
+ * Active Firemaking world effects. Each row is created in the same database
+ * transaction as its processing receipt, so a committed log debit can never
+ * lose the corresponding fire when a server process restarts.
+ */
+export const processingActiveFires = pgTable(
+  "processing_active_fires",
+  {
+    fireId: text("fire_id").primaryKey(),
+    operationId: text("operation_id")
+      .notNull()
+      .references(() => operationsLog.id, { onDelete: "cascade" }),
+    playerId: text("player_id")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    positionX: doublePrecision("position_x").notNull(),
+    positionY: doublePrecision("position_y").notNull(),
+    positionZ: doublePrecision("position_z").notNull(),
+    tileX: integer("tile_x").notNull(),
+    tileZ: integer("tile_z").notNull(),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
+    expiresAt: bigint("expires_at", { mode: "number" }).notNull(),
+    extinguishedAt: bigint("extinguished_at", { mode: "number" }),
+  },
+  (table) => ({
+    operationUnique: uniqueIndex("processing_active_fires_operation_unique").on(
+      table.operationId,
+    ),
+    activeExpiryIdx: index("idx_processing_active_fires_expiry").on(
+      table.extinguishedAt,
+      table.expiresAt,
+    ),
+    activeTileIdx: index("idx_processing_active_fires_tile").on(
+      table.tileX,
+      table.tileZ,
+      table.extinguishedAt,
+      table.expiresAt,
+    ),
+    oneActiveFirePerTile: uniqueIndex(
+      "processing_active_fires_active_tile_unique",
+    )
+      .on(table.tileX, table.tileZ)
+      .where(sql`${table.extinguishedAt} IS NULL`),
+    activePlayerIdx: index("idx_processing_active_fires_player").on(
+      table.playerId,
+      table.extinguishedAt,
+      table.expiresAt,
+    ),
   }),
 );
 
@@ -1655,220 +2278,31 @@ export const onchainOutbox = pgTable(
   }),
 );
 
-// ============================================================================
-// STREAMED ARENA + SOLANA PREDICTION TABLES
-// ============================================================================
-
 /**
- * Arena Agent Whitelist - Agents eligible for streamed duel queue.
+ * Read-only archive of the retired in-server betting integration.
  *
- * Agents must be explicitly enabled to participate in autonomous arena rounds.
- * Cooldown and bracket hints are used by matchmaking.
+ * Hyperia owns duel truth only. Hyperbet owns native-SOL market and accounting
+ * state. The archive preserves historical rows through the retirement migration
+ * without keeping obsolete market, token, fee-share, or staking tables active.
  */
-export const arenaAgentWhitelist = pgTable(
-  "arena_agent_whitelist",
-  {
-    characterId: text("characterId")
-      .primaryKey()
-      .references(() => characters.id, { onDelete: "cascade" }),
-    enabled: boolean("enabled").notNull().default(true),
-    minPowerScore: integer("minPowerScore").notNull().default(0),
-    maxPowerScore: integer("maxPowerScore").notNull().default(10_000),
-    priority: integer("priority").notNull().default(0),
-    cooldownUntil: bigint("cooldownUntil", { mode: "number" }),
-    notes: text("notes"),
-    updatedAt: bigint("updatedAt", { mode: "number" })
-      .notNull()
-      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
-  },
-  (table) => ({
-    enabledIdx: index("idx_arena_whitelist_enabled").on(table.enabled),
-    cooldownIdx: index("idx_arena_whitelist_cooldown").on(table.cooldownUntil),
-    priorityIdx: index("idx_arena_whitelist_priority").on(table.priority),
-  }),
-);
-
-/**
- * Arena Rounds - canonical duel loop state and result record.
- */
-export const arenaRounds = pgTable(
-  "arena_rounds",
-  {
-    id: text("id").primaryKey(),
-    phase: text("phase").notNull(),
-    agentAId: text("agentAId")
-      .notNull()
-      .references(() => characters.id, { onDelete: "restrict" }),
-    agentBId: text("agentBId")
-      .notNull()
-      .references(() => characters.id, { onDelete: "restrict" }),
-    previewAgentAId: text("previewAgentAId").references(() => characters.id, {
-      onDelete: "set null",
-    }),
-    previewAgentBId: text("previewAgentBId").references(() => characters.id, {
-      onDelete: "set null",
-    }),
-    duelId: text("duelId"),
-    scheduledAt: bigint("scheduledAt", { mode: "number" }).notNull(),
-    bettingOpensAt: bigint("bettingOpensAt", { mode: "number" }).notNull(),
-    bettingClosesAt: bigint("bettingClosesAt", { mode: "number" }).notNull(),
-    duelStartsAt: bigint("duelStartsAt", { mode: "number" }),
-    duelEndsAt: bigint("duelEndsAt", { mode: "number" }),
-    winnerId: text("winnerId").references(() => characters.id, {
-      onDelete: "set null",
-    }),
-    winReason: text("winReason"),
-    damageA: integer("damageA").notNull().default(0),
-    damageB: integer("damageB").notNull().default(0),
-    metadataUri: text("metadataUri"),
-    resultHash: text("resultHash"),
-    createdAt: bigint("createdAt", { mode: "number" })
-      .notNull()
-      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
-    updatedAt: bigint("updatedAt", { mode: "number" })
-      .notNull()
-      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
-  },
-  (table) => ({
-    phaseIdx: index("idx_arena_rounds_phase").on(table.phase),
-    phaseCreatedIdx: index("idx_arena_rounds_phase_created").on(
-      table.phase,
-      table.createdAt,
-    ),
-    scheduledIdx: index("idx_arena_rounds_scheduled").on(table.scheduledAt),
-    duelIdIdx: index("idx_arena_rounds_duel_id").on(table.duelId),
-    winnerIdx: index("idx_arena_rounds_winner").on(table.winnerId),
-  }),
-);
-
-/**
- * Arena Round Events - append-only event timeline for observability and replay.
- */
-export const arenaRoundEvents = pgTable(
-  "arena_round_events",
+export const retiredArenaIntegrationRecords = pgTable(
+  "retired_arena_integration_records",
   {
     id: serial("id").primaryKey(),
-    roundId: text("roundId")
-      .notNull()
-      .references(() => arenaRounds.id, { onDelete: "cascade" }),
-    eventType: text("eventType").notNull(),
+    sourceTable: text("source_table").notNull(),
+    recordFingerprint: text("record_fingerprint").notNull(),
     payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
-    createdAt: bigint("createdAt", { mode: "number" })
+    archivedAt: bigint("archived_at", { mode: "number" })
       .notNull()
       .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
   },
   (table) => ({
-    roundIdx: index("idx_arena_round_events_round").on(table.roundId),
-    typeIdx: index("idx_arena_round_events_type").on(table.eventType),
-    createdIdx: index("idx_arena_round_events_created").on(table.createdAt),
-  }),
-);
-
-/**
- * Solana Markets - on-chain market metadata per arena round.
- */
-export const solanaMarkets = pgTable(
-  "solana_markets",
-  {
-    roundId: text("roundId")
-      .primaryKey()
-      .references(() => arenaRounds.id, { onDelete: "cascade" }),
-    marketPda: text("marketPda").notNull(),
-    oraclePda: text("oraclePda").notNull(),
-    mint: text("mint").notNull(),
-    vault: text("vault"),
-    feeVault: text("feeVault"),
-    closeSlot: bigint("closeSlot", { mode: "number" }),
-    resolvedSlot: bigint("resolvedSlot", { mode: "number" }),
-    status: text("status").notNull().default("PENDING"),
-    winnerSide: text("winnerSide"),
-    resultSignature: text("resultSignature"),
-    createdAt: bigint("createdAt", { mode: "number" })
-      .notNull()
-      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
-    updatedAt: bigint("updatedAt", { mode: "number" })
-      .notNull()
-      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
-  },
-  (table) => ({
-    statusIdx: index("idx_solana_markets_status").on(table.status),
-    marketIdx: uniqueIndex("uidx_solana_markets_market_pda").on(
-      table.marketPda,
+    sourceIdx: index("idx_retired_arena_integration_source").on(
+      table.sourceTable,
     ),
-    oracleIdx: uniqueIndex("uidx_solana_markets_oracle_pda").on(
-      table.oraclePda,
-    ),
-  }),
-);
-
-/**
- * Solana Bets - user intents + signed transaction metadata.
- *
- * One record per submitted bet transaction.
- */
-export const solanaBets = pgTable(
-  "solana_bets",
-  {
-    id: text("id").primaryKey(),
-    roundId: text("roundId")
-      .notNull()
-      .references(() => arenaRounds.id, { onDelete: "cascade" }),
-    bettorWallet: text("bettorWallet").notNull(),
-    side: text("side").notNull(),
-    sourceAsset: text("sourceAsset").notNull(), // GOLD|SOL|USDC
-    sourceAmount: text("sourceAmount").notNull(),
-    goldAmount: text("goldAmount").notNull(),
-    quoteJson: jsonb("quoteJson").$type<Record<string, unknown>>(),
-    txSignature: text("txSignature"),
-    status: text("status").notNull().default("PENDING"),
-    createdAt: bigint("createdAt", { mode: "number" })
-      .notNull()
-      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
-    updatedAt: bigint("updatedAt", { mode: "number" })
-      .notNull()
-      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
-  },
-  (table) => ({
-    roundIdx: index("idx_solana_bets_round").on(table.roundId),
-    roundWalletIdx: index("idx_solana_bets_round_wallet").on(
-      table.roundId,
-      table.bettorWallet,
-    ),
-    walletIdx: index("idx_solana_bets_wallet").on(table.bettorWallet),
-    statusIdx: index("idx_solana_bets_status").on(table.status),
-    sigIdx: uniqueIndex("uidx_solana_bets_signature").on(table.txSignature),
-  }),
-);
-
-/**
- * Solana payout jobs - keeper queue for claim_for retries.
- */
-export const solanaPayoutJobs = pgTable(
-  "solana_payout_jobs",
-  {
-    id: text("id").primaryKey(),
-    roundId: text("roundId")
-      .notNull()
-      .references(() => arenaRounds.id, { onDelete: "cascade" }),
-    bettorWallet: text("bettorWallet").notNull(),
-    status: text("status").notNull().default("PENDING"),
-    attempts: integer("attempts").notNull().default(0),
-    lastError: text("lastError"),
-    claimSignature: text("claimSignature"),
-    nextAttemptAt: bigint("nextAttemptAt", { mode: "number" }),
-    createdAt: bigint("createdAt", { mode: "number" })
-      .notNull()
-      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
-    updatedAt: bigint("updatedAt", { mode: "number" })
-      .notNull()
-      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
-  },
-  (table) => ({
-    roundIdx: index("idx_solana_payout_jobs_round").on(table.roundId),
-    statusIdx: index("idx_solana_payout_jobs_status").on(table.status),
-    nextAttemptIdx: index("idx_solana_payout_jobs_next_attempt").on(
-      table.nextAttemptAt,
-    ),
+    fingerprintIdx: uniqueIndex(
+      "uidx_retired_arena_integration_fingerprint",
+    ).on(table.sourceTable, table.recordFingerprint),
   }),
 );
 
@@ -2160,388 +2594,6 @@ export const agentDuelStatsRelations = relations(agentDuelStats, ({ one }) => ({
   }),
 }));
 
-// ============================================================================
-// ARENA POINTS SYSTEM
-// ============================================================================
-
-/**
- * Arena Points - tracks points earned per bet with GOLD multiplier snapshots.
- *
- * Points are awarded when a user places a bet.
- * - 0-999 GOLD                         -> 0×
- * - 1k-99,999 GOLD (wallet + staked)  -> 1×
- * - 100k-999,999 GOLD                 -> 2×
- * - 1M+ GOLD                          -> 3×
- * - 100k+ or 1M+ held >= 10 days      -> +1×
- */
-export const arenaPoints = pgTable(
-  "arena_points",
-  {
-    id: serial("id").primaryKey(),
-    wallet: text("wallet").notNull(),
-    roundId: text("roundId").references(() => arenaRounds.id, {
-      onDelete: "cascade",
-    }),
-    betId: text("betId"),
-    side: text("side"), // "A" or "B" - which side the bet was placed on
-    basePoints: integer("basePoints").notNull().default(0),
-    multiplier: integer("multiplier").notNull().default(0), // 0-4
-    totalPoints: integer("totalPoints").notNull().default(0), // basePoints * multiplier
-    goldBalance: text("goldBalance"), // snapshot at time of award
-    goldHoldDays: integer("goldHoldDays").default(0),
-    createdAt: bigint("createdAt", { mode: "number" })
-      .notNull()
-      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
-  },
-  (table) => ({
-    walletIdx: index("idx_arena_points_wallet").on(table.wallet),
-    roundIdx: index("idx_arena_points_round").on(table.roundId),
-    createdIdx: index("idx_arena_points_created").on(table.createdAt),
-    betIdx: uniqueIndex("uidx_arena_points_bet").on(table.betId),
-  }),
-);
-
-/**
- * Arena Staking Points - periodic points accrued from staked GOLD.
- *
- * Rewards are accrued in day-sized windows and recorded as immutable rows.
- * Staked GOLD counts toward both:
- * - multiplier tiers (combined with liquid wallet GOLD)
- * - daily staking points
- */
-export const arenaStakingPoints = pgTable(
-  "arena_staking_points",
-  {
-    id: serial("id").primaryKey(),
-    wallet: text("wallet").notNull(),
-    basePoints: integer("basePoints").notNull().default(0),
-    multiplier: integer("multiplier").notNull().default(0),
-    totalPoints: integer("totalPoints").notNull().default(0),
-    daysAccrued: integer("daysAccrued").notNull().default(0),
-    liquidGoldBalance: text("liquidGoldBalance").notNull().default("0"),
-    stakedGoldBalance: text("stakedGoldBalance").notNull().default("0"),
-    goldBalance: text("goldBalance").notNull().default("0"),
-    goldHoldDays: integer("goldHoldDays").notNull().default(0),
-    periodStartAt: bigint("periodStartAt", { mode: "number" }).notNull(),
-    periodEndAt: bigint("periodEndAt", { mode: "number" }).notNull(),
-    source: text("source").notNull().default("INDEXER"),
-    createdAt: bigint("createdAt", { mode: "number" })
-      .notNull()
-      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
-  },
-  (table) => ({
-    walletIdx: index("idx_arena_staking_points_wallet").on(table.wallet),
-    periodEndIdx: index("idx_arena_staking_points_period_end").on(
-      table.periodEndAt,
-    ),
-    walletPeriodUnique: unique("uidx_arena_staking_points_wallet_period").on(
-      table.wallet,
-      table.periodStartAt,
-      table.periodEndAt,
-    ),
-    createdIdx: index("idx_arena_staking_points_created").on(table.createdAt),
-  }),
-);
-
-/**
- * Arena Invite Codes - maps inviter wallets to shareable invite codes.
- *
- * One wallet can own one invite code. Invite codes are used by bettors to
- * link themselves to an inviter for referral points + fee-share accounting.
- */
-export const arenaInviteCodes = pgTable(
-  "arena_invite_codes",
-  {
-    code: text("code").primaryKey(),
-    inviterWallet: text("inviterWallet").notNull(),
-    createdAt: bigint("createdAt", { mode: "number" })
-      .notNull()
-      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
-    updatedAt: bigint("updatedAt", { mode: "number" })
-      .notNull()
-      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
-  },
-  (table) => ({
-    inviterWalletIdx: uniqueIndex("uidx_arena_invite_codes_inviter_wallet").on(
-      table.inviterWallet,
-    ),
-    createdIdx: index("idx_arena_invite_codes_created").on(table.createdAt),
-  }),
-);
-
-/**
- * Arena Invited Wallets - immutable wallet→inviter mapping for fair sharing.
- *
- * Each invited wallet can be linked once. This ensures a wallet cannot switch
- * inviters later and keeps points/fee-sharing deterministic.
- */
-export const arenaInvitedWallets = pgTable(
-  "arena_invited_wallets",
-  {
-    id: serial("id").primaryKey(),
-    inviteCode: text("inviteCode")
-      .notNull()
-      .references(() => arenaInviteCodes.code, { onDelete: "restrict" }),
-    inviterWallet: text("inviterWallet").notNull(),
-    invitedWallet: text("invitedWallet").notNull(),
-    firstBetId: text("firstBetId"),
-    createdAt: bigint("createdAt", { mode: "number" })
-      .notNull()
-      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
-    updatedAt: bigint("updatedAt", { mode: "number" })
-      .notNull()
-      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
-  },
-  (table) => ({
-    invitedWalletUnique: uniqueIndex(
-      "uidx_arena_invited_wallets_invited_wallet",
-    ).on(table.invitedWallet),
-    inviteCodeIdx: index("idx_arena_invited_wallets_invite_code").on(
-      table.inviteCode,
-    ),
-    inviterWalletIdx: index("idx_arena_invited_wallets_inviter_wallet").on(
-      table.inviterWallet,
-    ),
-    createdIdx: index("idx_arena_invited_wallets_created").on(table.createdAt),
-  }),
-);
-
-/**
- * Arena Referral Points - points credited to inviters for invited bettors.
- *
- * When an invited wallet earns points from a bet, the inviter receives
- * a fixed 1x referral credit (no holder multiplier) recorded here for
- * transparent auditing.
- */
-export const arenaReferralPoints = pgTable(
-  "arena_referral_points",
-  {
-    id: serial("id").primaryKey(),
-    roundId: text("roundId").references(() => arenaRounds.id, {
-      onDelete: "cascade",
-    }),
-    betId: text("betId"),
-    inviteCode: text("inviteCode")
-      .notNull()
-      .references(() => arenaInviteCodes.code, { onDelete: "restrict" }),
-    inviterWallet: text("inviterWallet").notNull(),
-    invitedWallet: text("invitedWallet").notNull(),
-    basePoints: integer("basePoints").notNull().default(0),
-    multiplier: integer("multiplier").notNull().default(0),
-    totalPoints: integer("totalPoints").notNull().default(0),
-    createdAt: bigint("createdAt", { mode: "number" })
-      .notNull()
-      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
-  },
-  (table) => ({
-    inviterWalletIdx: index("idx_arena_referral_points_inviter_wallet").on(
-      table.inviterWallet,
-    ),
-    invitedWalletIdx: index("idx_arena_referral_points_invited_wallet").on(
-      table.invitedWallet,
-    ),
-    roundIdx: index("idx_arena_referral_points_round").on(table.roundId),
-    betIdx: index("idx_arena_referral_points_bet").on(table.betId),
-    createdIdx: index("idx_arena_referral_points_created").on(table.createdAt),
-  }),
-);
-
-/**
- * Arena Fee Shares - per-bet referral + market-maker fee accounting.
- *
- * Tracks how each bet fee is split:
- * - fixed 1% fee-sharing pool per bet
- * - invited bettor: 0.1% to inviter, 0.9% to market maker
- * - no invite mapping: 1% to market maker
- *
- * Note: `treasuryFeeGold` is a legacy column name and now stores market-maker share.
- */
-export const arenaFeeShares = pgTable(
-  "arena_fee_shares",
-  {
-    id: serial("id").primaryKey(),
-    roundId: text("roundId").references(() => arenaRounds.id, {
-      onDelete: "cascade",
-    }),
-    betId: text("betId"),
-    bettorWallet: text("bettorWallet").notNull(),
-    inviterWallet: text("inviterWallet"),
-    inviteCode: text("inviteCode").references(() => arenaInviteCodes.code, {
-      onDelete: "set null",
-    }),
-    chain: text("chain").notNull().default("SOLANA"), // SOLANA|BSC|BASE
-    feeBps: integer("feeBps").notNull().default(0),
-    totalFeeGold: text("totalFeeGold").notNull().default("0"),
-    inviterFeeGold: text("inviterFeeGold").notNull().default("0"),
-    treasuryFeeGold: text("treasuryFeeGold").notNull().default("0"),
-    createdAt: bigint("createdAt", { mode: "number" })
-      .notNull()
-      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
-  },
-  (table) => ({
-    roundIdx: index("idx_arena_fee_shares_round").on(table.roundId),
-    betIdx: uniqueIndex("uidx_arena_fee_shares_bet").on(table.betId),
-    bettorWalletIdx: index("idx_arena_fee_shares_bettor_wallet").on(
-      table.bettorWallet,
-    ),
-    inviterWalletIdx: index("idx_arena_fee_shares_inviter_wallet").on(
-      table.inviterWallet,
-    ),
-    chainIdx: index("idx_arena_fee_shares_chain").on(table.chain),
-    inviteCodeIdx: index("idx_arena_fee_shares_invite_code").on(
-      table.inviteCode,
-    ),
-    createdIdx: index("idx_arena_fee_shares_created").on(table.createdAt),
-  }),
-);
-
-/**
- * Arena Wallet Links - immutable wallet-pair links for cross-chain identity.
- *
- * Supports EVM<->Solana linking so referral mapping and bonus points can be
- * applied consistently across linked wallets.
- */
-export const arenaWalletLinks = pgTable(
-  "arena_wallet_links",
-  {
-    id: serial("id").primaryKey(),
-    walletA: text("walletA").notNull(),
-    walletAPlatform: text("walletAPlatform").notNull(), // SOLANA|BSC|BASE
-    walletB: text("walletB").notNull(),
-    walletBPlatform: text("walletBPlatform").notNull(), // SOLANA|BSC|BASE
-    pairKey: text("pairKey").notNull(),
-    createdAt: bigint("createdAt", { mode: "number" })
-      .notNull()
-      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
-    updatedAt: bigint("updatedAt", { mode: "number" })
-      .notNull()
-      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
-  },
-  (table) => ({
-    pairKeyUnique: uniqueIndex("uidx_arena_wallet_links_pair_key").on(
-      table.pairKey,
-    ),
-    walletAIdx: index("idx_arena_wallet_links_wallet_a").on(table.walletA),
-    walletBIdx: index("idx_arena_wallet_links_wallet_b").on(table.walletB),
-    walletAPlatformIdx: index("idx_arena_wallet_links_wallet_a_platform").on(
-      table.walletAPlatform,
-    ),
-    walletBPlatformIdx: index("idx_arena_wallet_links_wallet_b_platform").on(
-      table.walletBPlatform,
-    ),
-    createdIdx: index("idx_arena_wallet_links_created").on(table.createdAt),
-  }),
-);
-
-// ============================================================================
-// ARENA POINT LEDGER (append-only source of truth)
-// ============================================================================
-
-/**
- * Arena Point Ledger - immutable append-only record of every point mutation.
- *
- * Event types:
- *   BET_PLACED, BET_WON, REFERRAL_BET, REFERRAL_WIN,
- *   SIGNUP_REFERRER, SIGNUP_REFEREE, STAKING_ACCRUAL,
- *   WALLET_LINK_BONUS, CLAWBACK, VOID
- *
- * Status: CONFIRMED (default), PENDING (awaiting activation), VOIDED
- */
-export const arenaPointLedger = pgTable(
-  "arena_point_ledger",
-  {
-    id: serial("id").primaryKey(),
-    wallet: text("wallet").notNull(),
-    eventType: text("eventType").notNull(),
-    status: text("status").notNull().default("CONFIRMED"),
-    basePoints: integer("basePoints").notNull(),
-    multiplier: integer("multiplier").notNull().default(1),
-    totalPoints: integer("totalPoints").notNull(),
-    referenceType: text("referenceType"),
-    referenceId: text("referenceId"),
-    relatedWallet: text("relatedWallet"),
-    idempotencyKey: text("idempotencyKey"),
-    metadata: jsonb("metadata").default({}),
-    createdAt: bigint("createdAt", { mode: "number" })
-      .notNull()
-      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
-    confirmedAt: bigint("confirmedAt", { mode: "number" }),
-  },
-  (table) => ({
-    walletIdx: index("idx_arena_point_ledger_wallet").on(table.wallet),
-    walletEventIdx: index("idx_arena_point_ledger_wallet_event").on(
-      table.wallet,
-      table.eventType,
-    ),
-    createdIdx: index("idx_arena_point_ledger_created").on(table.createdAt),
-    statusIdx: index("idx_arena_point_ledger_pending").on(table.status),
-    refIdx: index("idx_arena_point_ledger_ref").on(
-      table.referenceType,
-      table.referenceId,
-    ),
-    idempotencyIdx: uniqueIndex("uidx_arena_point_ledger_idempotency").on(
-      table.idempotencyKey,
-    ),
-  }),
-);
-
-/**
- * Arena Point Accounts - cached wallet balances derived from the ledger.
- *
- * Fast reads for leaderboard and wallet queries. Updated atomically
- * alongside ledger inserts within a single transaction.
- */
-export const arenaPointAccounts = pgTable("arena_point_accounts", {
-  wallet: text("wallet").primaryKey(),
-  totalPoints: bigint("totalPoints", { mode: "number" }).notNull().default(0),
-  betPoints: bigint("betPoints", { mode: "number" }).notNull().default(0),
-  winPoints: bigint("winPoints", { mode: "number" }).notNull().default(0),
-  referralPoints: bigint("referralPoints", { mode: "number" })
-    .notNull()
-    .default(0),
-  stakingPoints: bigint("stakingPoints", { mode: "number" })
-    .notNull()
-    .default(0),
-  bonusPoints: bigint("bonusPoints", { mode: "number" }).notNull().default(0),
-  pendingPoints: bigint("pendingPoints", { mode: "number" })
-    .notNull()
-    .default(0),
-  referredBy: text("referredBy"),
-  referralCount: integer("referralCount").notNull().default(0),
-  version: integer("version").notNull().default(0),
-  updatedAt: bigint("updatedAt", { mode: "number" })
-    .notNull()
-    .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
-});
-
-/**
- * Arena Failed Awards - retry queue for point mutations that failed.
- *
- * Processed by the tick loop every 30 seconds with exponential backoff.
- * After max_attempts, the entry is left for manual review.
- */
-export const arenaFailedAwards = pgTable(
-  "arena_failed_awards",
-  {
-    id: serial("id").primaryKey(),
-    eventType: text("eventType").notNull(),
-    payload: jsonb("payload").notNull(),
-    errorMessage: text("errorMessage"),
-    attempts: integer("attempts").notNull().default(0),
-    maxAttempts: integer("maxAttempts").notNull().default(5),
-    nextAttemptAt: bigint("nextAttemptAt", { mode: "number" }).notNull(),
-    createdAt: bigint("createdAt", { mode: "number" })
-      .notNull()
-      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`),
-    resolvedAt: bigint("resolvedAt", { mode: "number" }),
-  },
-  (table) => ({
-    nextAttemptIdx: index("idx_arena_failed_awards_next").on(
-      table.nextAttemptAt,
-    ),
-  }),
-);
-
 /**
  * Streaming Duel History - Persisted log of every streaming duel outcome.
  *
@@ -2555,13 +2607,23 @@ export const streamingDuelHistory = pgTable(
     cycleId: text("cycleId").notNull(),
     duelId: text("duelId"),
     finishedAt: bigint("finishedAt", { mode: "number" }).notNull(),
-    winnerId: text("winnerId").notNull(),
-    winnerName: text("winnerName").notNull(),
-    loserId: text("loserId").notNull(),
-    loserName: text("loserName").notNull(),
-    winReason: text("winReason").notNull(),
-    damageWinner: integer("damageWinner").notNull().default(0),
-    damageLoser: integer("damageLoser").notNull().default(0),
+    outcome: text("outcome").notNull().default("win"),
+    agent1Id: text("agent1Id"),
+    agent1Name: text("agent1Name"),
+    agent1OpeningStyle: text("agent1OpeningStyle"),
+    agent2Id: text("agent2Id"),
+    agent2Name: text("agent2Name"),
+    agent2OpeningStyle: text("agent2OpeningStyle"),
+    winnerId: text("winnerId"),
+    winnerName: text("winnerName"),
+    loserId: text("loserId"),
+    loserName: text("loserName"),
+    winReason: text("winReason"),
+    cancellationReason: text("cancellationReason"),
+    damageAgent1: integer("damageAgent1").notNull().default(0),
+    damageAgent2: integer("damageAgent2").notNull().default(0),
+    damageWinner: integer("damageWinner").default(0),
+    damageLoser: integer("damageLoser").default(0),
   },
   (table) => ({
     finishedAtIdx: index("idx_streaming_duel_history_finished").on(

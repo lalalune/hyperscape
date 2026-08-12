@@ -1,3 +1,9 @@
+import type { StreamingPerformanceSnapshot } from "@hyperforge/shared";
+import type {
+  StreamingSceneDiagnostics,
+  StreamingSceneReadinessEvidence,
+} from "./streamingSceneDiagnostics";
+
 export type PublicRuntimeEnv = {
   PUBLIC_CDN_URL?: string;
   PUBLIC_WS_URL?: string;
@@ -29,11 +35,27 @@ export type CaptureControlStatus = {
   heapLimitBytes?: number | null;
 };
 
+export type StreamingAudioCaptureBridge = {
+  getStream: () => MediaStream;
+  getContextState: () => AudioContextState;
+  getSampleRate: () => number;
+  resume: () => Promise<void>;
+};
+
 export type StreamingWindow = Window & {
   env?: PublicRuntimeEnv;
   __CDN_URL?: string;
   __HYPERIA_STREAM_READY__?: boolean;
   __HYPERIA_STREAM_RENDERER_HEALTH__?: StreamingWindowRendererHealth | null;
+  __HYPERIA_STREAM_PERFORMANCE__?: StreamingPerformanceSnapshot | null;
+  /** Public duel projection currently rendered by the canonical stream page. */
+  __HYPERIA_STREAM_STATE__?: unknown | null;
+  /** Sanitized scene/camera evidence used by the local visual capture gate. */
+  __HYPERIA_STREAM_SCENE_DIAGNOSTICS__?: StreamingSceneDiagnostics | null;
+  /** Structured explanation for every visual capture-readiness gate. */
+  __HYPERIA_STREAM_SCENE_READINESS__?: StreamingSceneReadinessEvidence | null;
+  /** Final game-master mix exposed only to the canonical capture process. */
+  __HYPERIA_STREAM_AUDIO_CAPTURE__?: StreamingAudioCaptureBridge;
   /**
    * Boot/loading phase indicator read by the capture pipeline's renderer
    * health probe. Set during the loading overlay lifecycle and cleared once

@@ -462,8 +462,10 @@ export class BridgeSystem extends SystemBase {
       return;
     }
 
-    const originX = terrainTileX * tileSize;
-    const originZ = terrainTileZ * tileSize;
+    // Terrain meshes are centered on tileIndex * tileSize, so their covered
+    // world-space region begins half a tile before that center.
+    const originX = terrainTileX * tileSize - tileSize * 0.5;
+    const originZ = terrainTileZ * tileSize - tileSize * 0.5;
 
     for (const bridge of this.getBridges()) {
       // Check if bridge overlaps this terrain tile

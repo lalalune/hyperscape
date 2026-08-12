@@ -115,6 +115,11 @@ export const essentialEmotes = [
   Emotes.WALK, // Most common movement
   Emotes.RUN, // Fast movement
   Emotes.COMBAT, // Unarmed attack
+  Emotes.SWORD_SWING, // One-handed duel attack
+  Emotes.TWO_HAND_IDLE, // Two-handed combat stance
+  Emotes.TWO_HAND_SLASH, // Two-handed duel attack
+  Emotes.RANGE, // Ranged duel attack
+  Emotes.SPELL_CAST, // Magic duel attack
   Emotes.DEATH, // Death animation
   Emotes.VICTORY, // Victory celebration (waving)
 ];

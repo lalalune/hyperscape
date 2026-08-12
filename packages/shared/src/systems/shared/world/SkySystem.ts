@@ -41,13 +41,24 @@ import {
   vec2,
   vec3,
   vec4,
-  type ShaderNode,
 } from "../../../extras/three/three";
+import type { Node } from "three/webgpu";
 import type { World, WorldOptions } from "../../../types";
+import { isStreamingLikeViewport } from "../../../runtime/clientViewportMode";
 import { applyCloudFog, fogRenderTarget } from "./FogConfig";
 import { DAY_CYCLE, SUN_LIGHT } from "./LightingConfig";
 
 const SKY_DOME_RADIUS = 5000;
+
+/**
+ * Decorative sky billboards are intentionally omitted from broadcast views.
+ * Their large transparent TSL planes are expensive and can render as opaque
+ * rectangles on WebGPU capture paths. The procedural sky dome and celestial
+ * lighting stay enabled, so this does not affect illumination or time-of-day.
+ */
+export function shouldRenderDecorativeSkyBillboards(win?: Window): boolean {
+  return !isStreamingLikeViewport(win);
+}
 
 const SKY_RENDER_ORDER = {
   SKY_DOME: -1000,
@@ -463,6 +474,7 @@ export class SkySystem extends System {
   private _sunDir = new THREE.Vector3();
   private _dayPhase = 0;
   private _dayIntensity = 1;
+  private renderDecorativeSkyBillboards = true;
 
   constructor(world: World) {
     super(world);
@@ -520,6 +532,8 @@ export class SkySystem extends System {
 
     this.noiseA = createNoiseTexture(128);
     this.noiseB = createNoiseTexture(128);
+    this.renderDecorativeSkyBillboards =
+      shouldRenderDecorativeSkyBillboards(window);
 
     // PERFORMANCE: Reuse a single TextureLoader instance
     const cachedLoader = SkySystem._textureLoader;
@@ -545,13 +559,25 @@ export class SkySystem extends System {
       });
     };
 
+    const omittedCloudTexture = (): Promise<THREE.Texture | null> =>
+      Promise.resolve(null);
     const results = await Promise.allSettled([
-      loadTex("/textures/cloud1.png"),
-      loadTex("/textures/cloud2.png"),
-      loadTex("/textures/cloud3.png"),
-      loadTex("/textures/cloud4.png"),
+      this.renderDecorativeSkyBillboards
+        ? loadTex("/textures/cloud1.png")
+        : omittedCloudTexture(),
+      this.renderDecorativeSkyBillboards
+        ? loadTex("/textures/cloud2.png")
+        : omittedCloudTexture(),
+      this.renderDecorativeSkyBillboards
+        ? loadTex("/textures/cloud3.png")
+        : omittedCloudTexture(),
+      this.renderDecorativeSkyBillboards
+        ? loadTex("/textures/cloud4.png")
+        : omittedCloudTexture(),
       loadTex("/textures/galaxy.png"),
-      loadTex("/textures/moon2.png"),
+      this.renderDecorativeSkyBillboards
+        ? loadTex("/textures/moon2.png")
+        : omittedCloudTexture(),
       loadTex("/textures/star3.png"),
       loadTex("/textures/noise.png"),
       loadTex("/textures/noise2.png"),
@@ -560,7 +586,7 @@ export class SkySystem extends System {
     // Extract successful loads
     const getResult = (index: number): THREE.Texture | null => {
       const result = results[index];
-      return result.status === "fulfilled" ? result.value : null;
+      return result?.status === "fulfilled" ? result.value : null;
     };
 
     this.cloud1 = getResult(0);
@@ -597,14 +623,14 @@ export class SkySystem extends System {
     // Create fog sky render target (sky dome without stars for fog color sampling)
     this.createFogSky();
 
-    // Create sun with TSL Node Material
-    this.createSun();
-
-    // Create moon with TSL Node Material
-    this.createMoon();
-
-    // Clouds (instanced billboards)
-    this.createClouds();
+    // Large transparent sky billboards are excluded from stream/spectator
+    // capture. The sky dome already supplies sun/moon atmospheric color while
+    // the lighting systems continue to use the same celestial directions.
+    if (this.renderDecorativeSkyBillboards) {
+      this.createSun();
+      this.createMoon();
+      this.createClouds();
+    }
   }
 
   /**
@@ -871,7 +897,11 @@ export class SkySystem extends System {
       const nightSkyColor = mix(nightZenith, nightHorizon, nightGradient);
 
       // Blend day/night sky
-      let skyColor: ShaderNode = mix(nightSkyColor, daySkyColor, dayIntensity);
+      let skyColor: Node<"vec3"> = mix(
+        nightSkyColor,
+        daySkyColor,
+        dayIntensity,
+      );
 
       // =====================
       // SUNRISE/SUNSET GLOW
@@ -1108,7 +1138,11 @@ export class SkySystem extends System {
       const nightGradient = pow(sub(float(1.0), elevation), float(2.0));
       const nightSkyColor = mix(nightZenith, nightHorizon, nightGradient);
 
-      let skyColor: ShaderNode = mix(nightSkyColor, daySkyColor, dayIntensity);
+      let skyColor: Node<"vec3"> = mix(
+        nightSkyColor,
+        daySkyColor,
+        dayIntensity,
+      );
 
       // Sunrise/sunset glow
       const sunY = uSunPosition.y;
@@ -1361,8 +1395,7 @@ export class SkySystem extends System {
     // On client: use network.getSyncedWorldTime() if available, otherwise local time
     // On server: use local world time (server is authoritative)
     const network = this.world.network as
-      | { getSyncedWorldTime?: () => number }
-      | undefined;
+      { getSyncedWorldTime?: () => number } | undefined;
     const worldTime = network?.getSyncedWorldTime
       ? network.getSyncedWorldTime()
       : this.world.getTime();
@@ -1614,8 +1647,7 @@ export class SkySystem extends System {
     }
     // Clean up inner sun glow
     const groupWithGlow = this.group as
-      | (THREE.Group & { sunInnerGlow?: THREE.Mesh })
-      | null;
+      (THREE.Group & { sunInnerGlow?: THREE.Mesh }) | null;
     if (groupWithGlow?.sunInnerGlow) {
       groupWithGlow.sunInnerGlow.geometry.dispose();
       (groupWithGlow.sunInnerGlow.material as THREE.Material).dispose();

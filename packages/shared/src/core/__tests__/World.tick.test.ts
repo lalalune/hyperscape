@@ -20,6 +20,16 @@ function createTestWorld(): World {
   return world;
 }
 
+function createServerTestWorld(): World {
+  const world = createTestWorld();
+  world.network = {
+    isServer: true,
+    isClient: false,
+    send: () => {},
+  } as World["network"];
+  return world;
+}
+
 describe("World.tick - Dual Delta Architecture", () => {
   describe("event listener counting", () => {
     it("counts string-event listeners registered through the typed EventBus bridge", () => {
@@ -421,5 +431,50 @@ describe("World.tick - Concurrency and State", () => {
     expect(world.frame).toBe(10000);
     expect(world.time).toBeCloseTo(time / 1000, 0);
     expect(world.accumulator).toBeLessThan(world.fixedDeltaTime);
+  });
+});
+
+describe("World.tick - server percentile diagnostics", () => {
+  it("records bounded full-window phase and complete-system timings", () => {
+    const world = createServerTestWorld();
+    world.enableSystemTiming();
+
+    world.tick(0);
+    world.tick(33.34);
+
+    const phases = world.getServerTickTimingPercentiles();
+    expect(phases.total.samples).toBe(2);
+    expect(phases.fixedUpdate.samples).toBe(2);
+    expect(phases.update.samples).toBe(2);
+    expect(phases.lateUpdate.samples).toBe(2);
+    expect(phases.commit.samples).toBe(2);
+    expect(phases.unmeasured.samples).toBe(2);
+    expect(phases.total.max).toBeGreaterThanOrEqual(phases.update.max);
+
+    const systems = world.getSystemTimingPercentiles();
+    expect(systems.length).toBe(world.systems.length);
+    expect(systems.every((system) => system.samples === 2)).toBe(true);
+  });
+
+  it("resets phase and system distributions without disabling measurement", () => {
+    const world = createServerTestWorld();
+    world.enableSystemTiming();
+    world.tick(0);
+
+    world.resetServerTimingPercentiles();
+    expect(world.getServerTickTimingPercentiles().total.samples).toBe(0);
+    expect(
+      world
+        .getSystemTimingPercentiles()
+        .every((system) => system.samples === 0),
+    ).toBe(true);
+
+    world.tick(33.34);
+    expect(world.getServerTickTimingPercentiles().total.samples).toBe(1);
+    expect(
+      world
+        .getSystemTimingPercentiles()
+        .every((system) => system.samples === 1),
+    ).toBe(true);
   });
 });

@@ -602,6 +602,7 @@ export class NPCSystem extends SystemBase {
           position: groundedPosition,
           services: npc.services,
           modelPath: npc.modelPath,
+          storeId: npc.storeId,
         });
       }
     }

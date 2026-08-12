@@ -43,6 +43,7 @@ import THREE, {
   smoothstep,
 } from "../../../extras/three/three";
 import { SpriteNodeMaterial } from "three/webgpu";
+import type { StorageBufferNode } from "three/webgpu";
 import { System } from "../infrastructure/System";
 import type { World } from "../../../types";
 import { tslUtils } from "../../../utils/TSLUtils";
@@ -149,7 +150,7 @@ let terrainNoiseTexture: THREE.Texture | null = null;
 // z -> 0/12 offsetY - 12/1 visibility (11 unused)
 // w -> noise packed (0/6 r, 6/6 g, 12/6 b, 18/6 a)
 
-type InstancedArrayBuffer = ReturnType<typeof instancedArray>;
+type InstancedArrayBuffer = StorageBufferNode<"vec4">;
 
 // Max height for bit-packing (matches grass heightmap max)
 const HEIGHTMAP_MAX = 100;

@@ -84,10 +84,8 @@ interface ServerConfig {
   spawnModelAgents?: boolean;
   /** Maximum number of model agents to spawn */
   maxModelAgents?: number;
-  /** Specific providers to spawn (openai, anthropic, groq, xai, elizacloud) */
-  modelProviders?: Array<
-    "openai" | "anthropic" | "groq" | "xai" | "openrouter" | "elizacloud"
-  >;
+  /** Specific providers backed by pinned launch plugins. */
+  modelProviders?: Array<"openai" | "anthropic" | "groq">;
 }
 
 /**

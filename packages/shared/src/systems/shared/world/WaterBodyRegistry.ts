@@ -127,9 +127,13 @@ export class WaterBodyRegistry {
     tileZ: number,
     tileSize: number,
   ): ElevatedWaterBody[] {
-    const minX = tileX * tileSize;
+    // Terrain meshes are centered on tileX * tileSize, so tile 0 spans
+    // [-tileSize/2, +tileSize/2). Match TerrainSystem's indexing exactly or
+    // elevated bodies on the negative half of a tile disappear from both
+    // collision baking and rendering.
+    const minX = tileX * tileSize - tileSize * 0.5;
     const maxX = minX + tileSize;
-    const minZ = tileZ * tileSize;
+    const minZ = tileZ * tileSize - tileSize * 0.5;
     const maxZ = minZ + tileSize;
 
     const result: ElevatedWaterBody[] = [];

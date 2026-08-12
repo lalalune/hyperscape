@@ -2867,6 +2867,7 @@ export class TownSystem extends System {
         internalOpenings: fp.internalOpenings,
         externalOpenings: fp.externalOpenings,
       })),
+      exteriorFootprint: layout.exteriorFootprint,
       stairs: layout.stairs,
     };
   }

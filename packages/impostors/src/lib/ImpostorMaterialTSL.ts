@@ -447,9 +447,10 @@ export function createTSLImpostorMaterial(
       const wc_depth = mul(mul(uFaceWeights.z, color_c.a), depthWeight_c);
 
       // Select based on depth blending flag
-      const wa_raw = select(uUseDepthBlending, wa_depth, wa_std);
-      const wb_raw = select(uUseDepthBlending, wb_depth, wb_std);
-      const wc_raw = select(uUseDepthBlending, wc_depth, wc_std);
+      const useDepthBlending = uUseDepthBlending.greaterThan(0);
+      const wa_raw = select(useDepthBlending, wa_depth, wa_std);
+      const wb_raw = select(useDepthBlending, wb_depth, wb_std);
+      const wc_raw = select(useDepthBlending, wc_depth, wc_std);
 
       const totalWeightRaw = add(add(wa_raw, wb_raw), wc_raw);
       // Prevent division by zero when all sampled cells have alpha=0
@@ -467,7 +468,7 @@ export function createTSLImpostorMaterial(
         mul(color_c, wc),
       );
       // Apply gamma decode then multiply by color tint (for dynamic grass coloring etc.)
-      const albedoDecoded = pow(albedo.rgb, vec3(2.2, 2.2, 2.2));
+      const albedoDecoded = albedo.rgb.pow(vec3(2.2, 2.2, 2.2));
       const albedoLinear = mul(albedoDecoded, uColorTint);
 
       // Decode and blend normals
@@ -492,9 +493,10 @@ export function createTSLImpostorMaterial(
         add(mul(pbr_a, wa), mul(pbr_b, wb)),
         mul(pbr_c, wc),
       );
-      const roughness = select(uUsePBR, pbrBlended.r, float(0.8));
-      const metallic = select(uUsePBR, pbrBlended.g, float(0));
-      const ao = select(uUsePBR, pbrBlended.b, float(1));
+      const usePBR = uUsePBR.greaterThan(0);
+      const roughness = select(usePBR, pbrBlended.r, float(0.8));
+      const metallic = select(usePBR, pbrBlended.g, float(0));
+      const ao = select(usePBR, pbrBlended.b, float(1));
 
       // Transform normal to world space
       const N = normalize(sub(cameraPosition, worldPos));
@@ -525,8 +527,8 @@ export function createTSLImpostorMaterial(
       // DIRECTIONAL LIGHTS (all 4 - intensity=0 makes inactive lights contribute nothing)
       // JS-level for-loop generates identical unrolled TSL node graph, but source is DRY.
       // =========================================================================
-      const dirDiffuses: ReturnType<typeof mul>[] = [];
-      const dirSpeculars: ReturnType<typeof mul>[] = [];
+      const dirDiffuses: THREE_NAMESPACE.Node<"vec3">[] = [];
+      const dirSpeculars: THREE_NAMESPACE.Node<"vec3">[] = [];
 
       for (let i = 0; i < MAX_DIRECTIONAL_LIGHTS_TSL; i++) {
         const L = normalize(uDirLightDirs[i]);
@@ -562,8 +564,8 @@ export function createTSLImpostorMaterial(
       // Uses sqrt(dot(v,v)) instead of manual pow(sum-of-squares, 0.5) - same WGSL,
       // but ~6 fewer TSL nodes per light = faster material creation + smaller graph.
       // =========================================================================
-      const ptDiffuses: ReturnType<typeof mul>[] = [];
-      const ptSpeculars: ReturnType<typeof mul>[] = [];
+      const ptDiffuses: THREE_NAMESPACE.Node<"vec3">[] = [];
+      const ptSpeculars: THREE_NAMESPACE.Node<"vec3">[] = [];
 
       for (let i = 0; i < MAX_POINT_LIGHTS_TSL; i++) {
         const pVec = sub(uPointLightPositions[i], worldPos);
@@ -620,7 +622,7 @@ export function createTSLImpostorMaterial(
       const totalDiffuse = add(totalDirDiffuse, totalPointDiffuse);
       const totalSpecularRaw = add(totalDirSpecular, totalPointSpecular);
       const totalSpecular = select(
-        uUseSpecular,
+        uUseSpecular.greaterThan(0),
         mul(totalSpecularRaw, uSpecularIntensity),
         vec3(0, 0, 0),
       );
@@ -642,7 +644,11 @@ export function createTSLImpostorMaterial(
 
       // If no normals available, skip lighting and just use albedo with full brightness
       // This handles the case where only a color atlas is provided (fallback)
-      const colorToOutput = select(uHasNormals, litColor, albedoLinear);
+      const colorToOutput = select(
+        uHasNormals.greaterThan(0),
+        litColor,
+        albedoLinear,
+      );
 
       // Simple clamp - no tonemapping needed since lighting values are pre-balanced
       // The ambient + diffuse values are designed to stay in 0-1 range for typical scenes

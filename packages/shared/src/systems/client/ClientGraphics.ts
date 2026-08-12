@@ -136,6 +136,9 @@ export class ClientGraphics extends System {
   isWebGPU: boolean = true;
   hasRendered: boolean = false;
   gpuCompute: GPUComputeManager | null = null;
+  private precompileQueue: Promise<void> = Promise.resolve();
+  private pendingPrecompileCount = 0;
+  private static readonly PRECOMPILE_TIMEOUT_MS = 15_000;
 
   constructor(world: World) {
     super(world);
@@ -363,6 +366,86 @@ export class ClientGraphics extends System {
       this.composer.render();
     }
     this.hasRendered = true;
+  }
+
+  /**
+   * Compile a newly loaded object's WebGPU pipelines before it becomes visible.
+   * Calls are serialized because Three's compiler temporarily swaps renderer
+   * traversal state. Visibility and frustum flags are restored synchronously
+   * before the compiler waits on backend pipeline promises.
+   */
+  precompileObject(object: THREE.Object3D): Promise<void> {
+    this.pendingPrecompileCount++;
+    const run = this.precompileQueue
+      .catch(() => undefined)
+      .then(() => this.precompileObjectNow(object));
+    this.precompileQueue = run.catch(() => undefined);
+    return run.finally(() => {
+      this.pendingPrecompileCount = Math.max(
+        0,
+        this.pendingPrecompileCount - 1,
+      );
+    });
+  }
+
+  isPrecompileIdle(): boolean {
+    return this.pendingPrecompileCount === 0;
+  }
+
+  private async precompileObjectNow(object: THREE.Object3D): Promise<void> {
+    const previousVisible = object.visible;
+    const frustumStates: Array<{
+      object: THREE.Object3D & { frustumCulled: boolean };
+      value: boolean;
+    }> = [];
+    object.traverse((child) => {
+      if (
+        "frustumCulled" in child &&
+        typeof child.frustumCulled === "boolean"
+      ) {
+        frustumStates.push({
+          object: child as THREE.Object3D & { frustumCulled: boolean },
+          value: child.frustumCulled,
+        });
+        child.frustumCulled = false;
+      }
+    });
+
+    let compilation: Promise<void>;
+    try {
+      object.visible = true;
+      object.updateMatrixWorld(true);
+      compilation = this.renderer.compileAsync(
+        object,
+        this.world.camera,
+        this.world.stage.scene,
+      );
+    } finally {
+      object.visible = previousVisible;
+      for (const state of frustumStates) {
+        state.object.frustumCulled = state.value;
+      }
+    }
+
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([
+        compilation,
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(
+            () =>
+              reject(
+                new Error(
+                  `WebGPU object precompile timed out after ${ClientGraphics.PRECOMPILE_TIMEOUT_MS}ms`,
+                ),
+              ),
+            ClientGraphics.PRECOMPILE_TIMEOUT_MS,
+          );
+        }),
+      ]);
+    } finally {
+      if (timeout) clearTimeout(timeout);
+    }
   }
 
   override commit() {

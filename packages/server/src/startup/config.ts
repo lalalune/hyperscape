@@ -74,6 +74,7 @@ const MANIFEST_FILES = [
   "tier-requirements.json",
   "tools.json",
   "vegetation.json",
+  "world-config.json",
   "world-areas.json",
   // Items directory (split by category)
   "items/ammunition.json",

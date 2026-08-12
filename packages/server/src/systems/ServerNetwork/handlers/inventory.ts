@@ -36,6 +36,7 @@ import {
 } from "../services/InputValidation";
 import { sql } from "drizzle-orm";
 import * as schema from "../../../database/schema";
+import { runInPostgresTransaction } from "../../../database/postgres-transaction";
 import { getDatabase } from "./common/helpers";
 import {
   getPickupRateLimiter,
@@ -211,8 +212,7 @@ export function handlePickupItem(
 
   // Block item pickup during active duels (COUNTDOWN/FIGHTING/FINISHED)
   const duelSystemPickup = world.getSystem("duel") as
-    | { isPlayerInActiveDuel?: (id: string) => boolean }
-    | undefined;
+    { isPlayerInActiveDuel?: (id: string) => boolean } | undefined;
   if (duelSystemPickup?.isPlayerInActiveDuel?.(playerEntity.id)) {
     return; // Silently ignore - player shouldn't be near ground items in arena
   }
@@ -331,8 +331,7 @@ export function handleDropItem(
 
   // Block ALL drops during duel (can't drop any items while in duel)
   const duelSystem = world.getSystem("duel") as
-    | { isPlayerInDuel?: (id: string) => boolean }
-    | undefined;
+    { isPlayerInDuel?: (id: string) => boolean } | undefined;
   if (duelSystem?.isPlayerInDuel?.(playerEntity.id)) {
     console.warn("[Inventory] handleDropItem: player is in duel");
     return;
@@ -453,8 +452,7 @@ export function handleEquipItem(
 
   // Block equip while dead (classic MMORPG: can't change gear while dead)
   const entityDataEquip = playerEntity.data as
-    | { deathState?: DeathState }
-    | undefined;
+    { deathState?: DeathState } | undefined;
   if (
     entityDataEquip?.deathState === DeathState.DYING ||
     entityDataEquip?.deathState === DeathState.DEAD
@@ -636,8 +634,7 @@ export function handleUnequipItem(
 
   // Block unequip during active duels (classic MMORPG: can't change gear mid-duel)
   const duelSystemUnequip = world.getSystem("duel") as
-    | { isPlayerInActiveDuel?: (id: string) => boolean }
-    | undefined;
+    { isPlayerInActiveDuel?: (id: string) => boolean } | undefined;
   if (duelSystemUnequip?.isPlayerInActiveDuel?.(playerEntity.id)) {
     sendInventoryError(
       socket,
@@ -660,8 +657,7 @@ export function handleUnequipItem(
 
   // Block unequip while dead (classic MMORPG: can't change gear while dead)
   const entityDataUnequip = playerEntity.data as
-    | { deathState?: DeathState }
-    | undefined;
+    { deathState?: DeathState } | undefined;
   if (
     entityDataUnequip?.deathState === DeathState.DYING ||
     entityDataUnequip?.deathState === DeathState.DEAD
@@ -747,8 +743,7 @@ export function handleMoveItem(
 
   // Check if either slot contains a staked item (can't move staked items)
   const duelSystem = world.getSystem("duel") as
-    | { getStakedSlots?: (id: string) => Set<number> }
-    | undefined;
+    { getStakedSlots?: (id: string) => Set<number> } | undefined;
   const stakedSlots = duelSystem?.getStakedSlots?.(playerEntity.id);
   if (stakedSlots?.has(payload.fromSlot as number)) {
     sendInventoryError(socket, "move", "That item is staked in a duel.");
@@ -840,8 +835,7 @@ export async function handleCoinPouchWithdraw(
 
   // Block coin pouch withdrawal during duels
   const duelSystemCoins = world.getSystem("duel") as
-    | { isPlayerInDuel?: (id: string) => boolean }
-    | undefined;
+    { isPlayerInDuel?: (id: string) => boolean } | undefined;
   if (duelSystemCoins?.isPlayerInDuel?.(playerId)) {
     sendInventoryError(
       socket,
@@ -890,7 +884,7 @@ export async function handleCoinPouchWithdraw(
   }
 
   try {
-    await db.drizzle.transaction(async (tx) => {
+    await runInPostgresTransaction(db.pool, async (tx) => {
       // Lock character row first (consistent lock order)
       const charResult = await tx.execute(
         sql`SELECT coins FROM characters WHERE id = ${playerId} FOR UPDATE`,
@@ -912,8 +906,7 @@ export async function handleCoinPouchWithdraw(
             FOR UPDATE`,
       );
       const existingStack = invResult.rows[0] as
-        | { slotIndex: number; quantity: number }
-        | undefined;
+        { slotIndex: number; quantity: number } | undefined;
 
       if (existingStack) {
         // Add to existing stack (check overflow)
@@ -1107,8 +1100,7 @@ export async function handleXpLampUse(
 
   // Block XP lamp usage during duels
   const duelSystemLamp = world.getSystem("duel") as
-    | { isPlayerInDuel?: (id: string) => boolean }
-    | undefined;
+    { isPlayerInDuel?: (id: string) => boolean } | undefined;
   if (duelSystemLamp?.isPlayerInDuel?.(playerEntity.id)) {
     sendInventoryError(socket, "xpLampUse", "You can't do that during a duel.");
     return;

@@ -6,8 +6,8 @@
  *
  * ## LOD System
  * Avatars use a 3-tier LOD system for performance:
- * - LOD0 (url): 30K triangles - close range gameplay
- * - LOD1 (lod1Url): 10K triangles - medium distance
+ * - LOD0 (url): 20K triangles maximum - close range gameplay
+ * - LOD1 (lod1Url): 8K triangles maximum - medium distance
  * - LOD2 (lod2Url): 2K triangles - far distance / impostor base
  *
  * ## Texture Optimization
@@ -20,9 +20,9 @@
 export interface AvatarOption {
   id: string;
   name: string;
-  /** LOD0 URL - Full detail (30K triangles) */
+  /** LOD0 URL - Full detail (20K triangles maximum) */
   url: string;
-  /** LOD1 URL - Medium detail (10K triangles) */
+  /** LOD1 URL - Medium detail (8K triangles maximum) */
   lod1Url?: string;
   /** LOD2 URL - Low detail (2K triangles) */
   lod2Url?: string;
@@ -33,9 +33,9 @@ export interface AvatarOption {
 
 /** LOD level enum for avatar selection */
 export enum AvatarLOD {
-  /** Full detail - 30K triangles (close range) */
+  /** Full detail - 20K triangles maximum (close range) */
   LOD0 = 0,
-  /** Medium detail - 10K triangles (medium distance) */
+  /** Medium detail - 8K triangles maximum (medium distance) */
   LOD1 = 1,
   /** Low detail - 2K triangles (far distance) */
   LOD2 = 2,
@@ -52,58 +52,90 @@ export const AVATAR_LOD_DISTANCES = {
 /**
  * Available avatar models
  *
- * - `url`: LOD0 (30K triangles) - Uses asset:// protocol resolved by ClientLoader
- * - `lod1Url`: LOD1 (10K triangles) - Medium distance
+ * - `url`: LOD0 (20K triangles maximum) - Uses asset:// protocol resolved by ClientLoader
+ * - `lod1Url`: LOD1 (8K triangles maximum) - Medium distance
  * - `lod2Url`: LOD2 (2K triangles) - Far distance
  * - `previewPath`: Path portion for CharacterPreview component (CDN URL prepended at runtime)
  *
  * Triangle counts (optimized):
- * - LOD0: ~30K triangles (main gameplay)
- * - LOD1: ~10K triangles (medium distance)
+ * - LOD0: at most 20K triangles (main gameplay)
+ * - LOD1: at most 8K triangles (medium distance)
  * - LOD2: ~2K triangles (far distance / impostor)
  */
 export const AVATAR_OPTIONS: AvatarOption[] = [
   {
-    id: "male-01",
-    name: "Male Avatar 01",
-    // TEMP: Use non-optimized VRM to test humanoid.update issue
-    url: "asset://avatars/avatar-male-01.vrm",
-    lod1Url: "asset://avatars/avatar-male-01_lod1.vrm",
-    lod2Url: "asset://avatars/avatar-male-01_lod2.vrm",
-    previewPath: "/avatars/avatar-male-01.vrm",
-    description: "Standard male humanoid avatar",
+    id: "bandit",
+    name: "Bandit",
+    url: "asset://avatars/duel-candidates/duel-bandit.vrm",
+    lod1Url: "asset://avatars/duel-candidates/duel-bandit_lod1.vrm",
+    lod2Url: "asset://avatars/duel-candidates/duel-bandit_lod2.vrm",
+    previewPath: "/avatars/duel-candidates/duel-bandit.vrm",
+    description: "Agile skirmisher",
   },
   {
-    id: "male-02",
-    name: "Male Avatar 02",
-    // TEMP: Use non-optimized VRM to test humanoid.update issue
-    url: "asset://avatars/avatar-male-02.vrm",
-    lod1Url: "asset://avatars/avatar-male-02_lod1.vrm",
-    lod2Url: "asset://avatars/avatar-male-02_lod2.vrm",
-    previewPath: "/avatars/avatar-male-02.vrm",
-    description: "Standard male humanoid avatar",
+    id: "barbarian",
+    name: "Barbarian",
+    url: "asset://avatars/duel-candidates/duel-barbarian.vrm",
+    lod1Url: "asset://avatars/duel-candidates/duel-barbarian_lod1.vrm",
+    lod2Url: "asset://avatars/duel-candidates/duel-barbarian_lod2.vrm",
+    previewPath: "/avatars/duel-candidates/duel-barbarian.vrm",
+    description: "Armored power fighter",
   },
   {
-    id: "female-01",
-    name: "Female Avatar 01",
-    // TEMP: Use non-optimized VRM to test humanoid.update issue
-    url: "asset://avatars/avatar-female-01.vrm",
-    lod1Url: "asset://avatars/avatar-female-01_lod1.vrm",
-    lod2Url: "asset://avatars/avatar-female-01_lod2.vrm",
-    previewPath: "/avatars/avatar-female-01.vrm",
-    description: "Standard female humanoid avatar",
+    id: "dark-ranger",
+    name: "Dark Ranger",
+    url: "asset://avatars/duel-candidates/duel-dark-ranger.vrm",
+    lod1Url: "asset://avatars/duel-candidates/duel-dark-ranger_lod1.vrm",
+    lod2Url: "asset://avatars/duel-candidates/duel-dark-ranger_lod2.vrm",
+    previewPath: "/avatars/duel-candidates/duel-dark-ranger.vrm",
+    description: "Ranged specialist",
   },
   {
-    id: "female-02",
-    name: "Female Avatar 02",
-    // TEMP: Use non-optimized VRM to test humanoid.update issue
-    url: "asset://avatars/avatar-female-02.vrm",
-    lod1Url: "asset://avatars/avatar-female-02_lod1.vrm",
-    lod2Url: "asset://avatars/avatar-female-02_lod2.vrm",
-    previewPath: "/avatars/avatar-female-02.vrm",
-    description: "Standard female humanoid avatar",
+    id: "dark-wizard",
+    name: "Dark Wizard",
+    url: "asset://avatars/duel-candidates/duel-dark-wizard.vrm",
+    lod1Url: "asset://avatars/duel-candidates/duel-dark-wizard_lod1.vrm",
+    lod2Url: "asset://avatars/duel-candidates/duel-dark-wizard_lod2.vrm",
+    previewPath: "/avatars/duel-candidates/duel-dark-wizard.vrm",
+    description: "Magic specialist",
+  },
+  {
+    id: "steve",
+    name: "Steve",
+    url: "asset://avatars/duel-candidates/duel-steve.vrm",
+    lod1Url: "asset://avatars/duel-candidates/duel-steve_lod1.vrm",
+    lod2Url: "asset://avatars/duel-candidates/duel-steve_lod2.vrm",
+    previewPath: "/avatars/duel-candidates/duel-steve.vrm",
+    description: "Canonical launch duel rig",
   },
 ];
+
+export const DEFAULT_AVATAR_URL = AVATAR_OPTIONS[0].url;
+export const CANONICAL_DUEL_AVATAR_ID = "steve";
+export const CANONICAL_DUEL_AVATAR_URL =
+  AVATAR_OPTIONS.find((avatar) => avatar.id === CANONICAL_DUEL_AVATAR_ID)
+    ?.url ?? DEFAULT_AVATAR_URL;
+
+export type DuelAvatarStyle = "auto" | "melee" | "ranged" | "mage" | "prayer";
+
+const DUEL_AVATAR_IDS_BY_STYLE: Record<DuelAvatarStyle, readonly string[]> = {
+  auto: ["bandit", "barbarian", "dark-ranger", "dark-wizard"],
+  melee: ["barbarian", "bandit"],
+  ranged: ["dark-ranger", "bandit"],
+  mage: ["dark-wizard", "bandit"],
+  prayer: ["dark-wizard", "barbarian"],
+};
+
+/** Return a stable fighter avatar for a scripted combat style. */
+export function getDuelAvatarUrlForStyle(
+  style: DuelAvatarStyle,
+  rosterIndex = 0,
+): string {
+  const ids = DUEL_AVATAR_IDS_BY_STYLE[style];
+  const index =
+    ((Math.trunc(rosterIndex) % ids.length) + ids.length) % ids.length;
+  return getAvatarById(ids[index])?.url ?? DEFAULT_AVATAR_URL;
+}
 
 /**
  * Get avatar by ID

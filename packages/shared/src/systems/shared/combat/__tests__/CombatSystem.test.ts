@@ -12,6 +12,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { CombatSystem } from "../CombatSystem";
 import type { World } from "../../../../core/World";
+import { AttackType } from "../../../../types/game/item-types";
 
 interface MockPlayerEntity {
   id: string;
@@ -197,6 +198,16 @@ function createMockWorld(
     mobs?: Map<string, MockMobEntity>;
     currentTick?: number;
     isServer?: boolean;
+    equipmentSystem?: {
+      getPlayerEquipment: (playerId: string) => Record<string, unknown>;
+      consumeArrowAtomic?: ReturnType<typeof vi.fn>;
+    };
+    inventorySystem?: {
+      getInventory: (playerId: string) => {
+        items: Array<{ itemId: string; quantity: number; slot: number }>;
+      };
+      debitItemsAtomic: ReturnType<typeof vi.fn>;
+    };
   } = {},
 ) {
   const players = options.players || new Map<string, MockPlayerEntity>();
@@ -228,9 +239,14 @@ function createMockWorld(
         };
       }
       if (name === "equipment") {
-        return {
-          getPlayerEquipment: () => ({ weapon: null }),
-        };
+        return (
+          options.equipmentSystem ?? {
+            getPlayerEquipment: () => ({ weapon: null }),
+          }
+        );
+      }
+      if (name === "inventory") {
+        return options.inventorySystem;
       }
       if (name === "player") {
         return {
@@ -431,6 +447,61 @@ describe("CombatSystem", () => {
       expect(combatSystem.isInCombat("player1")).toBe(false);
     });
 
+    it("cancels delayed damage for both combatants before state teardown", () => {
+      const player = createMockPlayer("player1");
+      const mob = createMockMob("mob1", 50, { x: 5, y: 0, z: 0 });
+      mockPlayers.set("player1", player);
+      mockMobs.set("mob1", mob);
+
+      combatSystem.startCombat("player1", "mob1", {
+        attackerType: "player",
+        targetType: "mob",
+      });
+
+      const projectileService = (
+        combatSystem as unknown as {
+          projectileService: {
+            createProjectile: (params: {
+              sourceId: string;
+              targetId: string;
+              attackType: AttackType;
+              damage: number;
+              currentTick: number;
+              sourcePosition: { x: number; z: number };
+              targetPosition: { x: number; z: number };
+            }) => unknown;
+            getActiveCount: () => number;
+            processTick: (tick: number) => { hits: unknown[] };
+          };
+        }
+      ).projectileService;
+
+      projectileService.createProjectile({
+        sourceId: "player1",
+        targetId: "mob1",
+        attackType: AttackType.RANGED,
+        damage: 10,
+        currentTick: 100,
+        sourcePosition: { x: 0, z: 0 },
+        targetPosition: { x: 5, z: 0 },
+      });
+      projectileService.createProjectile({
+        sourceId: "mob1",
+        targetId: "player1",
+        attackType: AttackType.MAGIC,
+        damage: 10,
+        currentTick: 100,
+        sourcePosition: { x: 5, z: 0 },
+        targetPosition: { x: 0, z: 0 },
+      });
+      expect(projectileService.getActiveCount()).toBe(2);
+
+      combatSystem.forceEndCombat("player1");
+
+      expect(projectileService.getActiveCount()).toBe(0);
+      expect(projectileService.processTick(1_000).hits).toHaveLength(0);
+    });
+
     it("handles ending combat for entity not in combat", () => {
       expect(() => {
         combatSystem.forceEndCombat("nonexistent", "player");
@@ -552,6 +623,342 @@ describe("CombatSystem", () => {
       expect(() => {
         combatSystem.processCombatTick(110);
       }).not.toThrow();
+    });
+  });
+
+  describe("competitive projectile supply conservation", () => {
+    it("debits one equipped arrow when a player launches a ranged projectile", async () => {
+      const player = createMockPlayer("player-ranged", 100, {
+        x: 0,
+        y: 0,
+        z: 0,
+      });
+      player.data.skills = {
+        ranged: { level: 10, xp: 0 },
+      } as never;
+      const mob = createMockMob("mob-ranged", 50, { x: 0, y: 0, z: 3 });
+      const players = new Map([[player.id, player]]);
+      const mobs = new Map([[mob.id, mob]]);
+      const consumeArrowAtomic = vi.fn(
+        async (playerId: string, operationId: string, arrowId: string) => ({
+          ok: true,
+          playerId,
+          operationId,
+          arrowId,
+          changed: true,
+          replayed: false,
+        }),
+      );
+      const rangedWorld = createMockWorld({
+        players,
+        mobs,
+        equipmentSystem: {
+          getPlayerEquipment: () => ({
+            weapon: {
+              itemId: "shortbow",
+              item: {
+                id: "shortbow",
+                type: "weapon",
+                weaponType: "BOW",
+                attackType: "RANGED",
+                attackRange: 7,
+                attackSpeed: 4,
+              },
+            },
+            arrows: {
+              itemId: "bronze_arrow",
+              item: { id: "bronze_arrow", type: "ammunition" },
+              quantity: 2,
+            },
+          }),
+          consumeArrowAtomic,
+        },
+      });
+      const rangedCombat = new CombatSystem(rangedWorld as unknown as World);
+      await rangedCombat.init();
+
+      try {
+        await (
+          rangedCombat as unknown as {
+            handleRangedAttack: (input: {
+              attackerId: string;
+              targetId: string;
+              attackerType: "player";
+              targetType: "mob";
+            }) => Promise<void>;
+          }
+        ).handleRangedAttack({
+          attackerId: player.id,
+          targetId: mob.id,
+          attackerType: "player",
+          targetType: "mob",
+        });
+
+        expect(consumeArrowAtomic).toHaveBeenCalledOnce();
+        expect(consumeArrowAtomic).toHaveBeenCalledWith(
+          player.id,
+          expect.stringMatching(/^arrow-debit:[A-Za-z0-9]{20}$/),
+          "bronze_arrow",
+        );
+        expect(
+          (
+            rangedCombat as unknown as {
+              projectileService: { getActiveCount: () => number };
+            }
+          ).projectileService.getActiveCount(),
+        ).toBe(1);
+      } finally {
+        rangedCombat.destroy();
+      }
+    });
+
+    it("creates no ranged combat side effect when arrow custody fails", async () => {
+      const player = createMockPlayer("player-ranged-failed", 100, {
+        x: 0,
+        y: 0,
+        z: 0,
+      });
+      player.data.skills = { ranged: { level: 10, xp: 0 } } as never;
+      const mob = createMockMob("mob-ranged-failed", 50, {
+        x: 0,
+        y: 0,
+        z: 3,
+      });
+      const consumeArrowAtomic = vi.fn(async () => ({
+        ok: false,
+        playerId: player.id,
+        operationId: "failed",
+        arrowId: "bronze_arrow",
+        changed: false,
+        replayed: false,
+        reason: "persistence_failed",
+      }));
+      const rangedWorld = createMockWorld({
+        players: new Map([[player.id, player]]),
+        mobs: new Map([[mob.id, mob]]),
+        equipmentSystem: {
+          getPlayerEquipment: () => ({
+            weapon: {
+              itemId: "shortbow",
+              item: {
+                id: "shortbow",
+                type: "weapon",
+                weaponType: "BOW",
+                attackType: "RANGED",
+                attackRange: 7,
+                attackSpeed: 4,
+              },
+            },
+            arrows: {
+              itemId: "bronze_arrow",
+              item: { id: "bronze_arrow", type: "ammunition" },
+              quantity: 2,
+            },
+          }),
+          consumeArrowAtomic,
+        },
+      });
+      const rangedCombat = new CombatSystem(rangedWorld as unknown as World);
+      await rangedCombat.init();
+
+      try {
+        await (
+          rangedCombat as unknown as {
+            handleRangedAttack: (input: {
+              attackerId: string;
+              targetId: string;
+              attackerType: "player";
+              targetType: "mob";
+            }) => Promise<void>;
+          }
+        ).handleRangedAttack({
+          attackerId: player.id,
+          targetId: mob.id,
+          attackerType: "player",
+          targetType: "mob",
+        });
+
+        const internals = rangedCombat as unknown as {
+          projectileService: { getActiveCount: () => number };
+          nextAttackTicks: Map<string, number>;
+        };
+        expect(consumeArrowAtomic).toHaveBeenCalledOnce();
+        expect(internals.projectileService.getActiveCount()).toBe(0);
+        expect(internals.nextAttackTicks.has(player.id)).toBe(false);
+        expect(rangedCombat.isInCombat(player.id)).toBe(false);
+        expect(player.emote).toBe("idle");
+      } finally {
+        rangedCombat.destroy();
+      }
+    });
+
+    it("debits every rune type for a selected contestant in one operation", async () => {
+      const player = createMockPlayer("player-magic", 100, {
+        x: 0,
+        y: 0,
+        z: 0,
+      });
+      player.data.skills = {
+        magic: { level: 10, xp: 0 },
+      } as never;
+      player.data.inStreamingDuel = true as never;
+      player.data.selectedSpell = "wind_strike" as never;
+      const mob = createMockMob("mob-magic", 50, { x: 0, y: 0, z: 3 });
+      const debitItemsAtomic = vi.fn(
+        async (
+          playerId: string,
+          operationId: string,
+          requirements: unknown[],
+        ) => ({
+          ok: true,
+          playerId,
+          operationId,
+          changed: true,
+          replayed: false,
+          requirements,
+        }),
+      );
+      const magicWorld = createMockWorld({
+        players: new Map([[player.id, player]]),
+        mobs: new Map([[mob.id, mob]]),
+        equipmentSystem: {
+          getPlayerEquipment: () => ({
+            weapon: {
+              itemId: "bronze_longsword",
+              item: {
+                id: "bronze_longsword",
+                type: "weapon",
+                weaponType: "LONGSWORD",
+                attackType: "MELEE",
+                attackRange: 1,
+                attackSpeed: 5,
+              },
+            },
+            arrows: null,
+          }),
+        },
+        inventorySystem: {
+          getInventory: () => ({
+            items: [
+              { itemId: "air_rune", quantity: 20, slot: 0 },
+              { itemId: "mind_rune", quantity: 20, slot: 1 },
+            ],
+          }),
+          debitItemsAtomic,
+        },
+      });
+      const magicCombat = new CombatSystem(magicWorld as unknown as World);
+      await magicCombat.init();
+
+      try {
+        await (
+          magicCombat as unknown as {
+            handleMagicAttack: (input: {
+              attackerId: string;
+              targetId: string;
+              attackerType: "player";
+              targetType: "mob";
+            }) => Promise<void>;
+          }
+        ).handleMagicAttack({
+          attackerId: player.id,
+          targetId: mob.id,
+          attackerType: "player",
+          targetType: "mob",
+        });
+
+        expect(debitItemsAtomic).toHaveBeenCalledTimes(1);
+        expect(debitItemsAtomic).toHaveBeenCalledWith(
+          player.id,
+          expect.stringMatching(/^spell-runes:[A-Za-z0-9]{20}$/),
+          [
+            { itemId: "air_rune", quantity: 1 },
+            { itemId: "mind_rune", quantity: 1 },
+          ],
+        );
+        expect(
+          (
+            magicCombat as unknown as {
+              projectileService: { getActiveCount: () => number };
+            }
+          ).projectileService.getActiveCount(),
+        ).toBe(1);
+      } finally {
+        magicCombat.destroy();
+      }
+    });
+
+    it("creates no combat side effect when the atomic rune debit fails", async () => {
+      const player = createMockPlayer("player-magic-failed", 100, {
+        x: 0,
+        y: 0,
+        z: 0,
+      });
+      player.data.skills = { magic: { level: 10, xp: 0 } } as never;
+      player.data.inStreamingDuel = true as never;
+      player.data.selectedSpell = "wind_strike" as never;
+      const mob = createMockMob("mob-magic-failed", 50, {
+        x: 0,
+        y: 0,
+        z: 3,
+      });
+      const debitItemsAtomic = vi.fn(async () => ({
+        ok: false,
+        playerId: player.id,
+        operationId: "failed",
+        changed: false,
+        replayed: false,
+        requirements: [],
+        reason: "persistence_failed",
+      }));
+      const magicWorld = createMockWorld({
+        players: new Map([[player.id, player]]),
+        mobs: new Map([[mob.id, mob]]),
+        equipmentSystem: {
+          getPlayerEquipment: () => ({ weapon: null, arrows: null }),
+        },
+        inventorySystem: {
+          getInventory: () => ({
+            items: [
+              { itemId: "air_rune", quantity: 20, slot: 0 },
+              { itemId: "mind_rune", quantity: 20, slot: 1 },
+            ],
+          }),
+          debitItemsAtomic,
+        },
+      });
+      const magicCombat = new CombatSystem(magicWorld as unknown as World);
+      await magicCombat.init();
+
+      try {
+        await (
+          magicCombat as unknown as {
+            handleMagicAttack: (input: {
+              attackerId: string;
+              targetId: string;
+              attackerType: "player";
+              targetType: "mob";
+            }) => Promise<void>;
+          }
+        ).handleMagicAttack({
+          attackerId: player.id,
+          targetId: mob.id,
+          attackerType: "player",
+          targetType: "mob",
+        });
+
+        const internals = magicCombat as unknown as {
+          projectileService: { getActiveCount: () => number };
+          nextAttackTicks: Map<string, number>;
+        };
+        expect(debitItemsAtomic).toHaveBeenCalledOnce();
+        expect(internals.projectileService.getActiveCount()).toBe(0);
+        expect(internals.nextAttackTicks.has(player.id)).toBe(false);
+        expect(magicCombat.isInCombat(player.id)).toBe(false);
+        expect(player.emote).toBe("idle");
+      } finally {
+        magicCombat.destroy();
+      }
     });
   });
 

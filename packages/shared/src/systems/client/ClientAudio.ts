@@ -106,6 +106,9 @@ export class ClientAudio extends System {
   queue: Array<() => void>;
   unlocked: boolean;
   private unlockHandler: (() => Promise<void>) | null = null;
+  private captureDestination: ReturnType<
+    AudioContext["createMediaStreamDestination"]
+  > | null = null;
 
   constructor(world: World) {
     super(world);
@@ -148,6 +151,28 @@ export class ClientAudio extends System {
 
   getVoiceGain(): GainNode {
     return this.groupGains.voice;
+  }
+
+  /**
+   * Return an isolated copy of the final game mix for the canonical stream
+   * encoder. The destination is created lazily so ordinary game clients pay
+   * no capture cost, and it contains only audio already routed through the
+   * game's master bus (never a microphone or unrelated system audio).
+   */
+  getOutputCaptureStream(): MediaStream {
+    if (
+      this.captureDestination?.stream
+        .getAudioTracks()
+        .some((track) => track.readyState === "ended")
+    ) {
+      this.captureDestination.disconnect();
+      this.captureDestination = null;
+    }
+    if (!this.captureDestination) {
+      this.captureDestination = this.ctx.createMediaStreamDestination();
+      this.masterGain.connect(this.captureDestination);
+    }
+    return this.captureDestination.stream;
   }
 
   ready(fn: () => void) {
@@ -268,6 +293,8 @@ export class ClientAudio extends System {
     this.groupGains.sfx.disconnect();
     this.groupGains.voice.disconnect();
     this.masterGain.disconnect();
+    this.captureDestination?.disconnect();
+    this.captureDestination = null;
 
     // Close the audio context
     this.ctx.close();

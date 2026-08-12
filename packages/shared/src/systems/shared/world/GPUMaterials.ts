@@ -19,6 +19,7 @@
  */
 
 import * as THREE from "../../../extras/three/three";
+import type { Node } from "three/webgpu";
 import {
   uniform,
   sub,
@@ -704,7 +705,7 @@ export function createDissolveMaterial(
             float(0.0),
             float(1.0),
           )
-        : attribute("instanceDissolve", "float");
+        : attribute<"float">("instanceDissolve", "float");
       const dissolveAmount = mul(
         dissolveVal,
         float(GPU_VEG_CONFIG.DISSOLVE_ALPHA_SCALE),
@@ -744,7 +745,7 @@ export function createDissolveMaterial(
 
     material.outputNode = Fn(() => {
       const litColor = output;
-      const hlIntensity = attribute("instanceHighlight", "float");
+      const hlIntensity = attribute<"float">("instanceHighlight", "float");
 
       const N = normalize(normalView);
       const V = normalize(sub(vec3(0, 0, 0), positionView.xyz));
@@ -941,7 +942,7 @@ export function applyRimHighlight(
   const RIM_POWER = 2.5;
   const RIM_STRENGTH = 0.4;
 
-  const prevOutput = mat.outputNode;
+  const prevOutput = mat.outputNode as Node<"vec4"> | null;
 
   mat.outputNode = Fn(() => {
     const litColor = prevOutput ? prevOutput : output;
@@ -1068,7 +1069,9 @@ export function createTreeDissolveMaterial(
   // Displacement proportional to local Y auto-scales to any model coord system.
   material.positionNode = Fn(() => {
     const pos = positionLocal;
-    const vc = hasVertexColors ? attribute("color", "vec3") : vec3(0, 1, 0);
+    const vc = hasVertexColors
+      ? attribute<"vec3">("color", "vec3")
+      : vec3(0, 1, 0);
     const leafMask = vc.x;
 
     const phase = add(mul(pos.x, float(0.013)), mul(pos.z, float(0.017)));
@@ -1090,7 +1093,7 @@ export function createTreeDissolveMaterial(
     material.alphaTest = 0.5;
     const leafCutoutMap = material.map;
     material.opacityNode = Fn(() => {
-      const uv = attribute("uv", "vec2");
+      const uv = attribute<"vec2">("uv", "vec2");
       return step(float(0.5), texture(leafCutoutMap, uv).a);
     })();
   }
@@ -1114,15 +1117,15 @@ export function createTreeDissolveMaterial(
     const pbrOut = output;
 
     // ---- Albedo ----
-    const texCoord = attribute("uv", "vec2");
+    const texCoord = attribute<"vec2">("uv", "vec2");
     const albedoSample = albedoMap
       ? texture(albedoMap, texCoord)
       : vec4(1, 1, 1, 1);
-    let baseAlbedo: any = mul(albedoSample.rgb, matColor);
+    let baseAlbedo: Node<"vec3"> = mul(albedoSample.rgb, matColor);
 
     // ---- Vertex colors ----
     const vtxColor = hasVertexColors
-      ? attribute("color", "vec3")
+      ? attribute<"vec3">("color", "vec3")
       : vec3(0, 1, 0);
     const aoRaw = vtxColor.y;
 
@@ -1232,7 +1235,7 @@ export function createTreeDissolveMaterial(
     if (options.batched) {
       hlIntensity = step(float(1.01), batchColor.x);
     } else {
-      hlIntensity = attribute("instanceHighlight", "float");
+      hlIntensity = attribute<"float">("instanceHighlight", "float");
     }
     const NV = normalize(normalView);
     const Vv = normalize(sub(vec3(0, 0, 0), positionView.xyz));

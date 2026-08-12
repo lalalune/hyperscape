@@ -5,20 +5,40 @@
  * - executeGather PendingGatherManager integration
  * - Dead mob filtering in getNearbyEntities
  */
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { EventType, processingDataProvider } from "@hyperforge/shared";
 import { EmbeddedHyperiaService } from "../EmbeddedHyperiaService";
 
 function createMockWorld(options?: {
   inventorySystem?: Record<string, unknown> | null;
   equipmentSystem?: Record<string, unknown> | null;
   networkSystem?: Record<string, unknown> | null;
+  processingSystem?: Record<string, unknown> | null;
 }) {
   const entities = new Map();
-  const emit = vi.fn();
+  const listeners = new Map<string, Set<(data: unknown) => void>>();
+  const emit = vi.fn((event: string, data: unknown) => {
+    for (const listener of listeners.get(event) ?? []) listener(data);
+    if (event === EventType.PROCESSING_FIREMAKING_REQUEST) {
+      const request = data as { playerId: string; requestId?: string };
+      const completion = {
+        fireId: `fire-${request.playerId}`,
+        playerId: request.playerId,
+        position: { x: 0, y: 10, z: 0 },
+        createdAt: 1_000,
+        expiresAt: 61_000,
+        requestId: request.requestId,
+      };
+      for (const listener of listeners.get(EventType.FIRE_CREATED) ?? []) {
+        listener(completion);
+      }
+    }
+  });
   const world = {
     entities: {
       items: entities,
       get: (id: string) => entities.get(id),
+      values: () => entities.values(),
       add: (entityData: Record<string, unknown>) => {
         const id = String(entityData.id);
         const rawPosition = Array.isArray(entityData.position)
@@ -46,16 +66,29 @@ function createMockWorld(options?: {
       },
       remove: (id: string) => entities.delete(id),
     },
-    on: vi.fn(),
-    off: vi.fn(),
+    on: vi.fn((event: string, listener: (data: unknown) => void) => {
+      const eventListeners = listeners.get(event) ?? new Set();
+      eventListeners.add(listener);
+      listeners.set(event, eventListeners);
+    }),
+    off: vi.fn((event: string, listener: (data: unknown) => void) => {
+      listeners.get(event)?.delete(listener);
+    }),
     emit,
     isServer: true,
     getSystem: vi.fn((name: string) => {
       if (name === "inventory") return options?.inventorySystem ?? null;
       if (name === "equipment") return options?.equipmentSystem ?? null;
       if (name === "network") return options?.networkSystem ?? null;
+      if (name === "processing") {
+        return (
+          options?.processingSystem ?? { canPlayerLightFireHere: () => true }
+        );
+      }
       if (name === "database") {
         return {
+          acknowledgeProcessingRequestAsync: vi.fn().mockResolvedValue(true),
+          beginProcessingRequestAsync: vi.fn().mockResolvedValue("accepted"),
           getCharactersAsync: async () => [
             { id: "agent-1", name: "TestAgent", avatar: null, wallet: null },
           ],
@@ -89,6 +122,16 @@ async function createInitializedService(
 // executeFiremake
 // ==========================================================================
 describe("executeFiremake", () => {
+  beforeEach(() => {
+    vi.spyOn(processingDataProvider, "getBurnableLogIds").mockReturnValue(
+      new Set(["logs", "oak_logs", "willow_logs"]),
+    );
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("emits PROCESSING_FIREMAKING_REQUEST with correct slots", async () => {
     const { service, emit } = await createInitializedService({
       inventorySystem: {
@@ -123,6 +166,7 @@ describe("executeFiremake", () => {
       logsId: "logs",
       logsSlot: 5,
       tinderboxSlot: 2,
+      requestId: expect.any(String),
     });
   });
 
@@ -164,6 +208,26 @@ describe("executeFiremake", () => {
 
     const result = await service.executeFiremake();
     expect(result).toBe(false);
+  });
+
+  it("returns false when the authoritative processing system rejects the tile", async () => {
+    const { service, emit } = await createInitializedService({
+      inventorySystem: {
+        getInventory: () => ({
+          items: [
+            { slot: 0, itemId: "tinderbox", quantity: 1 },
+            { slot: 1, itemId: "logs", quantity: 1 },
+          ],
+        }),
+      },
+      processingSystem: { canPlayerLightFireHere: () => false },
+    });
+
+    await expect(service.executeFiremake()).resolves.toBe(false);
+    expect(emit).not.toHaveBeenCalledWith(
+      expect.stringContaining("firemaking"),
+      expect.anything(),
+    );
   });
 
   it("finds oak_logs when specified", async () => {
@@ -242,6 +306,55 @@ describe("executeFiremake", () => {
     });
   });
 
+  it("selects a burnable log authored by the loaded recipe manifest", async () => {
+    vi.mocked(processingDataProvider.getBurnableLogIds).mockReturnValue(
+      new Set(["manifest_logs"]),
+    );
+    const { service, emit } = await createInitializedService({
+      inventorySystem: {
+        getInventory: () => ({
+          items: [
+            { slot: 0, itemId: "tinderbox", quantity: 1 },
+            { slot: 1, itemId: "logs", quantity: 1 },
+            { slot: 2, itemId: "manifest_logs", quantity: 1 },
+          ],
+        }),
+      },
+    });
+
+    await expect(service.executeFiremake()).resolves.toBe(true);
+
+    const fireCall = emit.mock.calls.find((call: unknown[]) =>
+      String(call[0]).includes("firemaking"),
+    );
+    expect(fireCall![1]).toMatchObject({
+      logsId: "manifest_logs",
+      logsSlot: 2,
+    });
+  });
+
+  it("rejects a carried item that is not in the loaded firemaking manifest", async () => {
+    vi.mocked(processingDataProvider.getBurnableLogIds).mockReturnValue(
+      new Set(["logs"]),
+    );
+    const { service, emit } = await createInitializedService({
+      inventorySystem: {
+        getInventory: () => ({
+          items: [
+            { slot: 0, itemId: "tinderbox", quantity: 1 },
+            { slot: 1, itemId: "display_logs", quantity: 1 },
+          ],
+        }),
+      },
+    });
+
+    await expect(service.executeFiremake("display_logs")).resolves.toBe(false);
+    expect(emit).not.toHaveBeenCalledWith(
+      expect.stringContaining("firemaking"),
+      expect.anything(),
+    );
+  });
+
   it("returns false when service is not active", async () => {
     const { service } = await createInitializedService({
       inventorySystem: {
@@ -273,6 +386,45 @@ describe("executeFiremake", () => {
 // executeAttack — dead target guard
 // ==========================================================================
 describe("executeAttack dead target guard", () => {
+  it("reports only an authoritative server attack acceptance as dispatched", async () => {
+    const requestServerAttack = vi.fn(() => true);
+    const { service, entities } = await createInitializedService({
+      networkSystem: { requestServerAttack },
+    });
+    entities.set("goblin-1", {
+      id: "goblin-1",
+      type: "mob",
+      data: { type: "mob", health: 10 },
+      node: { position: { x: 5, y: 0, z: 5 } },
+      isDead: () => false,
+      isAlive: () => true,
+    });
+
+    await expect(service.executeAttack("goblin-1")).resolves.toBe(true);
+    expect(requestServerAttack).toHaveBeenCalledWith(
+      "agent-1",
+      "goblin-1",
+      "mob",
+    );
+  });
+
+  it("propagates an authoritative server attack rejection", async () => {
+    const requestServerAttack = vi.fn(() => false);
+    const { service, entities } = await createInitializedService({
+      networkSystem: { requestServerAttack },
+    });
+    entities.set("goblin-1", {
+      id: "goblin-1",
+      type: "mob",
+      data: { type: "mob", health: 10 },
+      node: { position: { x: 5, y: 0, z: 5 } },
+      isDead: () => false,
+      isAlive: () => true,
+    });
+
+    await expect(service.executeAttack("goblin-1")).resolves.toBe(false);
+  });
+
   it("does not attack dead target (isDead returns true)", async () => {
     const { service, entities, emit } = await createInitializedService();
 
@@ -286,7 +438,7 @@ describe("executeAttack dead target guard", () => {
     };
     entities.set("goblin-1", deadMob);
 
-    await service.executeAttack("goblin-1");
+    await expect(service.executeAttack("goblin-1")).resolves.toBe(false);
 
     const attackCall = emit.mock.calls.find(
       (call: unknown[]) =>
@@ -299,7 +451,7 @@ describe("executeAttack dead target guard", () => {
   it("does not attack nonexistent target", async () => {
     const { service, emit } = await createInitializedService();
 
-    await service.executeAttack("nonexistent-mob");
+    await expect(service.executeAttack("nonexistent-mob")).resolves.toBe(false);
 
     const attackCall = emit.mock.calls.find(
       (call: unknown[]) =>
@@ -315,7 +467,7 @@ describe("executeAttack dead target guard", () => {
 // ==========================================================================
 describe("executeGather", () => {
   it("uses PendingGatherManager when available", async () => {
-    const queueFn = vi.fn();
+    const queueFn = vi.fn(() => true);
     const { service } = await createInitializedService({
       networkSystem: {
         pendingGatherManager: {
@@ -327,15 +479,15 @@ describe("executeGather", () => {
       },
     });
 
-    await service.executeGather("tree_23_-10");
+    await expect(service.executeGather("tree_23_-10")).resolves.toBe(true);
 
-    expect(queueFn).toHaveBeenCalledWith("agent-1", "tree_23_-10", 42);
+    expect(queueFn).toHaveBeenCalledWith("agent-1", "tree_23_-10", 42, true);
   });
 
   it("falls back to RESOURCE_GATHER event when no PendingGatherManager", async () => {
     const { service, emit } = await createInitializedService();
 
-    await service.executeGather("tree_23_-10");
+    await expect(service.executeGather("tree_23_-10")).resolves.toBe(true);
 
     const gatherCall = emit.mock.calls.find(
       (call: unknown[]) =>
@@ -366,7 +518,7 @@ describe("executeGather", () => {
     delete player.position;
     player.data = { ...(player.data ?? {}), position: [11, 12, 13] };
 
-    await expect(service.executeGather("tree_23_-10")).resolves.toBeUndefined();
+    await expect(service.executeGather("tree_23_-10")).resolves.toBe(true);
 
     const gatherCall = emit.mock.calls.find(
       (call: unknown[]) =>
@@ -378,6 +530,102 @@ describe("executeGather", () => {
       playerId: "agent-1",
       resourceId: "tree_23_-10",
       playerPosition: { x: 11, y: 12, z: 13 },
+    });
+  });
+
+  it("returns false when PendingGatherManager rejects the request", async () => {
+    const queueFn = vi.fn(() => false);
+    const { service } = await createInitializedService({
+      networkSystem: {
+        pendingGatherManager: { queuePendingGather: queueFn },
+        tickSystem: { getCurrentTick: () => 42 },
+      },
+    });
+
+    await expect(service.executeGather("depleted-tree")).resolves.toBe(false);
+  });
+});
+
+describe("executeMove", () => {
+  it("does not bypass an authoritative network rejection with direct movement", async () => {
+    const requestServerMove = vi.fn(() => false);
+    const { service, world } = await createInitializedService({
+      networkSystem: { requestServerMove },
+    });
+    const player = world.entities.get("agent-1") as {
+      data: { position: [number, number, number] };
+    };
+    const before = [...player.data.position];
+
+    await expect(service.executeMove([12, 10, 12], true)).resolves.toBe(false);
+
+    expect(requestServerMove).toHaveBeenCalledWith("agent-1", [12, 10, 12], {
+      runMode: true,
+    });
+    expect(player.data.position).toEqual(before);
+  });
+
+  it("reports a legacy direct fallback only when no network move API exists", async () => {
+    const { service, world } = await createInitializedService();
+    const player = world.entities.get("agent-1") as {
+      data: { position: [number, number, number] };
+    };
+
+    await expect(service.executeMove([12, 10, 12], false)).resolves.toBe(true);
+    expect(player.data.position).toEqual([12, 10.1, 12]);
+  });
+
+  it("passes the exact live workstation footprint to authoritative pathing", async () => {
+    const requestServerMove = vi.fn(() => true);
+    const { service, entities } = await createInitializedService({
+      networkSystem: { requestServerMove },
+    });
+    entities.set("furnace-live", {
+      id: "furnace-live",
+      entityType: "furnace",
+      position: { x: 20.5, y: 0, z: 20.5 },
+      data: { type: "furnace", position: [20.5, 0, 20.5] },
+      getInteractionRange: () => 2,
+      getInteractionFootprint: () => ({ width: 2, depth: 2 }),
+    });
+
+    await expect(service.executeMove([20.5, 0, 20.5], true)).resolves.toBe(
+      true,
+    );
+    expect(requestServerMove).toHaveBeenCalledWith("agent-1", [20.5, 0, 20.5], {
+      runMode: true,
+      interactionArrival: {
+        interactionRange: 2,
+        footprintWidth: 2,
+        footprintDepth: 2,
+      },
+    });
+  });
+});
+
+describe("executePickup", () => {
+  it("rejects a stale ground-item target without dispatching an event", async () => {
+    const { service, emit } = await createInitializedService();
+
+    await expect(service.executePickup("missing-item")).resolves.toBe(false);
+    expect(emit).not.toHaveBeenCalledWith(
+      EventType.ITEM_PICKUP,
+      expect.anything(),
+    );
+  });
+
+  it("dispatches pickup only for a loaded ground-item entity", async () => {
+    const { service, entities, emit } = await createInitializedService();
+    entities.set("ground-item-1", {
+      id: "ground-item-1",
+      type: "item",
+      data: { type: "item" },
+    });
+
+    await expect(service.executePickup("ground-item-1")).resolves.toBe(true);
+    expect(emit).toHaveBeenCalledWith(EventType.ITEM_PICKUP, {
+      playerId: "agent-1",
+      entityId: "ground-item-1",
     });
   });
 });

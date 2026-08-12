@@ -19,11 +19,13 @@ import {
   uv,
   uniform,
   vec2,
+  vec3,
   float,
   floor,
   mod,
   select,
   Discard,
+  If,
   attribute,
 } from "three/tsl";
 
@@ -178,8 +180,8 @@ export function createWindowGlassMaterial(
 
     // Optionally blend with vertex colors
     if (fullConfig.useVertexColors) {
-      const vertexColor = attribute("color", "vec3");
-      return baseColor.mul(vertexColor);
+      const vertexColor = attribute<"vec3">("color", "vec3");
+      return vec3(baseColor).mul(vertexColor);
     }
 
     return baseColor;
@@ -205,9 +207,11 @@ export function createWindowGlassMaterial(
     // This creates the dithered pattern
     const shouldDiscard = uOpacity.lessThan(threshold);
 
-    // Use Discard() when we should be transparent
-    // Return the color when visible
-    return select(shouldDiscard, Discard(), colorNode);
+    If(shouldDiscard, () => {
+      Discard();
+    });
+
+    return colorNode;
   })();
 
   material.colorNode = alphaTestNode;

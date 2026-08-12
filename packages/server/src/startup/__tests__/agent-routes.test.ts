@@ -9,24 +9,24 @@ type MappingRow = {
   updatedAt?: Date;
 };
 
-const agentMappingsTable = {
-  __table: "agentMappings",
-  accountId: "accountId",
-  agentId: "agentId",
-  agentName: "agentName",
-  characterId: "characterId",
-};
-
-const usersTable = {
-  __table: "users",
-  id: "id",
-};
-
-const charactersTable = {
-  __table: "characters",
-  accountId: "accountId",
-  id: "id",
-};
+const { agentMappingsTable, usersTable, charactersTable } = vi.hoisted(() => ({
+  agentMappingsTable: {
+    __table: "agentMappings",
+    accountId: "accountId",
+    agentId: "agentId",
+    agentName: "agentName",
+    characterId: "characterId",
+  },
+  usersTable: {
+    __table: "users",
+    id: "id",
+  },
+  charactersTable: {
+    __table: "characters",
+    accountId: "accountId",
+    id: "id",
+  },
+}));
 
 vi.mock("../../database/schema.js", () => ({
   agentMappings: agentMappingsTable,
@@ -73,6 +73,10 @@ function createFastifyRecorder() {
     },
     get(path: string, handler: Function) {
       routes.set(`GET ${path}`, handler);
+      return this;
+    },
+    patch(path: string, handler: Function) {
+      routes.set(`PATCH ${path}`, handler);
       return this;
     },
     post(path: string, handler: Function) {
@@ -208,8 +212,8 @@ describe("agent route mapping cache", () => {
       firstListReply as never,
     );
     expect(firstListReply.payload).toMatchObject({
-      agentIds: ["agent-1"],
-      count: 1,
+      agentIds: ["agent-1", "character-1"],
+      count: 2,
       success: true,
     });
 
@@ -252,8 +256,8 @@ describe("agent route mapping cache", () => {
       newAccountReply as never,
     );
     expect(newAccountReply.payload).toMatchObject({
-      agentIds: ["agent-1"],
-      count: 1,
+      agentIds: ["agent-1", "character-2"],
+      count: 2,
       success: true,
     });
 
@@ -286,8 +290,8 @@ describe("agent route mapping cache", () => {
       listReply as never,
     );
     expect(listReply.payload).toMatchObject({
-      agentIds: ["agent-1"],
-      count: 1,
+      agentIds: ["agent-1", "character-1"],
+      count: 2,
       success: true,
     });
 

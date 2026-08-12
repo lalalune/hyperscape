@@ -18,6 +18,7 @@ import type {
 } from "../../shared/types";
 import {
   EventType,
+  DEFAULT_AVATAR_URL,
   uuid,
   getItem,
   TerrainSystem,
@@ -199,8 +200,7 @@ export async function loadCharacterList(
 ): Promise<CharacterData[]> {
   try {
     const databaseSystem = world.getSystem("database") as
-      | import("../DatabaseSystem").DatabaseSystem
-      | undefined;
+      import("../DatabaseSystem").DatabaseSystem | undefined;
     if (!databaseSystem) return [];
     const chars = await databaseSystem.getCharactersAsync(accountId);
     return chars.map((c) => ({
@@ -314,8 +314,7 @@ export async function handleCharacterCreate(
 
   try {
     const databaseSystem = world.getSystem("database") as
-      | import("../DatabaseSystem").DatabaseSystem
-      | undefined;
+      import("../DatabaseSystem").DatabaseSystem | undefined;
     if (!databaseSystem) {
       console.error("[CharacterSelection] ❌ ERROR: DatabaseSystem not found!");
       sendToFn(socket.id, "showToast", {
@@ -407,8 +406,7 @@ function clearClientReadyTimeout(socket: ServerSocket): void {
 
 function isSocketStillActive(socket: ServerSocket, world: World): boolean {
   const networkSystem = world.getSystem("network") as
-    | { sockets?: Map<string, ServerSocket> }
-    | undefined;
+    { sockets?: Map<string, ServerSocket> } | undefined;
 
   if (!networkSystem?.sockets) return false;
   if (networkSystem.sockets.get(socket.id) !== socket) return false;
@@ -490,10 +488,9 @@ export async function handleEnterWorld(
     socket.selectedCharacterId ||
     socket.characterId ||
     null;
-  // Load test bots can skip character DB lookup regardless of LOAD_TEST_MODE setting
-  const loadTestBotParam = payload.loadTestBot;
-  const isLoadTestBot =
-    loadTestBotParam === true || loadTestBotParam === "true";
+  // Only the connection handler may grant the local test bypass. Never trust
+  // the packet flag by itself because this path can skip persistent identity.
+  const isLoadTestBot = socket.isLoadTestBot === true;
   // SECURITY: Determine agent/duel-bot status from server-side registries
   // instead of trusting the client-supplied `duelBot` flag.
   // Check both embedded AgentManager and ModelAgentSpawner registries.
@@ -556,8 +553,7 @@ export async function handleEnterWorld(
 
     try {
       const databaseSystem = world.getSystem("database") as
-        | import("../DatabaseSystem").DatabaseSystem
-        | undefined;
+        import("../DatabaseSystem").DatabaseSystem | undefined;
       if (databaseSystem) {
         const existingCharacters =
           await databaseSystem.getCharactersAsync(accountId);
@@ -617,8 +613,7 @@ export async function handleEnterWorld(
   if (characterId) {
     // First check: Look for active socket with this character
     const networkSystem = world.getSystem("network") as
-      | { sockets: Map<string, ServerSocket> }
-      | undefined;
+      { sockets: Map<string, ServerSocket> } | undefined;
     let existingActiveSocket: ServerSocket | undefined = undefined;
 
     if (networkSystem?.sockets) {
@@ -731,8 +726,7 @@ export async function handleEnterWorld(
   } else if (characterId) {
     try {
       const databaseSystem = world.getSystem("database") as
-        | import("../DatabaseSystem").DatabaseSystem
-        | undefined;
+        import("../DatabaseSystem").DatabaseSystem | undefined;
       if (databaseSystem) {
         // First try: Look up characters by accountId (normal flow)
         if (accountId) {
@@ -823,8 +817,7 @@ export async function handleEnterWorld(
   if (characterId && accountId && !isLoadTestBot) {
     try {
       const databaseSystem = world.getSystem("database") as
-        | import("../DatabaseSystem").DatabaseSystem
-        | undefined;
+        import("../DatabaseSystem").DatabaseSystem | undefined;
       if (databaseSystem) {
         const savedData = await databaseSystem.getPlayerAsync(characterId);
         if (savedData) {
@@ -1001,10 +994,7 @@ export async function handleEnterWorld(
         name,
         health: playerHealth, // Use constitution level instead of HEALTH_MAX
         maxHealth: playerHealth, // Also set maxHealth
-        avatar:
-          avatar ||
-          world.settings.avatar?.url ||
-          "asset://avatars/avatar-male-01.vrm",
+        avatar: avatar || world.settings.avatar?.url || DEFAULT_AVATAR_URL,
         sessionAvatar: avatar || undefined, // ✅ Also set sessionAvatar for runtime override
         wallet: walletAddress, // ✅ Character's HD wallet address
         roles,
@@ -1105,8 +1095,7 @@ export async function handleEnterWorld(
     // This ensures systems receive the data via event payload (single source of truth)
     // and eliminates the race condition where two systems query the DB independently
     const dbSys = world.getSystem?.("database") as
-      | DatabaseSystemOperations
-      | undefined;
+      DatabaseSystemOperations | undefined;
     const persistenceId = characterId || spawnedPlayer.id;
 
     let equipmentRows: EquipmentSyncData[] | undefined;
@@ -1255,8 +1244,7 @@ export async function handleEnterWorld(
       // Send inventory snapshot immediately from persistence to avoid races
       try {
         const dbSys = world.getSystem?.("database") as
-          | DatabaseSystemOperations
-          | undefined;
+          DatabaseSystemOperations | undefined;
         const persistenceId = characterId || spawnedPlayer.id;
         const rows = dbSys?.getPlayerInventoryAsync
           ? await dbSys.getPlayerInventoryAsync(persistenceId)

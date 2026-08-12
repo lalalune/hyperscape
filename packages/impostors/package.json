@@ -24,8 +24,8 @@
     "build:demo": "tsc && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "node node_modules/vitest/vitest.mjs run --passWithNoTests",
-    "test:watch": "node node_modules/vitest/vitest.mjs",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest",
     "test:browser": "node node_modules/vitest/vitest.mjs --browser.enabled --browser.name=chromium --browser.provider=playwright",
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },

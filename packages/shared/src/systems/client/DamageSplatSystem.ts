@@ -21,8 +21,13 @@
 import * as THREE from "../../extras/three/three";
 import { System } from "../shared/infrastructure/System";
 import { EventType } from "../../types/events";
+import type { CombatDamageDealtPayload } from "../../types/events/event-payloads";
 import type { World } from "../../core/World";
 import type { WorldOptions } from "../../types/index";
+import {
+  getPlayerHitReactionIntensity,
+  getPlayerHitReactionSide,
+} from "../../utils/rendering/HitReaction";
 
 interface DamageSplat {
   sprite: THREE.Sprite;
@@ -42,6 +47,40 @@ interface DamageSplat {
  * Combat-heavy scenarios may have 20-30 simultaneous splats.
  */
 const SPLAT_POOL_SIZE = 50;
+
+interface HitReactionTarget {
+  isPlayer?: boolean;
+  avatar?: {
+    triggerHitReaction?: (intensity?: number, side?: -1 | 1) => void;
+  };
+}
+
+export function triggerPlayerDamageReaction(
+  target: HitReactionTarget | null | undefined,
+  payload: CombatDamageDealtPayload,
+): boolean {
+  if (
+    !target ||
+    payload.damage <= 0 ||
+    (payload.targetType !== undefined
+      ? payload.targetType !== "player"
+      : target.isPlayer !== true)
+  ) {
+    return false;
+  }
+  const avatar = target.avatar;
+  if (!avatar?.triggerHitReaction) return false;
+  const intensity = getPlayerHitReactionIntensity(
+    payload.damage,
+    payload.isCritical,
+  );
+  if (intensity <= 0) return false;
+  avatar.triggerHitReaction(
+    intensity,
+    getPlayerHitReactionSide(payload.attackerId, payload.targetId),
+  );
+  return true;
+}
 
 export class DamageSplatSystem extends System {
   name = "damage-splat";
@@ -157,16 +196,16 @@ export class DamageSplatSystem extends System {
   }
 
   private onDamageDealt = (data: unknown): void => {
-    const payload = data as {
-      damage: number;
-      targetId: string;
-      position?: { x: number; y: number; z: number };
-    };
+    const payload = data as CombatDamageDealtPayload;
 
     const { damage, targetId, position } = payload;
 
     // Get target entity for position
     const target = this.world.entities.get(targetId);
+    triggerPlayerDamageReaction(
+      target as HitReactionTarget | undefined,
+      payload,
+    );
     if (!target) {
       if (!position) {
         return;

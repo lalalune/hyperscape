@@ -3,14 +3,17 @@ import {
   text,
   timestamp,
   integer,
+  doublePrecision,
   real,
   bigint,
+  bigserial,
   jsonb,
   index,
   unique,
   foreignKey,
   serial,
   boolean,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -131,22 +134,30 @@ export const characters = pgTable(
     cookingLevel: integer().default(1),
     smithingLevel: integer().default(1),
     agilityLevel: integer().default(1),
+    craftingLevel: integer().default(1),
+    fletchingLevel: integer().default(1),
+    runecraftingLevel: integer().default(1),
     attackXp: integer().default(0),
     strengthXp: integer().default(0),
     defenseXp: integer().default(0),
     constitutionXp: integer().default(1154),
     rangedXp: integer().default(0),
     prayerXp: integer().default(0),
-    woodcuttingXp: integer().default(0),
-    miningXp: integer().default(0),
-    fishingXp: integer().default(0),
-    firemakingXp: integer().default(0),
-    cookingXp: integer().default(0),
-    smithingXp: integer().default(0),
+    woodcuttingXp: doublePrecision().default(0).notNull(),
+    miningXp: doublePrecision().default(0).notNull(),
+    fishingXp: doublePrecision().default(0).notNull(),
+    firemakingXp: doublePrecision().default(0).notNull(),
+    cookingXp: doublePrecision().default(0).notNull(),
+    smithingXp: doublePrecision().default(0).notNull(),
     agilityXp: integer().default(0),
+    craftingXp: doublePrecision().default(0).notNull(),
+    fletchingXp: doublePrecision().default(0).notNull(),
+    runecraftingXp: doublePrecision().default(0).notNull(),
     prayerPoints: integer().default(1),
-    prayerMaxPoints: integer().default(1),
+    prayerPointUnits: integer().default(1_000_000),
+    prayerMaxPoints: integer().notNull().default(1),
     activePrayers: jsonb().default([]),
+    processingConsumableUses: jsonb().notNull().default({}),
     health: integer().default(100),
     maxHealth: integer().default(100),
     coins: integer().default(0),
@@ -172,6 +183,241 @@ export const characters = pgTable(
       "btree",
       table.wallet.asc().nullsLast().op("text_ops"),
     ),
+  ],
+);
+
+export const boneBurialOperations = pgTable(
+  "bone_burial_operations",
+  {
+    operationId: text("operation_id").primaryKey().notNull(),
+    playerId: text("player_id").notNull(),
+    itemId: text("item_id").notNull(),
+    xpAmount: integer("xp_amount").notNull(),
+    levelRequired: integer("level_required").notNull(),
+    awardedXp: integer("awarded_xp").notNull(),
+    operationCommittedXp: integer("operation_committed_xp").notNull(),
+    committedLevel: integer("committed_level").notNull(),
+    requestFingerprint: text("request_fingerprint").notNull(),
+    createdAt: bigint("created_at", { mode: "number" })
+      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`)
+      .notNull(),
+  },
+  (table) => [
+    index("idx_bone_burial_operations_player_created").using(
+      "btree",
+      table.playerId.asc().nullsLast().op("text_ops"),
+      table.createdAt.asc().nullsLast().op("int8_ops"),
+    ),
+    foreignKey({
+      columns: [table.playerId],
+      foreignColumns: [characters.id],
+      name: "bone_burial_operations_player_id_characters_id_fk",
+    }).onDelete("cascade"),
+  ],
+);
+
+export const agentStoreOperations = pgTable(
+  "agent_store_operations",
+  {
+    operationId: text("operation_id").primaryKey().notNull(),
+    playerId: text("player_id").notNull(),
+    action: text().notNull(),
+    storeId: text("store_id").notNull(),
+    itemId: text("item_id").notNull(),
+    requestedQuantity: integer("requested_quantity").notNull(),
+    unitPrice: integer("unit_price").notNull(),
+    totalValue: integer("total_value").notNull(),
+    coinBalanceAfter: integer("coin_balance_after").notNull(),
+    inventoryQuantityAfter: integer("inventory_quantity_after").notNull(),
+    requestFingerprint: text("request_fingerprint").notNull(),
+    createdAt: bigint("created_at", { mode: "number" })
+      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`)
+      .notNull(),
+  },
+  (table) => [
+    index("idx_agent_store_operations_player_created").using(
+      "btree",
+      table.playerId.asc().nullsLast().op("text_ops"),
+      table.createdAt.asc().nullsLast().op("int8_ops"),
+    ),
+    foreignKey({
+      columns: [table.playerId],
+      foreignColumns: [characters.id],
+      name: "agent_store_operations_player_id_characters_id_fk",
+    }).onDelete("cascade"),
+  ],
+);
+
+export const agentAutonomyCheckpoints = pgTable(
+  "agent_autonomy_checkpoints",
+  {
+    characterId: text("character_id").primaryKey().notNull(),
+    schemaVersion: integer("schema_version").default(3).notNull(),
+    revision: bigint("revision", { mode: "number" }).default(1).notNull(),
+    goal: jsonb("goal"),
+    plan: jsonb("plan"),
+    memories: jsonb("memories").default([]).notNull(),
+    recentActionLog: jsonb("recent_action_log").default([]).notNull(),
+    tickCounter: bigint("tick_counter", { mode: "number" })
+      .default(0)
+      .notNull(),
+    lastAppliedActionType: text("last_applied_action_type"),
+    lastAppliedAt: bigint("last_applied_at", { mode: "number" }),
+    lastAttemptedActionType: text("last_attempted_action_type"),
+    lastActionOutcome: text("last_action_outcome"),
+    lastAttemptedAt: bigint("last_attempted_at", { mode: "number" }),
+    requiresReassessment: boolean("requires_reassessment")
+      .default(true)
+      .notNull(),
+    updatedAt: bigint("updated_at", { mode: "number" })
+      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`)
+      .notNull(),
+  },
+  (table) => [
+    index("idx_agent_autonomy_checkpoints_updated_at").using(
+      "btree",
+      table.updatedAt.asc().nullsLast().op("int8_ops"),
+    ),
+    foreignKey({
+      columns: [table.characterId],
+      foreignColumns: [characters.id],
+      name: "agent_autonomy_checkpoints_character_id_characters_id_fk",
+    }).onDelete("cascade"),
+  ],
+);
+
+export const agentAutonomyProgressionEvents = pgTable(
+  "agent_autonomy_progression_events",
+  {
+    eventSequence: bigserial("event_sequence", {
+      mode: "bigint",
+    }).primaryKey(),
+    eventKey: text("event_key").notNull(),
+    attemptId: text("attempt_id").notNull(),
+    characterId: text("character_id").notNull(),
+    eventSource: text("event_source").notNull(),
+    eventType: text("event_type").notNull(),
+    phase: text("phase").notNull(),
+    goalType: text("goal_type"),
+    actionType: text("action_type").notNull(),
+    decisionSource: text("decision_source").notNull(),
+    actionOutcome: text("action_outcome"),
+    appliedActionType: text("applied_action_type"),
+    checkpointRevision: bigint("checkpoint_revision", { mode: "number" }),
+    occurredAt: bigint("occurred_at", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("uidx_agent_autonomy_progression_events_key").on(
+      table.eventKey,
+    ),
+    uniqueIndex("uidx_agent_autonomy_progression_events_attempt_edge").on(
+      table.attemptId,
+      table.eventType,
+    ),
+    index("idx_agent_autonomy_progression_events_character_sequence").on(
+      table.characterId,
+      table.eventSequence,
+    ),
+    index("idx_agent_autonomy_progression_events_action_time").on(
+      table.actionType,
+      table.occurredAt,
+    ),
+    uniqueIndex("uidx_agent_autonomy_progression_events_terminal_checkpoint")
+      .on(table.characterId, table.checkpointRevision)
+      .where(sql`${table.eventType} = 'attempt_terminal'`),
+  ],
+);
+
+export const agentAutonomyProgressionHeads = pgTable(
+  "agent_autonomy_progression_heads",
+  {
+    characterId: text("character_id").primaryKey().notNull(),
+    openAttemptId: text("open_attempt_id"),
+    openPhase: text("open_phase"),
+    openGoalType: text("open_goal_type"),
+    openActionType: text("open_action_type"),
+    openDecisionSource: text("open_decision_source"),
+    openStartedAt: bigint("open_started_at", { mode: "number" }),
+    headRevision: bigint("head_revision", { mode: "number" })
+      .default(0)
+      .notNull(),
+    updatedAt: bigint("updated_at", { mode: "number" })
+      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`)
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("uidx_agent_autonomy_progression_heads_open_attempt")
+      .on(table.openAttemptId)
+      .where(sql`${table.openAttemptId} IS NOT NULL`),
+    foreignKey({
+      columns: [table.characterId],
+      foreignColumns: [characters.id],
+      name: "agent_autonomy_progression_heads_character_id_characters_id_fk",
+    }).onDelete("cascade"),
+  ],
+);
+
+export const agentAutonomyLifecycleEvents = pgTable(
+  "agent_autonomy_lifecycle_events",
+  {
+    eventSequence: bigserial("event_sequence", {
+      mode: "bigint",
+    }).primaryKey(),
+    eventKey: text("event_key").notNull(),
+    characterId: text("character_id").notNull(),
+    attemptId: text("attempt_id").notNull(),
+    eventSource: text("event_source").notNull(),
+    eventType: text("event_type").notNull(),
+    lifecycleState: text("lifecycle_state").notNull(),
+    previousState: text("previous_state"),
+    previousGoalType: text("previous_goal_type"),
+    goalType: text("goal_type"),
+    actionType: text("action_type").notNull(),
+    actionOutcome: text("action_outcome"),
+    checkpointRevision: bigint("checkpoint_revision", { mode: "number" }),
+    occurredAt: bigint("occurred_at", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("uidx_agent_autonomy_lifecycle_events_key").on(table.eventKey),
+    index("idx_agent_autonomy_lifecycle_events_character_sequence").on(
+      table.characterId,
+      table.eventSequence,
+    ),
+    index("idx_agent_autonomy_lifecycle_events_state_time").on(
+      table.lifecycleState,
+      table.occurredAt,
+    ),
+    foreignKey({
+      columns: [table.characterId],
+      foreignColumns: [characters.id],
+      name: "agent_autonomy_lifecycle_events_character_id_characters_id_fk",
+    }).onDelete("cascade"),
+  ],
+);
+
+export const agentAutonomyLifecycleHeads = pgTable(
+  "agent_autonomy_lifecycle_heads",
+  {
+    characterId: text("character_id").primaryKey().notNull(),
+    currentState: text("current_state").default("goal_selection").notNull(),
+    currentGoalType: text("current_goal_type"),
+    headRevision: bigint("head_revision", { mode: "number" })
+      .default(0)
+      .notNull(),
+    updatedAt: bigint("updated_at", { mode: "number" })
+      .default(sql`(EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT`)
+      .notNull(),
+  },
+  (table) => [
+    index("idx_agent_autonomy_lifecycle_heads_state_updated").on(
+      table.currentState,
+      table.updatedAt,
+    ),
+    foreignKey({
+      columns: [table.characterId],
+      foreignColumns: [characters.id],
+      name: "agent_autonomy_lifecycle_heads_character_id_characters_id_fk",
+    }).onDelete("cascade"),
   ],
 );
 
@@ -350,6 +596,11 @@ export const playerDeaths = pgTable(
     timestamp: bigint({ mode: "number" }).notNull(),
     zoneType: text().notNull(),
     itemCount: integer().default(0).notNull(),
+    items: jsonb().default([]).notNull(),
+    keptItems: jsonb().default([]).notNull(),
+    deathOperationId: text(),
+    killedBy: text().default("unknown").notNull(),
+    recovered: boolean().default(false).notNull(),
     // You can use { mode: "bigint" } if numbers are exceeding js number limitations
     createdAt: bigint({ mode: "number" })
       .default(sql`((EXTRACT(epoch FROM now()) * (1000)`)
@@ -360,6 +611,18 @@ export const playerDeaths = pgTable(
       .notNull(),
   },
   (table) => [
+    uniqueIndex("player_deaths_death_operation_id_unique")
+      .on(table.deathOperationId)
+      .where(sql`${table.deathOperationId} IS NOT NULL`),
+    index("idx_player_deaths_recovered").using(
+      "btree",
+      table.recovered.asc().nullsLast().op("bool_ops"),
+    ),
+    index("idx_player_deaths_recovery_lookup").using(
+      "btree",
+      table.recovered.asc().nullsLast().op("bool_ops"),
+      table.timestamp.asc().nullsLast().op("int8_ops"),
+    ),
     index("idx_player_deaths_timestamp").using(
       "btree",
       table.timestamp.asc().nullsLast().op("int8_ops"),
@@ -368,6 +631,148 @@ export const playerDeaths = pgTable(
       columns: [table.playerId],
       foreignColumns: [characters.id],
       name: "player_deaths_playerId_characters_id_fk",
+    }).onDelete("cascade"),
+  ],
+);
+
+export const gatheringResourceStates = pgTable(
+  "gathering_resource_states",
+  {
+    resourceId: text("resource_id").primaryKey().notNull(),
+    operationId: text("operation_id").notNull(),
+    depletedAt: bigint("depleted_at", { mode: "number" }).notNull(),
+    respawnAt: bigint("respawn_at", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("gathering_resource_states_operation_unique").on(
+      table.operationId,
+    ),
+    index("idx_gathering_resource_states_respawn").on(table.respawnAt),
+  ],
+);
+
+export const questGatheringProgressReceipts = pgTable(
+  "quest_gathering_progress_receipts",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey().notNull(),
+    operationId: text("operation_id").notNull(),
+    playerId: text("player_id").notNull(),
+    questId: text("quest_id").notNull(),
+    questStartedAt: bigint("quest_started_at", { mode: "number" }).notNull(),
+    capturedStage: text("captured_stage").notNull(),
+    rewardItemId: text("reward_item_id").notNull(),
+    rewardQuantity: integer("reward_quantity").notNull(),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
+    resolvedAt: bigint("resolved_at", { mode: "number" }),
+    resolution: text("resolution"),
+    resultingStage: text("resulting_stage"),
+    resultingProgress: jsonb("resulting_progress"),
+  },
+  (table) => [
+    uniqueIndex("quest_gathering_progress_receipts_operation_quest_unique").on(
+      table.operationId,
+      table.questId,
+    ),
+    index("idx_quest_gathering_progress_receipts_pending_player").on(
+      table.playerId,
+      table.resolvedAt,
+      table.createdAt,
+      table.id,
+    ),
+    index("idx_quest_gathering_progress_receipts_incarnation").on(
+      table.playerId,
+      table.questId,
+      table.questStartedAt,
+    ),
+    foreignKey({
+      columns: [table.playerId],
+      foreignColumns: [characters.id],
+      name: "quest_gathering_progress_receipts_player_id_characters_id_fk",
+    }).onDelete("cascade"),
+  ],
+);
+
+export const questProcessingProgressReceipts = pgTable(
+  "quest_processing_progress_receipts",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey().notNull(),
+    operationId: text("operation_id").notNull(),
+    playerId: text("player_id").notNull(),
+    questId: text("quest_id").notNull(),
+    questStartedAt: bigint("quest_started_at", { mode: "number" }).notNull(),
+    capturedStage: text("captured_stage").notNull(),
+    targetId: text("target_id").notNull(),
+    quantity: integer("quantity").notNull(),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
+    resolvedAt: bigint("resolved_at", { mode: "number" }),
+    resolution: text("resolution"),
+    resultingStage: text("resulting_stage"),
+    resultingProgress: jsonb("resulting_progress"),
+  },
+  (table) => [
+    uniqueIndex(
+      "quest_processing_progress_receipts_operation_quest_target_unique",
+    ).on(table.operationId, table.questId, table.targetId),
+    index("idx_quest_processing_progress_receipts_pending_player").on(
+      table.playerId,
+      table.resolvedAt,
+      table.createdAt,
+      table.id,
+    ),
+    index("idx_quest_processing_progress_receipts_incarnation").on(
+      table.playerId,
+      table.questId,
+      table.questStartedAt,
+    ),
+    foreignKey({
+      columns: [table.playerId],
+      foreignColumns: [characters.id],
+      name: "quest_processing_progress_receipts_player_id_characters_id_fk",
+    }).onDelete("cascade"),
+  ],
+);
+
+export const processingActiveFires = pgTable(
+  "processing_active_fires",
+  {
+    fireId: text("fire_id").primaryKey().notNull(),
+    operationId: text("operation_id").notNull(),
+    playerId: text("player_id").notNull(),
+    positionX: doublePrecision("position_x").notNull(),
+    positionY: doublePrecision("position_y").notNull(),
+    positionZ: doublePrecision("position_z").notNull(),
+    tileX: integer("tile_x").notNull(),
+    tileZ: integer("tile_z").notNull(),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
+    expiresAt: bigint("expires_at", { mode: "number" }).notNull(),
+    extinguishedAt: bigint("extinguished_at", { mode: "number" }),
+  },
+  (table) => [
+    uniqueIndex("processing_active_fires_operation_unique").on(
+      table.operationId,
+    ),
+    index("idx_processing_active_fires_expiry").on(
+      table.extinguishedAt,
+      table.expiresAt,
+    ),
+    index("idx_processing_active_fires_tile").on(
+      table.tileX,
+      table.tileZ,
+      table.extinguishedAt,
+      table.expiresAt,
+    ),
+    uniqueIndex("processing_active_fires_active_tile_unique")
+      .on(table.tileX, table.tileZ)
+      .where(sql`${table.extinguishedAt} IS NULL`),
+    index("idx_processing_active_fires_player").on(
+      table.playerId,
+      table.extinguishedAt,
+      table.expiresAt,
+    ),
+    foreignKey({
+      columns: [table.playerId],
+      foreignColumns: [characters.id],
+      name: "processing_active_fires_player_id_characters_id_fk",
     }).onDelete("cascade"),
   ],
 );

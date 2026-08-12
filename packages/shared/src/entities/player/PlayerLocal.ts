@@ -72,6 +72,7 @@ import type PhysX from "@hyperforge/physx-js-webidl";
 import { createNode } from "../../extras/three/createNode";
 import { Layers } from "../../physics/Layers";
 import { Emotes, essentialEmotes } from "../../data/playerEmotes";
+import { DEFAULT_AVATAR_URL } from "../../data/avatars";
 import THREE from "../../extras/three/three";
 import { MeshBasicNodeMaterial } from "three/webgpu";
 import { UI, UIText, UIView } from "../../nodes";
@@ -145,6 +146,7 @@ interface AvatarInstance {
   disableRateCheck?: () => void;
   height?: number;
   setEmote?: (emote: string) => void;
+  triggerHitReaction?: (intensity?: number, side?: -1 | 1) => void;
   preloadEmote?: (emote: string) => void;
   setEmoteAndWait?: (emote: string, timeoutMs?: number) => Promise<void>;
 }
@@ -156,6 +158,7 @@ interface AvatarNode {
   visible: boolean;
   emote?: string;
   setEmote?: (emote: string) => void;
+  triggerHitReaction?: (intensity?: number, side?: -1 | 1) => void;
   preloadEmote?: (emote: string) => void;
   setEmoteAndWait?: (emote: string, timeoutMs?: number) => Promise<void>;
   ctx: World;
@@ -494,6 +497,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
         getHeight?: () => number;
         getHeadToHeight?: () => number;
         setEmote?: (emote: string) => void;
+        triggerHitReaction?: (intensity?: number, side?: -1 | 1) => void;
         getBoneTransform?: (boneName: string) => THREE.Matrix4 | null;
       }
     | undefined {
@@ -508,6 +512,9 @@ export class PlayerLocal extends Entity implements HotReloadable {
           : 1.6,
       setEmote: (emote: string) => {
         if (this._avatar && this._avatar.setEmote) this._avatar.setEmote(emote);
+      },
+      triggerHitReaction: (intensity = 1, side: -1 | 1 = 1) => {
+        this._avatar?.triggerHitReaction?.(intensity, side);
       },
       getBoneTransform: (boneName: string) =>
         this._avatar && this._avatar.getBoneTransform
@@ -1298,8 +1305,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
 
     // Register with HealthBars system
     const healthbars = this.world.getSystem?.("healthbars") as
-      | HealthBarsSystem
-      | undefined;
+      HealthBarsSystem | undefined;
 
     if (healthbars) {
       const currentHealth = (this.data.health as number) || 100;
@@ -1423,8 +1429,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
           playerId: string;
           isDead: boolean;
           deathPosition?:
-            | [number, number, number]
-            | { x: number; y: number; z: number };
+            [number, number, number] | { x: number; y: number; z: number };
         },
       );
     });
@@ -1433,8 +1438,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
         eventData as {
           playerId: string;
           spawnPosition?:
-            | { x: number; y: number; z: number }
-            | [number, number, number];
+            { x: number; y: number; z: number } | [number, number, number];
         },
       );
     });
@@ -1462,7 +1466,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
     let url =
       (this.data.sessionAvatar as string) ||
       (this.data.avatar as string) ||
-      "asset://avatars/avatar-male-01.vrm";
+      DEFAULT_AVATAR_URL;
 
     const useRawAvatar =
       typeof window !== "undefined" &&
@@ -1482,7 +1486,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
     avatarUrlOverride?: string,
     allowFallback: boolean = true,
   ): Promise<void> {
-    const defaultAvatarUrl = "asset://avatars/avatar-male-01.vrm";
+    const defaultAvatarUrl = DEFAULT_AVATAR_URL;
     const avatarUrl = avatarUrlOverride ?? this.getAvatarUrl();
 
     // Skip avatar loading on server (no loader system)
@@ -2788,8 +2792,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
     playerId: string;
     isDead: boolean;
     deathPosition?:
-      | [number, number, number]
-      | { x: number; y: number; z: number };
+      [number, number, number] | { x: number; y: number; z: number };
   }): void {
     if (event.playerId !== this.data.id) return;
 
@@ -2923,8 +2926,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
   handlePlayerRespawned(event: {
     playerId: string;
     spawnPosition?:
-      | { x: number; y: number; z: number }
-      | [number, number, number];
+      { x: number; y: number; z: number } | [number, number, number];
   }): void {
     if (event.playerId !== this.data.id) return;
 
@@ -3042,8 +3044,7 @@ export class PlayerLocal extends Entity implements HotReloadable {
         eventData as {
           playerId: string;
           spawnPosition?:
-            | { x: number; y: number; z: number }
-            | [number, number, number];
+            { x: number; y: number; z: number } | [number, number, number];
         },
       );
     });

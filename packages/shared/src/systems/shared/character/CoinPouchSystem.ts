@@ -317,6 +317,31 @@ export class CoinPouchSystem extends SystemBase {
   }
 
   /**
+   * Converge the live money-pouch cache to a balance already committed by an
+   * atomic database transaction. This method never persists independently;
+   * doing so could split the receipt-fenced item and coin transition.
+   */
+  applyCommittedBalance(playerId: string, coins: number): boolean {
+    const playerIdKey = toPlayerID(playerId);
+    if (
+      !playerIdKey ||
+      !Number.isSafeInteger(coins) ||
+      coins < 0 ||
+      coins > MAX_COINS
+    ) {
+      return false;
+    }
+
+    this.coinBalances.set(playerIdKey, coins);
+    this.initializedPlayers.add(playerId);
+    this.emitTypedEvent(EventType.INVENTORY_COINS_UPDATED, {
+      playerId,
+      coins,
+    });
+    return true;
+  }
+
+  /**
    * Get a player's coin balance
    *
    * @param playerId - Player to check

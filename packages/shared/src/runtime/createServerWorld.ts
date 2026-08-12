@@ -124,7 +124,7 @@ export async function createServerWorld(): Promise<World> {
   // - InteractionSystem: Player-entity interactions
   // - PersistenceSystem: Database saves and loads
 
-  await registerSystems(world);
+  await registerSystems(world, "server");
 
   // ============================================================================
   // OPTIONAL: SERVER BOT

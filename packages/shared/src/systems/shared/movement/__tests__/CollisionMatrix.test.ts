@@ -679,6 +679,64 @@ describe("CollisionMatrix", () => {
   });
 
   describe("high-volume operations (performance sanity)", () => {
+    it("replaces masked flags across zone boundaries without touching other flags", () => {
+      const originX = -3;
+      const originZ = 6;
+      const width = 13;
+      const height = 11;
+      const terrainMask = CollisionFlag.WATER | CollisionFlag.STEEP_SLOPE;
+      const flags = new Int32Array(width * height);
+
+      matrix.addFlags(0, 8, CollisionFlag.BLOCKED | CollisionFlag.WATER);
+      matrix.addFlags(9, 16, CollisionFlag.WALL_NORTH);
+      flags[(0 - originX) * height + (8 - originZ)] = CollisionFlag.STEEP_SLOPE;
+      flags[(9 - originX) * height + (16 - originZ)] = CollisionFlag.WATER;
+
+      matrix.replaceFlagsInRegion(
+        originX,
+        originZ,
+        width,
+        height,
+        terrainMask,
+        flags,
+      );
+
+      expect(matrix.getFlags(0, 8)).toBe(
+        CollisionFlag.BLOCKED | CollisionFlag.STEEP_SLOPE,
+      );
+      expect(matrix.getFlags(9, 16)).toBe(
+        CollisionFlag.WALL_NORTH | CollisionFlag.WATER,
+      );
+      expect(matrix.getFlags(-3, 6)).toBe(0);
+      expect(matrix.getFlags(10, 16)).toBe(0);
+    });
+
+    it("does not allocate zones when a batch only clears absent flags", () => {
+      matrix.replaceFlagsInRegion(
+        -50,
+        -50,
+        100,
+        100,
+        CollisionFlag.WATER | CollisionFlag.STEEP_SLOPE,
+        new Int32Array(10_000),
+      );
+
+      expect(matrix.getZoneCount()).toBe(0);
+    });
+
+    it("rejects malformed region batches", () => {
+      expect(() =>
+        matrix.replaceFlagsInRegion(
+          0,
+          0,
+          2,
+          2,
+          CollisionFlag.WATER,
+          new Int32Array(3),
+        ),
+      ).toThrow(/flags length/);
+    });
+
     it("handles 1000 sequential tile operations", () => {
       const start = Date.now();
 

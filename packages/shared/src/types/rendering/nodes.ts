@@ -9,6 +9,7 @@ import type { Node } from "../../nodes/Node";
 import type { Entity } from "../../entities/Entity";
 import type { HotReloadable } from "../systems/physics";
 import type { NodeData } from "../core/base-types";
+import type { PlayerHitReactionDiagnostics } from "../../extras/three/PlayerHitReactionController";
 import type {
   ActorHandle as EngineActorHandle,
   PxRigidBodyFlagEnum,
@@ -515,6 +516,9 @@ export interface VRMAvatarInstance extends HotReloadable {
   height: number;
   headToHeight: number;
   setEmote: (emote: string | null) => void;
+  triggerHitReaction: (intensity?: number, side?: -1 | 1) => void;
+  clearHitReaction: () => void;
+  getHitReactionDiagnostics: () => PlayerHitReactionDiagnostics;
   move: (matrix: THREE.Matrix4) => void;
   disableRateCheck: () => void;
   destroy: () => void;

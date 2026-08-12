@@ -25,15 +25,42 @@ import type {
 import type { PxScene } from "./physics";
 import type {
   PlayerRow,
+  PlayerPersistenceUpdate,
   InventoryRow,
   EquipmentRow,
   WorldChunkRow,
   PlayerSessionRow,
   InventorySaveItem,
   EquipmentSaveItem,
+  CombatLoadoutCommitRequest,
+  CombatLoadoutCommitReceipt,
+  DuelPreparationPlanCommitRequest,
+  DuelPreparationPlanCommitReceipt,
+  DuelPreparationPlanRecoveryRequest,
+  InventoryDebitCommitRequest,
+  InventoryDebitCommitReceipt,
+  BoneBurialCommitRequest,
+  BoneBurialCommitReceipt,
+  GatheringRewardCommitRequest,
+  GatheringRewardCommitReceipt,
+  GatheringResourceState,
+  ProcessingActionCommitRequest,
+  ProcessingActionCommitReceipt,
+  ProcessingActionSkill,
+  ProcessingActionFireEffect,
+  ActiveProcessingFire,
+  EquipmentStackDebitCommitRequest,
+  EquipmentStackDebitCommitReceipt,
+  PrayerStateCommitRequest,
+  PrayerStateCommitReceipt,
   ItemRow,
 } from "../network/database";
 import type { FlatZone } from "../world/terrain";
+import type {
+  ProcessingSkill,
+  ProcessingRequestEnvelope,
+  RecoverableProcessingRequest,
+} from "../events";
 import type {
   DuelRules,
   DuelState,
@@ -163,8 +190,11 @@ export interface DatabaseSystem extends System {
   // Player data methods (sync for backward compatibility, async for PostgreSQL)
   getPlayer(playerId: string): PlayerRow | null;
   getPlayerAsync(playerId: string): Promise<PlayerRow | null>;
-  savePlayer(playerId: string, data: Partial<PlayerRow>): void;
-  savePlayerAsync(playerId: string, data: Partial<PlayerRow>): Promise<void>;
+  savePlayer(playerId: string, data: PlayerPersistenceUpdate): void;
+  savePlayerAsync(
+    playerId: string,
+    data: PlayerPersistenceUpdate,
+  ): Promise<void>;
 
   // Character methods (for character selection)
   getCharacters(accountId: string): Array<{ id: string; name: string }>;
@@ -192,6 +222,108 @@ export interface DatabaseSystem extends System {
     playerId: string,
     equipment: EquipmentSaveItem[],
   ): Promise<void>;
+
+  /** Atomically persist inventory, equipment, autocast, and an idempotency receipt. */
+  commitCombatLoadoutOperationAsync(
+    request: CombatLoadoutCommitRequest,
+  ): Promise<CombatLoadoutCommitReceipt>;
+
+  /** Atomically persist a selected contestant's bank, loadout, and autocast. */
+  commitDuelPreparationPlanOperationAsync(
+    request: DuelPreparationPlanCommitRequest,
+  ): Promise<DuelPreparationPlanCommitReceipt>;
+
+  /** Recover one exact committed selected-contestant plan without replanning. */
+  getDuelPreparationPlanOperationAsync(
+    request: DuelPreparationPlanRecoveryRequest,
+  ): Promise<DuelPreparationPlanCommitReceipt | null>;
+
+  /** Atomically debit every requested inventory item and persist one receipt. */
+  commitInventoryDebitOperationAsync(
+    request: InventoryDebitCommitRequest,
+  ): Promise<InventoryDebitCommitReceipt>;
+
+  /** Atomically consume one bone, persist Prayer XP/level, and store a receipt. */
+  commitBoneBurialOperationAsync(
+    request: BoneBurialCommitRequest,
+  ): Promise<BoneBurialCommitReceipt>;
+
+  /** Atomically debit an input, credit a harvest, and persist its skill XP. */
+  commitGatheringRewardOperationAsync(
+    request: GatheringRewardCommitRequest,
+  ): Promise<GatheringRewardCommitReceipt>;
+
+  /** Load active depletion deadlines for a batch of stable world resource IDs. */
+  getGatheringResourceStatesAsync(
+    resourceIds: string[],
+  ): Promise<GatheringResourceState[]>;
+
+  /** Atomically transform recipe inputs into outputs and persist matching XP. */
+  commitProcessingActionOperationAsync(
+    request: ProcessingActionCommitRequest,
+  ): Promise<ProcessingActionCommitReceipt>;
+
+  /** Persist caller-visible acceptance before a timed processing action starts. */
+  beginProcessingRequestAsync(
+    playerId: string,
+    operationId: string,
+    requestId: string,
+    skill: ProcessingSkill,
+    envelope: ProcessingRequestEnvelope,
+  ): Promise<"accepted" | "pending" | "committed" | "busy" | "rejected">;
+
+  /** Refresh ownership while the exact accepted request is still executing. */
+  heartbeatProcessingRequestAsync(
+    playerId: string,
+    operationId: string,
+    requestId: string,
+    skill: ProcessingSkill,
+  ): Promise<boolean>;
+
+  /** Persist a definitive safe rejection for an accepted request. */
+  rejectProcessingRequestAsync(
+    playerId: string,
+    operationId: string,
+    requestId: string,
+    skill: ProcessingSkill,
+    reason: string,
+    retryable: boolean,
+  ): Promise<boolean>;
+
+  /** Resolve one deterministic processing receipt without exposing its contents. */
+  getProcessingActionCommitStatusAsync(
+    playerId: string,
+    operationId: string,
+  ): Promise<
+    "committed" | "pending" | "interrupted" | "rejected" | "not_found"
+  >;
+
+  /** Load the player's one durable unacknowledged processing command. */
+  getRecoverableProcessingRequestAsync(
+    playerId: string,
+  ): Promise<RecoverableProcessingRequest | null>;
+
+  /** Acknowledge a terminal command so later work may begin. */
+  acknowledgeProcessingRequestAsync(
+    playerId: string,
+    requestId: string,
+  ): Promise<boolean>;
+
+  /** Reconstruct every committed fire whose authoritative lifetime remains active. */
+  getActiveProcessingFiresAsync(): Promise<ActiveProcessingFire[]>;
+
+  /** Idempotently mark a committed fire extinguished; true identifies the winner. */
+  markProcessingFireExtinguishedAsync(fireId: string): Promise<boolean>;
+
+  /** Atomically debit one exact equipped stack and persist one receipt. */
+  commitEquipmentStackDebitOperationAsync(
+    request: EquipmentStackDebitCommitRequest,
+  ): Promise<EquipmentStackDebitCommitReceipt>;
+
+  /** Atomically compare-and-swap fixed-point prayer state and persist a receipt. */
+  commitPrayerStateOperationAsync(
+    request: PrayerStateCommitRequest,
+  ): Promise<PrayerStateCommitReceipt>;
 
   // World chunk methods
   saveWorldChunk(chunkData: {
@@ -297,6 +429,7 @@ export interface PlayerSystem extends System {
   savePlayerToDatabase(playerId: string): void;
   onPlayerEnter(event: { playerId: string }): void;
   getPlayer(playerId: string): Player | null;
+  restorePlayerHealth(playerId: string, maxHealth: number): boolean;
 }
 
 export interface MobNPCSystem extends System {
@@ -331,7 +464,7 @@ export interface EquipmentSystem extends System {
     inventorySlot?: number;
   }): void;
   unequipItem(data: { playerId: string; slot: string }): void;
-  consumeArrow(playerId: string): boolean;
+  consumeArrow(playerId: string): Promise<boolean>;
   playerEquipment: Map<string, unknown>;
 
   // Direct equipment methods (used by bank equipment handlers)
@@ -339,7 +472,8 @@ export interface EquipmentSystem extends System {
   canPlayerEquipItem(playerId: string, itemId: string | number): boolean;
   equipItemDirect(
     playerId: string,
-    itemId: string,
+    itemId: string | number,
+    quantity?: number,
   ): Promise<{
     success: boolean;
     error?: string;

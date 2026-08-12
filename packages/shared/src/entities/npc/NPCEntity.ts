@@ -128,6 +128,9 @@ export class NPCEntity extends Entity {
       services: config.services || [],
       questIds: config.questIds,
     };
+    if (config.storeId) {
+      this.data.storeId = config.storeId;
+    }
 
     // NPCs don't have health bars - they're not combatants
     // Set health to 0 to prevent health bar creation
@@ -170,6 +173,7 @@ export class NPCEntity extends Entity {
         name: this.config.name,
         type: this.config.npcType,
       },
+      npcEntityId: this.id,
     });
   }
 
@@ -714,6 +718,7 @@ export class NPCEntity extends Entity {
     buf.model = this.config.model;
     buf.npcType = this.config.npcType;
     buf.npcId = this.config.npcId;
+    buf.storeId = this.config.storeId;
     buf.services = this.config.services;
     buf.questIds = this.config.questIds;
     return buf;
@@ -727,6 +732,7 @@ export class NPCEntity extends Entity {
       model: this.config.model,
       npcType: this.config.npcType,
       npcId: this.config.npcId,
+      storeId: this.config.storeId,
       services: this.config.services,
       questIds: this.config.questIds,
     };

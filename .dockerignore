@@ -45,9 +45,12 @@ packages/server/world/assets/*
 assets/
 
 # Other packages not needed for server
-packages/asset-forge
-packages/app
-packages/website
+packages/asset-forge/**
+!packages/asset-forge/package.json
+packages/app/**
+!packages/app/package.json
+packages/website/**
+!packages/website/package.json
 packages/docs-site
 
 # Tools and publishing (not needed for build)

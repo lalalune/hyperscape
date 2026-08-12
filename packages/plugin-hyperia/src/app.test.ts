@@ -4,6 +4,7 @@ import {
   collectLaunchDiagnostics,
   ensureRuntimeReady,
   handleAppRoutes,
+  hyperiaAppBridge,
   prepareLaunch,
   refreshRunSession,
   resolveLaunchSession,
@@ -547,6 +548,17 @@ afterEach(() => {
 });
 
 describe("plugin-hyperia app bridge", () => {
+  it("safely declines malformed host route contexts", async () => {
+    await expect(hyperiaAppBridge.handleAppRoutes(null)).resolves.toBe(false);
+    await expect(hyperiaAppBridge.handleAppRoutes({})).resolves.toBe(false);
+    await expect(
+      hyperiaAppBridge.handleAppRoutes({
+        method: "GET",
+        pathname: "/api/apps/hyperia/embedded-agents",
+      }),
+    ).resolves.toBe(false);
+  });
+
   it("resolves a mapped session using runtime-scoped API configuration", async () => {
     const fixtureServer = await startFixtureServer();
     try {

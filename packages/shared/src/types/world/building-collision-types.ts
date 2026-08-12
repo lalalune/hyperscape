@@ -161,6 +161,14 @@ export interface BuildingCollisionData {
   floors: FloorCollisionData[];
   /** Entrance step tiles (outside building, only walkable from front) */
   stepTiles: StepTile[];
+  /**
+   * Exact ground-level building silhouette in world tiles.
+   *
+   * Includes occupied floor cells and enclosed voids such as courtyards, but
+   * excludes exterior concavities around irregular footprints. This prevents
+   * the rectangular bounding box from becoming invisible collision geometry.
+   */
+  groundCoverageTiles: Set<string>;
   /** Bounding box in world tiles (for spatial queries) */
   boundingBox: {
     minTileX: number;
@@ -246,6 +254,11 @@ export interface BuildingLayoutInput {
     /** External openings (to outside): "col,row,side" -> "door"|"arch"|"window" */
     externalOpenings: Map<string, string>;
   }>;
+  /**
+   * Ground-level silhouette used for terrain and collision coverage. Empty
+   * cells connected to the grid edge remain exterior; enclosed voids are true.
+   */
+  exteriorFootprint?: boolean[][];
   /** Stair placement (if multi-floor) */
   stairs: {
     col: number;

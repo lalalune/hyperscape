@@ -17,11 +17,33 @@ export interface DatabaseSystemLike {
   executeInTransaction: (
     fn: (tx: TransactionContext) => Promise<void>,
   ) => Promise<void>;
+  commitSafeAreaDeathOperationAsync?: (request: {
+    operationId: string;
+    playerId: string;
+    deathTimestamp: number;
+    position: { x: number; y: number; z: number };
+    killedBy: string;
+  }) => Promise<{
+    operationId: string;
+    replayed: boolean;
+    dropped: Array<{ itemId: string; quantity: number }>;
+    kept: Array<{ itemId: string; quantity: number }>;
+  }>;
+  commitSafeAreaDeathKeptReturnAsync?: (request: {
+    playerId: string;
+    deathOperationId: string;
+  }) => Promise<{
+    operationId: string;
+    replayed: boolean;
+    returned: Array<{ itemId: string; quantity: number }>;
+  }>;
 }
 
 export interface EquipmentSystemLike {
   getPlayerEquipment: (playerId: string) => EquipmentData | null;
   clearEquipmentImmediate?: (playerId: string) => Promise<void>;
+  /** Strictly replace live slots with the persisted equipment snapshot. */
+  reloadFromDatabase?: (playerId: string) => Promise<void>;
   /** Atomic clear-and-return for death system */
   clearEquipmentAndReturn?: (
     playerId: string,

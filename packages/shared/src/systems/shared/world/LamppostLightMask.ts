@@ -1,4 +1,5 @@
 import THREE, { texture, uniform } from "../../../extras/three/three";
+import type { UniformNode } from "three/webgpu";
 
 // Lamppost light texture (shared across terrain/buildings)
 // Initialized with dummy 1x1 texture so shaders compile before real data loads
@@ -25,10 +26,10 @@ const uLamppostNightMix = uniform(0);
 
 export type LamppostLightTextureState = {
   textureNode: ReturnType<typeof texture>;
-  uWorldSize: ReturnType<typeof uniform>;
-  uCenterX: ReturnType<typeof uniform>;
-  uCenterZ: ReturnType<typeof uniform>;
-  uNightMix: ReturnType<typeof uniform>;
+  uWorldSize: UniformNode<"float", number>;
+  uCenterX: UniformNode<"float", number>;
+  uCenterZ: UniformNode<"float", number>;
+  uNightMix: UniformNode<"float", number>;
 };
 
 export function getLamppostLightTextureState(): LamppostLightTextureState {

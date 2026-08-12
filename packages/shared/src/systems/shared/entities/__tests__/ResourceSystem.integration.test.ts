@@ -100,6 +100,95 @@ const createMockWorld = () => {
             }
             return false;
           }),
+          commitGatheringRewardAtomic: vi.fn(
+            async (
+              playerId: string,
+              operationId: string,
+              input: {
+                resourceId: string;
+                depleteAfterCommit: boolean;
+                respawnTicks: number;
+                skill: "woodcutting" | "mining" | "fishing";
+                xpAmount: number;
+                rewardItemId: string;
+                rewardQuantity: number;
+                secondaryItemId?: string | null;
+              },
+            ) => {
+              const inv = inventories.get(playerId);
+              if (!inv || inv.isFull) {
+                return {
+                  ok: false as const,
+                  committed: false as const,
+                  liveInventoryApplied: false,
+                  playerId,
+                  operationId,
+                  replayed: false as const,
+                  skill: input.skill,
+                  xpAmount: input.xpAmount,
+                  reward: null,
+                  secondaryItemId: input.secondaryItemId ?? null,
+                  retryable: false,
+                  reason: "inventory_full" as const,
+                };
+              }
+              if (input.secondaryItemId) {
+                const secondary = inv.items.find(
+                  (item) => item.itemId === input.secondaryItemId,
+                );
+                if (!secondary || secondary.quantity < 1) {
+                  return {
+                    ok: false as const,
+                    committed: false as const,
+                    liveInventoryApplied: false,
+                    playerId,
+                    operationId,
+                    replayed: false as const,
+                    skill: input.skill,
+                    xpAmount: input.xpAmount,
+                    reward: null,
+                    secondaryItemId: input.secondaryItemId,
+                    retryable: false,
+                    reason: "secondary_missing" as const,
+                  };
+                }
+                secondary.quantity--;
+                if (secondary.quantity === 0) {
+                  inv.items.splice(inv.items.indexOf(secondary), 1);
+                }
+              }
+              inv.items.push({
+                itemId: input.rewardItemId,
+                quantity: input.rewardQuantity,
+              });
+              return {
+                ok: true as const,
+                committed: true as const,
+                liveInventoryApplied: true,
+                playerId,
+                operationId,
+                replayed: false,
+                resourceId: input.resourceId,
+                depleteAfterCommit: input.depleteAfterCommit,
+                respawnTicks: input.respawnTicks,
+                depletedUntil: input.depleteAfterCommit
+                  ? Date.now() + input.respawnTicks * 600
+                  : null,
+                skill: input.skill,
+                xpAmount: input.xpAmount,
+                reward: {
+                  itemId: input.rewardItemId,
+                  quantity: input.rewardQuantity,
+                  stackable: false,
+                },
+                secondaryItemId: input.secondaryItemId ?? null,
+                awardedXp: input.xpAmount,
+                operationCommittedXp: input.xpAmount,
+                currentXp: input.xpAmount,
+                currentLevel: 1,
+              };
+            },
+          ),
         };
       }
       if (name === "skills") {
@@ -672,7 +761,7 @@ describe("ResourceSystem Integration", () => {
       expect(depleteEvents).toHaveLength(0);
     });
 
-    it("should deplete a resource with depleteChance: 1.0 (regular ore)", () => {
+    it("should deplete a resource with depleteChance: 1.0 (regular ore)", async () => {
       // Setup: Player with mining skill and pickaxe
       const player = createTestPlayer("miner2", { mining: 1 });
       player.position = { x: 20, y: 0, z: 20 };
@@ -773,6 +862,9 @@ describe("ResourceSystem Integration", () => {
 
       (mockWorld as { currentTick: number }).currentTick = startTick;
       system.processGatheringTick(startTick);
+      await Promise.resolve();
+      await Promise.resolve();
+      system.processGatheringTick(startTick + 1);
 
       // Resource should be depleted after first successful gather
       const resource = resources.get(resourceId as never);

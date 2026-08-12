@@ -34,6 +34,7 @@ import {
   startDissolve as startDissolveAnim,
   tickDissolveAnims,
 } from "./DissolveAnimation";
+import { shouldStreamVegetationBackgroundLods } from "../../../runtime/clientViewportMode";
 
 const MAX_INSTANCES = 512;
 
@@ -234,8 +235,7 @@ function enableTextureRepeat(mat: DissolveMaterial): void {
   ] as const;
   for (const key of texProps) {
     const tex = (mat as unknown as Record<string, unknown>)[key] as
-      | THREE.Texture
-      | undefined;
+      THREE.Texture | undefined;
     if (tex) {
       tex.wrapS = THREE.RepeatWrapping;
       tex.wrapT = THREE.RepeatWrapping;
@@ -289,15 +289,20 @@ async function ensureModelPool(
 
     const lod0Pool = createLODPool(buildTreeParts(lod0Parts));
 
+    // The fixed broadcast viewport has no exploration traversal and keeps LOD0
+    // available as the visual fallback. Avoid decoding and uploading distant
+    // tree LOD pools during its critical startup window.
+    const loadBackgroundLods = shouldStreamVegetationBackgroundLods();
+
     // LOD1 — explicit path first, fall back to inferred naming convention
     let lod1Pool: LODPool | null = null;
-    if (lod1ModelPath) {
+    if (loadBackgroundLods && lod1ModelPath) {
       const lod1Parts = await loadLODParts(lod1ModelPath);
       if (lod1Parts) {
         lod1Pool = createLODPool(buildTreeParts(lod1Parts));
       }
     }
-    if (!lod1Pool) {
+    if (loadBackgroundLods && !lod1Pool) {
       const lod1Parts = await loadLODParts(inferLOD1Path(modelPath));
       if (lod1Parts) {
         lod1Pool = createLODPool(buildTreeParts(lod1Parts));
@@ -306,13 +311,13 @@ async function ensureModelPool(
 
     // LOD2 — explicit path first, fall back to inferred naming convention
     let lod2Pool: LODPool | null = null;
-    if (lod2ModelPath) {
+    if (loadBackgroundLods && lod2ModelPath) {
       const lod2Parts = await loadLODParts(lod2ModelPath);
       if (lod2Parts) {
         lod2Pool = createLODPool(buildTreeParts(lod2Parts));
       }
     }
-    if (!lod2Pool) {
+    if (loadBackgroundLods && !lod2Pool) {
       const lod2Parts = await loadLODParts(inferLOD2Path(modelPath));
       if (lod2Parts) {
         lod2Pool = createLODPool(buildTreeParts(lod2Parts));

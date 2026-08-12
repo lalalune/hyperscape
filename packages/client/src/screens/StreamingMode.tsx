@@ -19,14 +19,29 @@ import React, {
 import { GameClient } from "./GameClient";
 import { LoadingScreen } from "./LoadingScreen";
 import { StreamingOverlay } from "../components/streaming/StreamingOverlay";
+import type { StreamingBettingConfig } from "../components/streaming/StreamingBettingRail";
 import type {
   World,
   Entity,
+  StreamingDuelEquipmentVisualContract,
+  StreamingDuelEquipmentVisualRequirement,
   StreamingGuardrailAgentSnapshot,
   StreamingGuardrailPhase,
 } from "@hyperforge/shared";
-import { EventType, deriveStreamingGuardrailReason } from "@hyperforge/shared";
+import {
+  EventType,
+  STREAMING_DUEL_VISIBLE_EQUIPMENT_SLOTS,
+  deriveStreamingGuardrailReason,
+} from "@hyperforge/shared";
 import type { StreamingWindow } from "@/lib/streamingWindow";
+import {
+  advanceStreamingColdRenderStability,
+  advanceStreamingReadinessStability,
+  collectStreamingSceneDiagnostics,
+  collectStreamingSceneReadinessEvidence,
+  createStreamingColdRenderStability,
+  type StreamingDiagnosticsWorld,
+} from "@/lib/streamingSceneDiagnostics";
 import { GAME_WS_URL, GAME_API_URL } from "../lib/api-config";
 import { getStreamingAccessToken } from "../lib/streamingAccessToken";
 
@@ -42,6 +57,7 @@ export interface StreamingState {
     timeRemaining: number;
     agent1: AgentInfo | null;
     agent2: AgentInfo | null;
+    duelId: string | null;
     countdown: number | null;
     fightStartTime: number | null;
     arenaPositions: {
@@ -50,10 +66,23 @@ export interface StreamingState {
     } | null;
     winnerId: string | null;
     winnerName: string | null;
+    outcome: "win" | "draw" | null;
     winReason: string | null;
   };
   leaderboard: LeaderboardEntry[];
   cameraTarget: string | null;
+  terminalNotice?: {
+    cycleId: string;
+    duelId: string | null;
+    outcome: "cancelled";
+    reason: string;
+    occurredAt: number;
+    expiresAt: number;
+    agent1Id: string | null;
+    agent1Name: string | null;
+    agent2Id: string | null;
+    agent2Name: string | null;
+  } | null;
 }
 
 export interface AgentInfo {
@@ -72,9 +101,136 @@ export interface AgentInfo {
   healsUsed: number;
   equipment: Record<string, string>;
   inventory: Array<{ itemId: string; quantity: number } | null>;
+  itemIconPaths?: Record<string, string>;
+  loadoutFingerprint?: string | null;
+  availableCombatStyles?: Array<StreamingCombatRole | "prayer">;
+  combatLoadouts?: FrozenStreamingCombatLoadouts;
+  loadoutFrozen?: boolean;
+  prayerPointUnits?: number;
+  prayerPoints?: number;
+  prayerMaxPoints?: number;
   rank: number;
   headToHeadWins: number;
   headToHeadLosses: number;
+}
+
+export type StreamingCombatRole = "melee" | "ranged" | "mage";
+export type FrozenStreamingArmorIds = Record<
+  "helmet" | "body" | "legs" | "boots" | "gloves" | "cape" | "amulet" | "ring",
+  string | null
+>;
+
+export interface FrozenStreamingCombatLoadout {
+  role: StreamingCombatRole;
+  weaponId: string;
+  arrowsId: string | null;
+  shieldId: string | null;
+  spellId: string | null;
+  armorIds?: FrozenStreamingArmorIds;
+}
+
+export type FrozenStreamingCombatLoadouts = Partial<
+  Record<StreamingCombatRole, FrozenStreamingCombatLoadout>
+>;
+
+const STREAMING_COMBAT_ROLES = ["melee", "ranged", "mage"] as const;
+const STREAMING_ARMOR_VISUAL_SLOTS = [
+  "helmet",
+  "body",
+  "legs",
+  "boots",
+  "gloves",
+  "cape",
+] as const;
+
+export function deriveStreamingDuelEquipmentVisualContract(
+  state: StreamingState,
+): StreamingDuelEquipmentVisualContract {
+  const requirements = new Map<
+    string,
+    StreamingDuelEquipmentVisualRequirement
+  >();
+  const currentEquipment: StreamingDuelEquipmentVisualContract["currentEquipment"] =
+    [];
+  const addRequirement = (
+    playerId: string,
+    slot: StreamingDuelEquipmentVisualRequirement["slot"],
+    itemId: string | null | undefined,
+  ) => {
+    const normalizedItemId = itemId?.trim();
+    if (!normalizedItemId) return;
+    requirements.set(`${playerId}\u0000${slot}\u0000${normalizedItemId}`, {
+      playerId,
+      slot,
+      itemId: normalizedItemId,
+    });
+  };
+
+  for (const agent of [state.cycle.agent1, state.cycle.agent2]) {
+    if (!agent || agent.loadoutFrozen !== true) continue;
+
+    for (const slot of STREAMING_DUEL_VISIBLE_EQUIPMENT_SLOTS) {
+      const itemId = agent.equipment?.[slot]?.trim() || null;
+      currentEquipment.push({ playerId: agent.id, slot, itemId });
+      addRequirement(agent.id, slot, itemId);
+    }
+
+    for (const role of STREAMING_COMBAT_ROLES) {
+      const loadout = agent.combatLoadouts?.[role];
+      if (!loadout || loadout.role !== role) continue;
+      addRequirement(agent.id, "weapon", loadout.weaponId);
+      addRequirement(agent.id, "shield", loadout.shieldId);
+      for (const slot of STREAMING_ARMOR_VISUAL_SLOTS) {
+        addRequirement(agent.id, slot, loadout.armorIds?.[slot]);
+      }
+    }
+  }
+
+  return {
+    cycleId: state.cycle.cycleId,
+    requirements: [...requirements.values()].sort((a, b) =>
+      `${a.playerId}\u0000${a.slot}\u0000${a.itemId}`.localeCompare(
+        `${b.playerId}\u0000${b.slot}\u0000${b.itemId}`,
+      ),
+    ),
+    currentEquipment,
+  };
+}
+
+function configureStreamingDuelEquipmentVisuals(
+  world: World | null,
+  state: StreamingState,
+): void {
+  world
+    ?.getSystem("equipment-visual")
+    ?.setStreamingDuelEquipmentVisualContract(
+      deriveStreamingDuelEquipmentVisualContract(state),
+    );
+}
+
+function sameStreamingEquipment(
+  left: Record<string, string> | undefined,
+  right: Record<string, string> | undefined,
+): boolean {
+  const leftEntries = Object.entries(left ?? {});
+  const rightEntries = Object.entries(right ?? {});
+  return (
+    leftEntries.length === rightEntries.length &&
+    leftEntries.every(([slot, itemId]) => right?.[slot] === itemId)
+  );
+}
+
+function sameStreamingAgentVisualState(
+  left: AgentInfo | null,
+  right: AgentInfo | null,
+): boolean {
+  if (!left || !right) return left === right;
+  return (
+    left.id === right.id &&
+    left.loadoutFingerprint === right.loadoutFingerprint &&
+    left.loadoutFrozen === right.loadoutFrozen &&
+    sameStreamingEquipment(left.equipment, right.equipment)
+  );
 }
 
 export interface LeaderboardEntry {
@@ -85,9 +241,50 @@ export interface LeaderboardEntry {
   model: string;
   wins: number;
   losses: number;
+  draws: number;
   winRate: number;
   combatLevel: number;
   currentStreak: number;
+}
+
+export function parseStreamingBettingConfig(
+  value: unknown,
+): StreamingBettingConfig | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Partial<StreamingBettingConfig>;
+  if (
+    typeof candidate.configured !== "boolean" ||
+    !(candidate.betUrl === null || typeof candidate.betUrl === "string") ||
+    typeof candidate.bettingBridgeEnabled !== "boolean" ||
+    typeof candidate.ready !== "boolean" ||
+    !(
+      candidate.unavailableReason === null ||
+      typeof candidate.unavailableReason === "string"
+    ) ||
+    !Number.isFinite(candidate.checkedAt)
+  ) {
+    return null;
+  }
+  const betUrl = candidate.betUrl?.trim() || null;
+  if (
+    (candidate.ready &&
+      (!candidate.configured ||
+        !betUrl ||
+        !candidate.bettingBridgeEnabled ||
+        candidate.unavailableReason !== null)) ||
+    (!candidate.ready && betUrl !== null)
+  ) {
+    return null;
+  }
+  return {
+    configured: candidate.configured,
+    betUrl,
+    bettingBridgeEnabled: candidate.bettingBridgeEnabled,
+    ready: candidate.ready,
+    unavailableReason: candidate.unavailableReason,
+    checkedAt: candidate.checkedAt as number,
+    hint: typeof candidate.hint === "string" ? candidate.hint : null,
+  };
 }
 
 export interface StreamingRendererHealth {
@@ -95,6 +292,45 @@ export interface StreamingRendererHealth {
   degradedReason: string | null;
   updatedAt: number;
   phase: StreamingState["cycle"]["phase"] | null;
+}
+
+export interface StreamingFailurePresentation {
+  title: string;
+  detail: string;
+}
+
+export const STREAMING_BOOT_TIMEOUT_MS = 120_000;
+
+export function getStreamingFailurePresentation(
+  error: string,
+): StreamingFailurePresentation {
+  const normalized = error.trim().toLowerCase();
+  if (normalized.includes("webgpu")) {
+    return {
+      title: "Browser graphics unavailable",
+      detail:
+        "This browser could not start the arena renderer. Try a current browser with hardware acceleration enabled.",
+    };
+  }
+  if (normalized.includes("timed out") || normalized.includes("timeout")) {
+    return {
+      title: "Arena took too long to load",
+      detail:
+        "The live world did not become ready in time. The stream can be retried safely.",
+    };
+  }
+  if (normalized.includes("http error") || normalized.includes("asset")) {
+    return {
+      title: "Stream assets unavailable",
+      detail:
+        "The arena could not load a required resource. Check the connection, then retry the stream.",
+    };
+  }
+  return {
+    title: "Stream temporarily unavailable",
+    detail:
+      "The arena could not finish starting. Retry to reconnect and rebuild the live view.",
+  };
 }
 
 function toGuardrailAgent(
@@ -113,6 +349,7 @@ function deriveStreamingSurfaceBlockReason(params: {
   connected: boolean;
   worldReady: boolean;
   terrainReady: boolean;
+  sceneAssetsReady: boolean;
   hasStreamingState: boolean;
   initError: string | null;
   needsCameraLock: boolean;
@@ -136,6 +373,9 @@ function deriveStreamingSurfaceBlockReason(params: {
   if (!params.terrainReady) {
     return "terrain_not_ready";
   }
+  if (!params.sceneAssetsReady) {
+    return "scene_assets_not_ready";
+  }
   if (params.needsCameraLock && !params.cameraLocked) {
     return "camera_target_unresolved";
   }
@@ -146,6 +386,7 @@ export function deriveStreamingRendererHealth(params: {
   connected: boolean;
   worldReady: boolean;
   terrainReady: boolean;
+  sceneAssetsReady: boolean;
   hasStreamingState: boolean;
   initError: string | null;
   needsCameraLock: boolean;
@@ -161,6 +402,7 @@ export function deriveStreamingRendererHealth(params: {
     connected: params.connected,
     worldReady: params.worldReady,
     terrainReady: params.terrainReady,
+    sceneAssetsReady: params.sceneAssetsReady,
     hasStreamingState: params.hasStreamingState,
     initError: params.initError,
     needsCameraLock: params.needsCameraLock,
@@ -192,6 +434,7 @@ export function shouldDismissStreamingLoading(params: {
   connected: boolean;
   worldReady: boolean;
   terrainReady: boolean;
+  sceneAssetsReady: boolean;
   hasStreamingState: boolean;
   initError?: string | null;
   needsCameraLock: boolean;
@@ -203,6 +446,7 @@ export function shouldDismissStreamingLoading(params: {
       connected: params.connected,
       worldReady: params.worldReady,
       terrainReady: params.terrainReady,
+      sceneAssetsReady: params.sceneAssetsReady,
       hasStreamingState: params.hasStreamingState,
       initError: params.initError ?? null,
       needsCameraLock: params.needsCameraLock,
@@ -216,9 +460,12 @@ export function StreamingMode() {
   const [streamingState, setStreamingState] = useState<StreamingState | null>(
     null,
   );
+  const [bettingConfig, setBettingConfig] =
+    useState<StreamingBettingConfig | null>(null);
   const [connected, setConnected] = useState(false);
   const [worldReady, setWorldReady] = useState(false);
   const [terrainReady, setTerrainReady] = useState(false);
+  const [sceneAssetsReady, setSceneAssetsReady] = useState(false);
   const [cameraLocked, setCameraLocked] = useState(false);
   const [terrainStalled, setTerrainStalled] = useState(false);
   const [readyEventDelayed, setReadyEventDelayed] = useState(false);
@@ -228,6 +475,7 @@ export function StreamingMode() {
   // Fade-out animation: true while the loading overlay is fading away
   const [fadingOut, setFadingOut] = useState(false);
   const worldRef = useRef<World | null>(null);
+  const latestStreamingStateRef = useRef<StreamingState | null>(null);
   const worldReadyRef = useRef(false);
   const lastCameraTargetRef = useRef<string | null>(null);
   const terrainPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -235,8 +483,18 @@ export function StreamingMode() {
   const worldReadyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  const bootDeadlineTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const cameraRetryTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const worldListenerCleanupRef = useRef<(() => void) | null>(null);
+  const sceneReadinessStabilityRef = useRef({
+    readySince: null as number | null,
+    consecutiveSamples: 0,
+    ready: false,
+  });
+  const coldRenderStabilityRef = useRef(createStreamingColdRenderStability());
+  const sceneReadinessLogAtRef = useRef(0);
   const [streamAccessToken] = useState<string | null>(() =>
     getStreamingAccessToken(),
   );
@@ -280,9 +538,22 @@ export function StreamingMode() {
       const win = window as StreamingWindow;
       win.__HYPERIA_STREAM_READY__ = false;
       win.__HYPERIA_STREAM_RENDERER_HEALTH__ = null;
+      win.__HYPERIA_STREAM_STATE__ = null;
+      win.__HYPERIA_STREAM_SCENE_DIAGNOSTICS__ = null;
+      win.__HYPERIA_STREAM_SCENE_READINESS__ = null;
+      delete win.__HYPERIA_STREAM_AUDIO_CAPTURE__;
+      latestStreamingStateRef.current = null;
       win.__HYPERIA_STREAM_BOOT_STATUS__ = "initializing";
       setWorldReady(false);
       setTerrainReady(false);
+      setSceneAssetsReady(false);
+      sceneReadinessStabilityRef.current = {
+        readySince: null,
+        consecutiveSamples: 0,
+        ready: false,
+      };
+      coldRenderStabilityRef.current = createStreamingColdRenderStability();
+      sceneReadinessLogAtRef.current = 0;
       setTerrainStalled(false);
       setReadyEventDelayed(false);
       setClientInitError(null);
@@ -308,6 +579,22 @@ export function StreamingMode() {
         prefs.setDepthBlur?.(false);
         prefs.setWaterReflections?.(false);
         prefs.setEntityHighlighting?.(false);
+      }
+
+      const streamAudio = world.getSystem("audio") as {
+        ctx?: AudioContext;
+        getOutputCaptureStream?: () => MediaStream;
+      } | null;
+      if (
+        streamAudio?.ctx &&
+        typeof streamAudio.getOutputCaptureStream === "function"
+      ) {
+        win.__HYPERIA_STREAM_AUDIO_CAPTURE__ = {
+          getStream: () => streamAudio.getOutputCaptureStream!(),
+          getContextState: () => streamAudio.ctx!.state,
+          getSampleRate: () => streamAudio.ctx!.sampleRate,
+          resume: () => streamAudio.ctx!.resume(),
+        };
       }
 
       const markWorldReady = () => {
@@ -359,6 +646,9 @@ export function StreamingMode() {
       // Subscribe to streaming state updates (forwarded from server via WebSocket)
       const onStreamingStateUpdate = (data: unknown) => {
         const state = data as StreamingState;
+        latestStreamingStateRef.current = state;
+        (window as StreamingWindow).__HYPERIA_STREAM_STATE__ = state;
+        configureStreamingDuelEquipmentVisuals(world, state);
 
         // Initial camera lock: only needed for the very first target so
         // the loading screen can dismiss.  After that, ClientCameraSystem
@@ -385,6 +675,7 @@ export function StreamingMode() {
           const c = state.cycle;
           const p = prev.cycle;
           if (
+            c.cycleId === p.cycleId &&
             c.phase === p.phase &&
             c.countdown === p.countdown &&
             c.winnerId === p.winnerId &&
@@ -392,9 +683,15 @@ export function StreamingMode() {
             c.agent2?.hp === p.agent2?.hp &&
             c.agent1?.damageDealtThisFight === p.agent1?.damageDealtThisFight &&
             c.agent2?.damageDealtThisFight === p.agent2?.damageDealtThisFight &&
+            sameStreamingAgentVisualState(c.agent1, p.agent1) &&
+            sameStreamingAgentVisualState(c.agent2, p.agent2) &&
             Math.floor(c.timeRemaining / 1000) ===
               Math.floor(p.timeRemaining / 1000) &&
-            state.leaderboard.length === prev.leaderboard.length
+            state.leaderboard.length === prev.leaderboard.length &&
+            state.terminalNotice?.cycleId === prev.terminalNotice?.cycleId &&
+            state.terminalNotice?.outcome === prev.terminalNotice?.outcome &&
+            state.terminalNotice?.reason === prev.terminalNotice?.reason &&
+            state.terminalNotice?.expiresAt === prev.terminalNotice?.expiresAt
           ) {
             return prev; // Same reference = no re-render
           }
@@ -405,6 +702,7 @@ export function StreamingMode() {
       worldListenerCleanupRef.current = () => {
         world.off(EventType.READY, markWorldReady);
         world.off("streaming:state:update", onStreamingStateUpdate);
+        delete (window as StreamingWindow).__HYPERIA_STREAM_AUDIO_CAPTURE__;
       };
 
       // Disable player controls (spectator mode)
@@ -526,6 +824,9 @@ export function StreamingMode() {
         .then((data) => {
           if (!mounted) return;
           if (data && data.type === "STREAMING_STATE_UPDATE") {
+            latestStreamingStateRef.current = data;
+            (window as StreamingWindow).__HYPERIA_STREAM_STATE__ = data;
+            configureStreamingDuelEquipmentVisuals(worldRef.current, data);
             setStreamingState(data);
           }
         })
@@ -553,6 +854,46 @@ export function StreamingMode() {
       controllers.clear();
     };
   }, [connected, streamingState]);
+
+  // Poll the server-owned readiness envelope. Any transport or schema failure
+  // clears the CTA immediately so the stream cannot advertise a stale market.
+  useEffect(() => {
+    let mounted = true;
+    let inFlight = false;
+    const controllers = new Set<AbortController>();
+    const bettingUrl = `${GAME_API_URL}/api/streaming/betting`;
+
+    const refresh = () => {
+      if (!mounted || inFlight) return;
+      inFlight = true;
+      const controller = new AbortController();
+      controllers.add(controller);
+      fetch(bettingUrl, { cache: "no-store", signal: controller.signal })
+        .then(async (response) =>
+          response.ok ? response.json() : Promise.reject(new Error("unready")),
+        )
+        .then((payload) => {
+          if (!mounted) return;
+          setBettingConfig(parseStreamingBettingConfig(payload));
+        })
+        .catch(() => {
+          if (mounted) setBettingConfig(null);
+        })
+        .finally(() => {
+          controllers.delete(controller);
+          inFlight = false;
+        });
+    };
+
+    refresh();
+    const interval = setInterval(refresh, 5_000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+      for (const controller of controllers) controller.abort();
+      controllers.clear();
+    };
+  }, []);
 
   // Lock the world's built-in MusicSystem to use exclusively combat tracks
   useEffect(() => {
@@ -795,8 +1136,7 @@ export function StreamingMode() {
         }
       }, 2000);
       const videoTrack = stream?.getVideoTracks?.()[0] as  // eslint-disable-next-line no-undef
-        | (MediaStreamTrack & { requestFrame?: () => void })
-        | undefined;
+        (MediaStreamTrack & { requestFrame?: () => void }) | undefined;
       if (videoTrack?.requestFrame) {
         const frameIntervalMs = Math.max(15, Math.floor(1000 / TARGET_FPS));
         forceFrameTimer = setInterval(() => {
@@ -910,18 +1250,116 @@ export function StreamingMode() {
   }, [worldReady, terrainReady]);
 
   useEffect(() => {
+    (window as StreamingWindow).__HYPERIA_STREAM_STATE__ = streamingState;
+  }, [streamingState]);
+
+  useEffect(() => {
+    const win = window as StreamingWindow;
+    const world = worldRef.current;
+    if (!world) {
+      win.__HYPERIA_STREAM_SCENE_DIAGNOSTICS__ = null;
+      return;
+    }
+
+    const updateDiagnostics = () => {
+      const latestState = latestStreamingStateRef.current;
+      win.__HYPERIA_STREAM_SCENE_DIAGNOSTICS__ = latestState
+        ? collectStreamingSceneDiagnostics(
+            world as unknown as StreamingDiagnosticsWorld,
+            latestState,
+          )
+        : null;
+    };
+    updateDiagnostics();
+    const interval = setInterval(updateDiagnostics, 250);
+    return () => {
+      clearInterval(interval);
+      win.__HYPERIA_STREAM_SCENE_DIAGNOSTICS__ = null;
+    };
+  }, [worldReady]);
+
+  useEffect(() => {
+    const world = worldRef.current;
+    if (!worldReady || !world || !streamingState) {
+      setSceneAssetsReady(false);
+      return;
+    }
+
+    let active = true;
+    const updateSceneAssetReadiness = () => {
+      const latestState = latestStreamingStateRef.current ?? streamingState;
+      const assetReadiness = collectStreamingSceneReadinessEvidence(
+        world as unknown as StreamingDiagnosticsWorld,
+        latestState,
+      );
+      const win = window as StreamingWindow;
+      coldRenderStabilityRef.current = advanceStreamingColdRenderStability(
+        coldRenderStabilityRef.current,
+        win.__HYPERIA_STREAM_PERFORMANCE__,
+        { sceneAssetsReady: assetReadiness.ready },
+      );
+      const readiness = {
+        ...assetReadiness,
+        ready: assetReadiness.ready && coldRenderStabilityRef.current.ready,
+        coldRenderSettled: coldRenderStabilityRef.current.ready,
+        coldRender: coldRenderStabilityRef.current,
+      };
+      win.__HYPERIA_STREAM_SCENE_READINESS__ = readiness;
+      const now = performance.now();
+      if (!readiness.ready && now - sceneReadinessLogAtRef.current >= 10_000) {
+        sceneReadinessLogAtRef.current = now;
+        console.log(
+          `[StreamingMode] Scene readiness pending: ${JSON.stringify(readiness)}`,
+        );
+      }
+      const stability = advanceStreamingReadinessStability(
+        sceneReadinessStabilityRef.current,
+        readiness.ready,
+        now,
+      );
+      sceneReadinessStabilityRef.current = stability;
+      if (active) {
+        setSceneAssetsReady((previous) =>
+          previous === stability.ready ? previous : stability.ready,
+        );
+      }
+    };
+
+    updateSceneAssetReadiness();
+    const interval = setInterval(updateSceneAssetReadiness, 100);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [
+    streamingState?.cycle.agent1?.id,
+    streamingState?.cycle.agent2?.id,
+    streamingState?.cycle.cycleId,
+    streamingState?.cycle.phase,
+    worldReady,
+  ]);
+
+  useEffect(() => {
     return () => {
       const win = window as StreamingWindow;
       win.__HYPERIA_STREAM_READY__ = false;
       win.__HYPERIA_STREAM_RENDERER_HEALTH__ = null;
+      win.__HYPERIA_STREAM_STATE__ = null;
+      win.__HYPERIA_STREAM_SCENE_DIAGNOSTICS__ = null;
+      win.__HYPERIA_STREAM_SCENE_READINESS__ = null;
       win.__HYPERIA_STREAM_BOOT_STATUS__ = null;
       if (worldReadyTimeoutRef.current) {
         clearTimeout(worldReadyTimeoutRef.current);
         worldReadyTimeoutRef.current = null;
       }
+      if (bootDeadlineTimeoutRef.current) {
+        clearTimeout(bootDeadlineTimeoutRef.current);
+        bootDeadlineTimeoutRef.current = null;
+      }
       worldListenerCleanupRef.current?.();
       worldListenerCleanupRef.current = null;
       worldRef.current = null;
+      latestStreamingStateRef.current = null;
       worldReadyRef.current = false;
       clearTerrainPolling();
       clearCameraRetryTimeouts();
@@ -936,6 +1374,7 @@ export function StreamingMode() {
     connected,
     worldReady,
     terrainReady,
+    sceneAssetsReady,
     hasStreamingState: streamingState !== null,
     initError: clientInitError,
     needsCameraLock,
@@ -948,6 +1387,7 @@ export function StreamingMode() {
         connected,
         worldReady,
         terrainReady,
+        sceneAssetsReady,
         hasStreamingState: streamingState !== null,
         initError: clientInitError,
         needsCameraLock,
@@ -964,6 +1404,7 @@ export function StreamingMode() {
       connected,
       loadingDismissed,
       needsCameraLock,
+      sceneAssetsReady,
       streamingState,
       terrainReady,
       worldReady,
@@ -976,6 +1417,33 @@ export function StreamingMode() {
     win.__HYPERIA_STREAM_RENDERER_HEALTH__ = rendererHealth;
   }, [rendererHealth]);
 
+  // Preserve the real readiness gates, but never leave the public stream behind
+  // an indefinite loading overlay. A failed boot becomes a clear recovery state.
+  useEffect(() => {
+    if (loadingDismissed || clientInitError) {
+      if (bootDeadlineTimeoutRef.current) {
+        clearTimeout(bootDeadlineTimeoutRef.current);
+        bootDeadlineTimeoutRef.current = null;
+      }
+      return;
+    }
+    if (bootDeadlineTimeoutRef.current) return;
+
+    bootDeadlineTimeoutRef.current = setTimeout(() => {
+      bootDeadlineTimeoutRef.current = null;
+      setClientInitError(
+        "Stream setup timed out before the arena became ready.",
+      );
+    }, STREAMING_BOOT_TIMEOUT_MS);
+
+    return () => {
+      if (bootDeadlineTimeoutRef.current) {
+        clearTimeout(bootDeadlineTimeoutRef.current);
+        bootDeadlineTimeoutRef.current = null;
+      }
+    };
+  }, [clientInitError, loadingDismissed]);
+
   // Write boot status to a window global so the capture pipeline's renderer
   // health probe can detect loading/error state without reading DOM textContent.
   useEffect(() => {
@@ -986,6 +1454,8 @@ export function StreamingMode() {
       const lower = clientInitError.toLowerCase();
       if (lower.includes("webgpu")) {
         win.__HYPERIA_STREAM_BOOT_STATUS__ = "error:webgpu_required";
+      } else if (lower.includes("timed out") || lower.includes("timeout")) {
+        win.__HYPERIA_STREAM_BOOT_STATUS__ = "error:boot_timeout";
       } else if (lower.includes("http error")) {
         win.__HYPERIA_STREAM_BOOT_STATUS__ = "error:http";
       } else {
@@ -995,12 +1465,19 @@ export function StreamingMode() {
       win.__HYPERIA_STREAM_BOOT_STATUS__ = "connecting";
     } else if (!worldReady) {
       win.__HYPERIA_STREAM_BOOT_STATUS__ = "initializing";
-    } else if (!terrainReady) {
+    } else if (!terrainReady || !sceneAssetsReady) {
       win.__HYPERIA_STREAM_BOOT_STATUS__ = "loading_assets";
     } else {
       win.__HYPERIA_STREAM_BOOT_STATUS__ = "finalizing";
     }
-  }, [clientInitError, connected, loadingDismissed, terrainReady, worldReady]);
+  }, [
+    clientInitError,
+    connected,
+    loadingDismissed,
+    sceneAssetsReady,
+    terrainReady,
+    worldReady,
+  ]);
 
   // Trigger fade-out once when the stream is first ready.
   useEffect(() => {
@@ -1024,6 +1501,9 @@ export function StreamingMode() {
 
   // Show loading overlay only during initial load or fade-out
   const showLoading = !loadingDismissed && !clientInitError;
+  const failurePresentation = clientInitError
+    ? getStreamingFailurePresentation(clientInitError)
+    : null;
 
   const loadingHeadline = !connected
     ? "Connecting to Hyperia..."
@@ -1042,9 +1522,11 @@ export function StreamingMode() {
         ? terrainStalled
           ? "Terrain is taking longer than expected; waiting for a real ready signal"
           : "Waiting for terrain and arena visuals"
-        : needsCameraLock && !cameraLocked
-          ? "Locking the initial camera target"
-          : "Finalizing spectator presentation";
+        : !sceneAssetsReady
+          ? "Waiting for the arena and contestant models"
+          : needsCameraLock && !cameraLocked
+            ? "Locking the initial camera target"
+            : "Finalizing spectator presentation";
 
   return (
     <div
@@ -1066,7 +1548,74 @@ export function StreamingMode() {
       />
 
       {/* Streaming overlay (on top of game) */}
-      <StreamingOverlay state={streamingState} />
+      <StreamingOverlay state={streamingState} bettingConfig={bettingConfig} />
+
+      {failurePresentation && !loadingDismissed && (
+        <div
+          role="alert"
+          data-testid="stream-failure"
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 110,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "2rem",
+            background:
+              "radial-gradient(circle at center, rgba(35, 27, 17, 0.96), rgba(5, 5, 5, 0.99) 68%)",
+            color: "#f7e4b2",
+            textAlign: "center",
+          }}
+        >
+          <div style={{ maxWidth: "34rem" }}>
+            <img
+              src="/images/hyperia-wordmark.svg"
+              alt="Hyperia"
+              style={{ width: "min(20rem, 72vw)", marginBottom: "2rem" }}
+            />
+            <h1
+              style={{
+                margin: "0 0 0.75rem",
+                fontSize: "clamp(1.75rem, 4vw, 2.5rem)",
+                letterSpacing: "0.02em",
+              }}
+            >
+              {failurePresentation.title}
+            </h1>
+            <p
+              style={{
+                margin: "0 auto 1.75rem",
+                color: "rgba(247, 228, 178, 0.76)",
+                lineHeight: 1.6,
+              }}
+            >
+              {failurePresentation.detail}
+            </p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              style={{
+                minWidth: "12rem",
+                minHeight: "3rem",
+                padding: "0.75rem 1.5rem",
+                border: "1px solid rgba(247, 208, 128, 0.72)",
+                borderRadius: "0.5rem",
+                background:
+                  "linear-gradient(180deg, rgba(184, 123, 43, 0.95), rgba(104, 62, 22, 0.98))",
+                color: "#fff8e7",
+                font: "inherit",
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                cursor: "pointer",
+              }}
+            >
+              Retry stream
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Loading overlay — shown only during initial boot, fades out smoothly */}
       {showLoading && worldRef.current && (

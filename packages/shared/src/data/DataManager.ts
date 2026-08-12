@@ -54,6 +54,7 @@ import {
   type ModelBoundsManifest,
 } from "./StationDataProvider";
 import { prayerDataProvider, type PrayersManifest } from "./PrayerDataProvider";
+import { DEFAULT_AVATAR_URL, getDuelAvatarUrlForStyle } from "./avatars";
 
 // Define constants from JSON data
 const STARTING_ITEMS: Array<{ id: string }> = []; // Stub - data removed
@@ -174,10 +175,9 @@ async function fetchOptionalJson<T>(
 const NPC_MODEL_ARCHETYPES: Record<NPCModelArchetype, string> = {
   // Use GLB version (323KB) instead of VRM (8.7MB) to avoid base64 buffer parsing issues
   goblin: "asset://models/goblin/goblin_rigged.glb",
-  // TEMP: Use non-optimized VRM to test humanoid.update issue
-  human: "asset://avatars/avatar-male-01.vrm",
-  thug: "asset://avatars/avatar-male-01.vrm",
-  troll: "asset://avatars/avatar-male-01.vrm",
+  human: DEFAULT_AVATAR_URL,
+  thug: getDuelAvatarUrlForStyle("melee", 1),
+  troll: getDuelAvatarUrlForStyle("melee", 0),
   imp: "asset://models/goblin/goblin_rigged.glb",
 };
 
@@ -993,9 +993,23 @@ export class DataManager {
 
   private normalizeItem(item: Item): Item {
     // Ensure required fields have sane defaults and enums
-    const safeWeaponType = item.weaponType ?? WeaponType.NONE;
+    const normalizedWeaponType = String(item.weaponType ?? "")
+      .trim()
+      .toLowerCase();
+    const safeWeaponType = Object.values(WeaponType).includes(
+      normalizedWeaponType as WeaponType,
+    )
+      ? (normalizedWeaponType as WeaponType)
+      : WeaponType.NONE;
     const equipSlot = item.equipSlot ?? null;
-    const attackType = item.attackType ?? null;
+    const normalizedAttackType = String(item.attackType ?? "")
+      .trim()
+      .toLowerCase();
+    const attackType = Object.values(AttackType).includes(
+      normalizedAttackType as AttackType,
+    )
+      ? (normalizedAttackType as AttackType)
+      : null;
 
     // Validate: weapons with equipSlot "weapon" should have equippedModelPath
     const equippedModelPath = item.equippedModelPath;
@@ -1063,7 +1077,7 @@ export class DataManager {
       type: item.type,
       weaponType: safeWeaponType,
       equipSlot: equipSlot as EquipmentSlotName | null,
-      attackType: attackType as AttackType | null,
+      attackType,
       // Inventory properties with defaults
       quantity: item.quantity ?? 1,
       stackable: item.stackable ?? false,

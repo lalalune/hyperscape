@@ -1,0 +1,78 @@
+import { describe, expect, it, vi } from "vitest";
+
+import { ServerNetwork } from "../index";
+
+describe("ServerNetwork pending-action cancellation", () => {
+  it("cancels pending gathering and correlated cooking when a new action supersedes them", () => {
+    const cancelPendingAttack = vi.fn();
+    const cancelPendingGather = vi.fn();
+    const cancelPendingCook = vi.fn();
+    const stopFollowing = vi.fn();
+    const cancelPendingTrade = vi.fn();
+    const cancelPendingChallenge = vi.fn();
+
+    const network = Object.create(ServerNetwork.prototype) as {
+      pendingAttackManager: { cancelPendingAttack: typeof cancelPendingAttack };
+      pendingGatherManager: { cancelPendingGather: typeof cancelPendingGather };
+      pendingCookManager: { cancelPendingCook: typeof cancelPendingCook };
+      followManager: { stopFollowing: typeof stopFollowing };
+      pendingTradeManager: { cancelPendingTrade: typeof cancelPendingTrade };
+      pendingDuelChallengeManager: {
+        cancelPendingChallenge: typeof cancelPendingChallenge;
+      };
+      cancelAllPendingActions: (playerId: string) => void;
+    };
+
+    network.pendingAttackManager = { cancelPendingAttack };
+    network.pendingGatherManager = { cancelPendingGather };
+    network.pendingCookManager = { cancelPendingCook };
+    network.followManager = { stopFollowing };
+    network.pendingTradeManager = { cancelPendingTrade };
+    network.pendingDuelChallengeManager = { cancelPendingChallenge };
+
+    network.cancelAllPendingActions("player-1");
+
+    expect(cancelPendingAttack).toHaveBeenCalledWith("player-1");
+    expect(cancelPendingGather).toHaveBeenCalledWith("player-1");
+    expect(cancelPendingCook).toHaveBeenCalledWith("player-1", "interrupted");
+    expect(stopFollowing).toHaveBeenCalledWith("player-1");
+    expect(cancelPendingTrade).toHaveBeenCalledWith("player-1");
+    expect(cancelPendingChallenge).toHaveBeenCalledWith("player-1");
+  });
+
+  it("cancels stale preparation approaches before embedded-agent movement", () => {
+    const cancelPendingGather = vi.fn();
+    const cancelPendingCook = vi.fn();
+    const movePlayerToward = vi.fn();
+    const network = Object.create(ServerNetwork.prototype) as {
+      pendingGatherManager: { cancelPendingGather: typeof cancelPendingGather };
+      pendingCookManager: { cancelPendingCook: typeof cancelPendingCook };
+      tileMovementManager: { movePlayerToward: typeof movePlayerToward };
+      world: { entities: Map<string, unknown> };
+      requestServerMove: (
+        playerId: string,
+        target: [number, number, number],
+        options?: { runMode?: boolean },
+      ) => boolean;
+    };
+    network.pendingGatherManager = { cancelPendingGather };
+    network.pendingCookManager = { cancelPendingCook };
+    network.tileMovementManager = { movePlayerToward };
+    network.world = { entities: new Map([["agent-1", {}]]) };
+
+    expect(
+      network.requestServerMove("agent-1", [4, 0, 7], { runMode: true }),
+    ).toBe(true);
+
+    expect(cancelPendingGather).toHaveBeenCalledWith("agent-1");
+    expect(cancelPendingCook).toHaveBeenCalledWith("agent-1", "interrupted");
+    expect(movePlayerToward).toHaveBeenCalledWith(
+      "agent-1",
+      { x: 4, y: 0, z: 7 },
+      true,
+      0,
+      undefined,
+      undefined,
+    );
+  });
+});

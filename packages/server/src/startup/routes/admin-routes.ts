@@ -1984,15 +1984,19 @@ export function registerAdminRoutes(
         if (!scheduler) {
           return reply.send({
             currentCycle: null,
+            terminalNotice: null,
             leaderboard: [],
             recentDuels: [],
+            operationalMetrics: null,
             streamHealth: null,
           });
         }
 
         const cycle = scheduler.getCurrentCycle();
+        const terminalNotice = scheduler.getStreamingState().terminalNotice;
         const leaderboard = scheduler.getLeaderboard();
         const recentDuels = scheduler.getRecentDuels(20);
+        const operationalMetrics = scheduler.getOperationalMetrics();
 
         // Stream health: read from external RTMP status file if configured
         let streamHealth: {
@@ -2039,6 +2043,7 @@ export function registerAdminRoutes(
           startedAt: number;
           phaseStartedAt: number;
           winner: { characterId: string; name: string } | null;
+          outcome: "win" | "draw" | null;
           winReason: string | null;
         } | null = null;
 
@@ -2089,14 +2094,17 @@ export function registerAdminRoutes(
             startedAt: cycle.cycleStartTime,
             phaseStartedAt: cycle.phaseStartTime,
             winner,
+            outcome: cycle.outcome,
             winReason: cycle.winReason,
           };
         }
 
         return reply.send({
           currentCycle,
+          terminalNotice,
           leaderboard,
           recentDuels,
+          operationalMetrics,
           streamHealth,
         });
       } catch (err) {
@@ -2228,6 +2236,23 @@ export function registerAdminRoutes(
   // Standalone Sparbot Pool Endpoints
   // ==========================================================================
 
+  /** Live bounded diagnostics for the authoritative arena combat controllers. */
+  fastify.get(
+    "/admin/duels/combat-ai",
+    { preHandler: requireAdmin },
+    async (_request: FastifyRequest, reply: FastifyReply) => {
+      const { getStreamingDuelScheduler } =
+        await import("../../systems/StreamingDuelScheduler/index.js");
+      const scheduler = getStreamingDuelScheduler();
+      if (!scheduler) {
+        return reply
+          .code(503)
+          .send({ error: "Streaming duel scheduler not available" });
+      }
+      return reply.send({ combatAIs: scheduler.getCombatAIDiagnostics() });
+    },
+  );
+
   /**
    * GET /admin/sparbots
    * List active standalone sparbots in the matchmaking pool.
@@ -2268,6 +2293,8 @@ export function registerAdminRoutes(
           tier?: string;
           count?: number;
           names?: string[];
+          multiStyle?: boolean;
+          profileSeed?: number;
         };
 
         const validStyles = ["melee", "ranged", "mage", "prayer"] as const;
@@ -2291,6 +2318,19 @@ export function registerAdminRoutes(
             typeof body.count === "number" ? Math.floor(body.count) : 1,
           ),
         );
+        const profileSeed =
+          body.profileSeed == null
+            ? undefined
+            : Number.isSafeInteger(body.profileSeed) &&
+                body.profileSeed >= 0 &&
+                body.profileSeed <= 0xffffffff
+              ? body.profileSeed
+              : null;
+        if (profileSeed === null) {
+          return reply.code(400).send({
+            error: "profileSeed must be an unsigned 32-bit integer",
+          });
+        }
 
         const { getStreamingDuelScheduler } =
           await import("../../systems/StreamingDuelScheduler/index.js");
@@ -2306,6 +2346,8 @@ export function registerAdminRoutes(
           style,
           tier,
           Array.isArray(body.names) ? body.names : undefined,
+          body.multiStyle === true,
+          profileSeed,
         );
         return reply.send({ success: true, spawned });
       } catch (err) {
@@ -2657,6 +2699,11 @@ export function registerAdminRoutes(
               isFlushing?: boolean;
             }
           | undefined;
+        const resourceSystem = world.getSystem("resource") as
+          | {
+              getResourceEcologyStats?: () => Record<string, unknown>;
+            }
+          | undefined;
         const terrainSystem = world.getSystem("terrain") as
           | {
               terrainTiles?: Map<unknown, unknown>;
@@ -2751,6 +2798,10 @@ export function registerAdminRoutes(
               systemsByName: world.systemsByName.size,
               asyncTickCalls: world.getAsyncTickDiagnostics(20),
               systemTimings: world.getSystemTimings(),
+              tickTimingPercentiles: world.getServerTickTimingPercentiles(),
+              systemTimingPercentiles: world
+                .getSystemTimingPercentiles()
+                .slice(0, 20),
             },
             entityManager: {
               entities: entityManagerSystem?.entities?.size ?? 0,
@@ -2759,6 +2810,14 @@ export function registerAdminRoutes(
               networkDirtyEntities:
                 entityManagerSystem?.networkDirtyEntities?.size ?? 0,
               entitiesByType: entityManagerSystem?.entitiesByType?.size ?? 0,
+              entityCountsByType: Object.fromEntries(
+                [...(entityManagerSystem?.entitiesByType?.entries() ?? [])]
+                  .map(
+                    ([type, entityIds]) =>
+                      [String(type), entityIds.size] as const,
+                  )
+                  .sort(([left], [right]) => left.localeCompare(right)),
+              ),
               destroyingEntities:
                 entityManagerSystem?.destroyingEntities?.size ?? 0,
               activeEntityCache:
@@ -2799,6 +2858,8 @@ export function registerAdminRoutes(
               inventoryWriteQueued:
                 databaseSystem?.inventoryWriteQueued?.size ?? 0,
             },
+            resourceEcology:
+              resourceSystem?.getResourceEcologyStats?.() ?? null,
             terrain: {
               terrainTiles: terrainSystem?.terrainTiles?.size ?? 0,
               activeChunks: terrainSystem?.activeChunks?.size ?? 0,

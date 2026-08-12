@@ -49,6 +49,29 @@ export function registerDuelEventListeners(deps: DuelEventDeps): () => void {
   const { world, getSocketByPlayerId, processedDuelSettlements } = deps;
   const listeners: DuelEventListener[] = [];
 
+  // Embedded/model agents are server-owned participants. Their duel lifecycle
+  // is driven by the authoritative world events and scheduler state directly;
+  // unlike a human client, they are not expected to own a WebSocket.
+  const expectsClientSocket = (playerId: string): boolean => {
+    const entity = world.entities.get(playerId);
+    const data = entity?.data as
+      { isAgent?: boolean; owner?: string } | undefined;
+    return !(
+      data?.isAgent === true || data?.owner?.startsWith("embedded-agent:")
+    );
+  };
+
+  const warnMissingClientSocket = (
+    role: "challenger" | "target",
+    playerId: string,
+    eventName: string,
+  ): void => {
+    if (!expectsClientSocket(playerId)) return;
+    console.warn(
+      `[Duel] Socket NOT FOUND for ${role} ${playerId} — ${eventName} not sent`,
+    );
+  };
+
   /** Helper to register and track listeners */
 
   const on = (event: string, handler: (payload: any) => void): void => {
@@ -96,9 +119,7 @@ export function registerDuelEventListeners(deps: DuelEventDeps): () => void {
         isChallenger: true,
       });
     } else {
-      console.warn(
-        `[Duel] Socket NOT FOUND for challenger ${challengerId} — duelSessionStarted not sent`,
-      );
+      warnMissingClientSocket("challenger", challengerId, "duelSessionStarted");
     }
 
     const targetSocket = getSocketByPlayerId(targetId);
@@ -110,9 +131,7 @@ export function registerDuelEventListeners(deps: DuelEventDeps): () => void {
         isChallenger: false,
       });
     } else {
-      console.warn(
-        `[Duel] Socket NOT FOUND for target ${targetId} — duelSessionStarted not sent`,
-      );
+      warnMissingClientSocket("target", targetId, "duelSessionStarted");
     }
   });
 
@@ -166,9 +185,7 @@ export function registerDuelEventListeners(deps: DuelEventDeps): () => void {
         bounds,
       });
     } else {
-      console.warn(
-        `[Duel] Socket NOT FOUND for challenger ${challengerId} — duelFightStart not sent`,
-      );
+      warnMissingClientSocket("challenger", challengerId, "duelFightStart");
     }
 
     const targetSocket = getSocketByPlayerId(targetId);
@@ -180,9 +197,7 @@ export function registerDuelEventListeners(deps: DuelEventDeps): () => void {
         bounds,
       });
     } else {
-      console.warn(
-        `[Duel] Socket NOT FOUND for target ${targetId} — duelFightStart not sent`,
-      );
+      warnMissingClientSocket("target", targetId, "duelFightStart");
     }
   });
 

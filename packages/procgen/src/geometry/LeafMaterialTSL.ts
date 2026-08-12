@@ -53,12 +53,7 @@ import {
 
 /** Leaf shape types for procedural generation */
 export type TSLLeafShape =
-  | "elliptic"
-  | "ovate"
-  | "maple"
-  | "oak"
-  | "palm"
-  | "needle";
+  "elliptic" | "ovate" | "maple" | "oak" | "palm" | "needle";
 
 /** Options for TSL instanced leaf material */
 export type TSLInstancedLeafMaterialOptions = {
@@ -121,15 +116,15 @@ export function createInstancedLeafMaterialTSL(
 
   // ========== UNIFORMS ==========
   const uColor = uniform(color);
-  const uColorVariation = uniform(float(colorVariation));
-  const uAlphaTest = uniform(float(alphaTest));
-  const uOpacity = uniform(float(opacity));
-  const uSubsurface = uniform(float(subsurfaceScatter));
-  const uWindStrength = uniform(float(windStrength));
-  const uTime = uniform(float(0));
+  const uColorVariation = uniform(colorVariation);
+  const uAlphaTest = uniform(alphaTest);
+  const uOpacity = uniform(opacity);
+  const uSubsurface = uniform(subsurfaceScatter);
+  const uWindStrength = uniform(windStrength);
+  const uTime = uniform(0);
   // Lighting uniforms for day/night sync
   const uSunDirection = uniform(new THREE.Vector3(0.5, 1.0, 0.3).normalize());
-  const uDayNightMix = uniform(float(1.0)); // 1.0 = full day, 0.0 = night
+  const uDayNightMix = uniform(1.0); // 1.0 = full day, 0.0 = night
 
   // ========== HELPER FUNCTIONS ==========
 
@@ -444,7 +439,7 @@ export function createInstancedLeafMaterialTSL(
 
   // ========== VERTEX POSITION NODE ==========
   // Get instance orientation from attribute
-  const instanceOrientation = attribute("instanceOrientation", "vec4");
+  const instanceOrientation = attribute<"vec4">("instanceOrientation", "vec4");
 
   // Custom position calculation with quaternion rotation
   const customPosition = Fn(() => {
@@ -485,7 +480,7 @@ export function createInstancedLeafMaterialTSL(
 
     // Instance-based color variation
     const variation = sub(mul(hash3(instIdx), 2.0), 1.0);
-    const leafColor = add(uColor, mul(variation, uColorVariation));
+    const leafColor = add(vec3(uColor), mul(variation, uColorVariation));
 
     // Darken edges slightly for depth
     const edgeDark = add(mul(smoothstep(0.3, 0.8, alpha), 0.2), 0.8);
@@ -526,7 +521,7 @@ export function createInstancedLeafMaterialTSL(
 
     // Get base leaf color for subsurface tint
     const variation = sub(mul(hash3(instIdx), 2.0), 1.0);
-    const leafColor = add(uColor, mul(variation, uColorVariation));
+    const leafColor = add(vec3(uColor), mul(variation, uColorVariation));
 
     // View direction (from fragment to camera)
     const worldPos = positionWorld;

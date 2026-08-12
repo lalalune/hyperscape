@@ -7,7 +7,7 @@
  * Shutdown sequence:
  * 1. Close HTTP server (stop accepting new connections)
  * 2. Shutdown embedded agents
- * 3. Force-save all player data (inventory, equipment, coins)
+ * 3. Force-save all player data (health, position, inventory, equipment, coins)
  * 4. Wait for pending database operations
  * 5. Destroy world and all systems
  * 6. Close database connections
@@ -37,7 +37,7 @@ import { getAgentManager } from "../eliza/index.js";
 import { stopAllModelAgents } from "../eliza/ModelAgentSpawner.js";
 import { getStreamCapture } from "../streaming/stream-capture.js";
 import { errMsg } from "../shared/errMsg.js";
-import { getStreamingDuelScheduler } from "../systems/StreamingDuelScheduler/index.js";
+import { destroyStreamingDuelAuthority } from "../systems/StreamingDuelScheduler/authority.js";
 import { destroyAllRateLimiters } from "../systems/ServerNetwork/services/SlidingWindowRateLimiter.js";
 import { destroyIdempotencyService } from "../systems/ServerNetwork/services/IdempotencyService.js";
 import { stopMemoryMonitor } from "../infrastructure/memory-monitor.js";
@@ -190,10 +190,24 @@ export function registerShutdownHandlers(
       // uWS may not have been started (UWS_ENABLED=false)
     }
 
-    // Step 3: Shutdown embedded agents
+    // Step 3: Stop the scheduler and await contestant/loadout restoration
+    // while embedded-agent entities and their inventory/equipment systems still
+    // exist. Releasing agents first makes active-cycle cleanup race missing data.
+    try {
+      // Teardown the scheduler before releasing the database lease so a
+      // standby cannot overlap this process during handoff.
+      await destroyStreamingDuelAuthority();
+    } catch (err) {
+      console.error(
+        "[Shutdown] Failed to destroy StreamingDuelScheduler:",
+        err,
+      );
+    }
+
+    // Step 4: Shutdown embedded agents after duel cleanup has settled.
     await shutdownAgents();
 
-    // Step 3a: Flush agent thoughts to database
+    // Step 4a: Flush agent thoughts to database
     try {
       const { flushAgentThoughtsToDb } =
         await import("../eliza/dashboardInterop.js");
@@ -202,23 +216,10 @@ export function registerShutdownHandlers(
       // Thoughts module may not have been loaded
     }
 
-    // Step 2b: Shutdown Web3 chain writer (flush pending writes)
+    // Step 4b: Shutdown Web3 chain writer (flush pending writes)
     await shutdownWeb3(context);
 
-    // Step 2c: Shutdown StreamingDuelScheduler (stop duel cycle timers)
-    try {
-      const scheduler = getStreamingDuelScheduler();
-      if (scheduler) {
-        scheduler.destroy();
-      }
-    } catch (err) {
-      console.error(
-        "[Shutdown] Failed to destroy StreamingDuelScheduler:",
-        err,
-      );
-    }
-
-    // Step 2d: Shutdown DuelArenaOraclePublisher
+    // Step 4c: Shutdown DuelArenaOraclePublisher
     try {
       const oraclePublisher = getDuelArenaOraclePublisher(context.world);
       if (oraclePublisher) {
@@ -231,34 +232,35 @@ export function registerShutdownHandlers(
       );
     }
 
-    // Step 3: Force-save all player data (inventory, equipment, coins)
+    // Step 5: Force-save all remaining player data (health, position,
+    // inventory, equipment, coins)
     // Must happen BEFORE waitForDatabaseOperations() which sets isDestroying=true,
     // and BEFORE world.destroy() which calls system.destroy() fire-and-forget.
     await forcePlayerDataSave(context);
 
-    // Step 4: Wait for pending database operations
+    // Step 6: Wait for pending database operations
     await waitForDatabaseOperations(context);
 
-    // Step 4.5: Cleanup global singletons with timers (prevents memory leaks)
+    // Step 6.5: Cleanup global singletons with timers (prevents memory leaks)
     await cleanupGlobalServices();
 
-    // Step 5: Destroy world and systems
+    // Step 7: Destroy world and systems
     await destroyWorld(context);
 
-    // Step 6: Close database connections
+    // Step 8: Close database connections
     await closeDatabaseConnections(context);
 
-    // Step 7: Stop Docker containers
+    // Step 9: Stop Docker containers
     await stopDocker(context);
 
-    // Step 8: Stop memory monitor
+    // Step 10: Stop memory monitor
     try {
       stopMemoryMonitor();
     } catch {
       // Memory monitor may not have been started
     }
 
-    // Step 9: Clear startup flag
+    // Step 11: Clear startup flag
     clearStartupFlag();
 
     // For hot reload (SIGUSR2), don't exit process
@@ -416,9 +418,10 @@ async function shutdownWeb3(context: ShutdownContext): Promise<void> {
 /**
  * Force-save all player data before shutdown
  *
- * Directly calls destroyAsync() on inventory, equipment, and coin pouch systems
- * and awaits their completion. This ensures all player data is persisted BEFORE
- * the database system marks itself as destroying (which rejects new operations).
+ * Directly awaits the player snapshot plus destroyAsync() on inventory,
+ * equipment, and coin pouch systems. This ensures all player data is persisted
+ * BEFORE the database system marks itself as destroying (which rejects new
+ * operations).
  *
  * After this runs, the systems' data maps are cleared, so when world.destroy()
  * later calls their destroy() → destroyAsync() again, the saves are no-ops.
@@ -426,14 +429,25 @@ async function shutdownWeb3(context: ShutdownContext): Promise<void> {
  * @param context - Shutdown context
  * @private
  */
-async function forcePlayerDataSave(context: ShutdownContext): Promise<void> {
+export async function forcePlayerDataSave(
+  context: Pick<ShutdownContext, "world">,
+): Promise<void> {
   try {
     const savePromises: Promise<void>[] = [];
 
     // Get each critical system and call destroyAsync() directly
+    const playerSystem = context.world.getSystem("player") as
+      { saveAllPlayersToDatabase(): Promise<void> } | undefined;
+    if (playerSystem?.saveAllPlayersToDatabase) {
+      savePromises.push(
+        playerSystem.saveAllPlayersToDatabase().catch((err) => {
+          console.error("[Shutdown] Player state save error:", err);
+        }),
+      );
+    }
+
     const inventorySystem = context.world.getSystem("inventory") as
-      | { destroyAsync(): Promise<void> }
-      | undefined;
+      { destroyAsync(): Promise<void> } | undefined;
     if (inventorySystem?.destroyAsync) {
       savePromises.push(
         inventorySystem.destroyAsync().catch((err) => {
@@ -443,8 +457,7 @@ async function forcePlayerDataSave(context: ShutdownContext): Promise<void> {
     }
 
     const equipmentSystem = context.world.getSystem("equipment") as
-      | { destroyAsync(): Promise<void> }
-      | undefined;
+      { destroyAsync(): Promise<void> } | undefined;
     if (equipmentSystem?.destroyAsync) {
       savePromises.push(
         equipmentSystem.destroyAsync().catch((err) => {
@@ -454,8 +467,7 @@ async function forcePlayerDataSave(context: ShutdownContext): Promise<void> {
     }
 
     const coinPouchSystem = context.world.getSystem("coin-pouch") as
-      | { destroyAsync(): Promise<void> }
-      | undefined;
+      { destroyAsync(): Promise<void> } | undefined;
     if (coinPouchSystem?.destroyAsync) {
       savePromises.push(
         coinPouchSystem.destroyAsync().catch((err) => {
@@ -500,8 +512,7 @@ async function waitForDatabaseOperations(
 ): Promise<void> {
   try {
     const databaseSystem = context.world.getSystem("database") as
-      | DatabaseSystem
-      | undefined;
+      DatabaseSystem | undefined;
 
     if (databaseSystem) {
       await databaseSystem.waitForPendingOperations();

@@ -49,6 +49,7 @@ interface DeathLockData {
   itemCount: number;
   items: DeathItemData[];
   keptItems?: DeathItemData[]; // classic MMORPG keep-3 items returned on respawn
+  deathOperationId?: string;
   killedBy: string;
   recovered: boolean;
 }
@@ -341,6 +342,11 @@ export class DeathStateManager {
         timestamp: Date.now(),
         zoneType: zoneType as ZoneType,
         itemCount: items.length,
+        items,
+        keptItems: death.keptItems,
+        deathOperationId: death.deathOperationId,
+        killedBy,
+        recovered: death.recovered,
       });
     } else if (items.length > 0) {
       // Items were stored but entities don't exist - recreate them
@@ -368,6 +374,8 @@ export class DeathStateManager {
         zoneType: zoneType as ZoneType,
         itemCount: items.length,
         items: items,
+        keptItems: death.keptItems,
+        deathOperationId: death.deathOperationId,
         killedBy,
         recovered: false, // Will be marked true after reconnect
       });
@@ -409,6 +417,7 @@ export class DeathStateManager {
       // Crash recovery fields
       items?: Array<{ itemId: string; quantity: number }>;
       keptItems?: Array<{ itemId: string; quantity: number }>;
+      deathOperationId?: string;
       killedBy?: string;
     },
     tx?: TransactionContext,
@@ -442,6 +451,7 @@ export class DeathStateManager {
       // Crash recovery fields
       items: options.items || [],
       keptItems: options.keptItems,
+      deathOperationId: options.deathOperationId,
       killedBy: options.killedBy || "unknown",
       recovered: false, // New deaths are not yet recovered
     };
@@ -503,6 +513,7 @@ export class DeathStateManager {
       // Crash recovery fields - track items for database sync
       items: options.items,
       keptItems: options.keptItems,
+      deathOperationId: options.deathOperationId,
       killedBy: options.killedBy,
       recovered: false,
     };
@@ -524,29 +535,38 @@ export class DeathStateManager {
     playerId: string,
     gravestoneId: string,
   ): Promise<void> {
-    const deathData = this.activeDeaths.get(playerId);
-    if (deathData) {
-      deathData.gravestoneId = gravestoneId;
-      this.activeDeaths.set(playerId, deathData);
-    }
-
-    // Update database (server only)
+    // Update the database before the cache. Loot must not be enabled against a
+    // gravestone identity that durable custody does not recognize.
     if (this.world.isServer && this.databaseSystem) {
       try {
         const dbData = await this.databaseSystem.getDeathLockAsync(playerId);
-        if (dbData) {
-          dbData.gravestoneId = gravestoneId;
-          await this.databaseSystem.saveDeathLockAsync(dbData);
-          console.log(
-            `[DeathStateManager] ✓ Updated gravestone ID for ${playerId}: ${gravestoneId}`,
-          );
+        if (!dbData) {
+          throw new Error("death_lock_missing");
         }
+        dbData.gravestoneId = gravestoneId;
+        await this.databaseSystem.saveDeathLockAsync(dbData);
+        this.activeDeaths.set(playerId, {
+          ...dbData,
+          gravestoneId,
+          deathOperationId: dbData.deathOperationId ?? undefined,
+        });
+        console.log(
+          `[DeathStateManager] ✓ Updated gravestone ID for ${playerId}: ${gravestoneId}`,
+        );
       } catch (error) {
         console.error(
           `[DeathStateManager] ❌ Failed to update gravestone ID for ${playerId}:`,
           error,
         );
+        throw error;
       }
+      return;
+    }
+
+    const deathData = this.activeDeaths.get(playerId);
+    if (deathData) {
+      deathData.gravestoneId = gravestoneId;
+      this.activeDeaths.set(playerId, deathData);
     }
   }
 
@@ -604,6 +624,8 @@ export class DeathStateManager {
             itemCount: dbData.itemCount,
             // CRITICAL: Include crash recovery fields for gravestone recreation
             items: dbData.items,
+            keptItems: dbData.keptItems,
+            deathOperationId: dbData.deathOperationId ?? undefined,
             killedBy: dbData.killedBy,
             recovered: dbData.recovered,
           };
@@ -625,6 +647,15 @@ export class DeathStateManager {
     }
 
     return null;
+  }
+
+  /**
+   * Refresh an active death lock from the authoritative database.
+   * Used after database-native custody operations mutate the lock outside this cache.
+   */
+  async refreshDeathLock(playerId: string): Promise<DeathLock | null> {
+    this.activeDeaths.delete(playerId);
+    return this.getDeathLock(playerId);
   }
 
   /**
@@ -652,6 +683,11 @@ export class DeathStateManager {
             timestamp: dbData.timestamp,
             zoneType: dbData.zoneType as ZoneType,
             itemCount: dbData.itemCount,
+            items: dbData.items,
+            keptItems: dbData.keptItems,
+            deathOperationId: dbData.deathOperationId ?? undefined,
+            killedBy: dbData.killedBy,
+            recovered: dbData.recovered,
           };
           this.activeDeaths.set(playerId, deathLock);
           console.log(
@@ -741,6 +777,8 @@ export class DeathStateManager {
             itemCount: deathData.itemCount,
             // Crash recovery: now properly synced with in-memory items array
             items: deathData.items || [],
+            keptItems: deathData.keptItems || [],
+            deathOperationId: deathData.deathOperationId,
             killedBy: deathData.killedBy || "unknown",
             recovered: deathData.recovered || false,
           });

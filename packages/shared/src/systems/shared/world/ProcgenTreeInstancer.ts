@@ -55,6 +55,7 @@ import THREE, {
   If,
 } from "../../../extras/three/three";
 import type { World } from "../../../core/World";
+import type { UniformNode } from "three/webgpu";
 import {
   ImpostorManager,
   BakePriority,
@@ -321,12 +322,12 @@ type LODKey = "lod0" | "lod1" | "lod2";
 
 interface LeafNodeMaterial extends THREE.MeshStandardNodeMaterial {
   leafUniforms: {
-    time: ReturnType<typeof uniform<number>>;
-    windStrength: ReturnType<typeof uniform<number>>;
-    windDirection: ReturnType<typeof uniform<THREE.Vector3>>;
-    baseColor: ReturnType<typeof uniform<THREE.Color>>;
-    sunDirection: ReturnType<typeof uniform<THREE.Vector3>>;
-    dayNightMix: ReturnType<typeof uniform<number>>;
+    time: UniformNode<"float", number>;
+    windStrength: UniformNode<"float", number>;
+    windDirection: UniformNode<"vec3", THREE.Vector3>;
+    baseColor: UniformNode<"color", THREE.Color>;
+    sunDirection: UniformNode<"vec3", THREE.Vector3>;
+    dayNightMix: UniformNode<"float", number>;
   };
 }
 
@@ -462,8 +463,8 @@ class GlobalLeafInstancer {
     const uDayNightMix = uniform(1.0); // 1.0 = full day, 0.0 = night
 
     // Get per-instance attributes
-    const instanceColor = attribute("instanceColor", "vec3");
-    const instanceFade = attribute("instanceFade", "float");
+    const instanceColor = attribute<"vec3">("instanceColor", "vec3");
+    const instanceFade = attribute<"float">("instanceFade", "float");
 
     // Wind animation constants
     const WIND_SPEED = 2.0;
@@ -1013,10 +1014,10 @@ class GlobalLeafClusterInstancer {
     };
 
     // Get per-instance attributes
-    const instanceColor = attribute("instanceColor", "vec3");
-    const instanceFade = attribute("instanceFade", "float");
-    const instanceDensity = attribute("instanceDensity", "float");
-    const instanceTreeCenter = attribute("instanceTreeCenter", "vec3");
+    const instanceColor = attribute<"vec3">("instanceColor", "vec3");
+    const instanceFade = attribute<"float">("instanceFade", "float");
+    const instanceDensity = attribute<"float">("instanceDensity", "float");
+    const instanceTreeCenter = attribute<"vec3">("instanceTreeCenter", "vec3");
     // instanceCellId available via attribute but not used currently
     // const instanceCellId = attribute("instanceCellId", "float");
 
@@ -2062,7 +2063,7 @@ function copyMaterialProps(
 
 /** Create screen-space dithering opacity node */
 function createDitherOpacity() {
-  const fade = attribute("instanceFade", "float");
+  const fade = attribute<"float">("instanceFade", "float");
   return Fn(() => {
     const screen = screenUV.mul(viewportSize);
     const px = floor(screen.x).mod(float(4));
@@ -2364,8 +2365,7 @@ export class ProcgenTreeInstancer {
 
   private checkWebGPU(): boolean {
     const stage = this.world.stage as
-      | { renderer?: { isWebGPURenderer?: boolean } }
-      | undefined;
+      { renderer?: { isWebGPURenderer?: boolean } } | undefined;
     return stage?.renderer?.isWebGPURenderer === true;
   }
 
@@ -2473,8 +2473,7 @@ export class ProcgenTreeInstancer {
     const tex = result.atlasTexture;
     const hasImage = !!tex?.image;
     const atlasImage = tex?.image as
-      | { width?: number; height?: number }
-      | undefined;
+      { width?: number; height?: number } | undefined;
     const imgWidth = atlasImage?.width ?? 0;
     const imgHeight = atlasImage?.height ?? 0;
     console.log(

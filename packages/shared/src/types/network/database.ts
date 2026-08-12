@@ -22,6 +22,344 @@ export interface EquipmentSaveItem {
   quantity: number;
 }
 
+/** Complete custody state committed by one authoritative combat-loadout change. */
+export interface CombatLoadoutPersistenceSnapshot {
+  inventory: InventorySaveItem[];
+  equipment: EquipmentSaveItem[];
+  selectedSpell: string | null;
+}
+
+/**
+ * Idempotent database request for changing a combat loadout. The expected
+ * snapshot fences the write against stale in-memory state, while the operation
+ * receipt makes a lost commit response safe to replay after process recovery.
+ */
+export interface CombatLoadoutCommitRequest {
+  operationId: string;
+  playerId: string;
+  requestFingerprint: string;
+  expected: CombatLoadoutPersistenceSnapshot;
+  committed: CombatLoadoutPersistenceSnapshot;
+}
+
+export interface CombatLoadoutCommitReceipt {
+  operationId: string;
+  playerId: string;
+  requestFingerprint: string;
+  replayed: boolean;
+  committed: CombatLoadoutPersistenceSnapshot;
+}
+
+/** One exact bank row included in a selected-contestant preparation commit. */
+export interface BankSaveItem {
+  itemId: string;
+  quantity: number;
+  slot: number;
+  tabIndex: number;
+}
+
+/** Complete bank, carried inventory, equipment, and autocast custody state. */
+export interface DuelPreparationPlanPersistenceSnapshot extends CombatLoadoutPersistenceSnapshot {
+  bank: BankSaveItem[];
+}
+
+/**
+ * Immutable public planning evidence stored beside the private custody receipt.
+ * The server owns the concrete schema and validates it again before readiness;
+ * the shared custody layer only requires a plain JSON object.
+ */
+export type DuelPreparationPlanRecoveryEvidence = Record<string, unknown>;
+
+/**
+ * One idempotent whole-plan selected-contestant preparation transition. The
+ * expected snapshot fences stale planners; the database verifies custody
+ * conservation before committing every bank/equipment/autocast row together.
+ */
+export interface DuelPreparationPlanCommitRequest {
+  operationId: string;
+  preparationId: string;
+  playerId: string;
+  requestFingerprint: string;
+  expected: DuelPreparationPlanPersistenceSnapshot;
+  committed: DuelPreparationPlanPersistenceSnapshot;
+  recoveryEvidence: DuelPreparationPlanRecoveryEvidence;
+}
+
+export interface DuelPreparationPlanRecoveryRequest {
+  operationId: string;
+  preparationId: string;
+  playerId: string;
+}
+
+export interface DuelPreparationPlanCommitReceipt {
+  operationId: string;
+  preparationId: string;
+  playerId: string;
+  requestFingerprint: string;
+  replayed: boolean;
+  committed: DuelPreparationPlanPersistenceSnapshot;
+  recoveryEvidence: DuelPreparationPlanRecoveryEvidence;
+}
+
+/** One item quantity included in an authoritative inventory debit. */
+export interface InventoryDebitRequirement {
+  itemId: string;
+  quantity: number;
+}
+
+/**
+ * Idempotent request for consuming several inventory items as one custody
+ * transition. The database derives the committed inventory from its locked,
+ * authoritative state; callers never perform a sequence of partial removals.
+ */
+export interface InventoryDebitCommitRequest {
+  operationId: string;
+  playerId: string;
+  requestFingerprint: string;
+  requirements: InventoryDebitRequirement[];
+}
+
+export interface InventoryDebitCommitReceipt {
+  operationId: string;
+  playerId: string;
+  requestFingerprint: string;
+  replayed: boolean;
+  requirements: InventoryDebitRequirement[];
+  committed: InventorySaveItem[];
+}
+
+/** One idempotent bone burial that consumes custody and awards Prayer XP. */
+export interface BoneBurialCommitRequest {
+  operationId: string;
+  playerId: string;
+  requestFingerprint: string;
+  itemId: string;
+  xpAmount: number;
+  levelRequired: number;
+}
+
+/** Durable result of an atomic bone debit, Prayer progression, and point sync. */
+export interface BoneBurialCommitReceipt {
+  operationId: string;
+  playerId: string;
+  requestFingerprint: string;
+  replayed: boolean;
+  itemId: string;
+  xpAmount: number;
+  levelRequired: number;
+  awardedXp: number;
+  operationCommittedXp: number;
+  currentXp: number;
+  currentLevel: number;
+  committed: InventorySaveItem[];
+}
+
+/** Gathering skills whose reward XP is persisted with the harvested item. */
+export type GatheringRewardSkill = "woodcutting" | "mining" | "fishing";
+
+/** The item credited by one successful, authoritative gathering roll. */
+export interface GatheringRewardItem {
+  itemId: string;
+  quantity: number;
+  stackable: boolean;
+}
+
+/**
+ * One durable gathering result. The optional secondary item debit, reward
+ * credit, skill XP/level update, and idempotency receipt commit together.
+ */
+export interface GatheringRewardCommitRequest {
+  operationId: string;
+  playerId: string;
+  requestFingerprint: string;
+  resourceId: string;
+  depleteAfterCommit: boolean;
+  respawnTicks: number;
+  skill: GatheringRewardSkill;
+  xpAmount: number;
+  reward: GatheringRewardItem;
+  secondaryItemId: string | null;
+}
+
+export interface GatheringRewardCommitReceipt {
+  operationId: string;
+  playerId: string;
+  requestFingerprint: string;
+  replayed: boolean;
+  resourceId: string;
+  depleteAfterCommit: boolean;
+  respawnTicks: number;
+  /** Canonical wall-clock deadline for a depleted node, or null when it remains available. */
+  depletedUntil: number | null;
+  skill: GatheringRewardSkill;
+  xpAmount: number;
+  reward: GatheringRewardItem;
+  secondaryItemId: string | null;
+  awardedXp: number;
+  operationCommittedXp: number;
+  currentXp: number;
+  currentLevel: number;
+  committed: InventorySaveItem[];
+}
+
+/** Persisted active depletion for one stable world resource identity. */
+export interface GatheringResourceState {
+  resourceId: string;
+  operationId: string;
+  depletedAt: number;
+  respawnAt: number;
+}
+
+/** Processing skills whose recipe XP is persisted with their item transform. */
+export type ProcessingActionSkill =
+  | "firemaking"
+  | "cooking"
+  | "smithing"
+  | "crafting"
+  | "fletching"
+  | "runecrafting";
+
+/** One output credited by an authoritative processing action. */
+export interface ProcessingActionItem {
+  itemId: string;
+  quantity: number;
+  stackable: boolean;
+}
+
+export interface ProcessingActionConsumable {
+  itemId: string;
+  usesPerItem: number;
+}
+
+export interface ProcessingActionConsumableState extends ProcessingActionConsumable {
+  remainingUses: number;
+  consumedQuantity: 0 | 1;
+}
+
+/**
+ * Server-authored fire requested as part of a Firemaking custody transition.
+ * The database assigns the authoritative lifetime timestamps when it commits
+ * the matching inventory debit and skill reward.
+ */
+export interface ProcessingActionFireEffectRequest {
+  kind: "fire";
+  fireId: string;
+  position: { x: number; y: number; z: number };
+  tile: { x: number; z: number };
+  durationMs: number;
+}
+
+/** A committed fire world effect that can be reconstructed after a restart. */
+export interface ProcessingActionFireEffect {
+  kind: "fire";
+  fireId: string;
+  position: { x: number; y: number; z: number };
+  tile: { x: number; z: number };
+  createdAt: number;
+  expiresAt: number;
+}
+
+/** A committed active fire with the owning player required for world recovery. */
+export interface ActiveProcessingFire extends ProcessingActionFireEffect {
+  playerId: string;
+}
+
+/**
+ * One durable recipe action. Every input debit, output credit, skill XP/level
+ * update, and idempotency receipt commits as one custody transition.
+ */
+export interface ProcessingActionCommitRequest {
+  operationId: string;
+  playerId: string;
+  requestFingerprint: string;
+  skill: ProcessingActionSkill;
+  xpAmount: number;
+  inputs: InventoryDebitRequirement[];
+  requiredItems: InventoryDebitRequirement[];
+  consumables: ProcessingActionConsumable[];
+  outputs: ProcessingActionItem[];
+  /** Optional protected money-pouch debit committed with the item transform. */
+  coinCost?: number;
+  /** Optional world effect committed atomically with this action. */
+  worldEffect?: ProcessingActionFireEffectRequest;
+}
+
+export interface ProcessingActionCommitReceipt {
+  operationId: string;
+  playerId: string;
+  requestFingerprint: string;
+  replayed: boolean;
+  skill: ProcessingActionSkill;
+  xpAmount: number;
+  inputs: InventoryDebitRequirement[];
+  requiredItems: InventoryDebitRequirement[];
+  consumables: ProcessingActionConsumable[];
+  consumableStates: ProcessingActionConsumableState[];
+  outputs: ProcessingActionItem[];
+  coinCost?: number;
+  currentCoins?: number;
+  worldEffect?: ProcessingActionFireEffect;
+  awardedXp: number;
+  operationCommittedXp: number;
+  currentXp: number;
+  currentLevel: number;
+  committed: InventorySaveItem[];
+}
+
+/** Idempotent debit of one stack held in an exact equipment slot. */
+export interface EquipmentStackDebitCommitRequest {
+  operationId: string;
+  playerId: string;
+  requestFingerprint: string;
+  slotType: string;
+  itemId: string;
+  quantity: number;
+}
+
+export interface EquipmentStackDebitCommitReceipt {
+  operationId: string;
+  playerId: string;
+  requestFingerprint: string;
+  replayed: boolean;
+  slotType: string;
+  itemId: string;
+  quantity: number;
+  committed: EquipmentSaveItem[];
+}
+
+/** Fixed-point prayer state persisted at one million units per point. */
+export interface PrayerPersistenceSnapshot {
+  pointUnits: number;
+  maxPoints: number;
+  activePrayers: string[];
+}
+
+export type PrayerStateTransitionKind =
+  "toggle" | "drain" | "deactivate_all" | "restore" | "set_max" | "repair";
+
+/**
+ * Idempotent, compare-and-swap prayer transition. The database locks the same
+ * character row used by combat inventory/equipment custody so prayer state
+ * cannot race another authoritative writer for that contestant.
+ */
+export interface PrayerStateCommitRequest {
+  operationId: string;
+  playerId: string;
+  requestFingerprint: string;
+  transition: PrayerStateTransitionKind;
+  expected: PrayerPersistenceSnapshot;
+  committed: PrayerPersistenceSnapshot;
+}
+
+export interface PrayerStateCommitReceipt {
+  operationId: string;
+  playerId: string;
+  requestFingerprint: string;
+  transition: PrayerStateTransitionKind;
+  replayed: boolean;
+  committed: PrayerPersistenceSnapshot;
+}
+
 export interface WorldChunkData {
   chunkX: number;
   chunkZ: number;
@@ -50,6 +388,7 @@ export interface PlayerRow {
   prayerLevel: number;
   prayerXp: number;
   prayerPoints: number;
+  prayerPointUnits?: number;
   prayerMaxPoints: number;
   activePrayers: string[] | string; // JSONB array of prayer IDs (legacy string supported)
   health: number;
@@ -60,7 +399,7 @@ export interface PlayerRow {
   positionZ: number;
   attackStyle?: string; // Combat style preference (accurate, aggressive, defensive)
   autoRetaliate?: number; // Auto-retaliate setting: 1=ON (default), 0=OFF
-  selectedSpell?: string; // Autocast spell ID (null = no autocast)
+  selectedSpell?: string | null; // Autocast spell ID (null = no autocast)
   magicLevel?: number; // Magic skill level (F2P)
   magicXp?: number; // Magic skill XP (F2P)
   lastLogin: number;
@@ -86,6 +425,17 @@ export interface PlayerRow {
   runecraftingLevel: number;
   runecraftingXp: number;
 }
+
+/** Generic saves cannot mutate atomic Prayer progression or resource custody. */
+export type PlayerPersistenceUpdate = Omit<
+  Partial<PlayerRow>,
+  | "prayerLevel"
+  | "prayerXp"
+  | "prayerPoints"
+  | "prayerPointUnits"
+  | "prayerMaxPoints"
+  | "activePrayers"
+>;
 
 // Item definition row
 export interface ItemRow {

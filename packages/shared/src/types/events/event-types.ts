@@ -434,6 +434,9 @@ export enum EventType {
   // Processing System
   PROCESSING_FIREMAKING_REQUEST = "processing:firemaking:request",
   PROCESSING_COOKING_REQUEST = "processing:cooking:request",
+  PROCESSING_REQUEST_PROGRESS = "processing:request:progress",
+  PROCESSING_REQUEST_REJECTED = "processing:request:rejected",
+  PROCESSING_REQUEST_STATUS = "processing:request:status",
   PROCESSING_CANCEL = "processing:cancel",
 
   // Item Targeting System

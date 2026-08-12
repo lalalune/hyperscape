@@ -44,6 +44,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import pg from "pg";
 import * as schema from "./schema";
+import { createPostgresClientDatabase } from "./postgres-transaction";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
@@ -196,6 +197,27 @@ function resolveMigrationsFolder(): string {
   );
 }
 
+async function migrateWithDedicatedClient(
+  pool: pg.Pool,
+  migrationsFolder: string,
+): Promise<void> {
+  const client = await pool.connect();
+  let discardClient = false;
+  try {
+    // Drizzle's migrator opens its own transaction. Supplying one acquired
+    // PoolClient guarantees its BEGIN and every migration statement share the
+    // same physical PostgreSQL connection even when multiple `pg` copies are
+    // present in the runtime dependency graph.
+    const migrationDb = createPostgresClientDatabase(client);
+    await migrate(migrationDb, { migrationsFolder });
+  } catch (error) {
+    discardClient = true;
+    throw error;
+  } finally {
+    client.release(discardClient);
+  }
+}
+
 /**
  * Detect if connection string is for a serverless/managed database
  * These require special handling for connection management:
@@ -235,6 +257,74 @@ function parseOptionalInt(value: string | undefined): number | undefined {
   if (!value) return undefined;
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+const DEFAULT_POSTGRES_CONNECTION_TIMEOUT_MS = 10_000;
+const DEFAULT_POSTGRES_STATEMENT_TIMEOUT_MS = 15_000;
+const DEFAULT_POSTGRES_QUERY_TIMEOUT_MS = 20_000;
+const MIN_POSTGRES_TIMEOUT_MS = 1_000;
+const MAX_POSTGRES_TIMEOUT_MS = 300_000;
+
+export type PostgresPoolTimeouts = {
+  connectionTimeoutMillis: number;
+  statementTimeoutMillis: number;
+  queryTimeoutMillis: number;
+};
+
+function resolvePositivePostgresTimeout(
+  env: NodeJS.ProcessEnv,
+  name: string,
+  fallback: number,
+): number {
+  const raw = env[name]?.trim();
+  if (!raw) return fallback;
+  const parsed = Number(raw);
+  if (
+    !Number.isSafeInteger(parsed) ||
+    parsed < MIN_POSTGRES_TIMEOUT_MS ||
+    parsed > MAX_POSTGRES_TIMEOUT_MS
+  ) {
+    throw new Error(
+      `${name} must be an integer between ${MIN_POSTGRES_TIMEOUT_MS} and ${MAX_POSTGRES_TIMEOUT_MS}`,
+    );
+  }
+  return parsed;
+}
+
+/**
+ * Bound every layer of a PostgreSQL operation. The server statement timeout
+ * fires first so node-postgres never releases a connection that can still be
+ * executing a timed-out statement. The client read timeout is the final bound
+ * for broken sockets and must therefore remain strictly greater.
+ */
+export function resolvePostgresPoolTimeouts(
+  env: NodeJS.ProcessEnv = process.env,
+): PostgresPoolTimeouts {
+  const connectionTimeoutMillis = resolvePositivePostgresTimeout(
+    env,
+    "POSTGRES_CONNECTION_TIMEOUT_MS",
+    DEFAULT_POSTGRES_CONNECTION_TIMEOUT_MS,
+  );
+  const statementTimeoutMillis = resolvePositivePostgresTimeout(
+    env,
+    "POSTGRES_STATEMENT_TIMEOUT_MS",
+    DEFAULT_POSTGRES_STATEMENT_TIMEOUT_MS,
+  );
+  const queryTimeoutMillis = resolvePositivePostgresTimeout(
+    env,
+    "POSTGRES_QUERY_TIMEOUT_MS",
+    DEFAULT_POSTGRES_QUERY_TIMEOUT_MS,
+  );
+  if (queryTimeoutMillis <= statementTimeoutMillis) {
+    throw new Error(
+      "POSTGRES_QUERY_TIMEOUT_MS must be greater than POSTGRES_STATEMENT_TIMEOUT_MS",
+    );
+  }
+  return {
+    connectionTimeoutMillis,
+    statementTimeoutMillis,
+    queryTimeoutMillis,
+  };
 }
 
 /**
@@ -297,6 +387,7 @@ export async function initializeDatabase(connectionString: string) {
   const poolMinCandidate =
     envMin !== undefined && envMin >= 0 ? envMin : defaultMin;
   const poolMin = Math.min(poolMinCandidate, poolMax);
+  const poolTimeouts = resolvePostgresPoolTimeouts();
 
   const poolConfig: pg.PoolConfig = {
     connectionString,
@@ -306,7 +397,9 @@ export async function initializeDatabase(connectionString: string) {
     min: poolMin,
     // Serverless DBs close idle connections quickly, so use shorter timeout
     idleTimeoutMillis: isServerless ? 20000 : 30000,
-    connectionTimeoutMillis: 60000,
+    connectionTimeoutMillis: poolTimeouts.connectionTimeoutMillis,
+    statement_timeout: poolTimeouts.statementTimeoutMillis,
+    query_timeout: poolTimeouts.queryTimeoutMillis,
     allowExitOnIdle: true,
     // Enable SSL for cloud databases
     ssl: needsSSL ? { rejectUnauthorized: false } : undefined,
@@ -319,7 +412,9 @@ export async function initializeDatabase(connectionString: string) {
   };
 
   console.log(
-    `[DB] Initializing ${isServerless ? "serverless" : "standard"} PostgreSQL pool (max: ${poolConfig.max}, keepAlive: ${poolConfig.keepAlive})`,
+    `[DB] Initializing ${isServerless ? "serverless" : "standard"} PostgreSQL pool ` +
+      `(max: ${poolConfig.max}, connect timeout: ${poolTimeouts.connectionTimeoutMillis}ms, ` +
+      `statement timeout: ${poolTimeouts.statementTimeoutMillis}ms, query timeout: ${poolTimeouts.queryTimeoutMillis}ms)`,
   );
 
   const pool = new Pool(poolConfig);
@@ -389,7 +484,7 @@ export async function initializeDatabase(connectionString: string) {
   } else {
     try {
       console.log("[DB] Running migrations...");
-      await migrate(db, { migrationsFolder });
+      await migrateWithDedicatedClient(pool, migrationsFolder);
       console.log("[DB] ✓ Migrations complete");
     } catch (error) {
       if (isMigrationExistingObjectError(error)) {
@@ -422,7 +517,7 @@ export async function initializeDatabase(connectionString: string) {
       }
 
       try {
-        await migrate(db, { migrationsFolder });
+        await migrateWithDedicatedClient(pool, migrationsFolder);
         console.log("[DB] ✓ Recovery migration pass complete");
       } catch (recoveryError) {
         if (isMigrationExistingObjectError(recoveryError)) {

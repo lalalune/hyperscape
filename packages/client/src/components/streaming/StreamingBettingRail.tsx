@@ -8,8 +8,12 @@
 import React, { useMemo } from "react";
 
 export interface StreamingBettingConfig {
+  configured: boolean;
   betUrl: string | null;
   bettingBridgeEnabled: boolean;
+  ready: boolean;
+  unavailableReason: string | null;
+  checkedAt: number;
   hint?: string | null;
 }
 
@@ -39,6 +43,7 @@ interface StreamingBettingRailProps {
   agent1Name: string | null | undefined;
   agent2Name: string | null | undefined;
   timeRemainingMs: number;
+  cancelled?: boolean;
 }
 
 export function StreamingBettingRail({
@@ -48,8 +53,11 @@ export function StreamingBettingRail({
   agent1Name,
   agent2Name,
   timeRemainingMs,
+  cancelled = false,
 }: StreamingBettingRailProps) {
   const betUrl = config?.betUrl?.trim() || null;
+  const configured = config?.configured === true;
+  const ready = config?.ready === true;
   const hasMatchup = Boolean(agent1Name && agent2Name);
 
   const href = useMemo(
@@ -57,20 +65,47 @@ export function StreamingBettingRail({
     [betUrl, duelId],
   );
 
-  if (!betUrl || !hasMatchup) return null;
+  if ((!betUrl && !configured) || (!hasMatchup && !cancelled)) return null;
 
-  if (phase === "IDLE") return null;
+  if (phase === "IDLE" && !cancelled) return null;
 
-  const title = `${agent1Name} vs ${agent2Name}`;
+  const title = hasMatchup
+    ? `${agent1Name} vs ${agent2Name}`
+    : "Cancelled round";
 
   let headline = "Spectate";
   let sub = "Betting link is live for this matchup.";
   let urgency: "open" | "locked" | "done" = "open";
+  let actionEnabled = ready;
 
-  if (phase === "ANNOUNCEMENT") {
-    headline = "Betting open";
-    sub = `Wagers lock when the fight countdown starts. Closes in ${formatMmSs(timeRemainingMs)}.`;
-    urgency = "open";
+  if (!ready && cancelled) {
+    headline = "No contest";
+    sub =
+      "No winner was declared. Refund status is temporarily unavailable while betting services recover.";
+    urgency = "done";
+    actionEnabled = false;
+  } else if (!ready) {
+    headline = "Betting unavailable";
+    sub =
+      "Market access will appear when the stream and settlement services are ready.";
+    urgency = "locked";
+    actionEnabled = false;
+  } else if (cancelled) {
+    headline = "No contest";
+    sub = config?.bettingBridgeEnabled
+      ? "No winner was declared. Open the betting app to review this market's refund status."
+      : "No winner was declared for this round.";
+    urgency = "done";
+  } else if (phase === "ANNOUNCEMENT") {
+    if (timeRemainingMs > 0) {
+      headline = "Betting open";
+      sub = `Wagers lock at the announced deadline. Closes in ${formatMmSs(timeRemainingMs)}.`;
+      urgency = "open";
+    } else {
+      headline = "Betting locked";
+      sub = "Lines are closed while the fighters enter the arena.";
+      urgency = "locked";
+    }
   } else if (phase === "COUNTDOWN" || phase === "FIGHTING") {
     headline = "Betting locked";
     sub = "Lines are closed — enjoy the fight.";
@@ -91,14 +126,23 @@ export function StreamingBettingRail({
       <div className="streaming-betting-rail-title">{title}</div>
       <div className="streaming-betting-rail-headline">{headline}</div>
       <p className="streaming-betting-rail-sub">{sub}</p>
-      <a
-        className="streaming-betting-rail-cta"
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        {urgency === "open" ? "Place a bet" : "Open betting app"}
-      </a>
+      {actionEnabled ? (
+        <a
+          className="streaming-betting-rail-cta"
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {urgency === "open" ? "Place a bet" : "Open betting app"}
+        </a>
+      ) : (
+        <span
+          className="streaming-betting-rail-cta streaming-betting-rail-cta--disabled"
+          aria-disabled="true"
+        >
+          Betting unavailable
+        </span>
+      )}
       {config?.hint && urgency === "open" ? (
         <p className="streaming-betting-rail-hint">{config.hint}</p>
       ) : null}
