@@ -27,6 +27,7 @@ import {
   type AgentContestant,
   type LeaderboardEntry,
   type RecentDuelEntry,
+  type StreamingDuelWinReason,
   STREAMING_TIMING,
 } from "../types.js";
 import { getDuelFoodItemForLevels, isDuelFoodItemId } from "../../duelFood.js";
@@ -133,14 +134,8 @@ const DUEL_BRONZE_WEAPON_IDS = [
 
 /** Weapon types eligible for duel arenas (must have models in swords/ directory). */
 const DUEL_WEAPON_TYPES = new Set(["LONGSWORD", "SCIMITAR", "TWO_HAND_SWORD"]);
-const STREAMING_COMBAT_STALL_NUDGE_MS = Math.max(
-  5_000,
-  Number.parseInt(process.env.STREAMING_COMBAT_STALL_NUDGE_MS || "15000", 10),
-);
-/** Interval between escalating stall nudges after the first (#20) */
-const STALL_NUDGE_ESCALATION_INTERVAL_MS = 10_000;
-/** Maximum damage per escalating nudge (#20) */
-const STALL_NUDGE_MAX_DAMAGE = 5;
+/** Half-tile offset from arena center, placing fighters on cardinally adjacent tiles. */
+const STREAMING_COMBAT_START_OFFSET = 0.5;
 
 /** Combat role types for duel arena agents. */
 type DuelCombatRole = "melee" | "ranged" | "mage" | "prayer";
@@ -193,10 +188,6 @@ export class DuelOrchestrator {
     string,
     DuelCombatRole
   >();
-  /** Escalating stall nudge state (#20) */
-  private combatStallNudgeCount = 0;
-  private lastCombatStallNudgeTime = 0;
-
   // ---- Contestant Cache (Memory Optimization) ----
   /** Cached contestant objects keyed by "agentId:opponentId" */
   private _contestantCache: Map<string, AgentContestant> = new Map();
@@ -225,10 +216,11 @@ export class DuelOrchestrator {
       }
     >,
     private readonly onResolution: (
-      winnerId: string,
-      loserId: string,
-      winReason: "kill" | "hp_advantage" | "damage_advantage" | "draw",
+      winnerId: string | null,
+      loserId: string | null,
+      winReason: StreamingDuelWinReason,
     ) => void,
+    private readonly onAbort: (reason: string) => void,
     private readonly getLeaderboard: () => LeaderboardEntry[],
     private readonly getRecentDuels: () => RecentDuelEntry[],
   ) {}
@@ -1866,8 +1858,7 @@ export class DuelOrchestrator {
       maxHealth?: number;
       alive?: boolean;
       position?:
-        | [number, number, number]
-        | { x?: number; y?: number; z?: number };
+        [number, number, number] | { x?: number; y?: number; z?: number };
       skills?: Record<string, { level: number }>;
       deathState?: DeathState;
     };
@@ -2026,6 +2017,66 @@ export class DuelOrchestrator {
       "StreamingDuelScheduler",
       "Contestants teleported to arena, facing each other",
     );
+  }
+
+  /**
+   * Move contestants from their presentation marks to valid combat tiles.
+   * CombatSystem range-one melee is cardinal-only, so the two positions must
+   * differ by exactly one tile on one axis and zero tiles on the other.
+   */
+  teleportToCombatPositions(
+    agent1Id: string,
+    agent2Id: string,
+    suppressEffect = true,
+  ): void {
+    const arenaConfig = getDuelArenaConfig();
+    const arenaId = Math.max(
+      1,
+      Math.min(STREAMING_AGENT_ARENA_ID, arenaConfig.arenaCount),
+    );
+    const row = Math.floor((arenaId - 1) / arenaConfig.columns);
+    const col = (arenaId - 1) % arenaConfig.columns;
+    const centerX =
+      arenaConfig.baseX +
+      col * (arenaConfig.arenaWidth + arenaConfig.arenaGap) +
+      arenaConfig.arenaWidth / 2;
+    const centerZ =
+      arenaConfig.baseZ +
+      row * (arenaConfig.arenaLength + arenaConfig.arenaGap) +
+      arenaConfig.arenaLength / 2;
+
+    // Keep the stationary axis at tile center. The offset axis straddles the
+    // arena-center tile boundary, producing cardinally adjacent floor tiles.
+    let agent1X = centerX + 0.5;
+    let agent1Z = centerZ - STREAMING_COMBAT_START_OFFSET;
+    let agent2X = centerX + 0.5;
+    let agent2Z = centerZ + STREAMING_COMBAT_START_OFFSET;
+    if (arenaConfig.spawnLayout === "alongWidth") {
+      agent1X = centerX - STREAMING_COMBAT_START_OFFSET;
+      agent1Z = centerZ + 0.5;
+      agent2X = centerX + STREAMING_COMBAT_START_OFFSET;
+      agent2Z = centerZ + 0.5;
+    }
+
+    const agent1Pos: [number, number, number] = [
+      agent1X,
+      this.getGroundedY(agent1X, agent1Z, arenaConfig.baseY),
+      agent1Z,
+    ];
+    const agent2Pos: [number, number, number] = [
+      agent2X,
+      this.getGroundedY(agent2X, agent2Z, arenaConfig.baseY),
+      agent2Z,
+    ];
+
+    this.teleportPlayer(agent1Id, agent1Pos, agent2Pos, suppressEffect);
+    this.teleportPlayer(agent2Id, agent2Pos, agent1Pos, suppressEffect);
+
+    const cycle = this.getCurrentCycle();
+    if (cycle) {
+      cycle.arenaId = arenaId;
+      cycle.arenaPositions = { agent1: agent1Pos, agent2: agent2Pos };
+    }
   }
 
   /** Arena AABB for clamping agent combat AI strafe / chase targets */
@@ -2294,10 +2345,6 @@ export class DuelOrchestrator {
 
     // Phase guard — only transition from COUNTDOWN (Fix B).
     if (cycle.phase !== "COUNTDOWN") return;
-
-    // Reset escalating stall nudge state for new fight (#20)
-    this.combatStallNudgeCount = 0;
-    this.lastCombatStallNudgeTime = 0;
 
     const { agent1, agent2 } = cycle;
 
@@ -2720,14 +2767,15 @@ export class DuelOrchestrator {
    * Keep duel contestants within melee range to guarantee engagement.
    */
   ensureDuelProximity(agent1Id: string, agent2Id: string): void {
-    const distance = this.getTileChebyshevDistance(agent1Id, agent2Id);
-    if (distance !== null && distance !== 1) {
+    const tileDelta = this.getTileDelta(agent1Id, agent2Id);
+    const validCardinalSpacing =
+      tileDelta !== null && tileDelta.dx + tileDelta.dz === 1;
+    if (!validCardinalSpacing) {
       Logger.warn(
         "StreamingDuelScheduler",
-        `Contestants not in valid melee spacing (tileDistance=${distance}), re-teleporting`,
+        `Contestants not in valid cardinal melee spacing (tileDelta=${tileDelta ? `${tileDelta.dx},${tileDelta.dz}` : "unknown"}), repositioning`,
       );
-      // suppressEffect=true: skip the visual beam/glow during FIGHTING corrections
-      void this.teleportToArena(agent1Id, agent2Id, true);
+      this.teleportToCombatPositions(agent1Id, agent2Id, true);
     }
   }
 
@@ -2736,10 +2784,10 @@ export class DuelOrchestrator {
     targetId: string,
     side: "a1" | "a2",
   ): void {
-    const distance = this.getTileChebyshevDistance(attackerId, targetId);
+    const tileDelta = this.getTileDelta(attackerId, targetId);
     Logger.warn(
       "StreamingDuelScheduler",
-      `startCombat failed (${side}) attacker=${attackerId} target=${targetId} tileDistance=${distance ?? "unknown"}`,
+      `startCombat failed (${side}) attacker=${attackerId} target=${targetId} tileDelta=${tileDelta ? `${tileDelta.dx},${tileDelta.dz}` : "unknown"}`,
     );
   }
 
@@ -2765,18 +2813,10 @@ export class DuelOrchestrator {
       if (this.combatRetryCount > DuelOrchestrator.MAX_COMBAT_RETRIES) {
         Logger.warn(
           "StreamingDuelScheduler",
-          `Combat retry limit reached (${this.combatRetryCount}/${DuelOrchestrator.MAX_COMBAT_RETRIES}) — aborting duel as draw`,
+          `Combat retry limit reached (${this.combatRetryCount}/${DuelOrchestrator.MAX_COMBAT_RETRIES}) — cancelling duel as no contest`,
         );
         this.combatRetryCount = 0;
-        // Abort the duel — use startResolution with draw to properly clean up
-        const abortCycle = this.getCurrentCycle();
-        if (abortCycle?.agent1 && abortCycle?.agent2) {
-          this.startResolution(
-            abortCycle.agent1.characterId,
-            abortCycle.agent2.characterId,
-            "draw",
-          );
-        }
+        this.onAbort("combat_engagement_failed");
         return;
       }
 
@@ -2833,10 +2873,10 @@ export class DuelOrchestrator {
     }, 3000); // 5 ticks at 600ms - aligned with combat loop re-engagement interval
   }
 
-  getTileChebyshevDistance(
+  getTileDelta(
     entityAId: string,
     entityBId: string,
-  ): number | null {
+  ): { dx: number; dz: number } | null {
     const entityA = this.world.entities.get(entityAId);
     const entityB = this.world.entities.get(entityBId);
     if (!entityA || !entityB) return null;
@@ -2860,7 +2900,10 @@ export class DuelOrchestrator {
     const tileAz = Math.floor(az);
     const tileBx = Math.floor(bx);
     const tileBz = Math.floor(bz);
-    return Math.max(Math.abs(tileAx - tileBx), Math.abs(tileAz - tileBz));
+    return {
+      dx: Math.abs(tileAx - tileBx),
+      dz: Math.abs(tileAz - tileBz),
+    };
   }
 
   // ============================================================================
@@ -3037,7 +3080,7 @@ export class DuelOrchestrator {
   }
 
   // ============================================================================
-  // HP Tracking & Combat Stall Nudge
+  // HP Tracking
   // ============================================================================
 
   updateContestantHp(): void {
@@ -3085,85 +3128,6 @@ export class DuelOrchestrator {
     }
   }
 
-  /**
-   * Escalating combat stall nudge (#20).
-   * First nudge at STREAMING_COMBAT_STALL_NUDGE_MS, subsequent every 10s.
-   * Damage escalates: min(count+1, 5). Alternates targets. Resets on combat evidence.
-   * Floors HP at 1 to avoid accidental kills.
-   */
-  applyCombatStallNudge(now: number): void {
-    const cycle = this.getCurrentCycle();
-    if (!cycle || cycle.phase !== "FIGHTING") return;
-
-    const { agent1, agent2 } = cycle;
-    if (!agent1 || !agent2) return;
-
-    // Reset nudge state if there's combat evidence
-    const hasCombatEvidence =
-      agent1.currentHp < agent1.maxHp ||
-      agent2.currentHp < agent2.maxHp ||
-      agent1.damageDealtThisFight > 0 ||
-      agent2.damageDealtThisFight > 0;
-    if (hasCombatEvidence) {
-      this.combatStallNudgeCount = 0;
-      this.lastCombatStallNudgeTime = 0;
-      return;
-    }
-
-    // Check cooldown: first nudge uses the initial stall threshold,
-    // subsequent nudges use the escalation interval
-    if (this.combatStallNudgeCount > 0) {
-      if (
-        now - this.lastCombatStallNudgeTime <
-        STALL_NUDGE_ESCALATION_INTERVAL_MS
-      )
-        return;
-    }
-
-    // Alternate targets based on nudge count
-    const isEven = this.combatStallNudgeCount % 2 === 0;
-    const attackerId = isEven ? agent1.characterId : agent2.characterId;
-    const targetId = isEven ? agent2.characterId : agent1.characterId;
-    const targetAgent = isEven ? agent2 : agent1;
-    const targetEntity = this.world.entities.get(targetId);
-    if (!targetEntity) return;
-
-    const currentHp = Number((targetEntity.data as { health?: number }).health);
-    const safeCurrentHp = Number.isFinite(currentHp)
-      ? currentHp
-      : targetAgent.currentHp;
-    const nudgeDamage = Math.min(
-      this.combatStallNudgeCount + 1,
-      STALL_NUDGE_MAX_DAMAGE,
-    );
-    const nextHp = Math.max(1, safeCurrentHp - nudgeDamage);
-    const damage = safeCurrentHp - nextHp;
-    if (damage <= 0) return;
-
-    if (targetEntity instanceof PlayerEntity) {
-      targetEntity.setHealth(nextHp);
-      targetEntity.markNetworkDirty();
-    }
-
-    (targetEntity.data as { health?: number; alive?: boolean }).health = nextHp;
-    this.world.emit(EventType.ENTITY_MODIFIED, {
-      id: targetId,
-      changes: { health: nextHp },
-    });
-    this.world.emit(EventType.COMBAT_DAMAGE_DEALT, {
-      attackerId,
-      targetId,
-      damage,
-    });
-
-    this.combatStallNudgeCount++;
-    this.lastCombatStallNudgeTime = now;
-    Logger.warn(
-      "StreamingDuelScheduler",
-      `Applied escalating combat nudge #${this.combatStallNudgeCount} (${attackerId} -> ${targetId}, damage=${damage})`,
-    );
-  }
-
   // ============================================================================
   // Fight Resolution
   // ============================================================================
@@ -3177,13 +3141,26 @@ export class DuelOrchestrator {
 
     const { agent1, agent2 } = cycle;
 
+    // A timeout without any combat evidence is an infrastructure failure, not
+    // a sporting draw. Cancelling prevents fabricated results from reaching
+    // the betting bridge or oracle publisher.
+    if (
+      agent1.damageDealtThisFight === 0 &&
+      agent2.damageDealtThisFight === 0 &&
+      agent1.currentHp === agent1.maxHp &&
+      agent2.currentHp === agent2.maxHp
+    ) {
+      this.onAbort("no_combat_activity");
+      return;
+    }
+
     // Determine winner by HP percentage
     const hp1Percent = agent1.currentHp / agent1.maxHp;
     const hp2Percent = agent2.currentHp / agent2.maxHp;
 
     let winnerId: string;
     let loserId: string;
-    let winReason: "hp_advantage" | "damage_advantage" | "draw";
+    let winReason: "hp_advantage" | "damage_advantage";
 
     if (hp1Percent > hp2Percent) {
       winnerId = agent1.characterId;
@@ -3204,9 +3181,8 @@ export class DuelOrchestrator {
         loserId = agent1.characterId;
         winReason = "damage_advantage";
       } else {
-        // True draw — both HP and damage equal (#24)
-        // Resolve as a proper draw: no winner/loser, just record it
-        this.onResolution(agent1.characterId, agent2.characterId, "draw");
+        // True draw — both HP and damage equal, with no winner or loser.
+        this.startResolution(null, null, "draw");
         return;
       }
     }
@@ -3215,9 +3191,9 @@ export class DuelOrchestrator {
   }
 
   startResolution(
-    winnerId: string,
-    loserId: string,
-    winReason: "kill" | "hp_advantage" | "damage_advantage" | "draw",
+    winnerId: string | null,
+    loserId: string | null,
+    winReason: StreamingDuelWinReason,
   ): void {
     const cycle = this.getCurrentCycle();
     if (!cycle) return;
@@ -3225,6 +3201,20 @@ export class DuelOrchestrator {
     // Idempotency guard — only transition from FIGHTING or COUNTDOWN (Fix C).
     if (cycle.phase !== "FIGHTING" && cycle.phase !== "COUNTDOWN") {
       return;
+    }
+
+    const isDraw = winReason === "draw";
+    if (!isDraw && (!winnerId || !loserId || winnerId === loserId)) {
+      Logger.error(
+        "StreamingDuelScheduler",
+        `Invalid winning resolution (${winReason}): winner=${winnerId ?? "none"} loser=${loserId ?? "none"}`,
+      );
+      this.onAbort("invalid_resolution_participants");
+      return;
+    }
+    if (isDraw) {
+      winnerId = null;
+      loserId = null;
     }
 
     // Stop the combat loop, retry timeout, and AIs
@@ -3239,10 +3229,13 @@ export class DuelOrchestrator {
     // combat state teardown, scheduled animation resets) finishes first.
     // Without this, the "victory" emote gets immediately overwritten by
     // stale "idle" resets from the combat animation system.
-    setTimeout(() => {
-      this.triggerVictoryEmote(winnerId);
-      this.fireVictoryTrashTalk(winnerId);
-    }, 600);
+    if (winnerId) {
+      const resolvedWinnerId = winnerId;
+      setTimeout(() => {
+        this.triggerVictoryEmote(resolvedWinnerId);
+        this.fireVictoryTrashTalk(resolvedWinnerId);
+      }, 600);
+    }
   }
 
   /**
@@ -3527,8 +3520,6 @@ export class DuelOrchestrator {
     this.duelFoodSlotsByAgent.clear();
     this.combatRolesByAgent.clear();
     this.debugCombatRoleOverrideByCharacterId.clear();
-    this.combatStallNudgeCount = 0;
-    this.lastCombatStallNudgeTime = 0;
     this._contestantCache.clear();
     this._contestantCacheExpiry = 0;
     this.combatLoopTickCount = 0;

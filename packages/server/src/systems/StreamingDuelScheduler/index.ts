@@ -35,6 +35,7 @@ import {
   type LeaderboardEntry,
   type RecentDuelEntry,
   type StreamingPhase,
+  type StreamingDuelWinReason,
   STREAMING_TIMING,
 } from "./types.js";
 import { MatchmakingManager } from "./managers/MatchmakingManager.js";
@@ -98,10 +99,6 @@ const config = {
   ),
 };
 
-const STREAMING_COMBAT_STALL_NUDGE_MS = Math.max(
-  5_000,
-  Number.parseInt(process.env.STREAMING_COMBAT_STALL_NUDGE_MS || "15000", 10),
-);
 const STREAMING_ALLOW_READY_SKIP =
   process.env.STREAMING_ALLOW_READY_SKIP === "true";
 
@@ -204,6 +201,7 @@ export class StreamingDuelScheduler {
     arenaPositions: null,
     winnerId: null,
     winnerName: null,
+    outcome: null,
     winReason: null,
     seed: null,
     replayHash: null,
@@ -229,6 +227,7 @@ export class StreamingDuelScheduler {
     arenaPositions: null,
     winnerId: null,
     winnerName: null,
+    outcome: null,
     winReason: null,
     seed: null,
     replayHash: null,
@@ -290,6 +289,7 @@ export class StreamingDuelScheduler {
       () => this.matchmaking.agentStats,
       (winnerId, loserId, winReason) =>
         this.handleResolution(winnerId, loserId, winReason),
+      (reason) => this.abortCycleToIdle(reason),
       () => this.matchmaking.getLeaderboard(),
       () => this.matchmaking.getRecentDuels(),
     );
@@ -374,8 +374,7 @@ export class StreamingDuelScheduler {
 
   /** Get the database connection, or null. */
   private getDatabase():
-    | import("drizzle-orm/node-postgres").NodePgDatabase
-    | null {
+    import("drizzle-orm/node-postgres").NodePgDatabase | null {
     const databaseSystem = this.world.getSystem("database") as {
       getDb?: () => import("drizzle-orm/node-postgres").NodePgDatabase | null;
     } | null;
@@ -386,51 +385,55 @@ export class StreamingDuelScheduler {
    * Register for streaming duels only when `agent_mappings.streaming_duel_enabled` is true.
    * Missing DB row defaults to enabled.
    */
-  private async registerAgentIfEligible(agentId: string): Promise<void> {
+  private registerAgentIfEligible(agentId: string): void {
     const db = this.getDatabase();
-    let enabled = true;
-    if (db) {
-      try {
-        const { agentMappings } = await import("../../database/schema.js");
-        const { eq, or } = await import("drizzle-orm");
-        const rows = await db
-          .select({ streamingDuelEnabled: agentMappings.streamingDuelEnabled })
-          .from(agentMappings)
-          .where(
-            or(
-              eq(agentMappings.characterId, agentId),
-              eq(agentMappings.agentId, agentId),
-            ),
-          )
-          .limit(1);
-        const row = rows[0];
-        if (row && row.streamingDuelEnabled === false) {
-          enabled = false;
-        }
-      } catch (err) {
-        if (!streamingDuelPrefReadWarningLogged) {
-          streamingDuelPrefReadWarningLogged = true;
-          Logger.warn(
-            "StreamingDuelScheduler",
-            `Could not read agent streaming duel preference (${errMsg(err)}). ` +
-              "If the column is missing, run `bun run db:migrate` in packages/server against the same DATABASE_URL as this server. Defaulting to duel-eligible.",
-          );
-        }
-        enabled = true;
-      }
-    }
-
-    if (!enabled) {
-      this.matchmaking.markStreamingDuelOptOut(agentId, true);
+    if (!db) {
+      this.matchmaking.markStreamingDuelOptOut(agentId, false);
+      this.matchmaking.registerAgent(agentId);
       return;
     }
 
-    this.matchmaking.markStreamingDuelOptOut(agentId, false);
-    this.matchmaking.registerAgent(agentId);
+    void this.registerAgentFromDatabasePreference(agentId, db);
+  }
+
+  private async registerAgentFromDatabasePreference(
+    agentId: string,
+    db: import("drizzle-orm/node-postgres").NodePgDatabase,
+  ): Promise<void> {
+    let enabled = true;
+    try {
+      const { agentMappings } = await import("../../database/schema.js");
+      const { eq, or } = await import("drizzle-orm");
+      const rows = await db
+        .select({ streamingDuelEnabled: agentMappings.streamingDuelEnabled })
+        .from(agentMappings)
+        .where(
+          or(
+            eq(agentMappings.characterId, agentId),
+            eq(agentMappings.agentId, agentId),
+          ),
+        )
+        .limit(1);
+      enabled = rows[0]?.streamingDuelEnabled !== false;
+    } catch (err) {
+      if (!streamingDuelPrefReadWarningLogged) {
+        streamingDuelPrefReadWarningLogged = true;
+        Logger.warn(
+          "StreamingDuelScheduler",
+          `Could not read agent streaming duel preference (${errMsg(err)}). ` +
+            "If the column is missing, run `bun run db:migrate` in packages/server against the same DATABASE_URL as this server. Defaulting to duel-eligible.",
+        );
+      }
+    }
+
+    this.matchmaking.markStreamingDuelOptOut(agentId, !enabled);
+    if (enabled) {
+      this.matchmaking.registerAgent(agentId);
+    }
   }
 
   /** Agents already in the world when the scheduler starts (same rules as PLAYER_JOINED). */
-  private async scanForExistingAgentsWithEligibility(): Promise<void> {
+  private scanForExistingAgentsWithEligibility(): void {
     const entities = this.world.entities as {
       getAllEntities?: () => Map<string, unknown>;
     };
@@ -453,7 +456,7 @@ export class StreamingDuelScheduler {
         entityAny.type === "player" &&
         (entityAny.isAgent === true || entityAny.isEmbeddedAgent === true)
       ) {
-        await this.registerAgentIfEligible(id);
+        this.registerAgentIfEligible(id);
         agentCount++;
       }
     }
@@ -565,7 +568,7 @@ export class StreamingDuelScheduler {
     this.subscribeToEvents();
 
     // Scan for any agents that were already spawned before we initialized
-    void this.scanForExistingAgentsWithEligibility();
+    this.scanForExistingAgentsWithEligibility();
 
     // Start the main tick loop
     this.startTickLoop();
@@ -995,6 +998,7 @@ export class StreamingDuelScheduler {
       arenaPositions: null,
       winnerId: null,
       loserId: null,
+      outcome: null,
       winReason: null,
       seed: null,
       replayHash: null,
@@ -1362,12 +1366,6 @@ export class StreamingDuelScheduler {
 
     // Update HP from entities
     this.orchestrator.updateContestantHp();
-
-    // Fallback: nudge stalled fights so the stream cycle still progresses even
-    // when combat start hooks fail in this tick window.
-    if (elapsed >= STREAMING_COMBAT_STALL_NUDGE_MS) {
-      this.orchestrator.applyCombatStallNudge(now);
-    }
   }
 
   private tickResolution(now: number): void {
@@ -1387,9 +1385,9 @@ export class StreamingDuelScheduler {
 
   private buildOracleProof(
     cycle: StreamingDuelCycle,
-    winnerId: string,
-    loserId: string,
-    winReason: "kill" | "hp_advantage" | "damage_advantage" | "draw",
+    winnerId: string | null,
+    loserId: string | null,
+    winReason: StreamingDuelWinReason,
     finishedAt: number,
   ): { seed: string; replayHash: string } {
     const duelId = cycle.duelId ?? `streaming-${cycle.cycleId}`;
@@ -1411,14 +1409,10 @@ export class StreamingDuelScheduler {
           winReason,
           fightStartedAt,
           finishedAt,
-          damageWinner:
-            cycle.agent1?.characterId === winnerId
-              ? cycle.agent1.damageDealtThisFight
-              : (cycle.agent2?.damageDealtThisFight ?? 0),
-          damageLoser:
-            cycle.agent1?.characterId === loserId
-              ? cycle.agent1.damageDealtThisFight
-              : (cycle.agent2?.damageDealtThisFight ?? 0),
+          agent1Id: cycle.agent1?.characterId ?? null,
+          agent2Id: cycle.agent2?.characterId ?? null,
+          damageAgent1: cycle.agent1?.damageDealtThisFight ?? 0,
+          damageAgent2: cycle.agent2?.damageDealtThisFight ?? 0,
         }),
       )
       .digest("hex");
@@ -1430,9 +1424,9 @@ export class StreamingDuelScheduler {
    * This is the facade's responsibility: phase transition, stats, recording, camera.
    */
   private handleResolution(
-    winnerId: string,
-    loserId: string,
-    winReason: "kill" | "hp_advantage" | "damage_advantage" | "draw",
+    winnerId: string | null,
+    loserId: string | null,
+    winReason: StreamingDuelWinReason,
   ): void {
     if (!this.currentCycle) return;
 
@@ -1454,6 +1448,15 @@ export class StreamingDuelScheduler {
     }
 
     const now = Date.now();
+    const isDraw = winReason === "draw";
+    if (isDraw) {
+      winnerId = null;
+      loserId = null;
+    } else if (!winnerId || !loserId || winnerId === loserId) {
+      this.abortCycleToIdle("invalid_resolution_participants");
+      return;
+    }
+
     this.phaseStateMachine.transition("RESOLUTION");
     this.currentCycle.phase = "RESOLUTION";
     this.currentCycle.phaseStartTime = now;
@@ -1461,6 +1464,7 @@ export class StreamingDuelScheduler {
     this.currentCycle.duelEndTime = now;
     this.currentCycle.winnerId = winnerId;
     this.currentCycle.loserId = loserId;
+    this.currentCycle.outcome = isDraw ? "draw" : "win";
     this.currentCycle.winReason = winReason;
     const oracleProof = this.buildOracleProof(
       this.currentCycle,
@@ -1473,38 +1477,58 @@ export class StreamingDuelScheduler {
     this.currentCycle.replayHash = oracleProof.replayHash;
 
     // Update stats — draws don't affect win/loss/streaks (#24)
-    if (winReason === "draw") {
-      this.matchmaking.updateDrawStats(winnerId, loserId);
+    const agent1 = this.currentCycle.agent1;
+    const agent2 = this.currentCycle.agent2;
+    if (isDraw) {
+      if (agent1 && agent2) {
+        this.matchmaking.updateDrawStats(
+          agent1.characterId,
+          agent2.characterId,
+        );
+      }
     } else {
-      this.matchmaking.updateStats(winnerId, loserId);
+      this.matchmaking.updateStats(winnerId!, loserId!);
     }
 
     // Get winner/loser names
-    const winnerName =
-      this.currentCycle.agent1?.characterId === winnerId
-        ? this.currentCycle.agent1.name
-        : this.currentCycle.agent2?.name || "Unknown";
-    const loserName =
-      this.currentCycle.agent1?.characterId === loserId
-        ? this.currentCycle.agent1.name
-        : this.currentCycle.agent2?.name || "Unknown";
+    const winnerName = winnerId
+      ? agent1?.characterId === winnerId
+        ? agent1.name
+        : (agent2?.name ?? "Unknown")
+      : null;
+    const loserName = loserId
+      ? agent1?.characterId === loserId
+        ? agent1.name
+        : (agent2?.name ?? "Unknown")
+      : null;
+    const damageAgent1 = agent1?.damageDealtThisFight ?? 0;
+    const damageAgent2 = agent2?.damageDealtThisFight ?? 0;
     this.matchmaking.recordRecentDuel({
       cycleId: this.currentCycle.cycleId,
       duelId: this.currentCycle.duelId,
       finishedAt: now,
+      outcome: isDraw ? "draw" : "win",
+      agent1Id: agent1?.characterId ?? "",
+      agent1Name: agent1?.name ?? "Unknown",
+      agent2Id: agent2?.characterId ?? "",
+      agent2Name: agent2?.name ?? "Unknown",
       winnerId,
       winnerName,
       loserId,
       loserName,
       winReason,
-      damageWinner:
-        this.currentCycle.agent1?.characterId === winnerId
-          ? this.currentCycle.agent1.damageDealtThisFight
-          : (this.currentCycle.agent2?.damageDealtThisFight ?? 0),
-      damageLoser:
-        this.currentCycle.agent1?.characterId === loserId
-          ? this.currentCycle.agent1.damageDealtThisFight
-          : (this.currentCycle.agent2?.damageDealtThisFight ?? 0),
+      damageAgent1,
+      damageAgent2,
+      damageWinner: winnerId
+        ? agent1?.characterId === winnerId
+          ? damageAgent1
+          : damageAgent2
+        : null,
+      damageLoser: loserId
+        ? agent1?.characterId === loserId
+          ? damageAgent1
+          : damageAgent2
+        : null,
     });
 
     // Pull per-fight AI stats (attacksLanded, healsUsed) captured in stopCombatAIs
@@ -1526,7 +1550,9 @@ export class StreamingDuelScheduler {
 
     Logger.info(
       "StreamingDuelScheduler",
-      `Fight ended: ${winnerName} wins by ${winReason}`,
+      isDraw
+        ? `Fight ended in a draw: ${agent1?.name ?? "Unknown"} vs ${agent2?.name ?? "Unknown"}`
+        : `Fight ended: ${winnerName} wins by ${winReason}`,
     );
 
     // Emit resolution event (spectator UI)
@@ -1540,45 +1566,70 @@ export class StreamingDuelScheduler {
       loserId,
       winnerName,
       loserName,
+      outcome: isDraw ? "draw" : "win",
+      agent1Id: agent1?.characterId ?? null,
+      agent1Name: agent1?.name ?? null,
+      agent2Id: agent2?.characterId ?? null,
+      agent2Name: agent2?.name ?? null,
       winReason,
       seed: oracleProof.seed,
       replayHash: oracleProof.replayHash,
     });
 
-    // Emit standard duel completed so agent plugins exit duel mode.
-    // The duel-events listener sends duelCompleted to both agent sockets.
     const a1 = this.currentCycle.agent1?.characterId ?? "";
     const a2 = this.currentCycle.agent2?.characterId ?? "";
-    this.world.emit(EventType.DUEL_COMPLETED, {
-      duelId:
-        this.currentCycle.duelId ?? `streaming-${this.currentCycle.cycleId}`,
-      winnerId,
-      winnerName,
-      loserId,
-      loserName,
-      reason: "death",
-      seed: oracleProof.seed,
-      replayHash: oracleProof.replayHash,
-      forfeit: false,
-      winnerReceives: [],
-      winnerReceivesValue: 0,
-      challengerStakes: [],
-      targetStakes: [],
-      challengerId: a1,
-      opponentId: a2,
-      challengerStakeValue: 0,
-      opponentStakeValue: 0,
-      summary: {
-        duration: now - (this.currentCycle.cycleStartTime ?? now),
-        rules: DEFAULT_DUEL_RULES,
+    const resolvedDuelId =
+      this.currentCycle.duelId ?? `streaming-${this.currentCycle.cycleId}`;
+    if (isDraw) {
+      // A draw is not a completed win. Cancel/void betting and notify agents
+      // without supplying a fabricated winner to the standard completion event.
+      this.world.emit("streaming:cycle:aborted", {
+        cycleId: this.currentCycle.cycleId,
+        duelId: resolvedDuelId,
+        duelKeyHex: this.currentCycle.duelKeyHex,
+        reason: "draw",
+        agent1Id: a1 || null,
+        agent2Id: a2 || null,
+        agent1Name: agent1?.name ?? null,
+        agent2Name: agent2?.name ?? null,
+      });
+      this.world.emit(EventType.DUEL_CANCELLED, {
+        duelId: resolvedDuelId,
+        challengerId: a1,
+        targetId: a2,
+        reason: "draw",
+      });
+    } else {
+      this.world.emit(EventType.DUEL_COMPLETED, {
+        duelId: resolvedDuelId,
+        winnerId: winnerId!,
+        winnerName: winnerName ?? "Unknown",
+        loserId: loserId!,
+        loserName: loserName ?? "Unknown",
+        reason: "death",
+        seed: oracleProof.seed,
+        replayHash: oracleProof.replayHash,
+        forfeit: false,
+        winnerReceives: [],
+        winnerReceivesValue: 0,
+        challengerStakes: [],
+        targetStakes: [],
+        challengerId: a1,
+        opponentId: a2,
         challengerStakeValue: 0,
-        targetStakeValue: 0,
-      },
-    });
+        opponentStakeValue: 0,
+        summary: {
+          duration: now - (this.currentCycle.cycleStartTime ?? now),
+          rules: DEFAULT_DUEL_RULES,
+          challengerStakeValue: 0,
+          targetStakeValue: 0,
+        },
+      });
+    }
 
     // Set camera to winner
     this.camera.finishFightCutawayTracking(now);
-    this.camera.setCameraTarget(winnerId, now);
+    this.camera.setCameraTarget(winnerId ?? agent1?.characterId ?? null, now);
 
     // NOTE: cleanupAfterDuel() (health restore, food removal, teleport out) is
     // deferred to endCycle() so the death animation plays during the RESOLUTION
@@ -1911,16 +1962,9 @@ export class StreamingDuelScheduler {
               );
             }
           } else {
-            // True draw — coin flip
-            const coinWinner =
-              Math.random() > 0.5 ? agent1?.characterId : agent2?.characterId;
-            const coinLoser =
-              coinWinner === agent1?.characterId
-                ? agent2?.characterId
-                : agent1?.characterId;
-            if (coinWinner && coinLoser) {
-              this.orchestrator.startResolution(coinWinner, coinLoser, "draw");
-            }
+            // Simultaneous death with equal damage is a true draw. Never
+            // coin-flip an outcome that can flow into betting settlement.
+            this.orchestrator.startResolution(null, null, "draw");
           }
         } else {
           this.orchestrator.startResolution(winnerId, loserId, "kill");
@@ -2145,6 +2189,7 @@ export class StreamingDuelScheduler {
           ? this.currentCycle.agent1?.name
           : this.currentCycle.agent2?.name) || null
       : null;
+    this._activeCycleObject.outcome = this.currentCycle.outcome;
     this._activeCycleObject.winReason = this.currentCycle.winReason;
     this._activeCycleObject.seed = this.currentCycle.seed;
     this._activeCycleObject.replayHash = this.currentCycle.replayHash;

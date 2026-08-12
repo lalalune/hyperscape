@@ -10,11 +10,7 @@ import {
 import "./LeaderboardScreen.css";
 
 type StreamingPhase =
-  | "IDLE"
-  | "ANNOUNCEMENT"
-  | "COUNTDOWN"
-  | "FIGHTING"
-  | "RESOLUTION";
+  "IDLE" | "ANNOUNCEMENT" | "COUNTDOWN" | "FIGHTING" | "RESOLUTION";
 
 interface CycleAgent {
   id: string;
@@ -61,13 +57,20 @@ interface RecentDuelEntry {
   cycleId: string;
   duelId: string | null;
   finishedAt: number;
-  winnerId: string;
-  winnerName: string;
-  loserId: string;
-  loserName: string;
+  outcome: "win" | "draw";
+  agent1Id: string;
+  agent1Name: string;
+  agent2Id: string;
+  agent2Name: string;
+  winnerId: string | null;
+  winnerName: string | null;
+  loserId: string | null;
+  loserName: string | null;
   winReason: "kill" | "hp_advantage" | "damage_advantage" | "draw";
-  damageWinner: number;
-  damageLoser: number;
+  damageAgent1: number;
+  damageAgent2: number;
+  damageWinner: number | null;
+  damageLoser: number | null;
 }
 
 interface LeaderboardDetailsResponse {
@@ -91,8 +94,9 @@ const isLeaderboardEntry = (value: unknown): value is LeaderboardEntry => {
 const isRecentDuelEntry = (value: unknown): value is RecentDuelEntry => {
   const maybe = value as Partial<RecentDuelEntry>;
   return (
-    typeof maybe?.winnerId === "string" &&
-    typeof maybe?.loserId === "string" &&
+    (maybe?.outcome === "win" || maybe?.outcome === "draw") &&
+    typeof maybe?.agent1Id === "string" &&
+    typeof maybe?.agent2Id === "string" &&
     Number.isFinite(maybe?.finishedAt)
   );
 };
@@ -261,7 +265,8 @@ export function LeaderboardScreen() {
     return data.recentDuels
       .filter(
         (duel) =>
-          duel.winnerId === selectedAgentId || duel.loserId === selectedAgentId,
+          duel.agent1Id === selectedAgentId ||
+          duel.agent2Id === selectedAgentId,
       )
       .slice(0, 8);
   }, [data, selectedAgentId]);
@@ -444,6 +449,7 @@ export function LeaderboardScreen() {
                     <p className="leaderboard-empty">No duel history yet.</p>
                   )}
                   {selectedAgentHistory.map((duel) => {
+                    const drew = duel.outcome === "draw";
                     const won = duel.winnerId === selectedAgent.characterId;
                     return (
                       <div
@@ -452,21 +458,25 @@ export function LeaderboardScreen() {
                       >
                         <div className="duel-history-row">
                           <span className={won ? "result-win" : "result-loss"}>
-                            {won ? "WIN" : "LOSS"}
+                            {drew ? "DRAW" : won ? "WIN" : "LOSS"}
                           </span>
                           <span>{formatRelativeTime(duel.finishedAt)}</span>
                         </div>
                         <div className="duel-history-row duel-history-main">
-                          <span>{duel.winnerName}</span>
+                          <span>
+                            {drew ? duel.agent1Name : duel.winnerName}
+                          </span>
                           <span>vs</span>
-                          <span>{duel.loserName}</span>
+                          <span>{drew ? duel.agent2Name : duel.loserName}</span>
                         </div>
                         <div className="duel-history-row">
                           <span>
                             Reason: {duel.winReason.replace(/_/g, " ")}
                           </span>
                           <span>
-                            Damage: {duel.damageWinner}-{duel.damageLoser}
+                            Damage:{" "}
+                            {drew ? duel.damageAgent1 : duel.damageWinner}-
+                            {drew ? duel.damageAgent2 : duel.damageLoser}
                           </span>
                         </div>
                       </div>
@@ -491,17 +501,29 @@ export function LeaderboardScreen() {
                 className="duel-history-item"
               >
                 <div className="duel-history-row">
-                  <span className="result-win">{duel.winnerName}</span>
+                  <span className="result-win">
+                    {duel.outcome === "draw" ? "Draw" : duel.winnerName}
+                  </span>
                   <span>{formatRelativeTime(duel.finishedAt)}</span>
                 </div>
                 <div className="duel-history-row duel-history-main">
-                  <span>Defeated</span>
-                  <span>{duel.loserName}</span>
+                  <span>
+                    {duel.outcome === "draw" ? duel.agent1Name : "Defeated"}
+                  </span>
+                  <span>
+                    {duel.outcome === "draw" ? duel.agent2Name : duel.loserName}
+                  </span>
                 </div>
                 <div className="duel-history-row">
                   <span>Reason: {duel.winReason.replace(/_/g, " ")}</span>
                   <span>
-                    {duel.damageWinner}-{duel.damageLoser}
+                    {duel.outcome === "draw"
+                      ? duel.damageAgent1
+                      : duel.damageWinner}
+                    -
+                    {duel.outcome === "draw"
+                      ? duel.damageAgent2
+                      : duel.damageLoser}
                   </span>
                 </div>
               </div>

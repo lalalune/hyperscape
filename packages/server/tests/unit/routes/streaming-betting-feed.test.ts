@@ -66,6 +66,7 @@ function createCycle(
     },
     winnerId: null,
     loserId: null,
+    outcome: null,
     winReason: null,
     seed: null,
     replayHash: null,
@@ -119,7 +120,7 @@ describe("streaming-betting-feed", () => {
     });
 
     expect(payload).toMatchObject({
-      schemaVersion: 1,
+      schemaVersion: 2,
       sourceEpoch: 42,
       seq: 7,
       emittedAt: 123_456,
@@ -133,7 +134,11 @@ describe("streaming-betting-feed", () => {
       duelEndTime: null,
       winnerId: "agent-b",
       winnerName: "Agent B",
+      outcome: null,
+      cancellationReason: null,
       winReason: "damage_advantage",
+      seed: null,
+      replayHash: null,
       arenaPositions: {
         agent1: [10, 11, 12],
         agent2: [20, 21, 22],
@@ -147,6 +152,32 @@ describe("streaming-betting-feed", () => {
 
     expect(payload.agent1?.id).toBe("agent-a");
     expect(payload.agent2?.hp).toBe(20);
+  });
+
+  it("builds a durable cancelled terminal payload from the captured cycle", () => {
+    const payload = buildBettingFeedPayload({
+      sourceEpoch: 42,
+      seq: 8,
+      emittedAt: 123_456,
+      cycle: createCycle({ phase: "FIGHTING" }),
+      terminal: {
+        outcome: "cancelled",
+        cancellationReason: "combat_engagement_failed",
+        duelEndTime: 123_456,
+      },
+    });
+
+    expect(payload).toMatchObject({
+      schemaVersion: 2,
+      duelId: "duel-1",
+      duelKey: "0xabcdef",
+      phase: "FIGHTING",
+      duelEndTime: 123_456,
+      winnerId: null,
+      winnerName: null,
+      outcome: "cancelled",
+      cancellationReason: "combat_engagement_failed",
+    });
   });
 
   it("selects replay, bootstrap, and reset delivery modes deterministically", () => {

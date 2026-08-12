@@ -98,6 +98,7 @@ function createMockWorld(options?: {
   }>;
   terrainHeight?: number;
   damageByAttacker?: Record<string, number>;
+  combatStarts?: boolean;
 }): MockWorldContext {
   const listeners = new Map<string, Set<(payload: unknown) => void>>();
   const entities = new Map<string, MockEntity>();
@@ -106,6 +107,7 @@ function createMockWorld(options?: {
     { items: InventoryItem[]; coins: number }
   >();
   const combatCalls: Array<{ attackerId: string; targetId: string }> = [];
+  const combatState = new Set<string>();
   const equipCalls: Array<{ playerId: string; itemId: string }> = [];
   const equipment = new Map<
     string,
@@ -328,6 +330,20 @@ function createMockWorld(options?: {
               return false;
             }
 
+            const attackerPosition = attacker.data.position;
+            const targetPosition = target.data.position;
+            const dx = Math.abs(
+              Math.floor(attackerPosition[0]) - Math.floor(targetPosition[0]),
+            );
+            const dz = Math.abs(
+              Math.floor(attackerPosition[2]) - Math.floor(targetPosition[2]),
+            );
+            if (options?.combatStarts === false || dx + dz !== 1) {
+              return false;
+            }
+
+            combatState.add(attackerId);
+
             const damage = damageByAttacker[attackerId] ?? 1;
             const nextHealth = Math.max(0, (target.data.health ?? 0) - damage);
             target.data.health = nextHealth;
@@ -348,6 +364,10 @@ function createMockWorld(options?: {
             }
 
             return true;
+          },
+          isInCombat: (entityId: string) => combatState.has(entityId),
+          forceEndCombat: (entityId: string) => {
+            combatState.delete(entityId);
           },
         };
       }
@@ -379,9 +399,7 @@ function createMockWorld(options?: {
   };
 }
 
-// TODO: These tests need refactoring - they call internal methods via `(scheduler as any)`
-// that have been moved to the orchestrator pattern. Many pass but 23 fail.
-describe.skip("StreamingDuelScheduler", () => {
+describe("StreamingDuelScheduler", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
@@ -414,6 +432,13 @@ describe.skip("StreamingDuelScheduler", () => {
     expect(ctx.combatCalls.length).toBeGreaterThanOrEqual(2);
     expect(alpha!.data.health).toBeLessThan(alpha!.data.maxHealth);
     expect(beta!.data.health).toBeLessThan(beta!.data.maxHealth);
+    const dx = Math.abs(
+      Math.floor(alpha!.data.position[0]) - Math.floor(beta!.data.position[0]),
+    );
+    const dz = Math.abs(
+      Math.floor(alpha!.data.position[2]) - Math.floor(beta!.data.position[2]),
+    );
+    expect(dx + dz).toBe(1);
 
     scheduler.destroy();
   });
@@ -451,6 +476,98 @@ describe.skip("StreamingDuelScheduler", () => {
 
     await vi.advanceTimersByTimeAsync(3500);
     expect(ctx.combatCalls.length).toBeGreaterThan(baselineCalls);
+
+    scheduler.destroy();
+  });
+
+  it("cancels a fight with no combat activity instead of fabricating a result", async () => {
+    const ctx = createMockWorld({
+      damageByAttacker: {
+        "agent-alpha": 0,
+        "agent-beta": 0,
+      },
+    });
+    const scheduler = new StreamingDuelScheduler(ctx.world as never);
+
+    scheduler.init();
+    await (scheduler as any).startCountdown();
+    await vi.advanceTimersByTimeAsync(4000);
+    expect(scheduler.getCurrentCycle()?.phase).toBe("FIGHTING");
+
+    (scheduler as any).orchestrator.endFightByTimeout();
+
+    expect(scheduler.getCurrentCycle()).toBeNull();
+    expect(scheduler.getRecentDuels()).toHaveLength(0);
+    expect(
+      scheduler
+        .getLeaderboard()
+        .every((entry) => entry.wins === 0 && entry.losses === 0),
+    ).toBe(true);
+
+    scheduler.destroy();
+  });
+
+  it("records a true draw with no winner and emits market cancellation", async () => {
+    const ctx = createMockWorld();
+    const scheduler = new StreamingDuelScheduler(ctx.world as never);
+    const aborted = vi.fn();
+    const completed = vi.fn();
+    const cancelled = vi.fn();
+    ctx.world.on("streaming:cycle:aborted", aborted);
+    ctx.world.on(EventType.DUEL_COMPLETED, completed);
+    ctx.world.on(EventType.DUEL_CANCELLED, cancelled);
+
+    scheduler.init();
+    await (scheduler as any).startCountdown();
+    await vi.advanceTimersByTimeAsync(4000);
+
+    const cycle = scheduler.getCurrentCycle()!;
+    cycle.agent1!.currentHp = 15;
+    cycle.agent2!.currentHp = 15;
+    cycle.agent1!.damageDealtThisFight = 5;
+    cycle.agent2!.damageDealtThisFight = 5;
+
+    (scheduler as any).orchestrator.endFightByTimeout();
+
+    expect(cycle.phase).toBe("RESOLUTION");
+    expect(cycle.outcome).toBe("draw");
+    expect(cycle.winnerId).toBeNull();
+    expect(cycle.loserId).toBeNull();
+    expect(aborted).toHaveBeenCalledWith(
+      expect.objectContaining({ duelId: cycle.duelId, reason: "draw" }),
+    );
+    expect(cancelled).toHaveBeenCalledWith(
+      expect.objectContaining({ duelId: cycle.duelId, reason: "draw" }),
+    );
+    expect(completed).not.toHaveBeenCalled();
+    expect(scheduler.getRecentDuels()[0]).toEqual(
+      expect.objectContaining({
+        outcome: "draw",
+        winnerId: null,
+        loserId: null,
+        damageAgent1: 5,
+        damageAgent2: 5,
+      }),
+    );
+
+    scheduler.destroy();
+  });
+
+  it("cancels after repeated engagement failures without synthetic damage", async () => {
+    const ctx = createMockWorld({ combatStarts: false });
+    const scheduler = new StreamingDuelScheduler(ctx.world as never);
+
+    scheduler.init();
+    await (scheduler as any).startCountdown();
+    await vi.advanceTimersByTimeAsync(4000);
+    expect(scheduler.getCurrentCycle()?.phase).toBe("FIGHTING");
+
+    await vi.advanceTimersByTimeAsync(18_500);
+
+    expect(scheduler.getCurrentCycle()).toBeNull();
+    expect(ctx.entities.get("agent-alpha")?.data.health).toBe(20);
+    expect(ctx.entities.get("agent-beta")?.data.health).toBe(20);
+    expect(scheduler.getRecentDuels()).toHaveLength(0);
 
     scheduler.destroy();
   });
@@ -497,7 +614,7 @@ describe.skip("StreamingDuelScheduler", () => {
     scheduler.destroy();
   });
 
-  it("resolves duel, restores HP, removes only duel-provisioned food, and returns agents", async () => {
+  it("resolves duel, restores HP, preserves agent food, and returns agents", async () => {
     const ctx = createMockWorld({
       alphaInventory: [
         { slot: 0, itemId: DUEL_FOOD_ITEM, quantity: 1 },
@@ -517,11 +634,15 @@ describe.skip("StreamingDuelScheduler", () => {
     scheduler.init();
     await (scheduler as any).startCountdown();
 
-    expect(ctx.countFood("agent-alpha")).toBeGreaterThan(1);
-    expect(ctx.countFood("agent-beta")).toBeGreaterThan(2);
+    expect(ctx.countFood("agent-alpha")).toBe(1);
+    expect(ctx.countFood("agent-beta")).toBe(1);
 
     await vi.advanceTimersByTimeAsync(4000);
-    (scheduler as any).startResolution("agent-alpha", "agent-beta", "kill");
+    (scheduler as any).orchestrator.startResolution(
+      "agent-alpha",
+      "agent-beta",
+      "kill",
+    );
     expect(scheduler.getCurrentCycle()?.phase).toBe("RESOLUTION");
 
     // Prevent immediate next-cycle start so cleanup side effects can be asserted
@@ -572,7 +693,11 @@ describe.skip("StreamingDuelScheduler", () => {
     await (scheduler as any).startCountdown();
 
     await vi.advanceTimersByTimeAsync(4000);
-    (scheduler as any).startResolution("agent-alpha", "agent-beta", "kill");
+    (scheduler as any).orchestrator.startResolution(
+      "agent-alpha",
+      "agent-beta",
+      "kill",
+    );
 
     // Keep cleanup assertions scoped to the finished duel agents.
     scheduler.unregisterAgent("agent-beta");
@@ -600,7 +725,11 @@ describe.skip("StreamingDuelScheduler", () => {
     await (scheduler as any).startCountdown();
 
     await vi.advanceTimersByTimeAsync(4000);
-    (scheduler as any).startResolution("agent-alpha", "agent-beta", "kill");
+    (scheduler as any).orchestrator.startResolution(
+      "agent-alpha",
+      "agent-beta",
+      "kill",
+    );
 
     // Keep cleanup assertions scoped to the finished duel agents.
     scheduler.unregisterAgent("agent-beta");
@@ -656,12 +785,16 @@ describe.skip("StreamingDuelScheduler", () => {
     const cycle = scheduler.getCurrentCycle()!;
     cycle.phase = "FIGHTING";
     cycle.phaseStartTime = now - 5_000;
-    cycle.agent1 = (scheduler as any).createContestant("agent-alpha");
-    cycle.agent2 = (scheduler as any).createContestant("agent-beta");
+    cycle.agent1 = (scheduler as any).orchestrator.createContestant(
+      "agent-alpha",
+    );
+    cycle.agent2 = (scheduler as any).orchestrator.createContestant(
+      "agent-beta",
+    );
     cycle.winnerId = null;
 
-    (scheduler as any).cameraTarget = "agent-alpha";
-    (scheduler as any).lastCameraSwitchTime = now - 60_000;
+    (scheduler as any).camera._cameraTarget = "agent-alpha";
+    (scheduler as any).camera.lastCameraSwitchTime = now - 60_000;
 
     const alpha = ctx.entities.get("agent-alpha")!;
     const beta = ctx.entities.get("agent-beta")!;
@@ -670,11 +803,11 @@ describe.skip("StreamingDuelScheduler", () => {
     beta.data.inCombat = true;
     beta.data.combatTarget = "agent-alpha";
 
-    (scheduler as any).markAgentInteresting("agent-gamma", 6, now);
-    (scheduler as any).markAgentInteresting("agent-delta", 6, now);
+    (scheduler as any).camera.markAgentInteresting("agent-gamma", 6, now);
+    (scheduler as any).camera.markAgentInteresting("agent-delta", 6, now);
 
     const chooseSpy = vi
-      .spyOn(scheduler as any, "chooseWeightedCameraCandidate")
+      .spyOn((scheduler as any).camera, "chooseWeightedCameraCandidate")
       .mockImplementation((...args: unknown[]) => {
         const candidates = (args[0] ?? []) as Array<{ agentId: string }>;
         return (
@@ -683,10 +816,10 @@ describe.skip("StreamingDuelScheduler", () => {
         );
       });
 
-    (scheduler as any).updateCameraTarget(now);
+    (scheduler as any).camera.updateCameraTarget(now);
 
     expect(["agent-alpha", "agent-beta"]).toContain(
-      (scheduler as any).cameraTarget,
+      (scheduler as any).camera.cameraTarget,
     );
 
     chooseSpy.mockRestore();
@@ -707,20 +840,24 @@ describe.skip("StreamingDuelScheduler", () => {
     const cycle = scheduler.getCurrentCycle()!;
     cycle.phase = "FIGHTING";
     cycle.phaseStartTime = now - 180_000;
-    cycle.agent1 = (scheduler as any).createContestant("agent-alpha");
-    cycle.agent2 = (scheduler as any).createContestant("agent-beta");
+    cycle.agent1 = (scheduler as any).orchestrator.createContestant(
+      "agent-alpha",
+    );
+    cycle.agent2 = (scheduler as any).orchestrator.createContestant(
+      "agent-beta",
+    );
     cycle.winnerId = null;
-    (scheduler as any).nextDuelPair = {
+    (scheduler as any).matchmaking.nextDuelPair = {
       agent1Id: "agent-gamma",
       agent2Id: "agent-delta",
       selectedAt: now - 10_000,
     };
 
-    (scheduler as any).cameraTarget = "agent-alpha";
-    (scheduler as any).lastCameraSwitchTime = now - 90_000;
-    (scheduler as any).fightCutawayStartedAt = null;
-    (scheduler as any).fightCutawayTotalMs = 0;
-    (scheduler as any).fightLastCutawayEndedAt = 0;
+    (scheduler as any).camera._cameraTarget = "agent-alpha";
+    (scheduler as any).camera.lastCameraSwitchTime = now - 90_000;
+    (scheduler as any).camera.fightCutawayStartedAt = null;
+    (scheduler as any).camera.fightCutawayTotalMs = 0;
+    (scheduler as any).camera.fightLastCutawayEndedAt = 0;
 
     const alpha = ctx.entities.get("agent-alpha")!;
     const beta = ctx.entities.get("agent-beta")!;
@@ -729,24 +866,24 @@ describe.skip("StreamingDuelScheduler", () => {
     beta.data.inCombat = false;
     beta.data.combatTarget = null;
 
-    const alphaSample = (scheduler as any).ensureAgentActivity(
+    const alphaSample = (scheduler as any).camera.ensureAgentActivity(
       "agent-alpha",
       now,
     );
     alphaSample.lastInterestingTime = now - 45_000;
     alphaSample.combatScore = 0;
-    const betaSample = (scheduler as any).ensureAgentActivity(
+    const betaSample = (scheduler as any).camera.ensureAgentActivity(
       "agent-beta",
       now,
     );
     betaSample.lastInterestingTime = now - 45_000;
     betaSample.combatScore = 0;
 
-    (scheduler as any).markAgentInteresting("agent-gamma", 6, now);
-    (scheduler as any).markAgentInteresting("agent-delta", 4, now);
+    (scheduler as any).camera.markAgentInteresting("agent-gamma", 6, now);
+    (scheduler as any).camera.markAgentInteresting("agent-delta", 4, now);
 
     const chooseSpy = vi
-      .spyOn(scheduler as any, "chooseWeightedCameraCandidate")
+      .spyOn((scheduler as any).camera, "chooseWeightedCameraCandidate")
       .mockImplementation((...args: unknown[]) => {
         const candidates = (args[0] ?? []) as Array<{ agentId: string }>;
         return (
@@ -755,8 +892,8 @@ describe.skip("StreamingDuelScheduler", () => {
         );
       });
 
-    (scheduler as any).updateCameraTarget(now);
-    expect((scheduler as any).cameraTarget).toBe("agent-gamma");
+    (scheduler as any).camera.updateCameraTarget(now);
+    expect((scheduler as any).camera.cameraTarget).toBe("agent-gamma");
 
     chooseSpy.mockRestore();
     scheduler.destroy();
@@ -777,11 +914,15 @@ describe.skip("StreamingDuelScheduler", () => {
     const cycle = scheduler.getCurrentCycle()!;
     cycle.phase = "ANNOUNCEMENT";
     cycle.phaseStartTime = now - 15_000;
-    cycle.agent1 = (scheduler as any).createContestant("agent-alpha");
-    cycle.agent2 = (scheduler as any).createContestant("agent-beta");
+    cycle.agent1 = (scheduler as any).orchestrator.createContestant(
+      "agent-alpha",
+    );
+    cycle.agent2 = (scheduler as any).orchestrator.createContestant(
+      "agent-beta",
+    );
     cycle.winnerId = null;
 
-    const candidates = (scheduler as any).buildCameraCandidates(
+    const candidates = (scheduler as any).camera.buildCameraCandidates(
       now,
       "agent-alpha",
       true,
@@ -813,10 +954,14 @@ describe.skip("StreamingDuelScheduler", () => {
     const cycle = scheduler.getCurrentCycle()!;
     cycle.phase = "FIGHTING";
     cycle.phaseStartTime = now - 180_000;
-    cycle.agent1 = (scheduler as any).createContestant("agent-alpha");
-    cycle.agent2 = (scheduler as any).createContestant("agent-beta");
+    cycle.agent1 = (scheduler as any).orchestrator.createContestant(
+      "agent-alpha",
+    );
+    cycle.agent2 = (scheduler as any).orchestrator.createContestant(
+      "agent-beta",
+    );
     cycle.winnerId = null;
-    (scheduler as any).nextDuelPair = {
+    (scheduler as any).matchmaking.nextDuelPair = {
       agent1Id: "agent-gamma",
       agent2Id: "agent-delta",
       selectedAt: now - 15_000,
@@ -829,18 +974,18 @@ describe.skip("StreamingDuelScheduler", () => {
     beta.data.inCombat = false;
     beta.data.combatTarget = null;
 
-    const alphaSample = (scheduler as any).ensureAgentActivity(
+    const alphaSample = (scheduler as any).camera.ensureAgentActivity(
       "agent-alpha",
       now,
     );
     alphaSample.lastInterestingTime = now - 45_000;
-    const betaSample = (scheduler as any).ensureAgentActivity(
+    const betaSample = (scheduler as any).camera.ensureAgentActivity(
       "agent-beta",
       now,
     );
     betaSample.lastInterestingTime = now - 45_000;
 
-    const candidates = (scheduler as any).buildCameraCandidates(
+    const candidates = (scheduler as any).camera.buildCameraCandidates(
       now,
       "agent-alpha",
       true,
@@ -872,21 +1017,25 @@ describe.skip("StreamingDuelScheduler", () => {
     const cycle = scheduler.getCurrentCycle()!;
     cycle.phase = "FIGHTING";
     cycle.phaseStartTime = now - 180_000;
-    cycle.agent1 = (scheduler as any).createContestant("agent-alpha");
-    cycle.agent2 = (scheduler as any).createContestant("agent-beta");
+    cycle.agent1 = (scheduler as any).orchestrator.createContestant(
+      "agent-alpha",
+    );
+    cycle.agent2 = (scheduler as any).orchestrator.createContestant(
+      "agent-beta",
+    );
     cycle.winnerId = null;
-    (scheduler as any).nextDuelPair = {
+    (scheduler as any).matchmaking.nextDuelPair = {
       agent1Id: "agent-gamma",
       agent2Id: "agent-missing",
       selectedAt: now - 8_000,
     };
 
-    const nextIds = (scheduler as any).getNextDuelAgentIds(
+    const nextIds = (scheduler as any).camera.getNextDuelAgentIds(
       new Set(["agent-alpha", "agent-beta"]),
     ) as Set<string>;
     expect(nextIds).toEqual(new Set(["agent-gamma", "agent-delta"]));
 
-    const nextPair = (scheduler as any).nextDuelPair as {
+    const nextPair = (scheduler as any).matchmaking.nextDuelPair as {
       agent1Id: string;
       agent2Id: string;
     } | null;
@@ -933,7 +1082,7 @@ describe.skip("StreamingDuelScheduler", () => {
     scheduler.init();
 
     const teleportSpy = vi
-      .spyOn(scheduler as any, "teleportToArena")
+      .spyOn((scheduler as any).orchestrator, "teleportToArena")
       .mockRejectedValue(new Error("teleport failure"));
 
     await (scheduler as any).startCountdown();
@@ -956,7 +1105,7 @@ describe.skip("StreamingDuelScheduler", () => {
     cycle.phase = "ANNOUNCEMENT";
 
     // Calling startFight should be a no-op.
-    (scheduler as any).startFight();
+    (scheduler as any).orchestrator.startFight();
     expect(scheduler.getCurrentCycle()?.phase).toBe("ANNOUNCEMENT");
 
     scheduler.destroy();
@@ -975,7 +1124,7 @@ describe.skip("StreamingDuelScheduler", () => {
     beta.data.health = 0;
 
     // Fire startFight (simulating the countdown timeout).
-    (scheduler as any).startFight();
+    (scheduler as any).orchestrator.startFight();
 
     // Should go to RESOLUTION with alpha as winner.
     expect(scheduler.getCurrentCycle()?.phase).toBe("RESOLUTION");
@@ -997,7 +1146,7 @@ describe.skip("StreamingDuelScheduler", () => {
     ctx.entities.delete("agent-alpha");
     ctx.entities.delete("agent-beta");
 
-    (scheduler as any).startFight();
+    (scheduler as any).doStartFight(Date.now());
 
     // Should have aborted — no current cycle.
     expect(scheduler.getCurrentCycle()).toBeNull();
@@ -1015,12 +1164,20 @@ describe.skip("StreamingDuelScheduler", () => {
     expect(scheduler.getCurrentCycle()?.phase).toBe("FIGHTING");
 
     // First call should transition to RESOLUTION.
-    (scheduler as any).startResolution("agent-alpha", "agent-beta", "kill");
+    (scheduler as any).orchestrator.startResolution(
+      "agent-alpha",
+      "agent-beta",
+      "kill",
+    );
     expect(scheduler.getCurrentCycle()?.phase).toBe("RESOLUTION");
     expect(scheduler.getCurrentCycle()?.winnerId).toBe("agent-alpha");
 
     // Second call should be a no-op (phase is now RESOLUTION, not FIGHTING).
-    (scheduler as any).startResolution("agent-beta", "agent-alpha", "kill");
+    (scheduler as any).orchestrator.startResolution(
+      "agent-beta",
+      "agent-alpha",
+      "kill",
+    );
     // Winner should still be agent-alpha from first call.
     expect(scheduler.getCurrentCycle()?.winnerId).toBe("agent-alpha");
 
@@ -1066,7 +1223,7 @@ describe.skip("StreamingDuelScheduler", () => {
     };
 
     // Trigger resolution (cleanup is now deferred to endCycle).
-    (scheduler as any).startResolution(id1, id2, "kill");
+    (scheduler as any).orchestrator.startResolution(id1, id2, "kill");
 
     // Advance through the resolution phase so endCycle + cleanup fires.
     await vi.advanceTimersByTimeAsync(15_000);
@@ -1096,14 +1253,22 @@ describe.skip("StreamingDuelScheduler", () => {
 
     expect(scheduler.getCurrentCycle()?.phase).toBe("FIGHTING");
 
-    (scheduler as any).startResolution("agent-alpha", "agent-beta", "kill");
+    (scheduler as any).orchestrator.startResolution(
+      "agent-alpha",
+      "agent-beta",
+      "kill",
+    );
     expect(scheduler.getCurrentCycle()?.phase).toBe("RESOLUTION");
 
     const cleanupSpy = vi
-      .spyOn(scheduler as any, "cleanupAfterDuel")
+      .spyOn((scheduler as any).orchestrator, "cleanupAfterDuel")
       .mockRejectedValue(new Error("cleanup failure"));
 
     (scheduler as any).endCycle();
+
+    await Promise.resolve();
+    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(2000);
 
     const newCycle = scheduler.getCurrentCycle();
     expect(newCycle?.phase).toBe("ANNOUNCEMENT");
@@ -1125,7 +1290,7 @@ describe.skip("StreamingDuelScheduler", () => {
     scheduler.destroy();
   });
 
-  it("skips old-cycle teleports when the same duelers are immediately reselected", async () => {
+  it("completes cleanup teleports before reselecting the same duelers", async () => {
     const ctx = createMockWorld();
     const scheduler = new StreamingDuelScheduler(ctx.world as never);
     scheduler.init();
@@ -1134,14 +1299,24 @@ describe.skip("StreamingDuelScheduler", () => {
 
     expect(scheduler.getCurrentCycle()?.phase).toBe("FIGHTING");
 
-    (scheduler as any).startResolution("agent-alpha", "agent-beta", "kill");
+    (scheduler as any).orchestrator.startResolution(
+      "agent-alpha",
+      "agent-beta",
+      "kill",
+    );
     expect(scheduler.getCurrentCycle()?.phase).toBe("RESOLUTION");
 
-    const teleportSpy = vi.spyOn(scheduler as any, "teleportPlayer");
+    const teleportSpy = vi.spyOn(
+      (scheduler as any).orchestrator,
+      "teleportPlayer",
+    );
     teleportSpy.mockClear();
 
     // With only two agents in the pool, the next cycle is the same pair.
     (scheduler as any).endCycle();
+    await Promise.resolve();
+    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(2000);
     const nextCycle = scheduler.getCurrentCycle();
     expect(nextCycle?.phase).toBe("ANNOUNCEMENT");
     expect(
@@ -1155,8 +1330,13 @@ describe.skip("StreamingDuelScheduler", () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    // Old-cycle cleanup must not teleport active contestants in the new cycle.
-    expect(teleportSpy).not.toHaveBeenCalled();
+    // Cleanup is serialized before the next cycle, so both agents return to
+    // their original positions before they can be selected again.
+    expect(teleportSpy).toHaveBeenCalledTimes(2);
+    expect(teleportSpy.mock.calls.map((call) => call[0]).sort()).toEqual([
+      "agent-alpha",
+      "agent-beta",
+    ]);
 
     teleportSpy.mockRestore();
     scheduler.destroy();
@@ -1169,7 +1349,11 @@ describe.skip("StreamingDuelScheduler", () => {
     await (scheduler as any).startCountdown();
     await vi.advanceTimersByTimeAsync(4000);
 
-    (scheduler as any).startResolution("agent-alpha", "agent-beta", "kill");
+    (scheduler as any).orchestrator.startResolution(
+      "agent-alpha",
+      "agent-beta",
+      "kill",
+    );
     expect(scheduler.getCurrentCycle()?.phase).toBe("RESOLUTION");
 
     let releaseRemovals: (() => void) | undefined;
@@ -1177,20 +1361,22 @@ describe.skip("StreamingDuelScheduler", () => {
       releaseRemovals = () => resolve();
     });
     const removeSpy = vi
-      .spyOn(scheduler as any, "removeDuelFood")
+      .spyOn((scheduler as any).orchestrator, "removeDuelFood")
       .mockImplementation(async () => {
         await removalGate;
       });
 
     (scheduler as any).endCycle();
-    expect(scheduler.getCurrentCycle()?.phase).toBe("ANNOUNCEMENT");
+    expect(scheduler.getCurrentCycle()).toBeNull();
 
-    const duelFoodSlotsByAgent = (scheduler as any).duelFoodSlotsByAgent as Map<
+    const duelFoodSlotsByAgent = (
+      scheduler as any
+    ).orchestrator.getDuelFoodSlotsByAgent() as Map<
       string,
-      number[]
+      Array<{ slot: number; itemId: string }>
     >;
-    const nextAlphaSlots = [101, 102];
-    const nextBetaSlots = [103, 104];
+    const nextAlphaSlots = [{ slot: 101, itemId: "shark" }];
+    const nextBetaSlots = [{ slot: 103, itemId: "shark" }];
     duelFoodSlotsByAgent.set("agent-alpha", nextAlphaSlots);
     duelFoodSlotsByAgent.set("agent-beta", nextBetaSlots);
 
@@ -1201,6 +1387,9 @@ describe.skip("StreamingDuelScheduler", () => {
     await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(2000);
+
+    expect(scheduler.getCurrentCycle()?.phase).toBe("ANNOUNCEMENT");
 
     expect(duelFoodSlotsByAgent.get("agent-alpha")).toBe(nextAlphaSlots);
     expect(duelFoodSlotsByAgent.get("agent-beta")).toBe(nextBetaSlots);
@@ -1241,7 +1430,7 @@ describe.skip("StreamingDuelScheduler", () => {
     expect(scheduler.getCurrentCycle()?.phase).toBe("COUNTDOWN");
 
     // Should be a no-op.
-    (scheduler as any).endFightByTimeout();
+    (scheduler as any).orchestrator.endFightByTimeout();
     expect(scheduler.getCurrentCycle()?.phase).toBe("COUNTDOWN");
 
     scheduler.destroy();
@@ -1257,7 +1446,11 @@ describe.skip("StreamingDuelScheduler", () => {
     expect((scheduler as any).countdownTimeout).not.toBeNull();
 
     // Forfeit during countdown.
-    (scheduler as any).startResolution("agent-alpha", "agent-beta", "kill");
+    (scheduler as any).orchestrator.startResolution(
+      "agent-alpha",
+      "agent-beta",
+      "kill",
+    );
 
     // Countdown timeout should be cleared.
     expect((scheduler as any).countdownTimeout).toBeNull();
@@ -1278,15 +1471,19 @@ describe.skip("StreamingDuelScheduler", () => {
     const now = Date.now();
     const cycle = scheduler.getCurrentCycle()!;
     cycle.phase = "RESOLUTION";
-    cycle.agent1 = (scheduler as any).createContestant("agent-alpha");
-    cycle.agent2 = (scheduler as any).createContestant("agent-beta");
+    cycle.agent1 = (scheduler as any).orchestrator.createContestant(
+      "agent-alpha",
+    );
+    cycle.agent2 = (scheduler as any).orchestrator.createContestant(
+      "agent-beta",
+    );
     cycle.winnerId = "agent-beta";
 
-    (scheduler as any).cameraTarget = "agent-gamma";
-    (scheduler as any).lastCameraSwitchTime = now - 60_000;
+    (scheduler as any).camera._cameraTarget = "agent-gamma";
+    (scheduler as any).camera.lastCameraSwitchTime = now - 60_000;
 
-    (scheduler as any).updateCameraTarget(now);
-    expect((scheduler as any).cameraTarget).toBe("agent-beta");
+    (scheduler as any).camera.updateCameraTarget(now);
+    expect((scheduler as any).camera.cameraTarget).toBe("agent-beta");
 
     scheduler.destroy();
   });
@@ -1314,7 +1511,7 @@ describe.skip("StreamingDuelScheduler", () => {
     const lb1 = scheduler.getLeaderboard();
 
     // Simulate a duel result
-    (scheduler as any).updateStats("agent-alpha", "agent-beta");
+    (scheduler as any).matchmaking.updateStats("agent-alpha", "agent-beta");
 
     const lb2 = scheduler.getLeaderboard();
 
@@ -1369,15 +1566,22 @@ describe.skip("StreamingDuelScheduler", () => {
     scheduler.init();
 
     // Insert a duel record
-    (scheduler as any).recordRecentDuel({
+    (scheduler as any).matchmaking.recordRecentDuel({
       cycleId: "test-1",
       duelId: "d1",
       finishedAt: Date.now(),
+      outcome: "win",
+      agent1Id: "agent-alpha",
+      agent1Name: "Alpha",
+      agent2Id: "agent-beta",
+      agent2Name: "Beta",
       winnerId: "agent-alpha",
       winnerName: "Alpha",
       loserId: "agent-beta",
       loserName: "Beta",
       winReason: "kill",
+      damageAgent1: 50,
+      damageAgent2: 30,
       damageWinner: 50,
       damageLoser: 30,
     });

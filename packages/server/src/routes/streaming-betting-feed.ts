@@ -3,7 +3,7 @@ import type {
   StreamingPhase,
 } from "../systems/StreamingDuelScheduler/types.js";
 
-export const BETTING_FEED_SCHEMA_VERSION = 1;
+export const BETTING_FEED_SCHEMA_VERSION = 2;
 export const BETTING_SOURCE_EPOCH_STORAGE_KEY =
   "streaming:betting-source-epoch";
 
@@ -29,6 +29,15 @@ export type BettingFeedRendererHealth = {
   updatedAt: number | null;
 };
 
+export type BettingFeedOutcome =
+  Exclude<StreamingDuelCycle["outcome"], null> | "cancelled" | null;
+
+export type BettingFeedTerminalOverride = {
+  outcome: Exclude<BettingFeedOutcome, "win" | null>;
+  cancellationReason: string;
+  duelEndTime: number;
+};
+
 export type BettingFeedPayload = {
   schemaVersion: number;
   sourceEpoch: number;
@@ -44,7 +53,11 @@ export type BettingFeedPayload = {
   duelEndTime: number | null;
   winnerId: string | null;
   winnerName: string | null;
+  outcome: BettingFeedOutcome;
+  cancellationReason: string | null;
   winReason: StreamingDuelCycle["winReason"];
+  seed: string | null;
+  replayHash: string | null;
   agent1: BettingFeedAgent | null;
   agent2: BettingFeedAgent | null;
   arenaPositions: StreamingDuelCycle["arenaPositions"];
@@ -122,8 +135,10 @@ export function buildBettingFeedPayload(params: {
   emittedAt: number;
   cycle: StreamingDuelCycle | null;
   rendererHealth?: BettingFeedRendererHealth | null;
+  terminal?: BettingFeedTerminalOverride | null;
 }): BettingFeedPayload {
   const cycle = params.cycle;
+  const terminal = params.terminal ?? null;
   return {
     schemaVersion: BETTING_FEED_SCHEMA_VERSION,
     sourceEpoch: params.sourceEpoch,
@@ -136,10 +151,14 @@ export function buildBettingFeedPayload(params: {
     betOpenTime: cycle?.betOpenTime ?? null,
     betCloseTime: cycle?.betCloseTime ?? null,
     fightStartTime: cycle?.fightStartTime ?? null,
-    duelEndTime: cycle?.duelEndTime ?? null,
+    duelEndTime: terminal?.duelEndTime ?? cycle?.duelEndTime ?? null,
     winnerId: cycle?.winnerId ?? null,
     winnerName: cycle ? resolveWinnerName(cycle) : null,
+    outcome: terminal?.outcome ?? cycle?.outcome ?? null,
+    cancellationReason: terminal?.cancellationReason ?? null,
     winReason: cycle?.winReason ?? null,
+    seed: cycle?.seed ?? null,
+    replayHash: cycle?.replayHash ?? null,
     agent1: toAgentSnapshot(cycle?.agent1 ?? null),
     agent2: toAgentSnapshot(cycle?.agent2 ?? null),
     arenaPositions: cycle?.arenaPositions ?? null,

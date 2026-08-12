@@ -212,8 +212,9 @@ function parseStreamingFightStartPayload(payload: unknown): {
 
 function parseStreamingResolutionPayload(payload: unknown): {
   duelId: string;
-  winnerId: string;
-  loserId: string;
+  outcome: "win" | "draw";
+  winnerId: string | null;
+  loserId: string | null;
   winnerName: string | null;
   loserName: string | null;
   duration: number | undefined;
@@ -222,13 +223,15 @@ function parseStreamingResolutionPayload(payload: unknown): {
 } | null {
   const record = asRecord(payload);
   const duelId = asNonEmptyString(record?.duelId);
+  const outcome = record?.outcome === "draw" ? "draw" : "win";
   const winnerId = asNonEmptyString(record?.winnerId);
   const loserId = asNonEmptyString(record?.loserId);
-  if (!duelId || !winnerId || !loserId) {
+  if (!duelId || (outcome === "win" && (!winnerId || !loserId))) {
     return null;
   }
   return {
     duelId,
+    outcome,
     winnerId,
     loserId,
     winnerName: asNonEmptyString(record?.winnerName),
@@ -595,14 +598,19 @@ export class DuelBettingBridge {
 
     this.ensureReconciliationLoop();
 
+    if (data.outcome === "draw") {
+      await this.handleStreamingAbort({ duelId: data.duelId, reason: "draw" });
+      return;
+    }
+
     const resolvedMarket = await this.getResolvableStreamingMarket(data.duelId);
     if (!resolvedMarket) {
       return;
     }
 
     await this.resolveMarket(resolvedMarket, {
-      winnerId: data.winnerId,
-      loserId: data.loserId,
+      winnerId: data.winnerId!,
+      loserId: data.loserId!,
       winnerName: data.winnerName || "Unknown",
       loserName: data.loserName || "Unknown",
       duration: data.duration,

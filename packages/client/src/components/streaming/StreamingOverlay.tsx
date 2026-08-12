@@ -114,6 +114,7 @@ export function StreamingOverlay({
     agent2,
     winnerId,
     winnerName,
+    outcome,
     winReason,
     timeRemaining,
     duelId,
@@ -122,6 +123,7 @@ export function StreamingOverlay({
   // Get winner agent info
   const winnerAgent =
     winnerId === agent1?.id ? agent1 : winnerId === agent2?.id ? agent2 : null;
+  const isDraw = outcome === "draw" || winReason === "draw";
 
   const hasMatchup = Boolean(agent1 && agent2);
   const showActiveFightHud =
@@ -149,7 +151,7 @@ export function StreamingOverlay({
       case "RESOLUTION":
         return {
           eyebrow: "Round complete",
-          title: winnerName ? `${winnerName}` : "Victory",
+          title: isDraw ? "Draw" : winnerName ? `${winnerName}` : "Result",
           sub: winReason
             ? formatWinReason(winReason)
             : "Winner decided — next bout lines up shortly.",
@@ -224,7 +226,9 @@ export function StreamingOverlay({
           <div className="streaming-between-center">
             <span className="streaming-between-eyebrow">
               {phase === "RESOLUTION"
-                ? "Winner"
+                ? isDraw
+                  ? "Result"
+                  : "Winner"
                 : phase === "ANNOUNCEMENT"
                   ? "Matchup set"
                   : "Up next"}
@@ -382,9 +386,9 @@ function publicStreamStatusLine(
       return "Live — round in progress";
     case "RESOLUTION":
       if (betting?.bettingBridgeEnabled && betting?.betUrl) {
-        return "Winner decided — on-chain payouts follow oracle settlement.";
+        return "Round complete — market settlement follows the official result.";
       }
-      return "Winner decided — next bout loading";
+      return "Round complete — next bout loading";
     default:
       return "Hyperia AI duels";
   }

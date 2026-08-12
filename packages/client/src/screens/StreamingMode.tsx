@@ -42,6 +42,7 @@ export interface StreamingState {
     timeRemaining: number;
     agent1: AgentInfo | null;
     agent2: AgentInfo | null;
+    duelId: string | null;
     countdown: number | null;
     fightStartTime: number | null;
     arenaPositions: {
@@ -50,6 +51,7 @@ export interface StreamingState {
     } | null;
     winnerId: string | null;
     winnerName: string | null;
+    outcome: "win" | "draw" | null;
     winReason: string | null;
   };
   leaderboard: LeaderboardEntry[];
@@ -795,8 +797,7 @@ export function StreamingMode() {
         }
       }, 2000);
       const videoTrack = stream?.getVideoTracks?.()[0] as  // eslint-disable-next-line no-undef
-        | (MediaStreamTrack & { requestFrame?: () => void })
-        | undefined;
+        (MediaStreamTrack & { requestFrame?: () => void }) | undefined;
       if (videoTrack?.requestFrame) {
         const frameIntervalMs = Math.max(15, Math.floor(1000 / TARGET_FPS));
         forceFrameTimer = setInterval(() => {

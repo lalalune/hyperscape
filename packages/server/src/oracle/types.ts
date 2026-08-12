@@ -13,10 +13,7 @@ export type DuelArenaOracleChainKey =
   | "solanaMainnet";
 
 export type DuelArenaOracleStatus =
-  | "BETTING_OPEN"
-  | "LOCKED"
-  | "RESOLVED"
-  | "CANCELLED";
+  "BETTING_OPEN" | "LOCKED" | "RESOLVED" | "CANCELLED";
 
 export type DuelArenaOracleWinnerSide = "A" | "B";
 
@@ -101,10 +98,11 @@ export interface DuelArenaOracleResolutionEvent {
   duelId: string;
   duelKeyHex: string;
   duelEndTime: number;
-  winnerId: string;
-  loserId: string;
-  winnerName: string;
-  loserName: string;
+  outcome: "win" | "draw";
+  winnerId: string | null;
+  loserId: string | null;
+  winnerName: string | null;
+  loserName: string | null;
   winReason: "kill" | "hp_advantage" | "damage_advantage" | "draw";
   seed: string | null;
   replayHash: string | null;

@@ -309,9 +309,7 @@ export class ClientNetwork extends SystemBase {
   private spectatorFollowEntity: string | undefined;
   private spectatorTargetPending = false;
   private spectatorRetryInterval:
-    | ReturnType<typeof setInterval>
-    | number
-    | null = null;
+    ReturnType<typeof setInterval> | number | null = null;
 
   // Entity interpolation for smooth remote entity movement
   private interpolationStates: Map<string, InterpolationState> = new Map();
@@ -1004,14 +1002,12 @@ export class ClientNetwork extends SystemBase {
       if (handler === undefined) {
         // First time seeing this method - look it up and cache
         handler = (this as Record<string, unknown>)[method] as
-          | Function
-          | undefined;
+          Function | undefined;
         if (!handler) {
           // Try onX format (e.g., onSnapshot)
           const onName = `on${method.charAt(0).toUpperCase()}${method.slice(1)}`;
           handler = (this as Record<string, unknown>)[onName] as
-            | Function
-            | undefined;
+            Function | undefined;
         }
         // Cache result (even if null, to avoid repeated lookups)
         this._handlerCache.set(method, handler ?? null);
@@ -1159,8 +1155,7 @@ export class ClientNetwork extends SystemBase {
     // Ensure Physics is fully initialized before processing entities
     // This is needed because PlayerLocal uses physics extensions during construction
     const physicsSystem = this.world.physics as
-      | { physics?: unknown }
-      | undefined;
+      { physics?: unknown } | undefined;
     const needsLocalPhysics = !isSpectatorMode;
     if (physicsSystem && !physicsSystem.physics && needsLocalPhysics) {
       // Wait a bit for Physics to initialize
@@ -1360,14 +1355,11 @@ export class ClientNetwork extends SystemBase {
       const setCameraTarget = (entity: unknown) => {
         const camera =
           (this.world.getSystem("client-camera-system") as
-            | { setTarget?: (target: unknown) => void }
-            | undefined) ??
+            { setTarget?: (target: unknown) => void } | undefined) ??
           (this.world.getSystem("client-camera") as
-            | { setTarget?: (target: unknown) => void }
-            | undefined) ??
+            { setTarget?: (target: unknown) => void } | undefined) ??
           (this.world.getSystem("camera") as
-            | { setTarget?: (target: unknown) => void }
-            | undefined);
+            { setTarget?: (target: unknown) => void } | undefined);
         if (camera?.setTarget) {
           this.logger.info(
             `👁️ Setting camera target to entity ${spectatorFollowId}`,
@@ -1562,14 +1554,11 @@ export class ClientNetwork extends SystemBase {
         // Set camera to follow this entity
         const camera =
           (this.world.getSystem("client-camera-system") as
-            | { setTarget?: (target: unknown) => void }
-            | undefined) ??
+            { setTarget?: (target: unknown) => void } | undefined) ??
           (this.world.getSystem("client-camera") as
-            | { setTarget?: (target: unknown) => void }
-            | undefined) ??
+            { setTarget?: (target: unknown) => void } | undefined) ??
           (this.world.getSystem("camera") as
-            | { setTarget?: (target: unknown) => void }
-            | undefined);
+            { setTarget?: (target: unknown) => void } | undefined);
         if (camera?.setTarget) {
           this.logger.info(
             `👁️ Setting camera target to newly spawned entity ${spectatorFollowId}`,
@@ -5437,6 +5426,7 @@ export class ClientNetwork extends SystemBase {
       } | null;
       winnerId: string | null;
       winnerName: string | null;
+      outcome: "win" | "draw" | null;
       winReason: string | null;
     };
     leaderboard: unknown[];
@@ -5503,14 +5493,11 @@ export class ClientNetwork extends SystemBase {
 
     const camera =
       (this.world.getSystem("client-camera-system") as
-        | { setTarget?: (target: unknown) => void }
-        | undefined) ??
+        { setTarget?: (target: unknown) => void } | undefined) ??
       (this.world.getSystem("client-camera") as
-        | { setTarget?: (target: unknown) => void }
-        | undefined) ??
+        { setTarget?: (target: unknown) => void } | undefined) ??
       (this.world.getSystem("camera") as
-        | { setTarget?: (target: unknown) => void }
-        | undefined);
+        { setTarget?: (target: unknown) => void } | undefined);
 
     const findTargetEntity = () =>
       this.resolveSpectatorTargetEntity(nextTargetId);

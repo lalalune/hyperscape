@@ -5,11 +5,11 @@
  */
 
 export type StreamingPhase =
-  | "IDLE"
-  | "ANNOUNCEMENT"
-  | "COUNTDOWN"
-  | "FIGHTING"
-  | "RESOLUTION";
+  "IDLE" | "ANNOUNCEMENT" | "COUNTDOWN" | "FIGHTING" | "RESOLUTION";
+
+export type StreamingDuelOutcome = "win" | "draw";
+export type StreamingDuelWinReason =
+  "kill" | "hp_advantage" | "damage_advantage" | "draw";
 
 export interface AgentContestant {
   characterId: string;
@@ -65,7 +65,8 @@ export interface StreamingDuelCycle {
   // Result (set during RESOLUTION)
   winnerId: string | null;
   loserId: string | null;
-  winReason: "kill" | "hp_advantage" | "damage_advantage" | "draw" | null;
+  outcome: StreamingDuelOutcome | null;
+  winReason: StreamingDuelWinReason | null;
   seed: string | null;
   replayHash: string | null;
 }
@@ -102,13 +103,20 @@ export interface RecentDuelEntry {
   cycleId: string;
   duelId: string | null;
   finishedAt: number;
-  winnerId: string;
-  winnerName: string;
-  loserId: string;
-  loserName: string;
-  winReason: "kill" | "hp_advantage" | "damage_advantage" | "draw";
-  damageWinner: number;
-  damageLoser: number;
+  outcome: StreamingDuelOutcome;
+  agent1Id: string;
+  agent1Name: string;
+  agent2Id: string;
+  agent2Name: string;
+  winnerId: string | null;
+  winnerName: string | null;
+  loserId: string | null;
+  loserName: string | null;
+  winReason: StreamingDuelWinReason;
+  damageAgent1: number;
+  damageAgent2: number;
+  damageWinner: number | null;
+  damageLoser: number | null;
 }
 
 export interface StreamingCycleAgent {
@@ -160,6 +168,7 @@ export interface StreamingStateUpdate {
     } | null;
     winnerId: string | null;
     winnerName: string | null;
+    outcome: StreamingDuelOutcome | null;
     winReason: string | null;
     seed: string | null;
     replayHash: string | null;

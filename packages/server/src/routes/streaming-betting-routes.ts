@@ -14,6 +14,7 @@ import {
   selectReplayDelivery,
   type BettingFeedFrame,
   type BettingFeedRendererHealth,
+  type BettingFeedTerminalOverride,
 } from "./streaming-betting-feed.js";
 import {
   extractBettingFeedToken,
@@ -76,6 +77,27 @@ type BettingClientIdAllocation = {
   clientId: number;
   nextCursor: number;
 };
+
+type StreamingCycleAbortedEvent = {
+  cycleId: string | null;
+  duelId: string | null;
+  reason: string;
+};
+
+function parseStreamingCycleAbortedEvent(
+  payload: unknown,
+): StreamingCycleAbortedEvent | null {
+  if (!payload || typeof payload !== "object") return null;
+  const record = payload as Record<string, unknown>;
+  const reason = typeof record.reason === "string" ? record.reason.trim() : "";
+  if (!reason) return null;
+
+  return {
+    cycleId: typeof record.cycleId === "string" ? record.cycleId : null,
+    duelId: typeof record.duelId === "string" ? record.duelId : null,
+    reason,
+  };
+}
 
 function formatSseEvent(event: string, data: string, id?: number): string {
   const normalizedData = data.replace(/\n/g, "\ndata: ");
@@ -234,6 +256,7 @@ export function registerStreamingBettingRoutes(
   let bettingSourceEpochReady = false;
   let nextBettingClientId = 1;
   let closed = false;
+  let onStreamingCycleAborted: ((payload: unknown) => void) | null = null;
 
   const writeSseMessage = (
     reply: FastifyReply,
@@ -278,6 +301,10 @@ export function registerStreamingBettingRoutes(
       return;
     }
     closed = true;
+    if (onStreamingCycleAborted) {
+      world.off("streaming:cycle:aborted", onStreamingCycleAborted);
+      onStreamingCycleAborted = null;
+    }
     clearBettingLoops();
     externalStatusPoller?.release();
     for (const clientId of [...bettingClients.keys()]) {
@@ -345,6 +372,7 @@ export function registerStreamingBettingRoutes(
     bettingSourceEpochInit = (async () => {
       const db = getDatabaseSystem()?.getDb?.();
       if (!db) {
+        bettingSourceEpochReady = true;
         return bettingSourceEpoch;
       }
 
@@ -393,9 +421,13 @@ export function registerStreamingBettingRoutes(
 
   const captureBettingFrame = (
     forceNewFrame = false,
+    snapshot?: {
+      cycle: StreamingDuelCycle;
+      terminal: BettingFeedTerminalOverride;
+    },
   ): BettingFeedFrame | null => {
     const scheduler = getScheduler();
-    const cycle = scheduler?.getCurrentCycle() ?? null;
+    const cycle = snapshot?.cycle ?? scheduler?.getCurrentCycle() ?? null;
     const nextSeq = bettingSequence + 1;
     const emittedAt = Date.now();
     const rendererHealth = currentRendererHealthSnapshot(cycle, emittedAt);
@@ -405,6 +437,7 @@ export function registerStreamingBettingRoutes(
       emittedAt,
       cycle,
       rendererHealth,
+      terminal: snapshot?.terminal ?? null,
     });
     const dedupKey = buildBettingFeedDedupKey(payload);
 
@@ -442,6 +475,77 @@ export function registerStreamingBettingRoutes(
     return frame;
   };
 
+  const broadcastBettingFrame = (frame: BettingFeedFrame): void => {
+    for (const [clientId, clientReply] of bettingClients.entries()) {
+      const status = writeSseEvent(
+        clientReply,
+        "betting",
+        frame.payloadJson,
+        frame.seq,
+      );
+      if (status !== "ok") {
+        removeBettingClient(clientId);
+      }
+    }
+    lastBettingBroadcastSeq = frame.seq;
+  };
+
+  onStreamingCycleAborted = (payload: unknown): void => {
+    const event = parseStreamingCycleAbortedEvent(payload);
+    const cycle = getScheduler()?.getCurrentCycle() ?? null;
+    if (!event || !cycle) {
+      fastify.log.warn(
+        { payload },
+        "Skipping terminal betting frame because the aborted cycle snapshot is unavailable",
+      );
+      return;
+    }
+    if (
+      (event.cycleId && event.cycleId !== cycle.cycleId) ||
+      (event.duelId && cycle.duelId && event.duelId !== cycle.duelId)
+    ) {
+      fastify.log.warn(
+        {
+          eventCycleId: event.cycleId,
+          eventDuelId: event.duelId,
+          activeCycleId: cycle.cycleId,
+          activeDuelId: cycle.duelId,
+        },
+        "Skipping terminal betting frame for a mismatched aborted cycle",
+      );
+      return;
+    }
+
+    const terminal: BettingFeedTerminalOverride = {
+      outcome:
+        cycle.outcome === "draw" || event.reason === "draw"
+          ? "draw"
+          : "cancelled",
+      cancellationReason: event.reason,
+      duelEndTime: cycle.duelEndTime ?? Date.now(),
+    };
+    const captureTerminalFrame = (): void => {
+      if (closed) return;
+      const frame = captureBettingFrame(true, { cycle, terminal });
+      if (frame) broadcastBettingFrame(frame);
+    };
+
+    if (bettingSourceEpochReady) {
+      captureTerminalFrame();
+      return;
+    }
+    void ensureBettingSourceEpoch()
+      .then(captureTerminalFrame)
+      .catch((error: unknown) => {
+        fastify.log.error(
+          { error },
+          "Failed to initialize betting source epoch for terminal frame",
+        );
+      });
+  };
+  world.on("streaming:cycle:aborted", onStreamingCycleAborted);
+  void ensureBettingSourceEpoch();
+
   const startBettingLoopsIfNeeded = (): void => {
     if (bettingPushInterval) return;
 
@@ -451,20 +555,7 @@ export function registerStreamingBettingRoutes(
     bettingPushInterval = setInterval(() => {
       const frame = captureBettingFrame(false);
       if (!frame) return;
-
-      for (const [clientId, clientReply] of bettingClients.entries()) {
-        const status = writeSseEvent(
-          clientReply,
-          "betting",
-          frame.payloadJson,
-          frame.seq,
-        );
-        if (status !== "ok") {
-          removeBettingClient(clientId);
-          continue;
-        }
-      }
-      lastBettingBroadcastSeq = frame.seq;
+      broadcastBettingFrame(frame);
     }, pushIntervalMs);
 
     bettingHeartbeatInterval = setInterval(() => {

@@ -695,7 +695,25 @@ export class DuelArenaOraclePublisher {
 
   private async handleResolution(payload: unknown): Promise<void> {
     const event = payload as DuelArenaOracleResolutionEvent;
-    if (!event?.duelId || !event.winnerId || !event.loserId) {
+    if (!event?.duelId) {
+      return;
+    }
+
+    if (event.outcome === "draw" || event.winReason === "draw") {
+      await this.handleAbort({
+        duelId: event.duelId,
+        cycleId: event.cycleId,
+        duelKeyHex: event.duelKeyHex,
+        reason: "draw",
+        agent1Id: null,
+        agent2Id: null,
+        agent1Name: null,
+        agent2Name: null,
+      });
+      return;
+    }
+
+    if (!event.winnerId || !event.loserId) {
       return;
     }
 
@@ -745,6 +763,10 @@ export class DuelArenaOraclePublisher {
 
     const existing = this.records.get(event.duelId);
     if (!existing) {
+      return;
+    }
+
+    if (existing.status === "CANCELLED") {
       return;
     }
 

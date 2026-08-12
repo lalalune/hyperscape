@@ -181,13 +181,20 @@ interface RecentDuelEntry {
   cycleId: string;
   duelId: string | null;
   finishedAt: number;
-  winnerId: string;
-  winnerName: string;
-  loserId: string;
-  loserName: string;
+  outcome: "win" | "draw";
+  agent1Id: string;
+  agent1Name: string;
+  agent2Id: string;
+  agent2Name: string;
+  winnerId: string | null;
+  winnerName: string | null;
+  loserId: string | null;
+  loserName: string | null;
   winReason: string;
-  damageWinner: number;
-  damageLoser: number;
+  damageAgent1: number;
+  damageAgent2: number;
+  damageWinner: number | null;
+  damageLoser: number | null;
 }
 
 interface DuelStatusResponse {
@@ -648,7 +655,15 @@ function SidebarRecentDuels({ duels }: { duels: RecentDuelEntry[] }) {
       {duels.slice(0, 8).map((d) => (
         <div className="sidebar-duel-row" key={d.cycleId}>
           <span className="duel-names">
-            <strong>{d.winnerName}</strong> beat {d.loserName}
+            {d.outcome === "draw" ? (
+              <>
+                <strong>{d.agent1Name}</strong> drew with {d.agent2Name}
+              </>
+            ) : (
+              <>
+                <strong>{d.winnerName}</strong> beat {d.loserName}
+              </>
+            )}
           </span>
           <span className="duel-time">{formatTimeAgo(d.finishedAt)}</span>
         </div>
@@ -1174,7 +1189,7 @@ function DuelsTab({
     (e) => e.characterId === characterId,
   );
   const agentDuels = duelStatus.recentDuels.filter(
-    (d) => d.winnerId === characterId || d.loserId === characterId,
+    (d) => d.agent1Id === characterId || d.agent2Id === characterId,
   );
 
   return (
@@ -1223,18 +1238,21 @@ function DuelsTab({
           <h3>Recent Duels</h3>
           <div className="duel-recent-list">
             {agentDuels.slice(0, 10).map((d) => {
+              const drew = d.outcome === "draw";
               const won = d.winnerId === characterId;
+              const opponentName =
+                d.agent1Id === characterId ? d.agent2Name : d.agent1Name;
               return (
                 <div
-                  className={`duel-recent-entry ${won ? "won" : "lost"}`}
+                  className={`duel-recent-entry ${drew ? "draw" : won ? "won" : "lost"}`}
                   key={d.cycleId}
                 >
-                  <span className={`duel-result ${won ? "win" : "loss"}`}>
-                    {won ? "W" : "L"}
+                  <span
+                    className={`duel-result ${drew ? "draw" : won ? "win" : "loss"}`}
+                  >
+                    {drew ? "D" : won ? "W" : "L"}
                   </span>
-                  <span className="duel-opponent">
-                    vs {won ? d.loserName : d.winnerName}
-                  </span>
+                  <span className="duel-opponent">vs {opponentName}</span>
                   <span className="duel-reason">{d.winReason}</span>
                   <span className="duel-time">
                     {formatTimeAgo(d.finishedAt)}
@@ -1365,11 +1383,7 @@ import {
 import "@xyflow/react/dist/style.css";
 
 type DecisionPath =
-  | "short-circuit"
-  | "llm"
-  | "planner"
-  | "curiosity"
-  | "scripted";
+  "short-circuit" | "llm" | "planner" | "curiosity" | "scripted";
 
 const PATH_COLORS: Record<DecisionPath, string> = {
   "short-circuit": "#3b82f6",

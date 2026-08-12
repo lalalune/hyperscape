@@ -1,3 +1,4 @@
+import { EventEmitter } from "node:events";
 import Fastify from "fastify";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -6,15 +7,47 @@ import {
   parseReplayCursor,
   registerStreamingBettingRoutes,
 } from "../../../src/routes/streaming-betting-routes.js";
+import type { StreamingDuelCycle } from "../../../src/systems/StreamingDuelScheduler/types.js";
+
+function createRouteCycle(
+  overrides: Partial<StreamingDuelCycle> = {},
+): StreamingDuelCycle {
+  return {
+    cycleId: "cycle-1",
+    phase: "FIGHTING",
+    cycleStartTime: 1_000,
+    phaseStartTime: 2_000,
+    phaseVersion: 4,
+    agent1: null,
+    agent2: null,
+    duelId: "duel-1",
+    duelKeyHex: "0xabcdef",
+    arenaId: null,
+    betOpenTime: 1_000,
+    betCloseTime: 2_000,
+    countdownValue: null,
+    fightStartTime: 3_000,
+    duelEndTime: null,
+    arenaPositions: null,
+    winnerId: null,
+    loserId: null,
+    outcome: null,
+    winReason: null,
+    seed: null,
+    replayHash: null,
+    ...overrides,
+  };
+}
 
 function createRouteOptions(
   overrides: Partial<Parameters<typeof registerStreamingBettingRoutes>[0]> = {},
 ) {
+  const world = Object.assign(new EventEmitter(), {
+    getSystem: () => null,
+  });
   return {
     fastify: Fastify(),
-    world: {
-      getSystem: () => null,
-    } as never,
+    world: world as never,
     replayBuffer: 16,
     replayMaxBytes: 64 * 1024,
     pushIntervalMs: 250,
@@ -65,11 +98,95 @@ describe("streaming-betting-routes", () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({
-      schemaVersion: 1,
+      schemaVersion: 2,
       sourceEpoch: expect.any(Number),
       replay: expect.objectContaining({
         sourceEpoch: expect.any(Number),
       }),
+    });
+
+    routes.close();
+    await options.fastify.close();
+  });
+
+  it("captures and replays a terminal cancellation before the scheduler clears its cycle", async () => {
+    vi.stubEnv("BETTING_FEED_ACCESS_TOKEN", "bet-secret");
+    let cycle: StreamingDuelCycle | null = createRouteCycle();
+    const options = createRouteOptions({
+      getStreamingDuelScheduler: () => ({
+        getCurrentCycle: () => cycle,
+      }),
+    });
+    const routes = registerStreamingBettingRoutes(options);
+    const world = options.world as unknown as EventEmitter;
+
+    world.emit("streaming:cycle:aborted", {
+      cycleId: "cycle-1",
+      duelId: "duel-1",
+      reason: "combat_engagement_failed",
+    });
+    cycle = null;
+
+    const response = await options.fastify.inject({
+      method: "GET",
+      url: "/api/internal/bet-sync/state",
+      headers: {
+        authorization: "Bearer bet-secret",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      schemaVersion: 2,
+      duelId: "duel-1",
+      duelKey: "0xabcdef",
+      duelEndTime: expect.any(Number),
+      winnerId: null,
+      outcome: "cancelled",
+      cancellationReason: "combat_engagement_failed",
+    });
+    expect(routes.getMetrics().replay.size).toBe(1);
+
+    routes.close();
+    expect(world.listenerCount("streaming:cycle:aborted")).toBe(0);
+    await options.fastify.close();
+  });
+
+  it("preserves a draw outcome in the terminal cancellation frame", async () => {
+    vi.stubEnv("BETTING_FEED_ACCESS_TOKEN", "bet-secret");
+    const cycle = createRouteCycle({
+      phase: "RESOLUTION",
+      outcome: "draw",
+      winReason: "draw",
+      duelEndTime: 4_000,
+    });
+    const options = createRouteOptions({
+      getStreamingDuelScheduler: () => ({
+        getCurrentCycle: () => cycle,
+      }),
+    });
+    const routes = registerStreamingBettingRoutes(options);
+    const world = options.world as unknown as EventEmitter;
+
+    world.emit("streaming:cycle:aborted", {
+      cycleId: "cycle-1",
+      duelId: "duel-1",
+      reason: "draw",
+    });
+
+    const response = await options.fastify.inject({
+      method: "GET",
+      url: "/api/internal/bet-sync/state",
+      headers: {
+        authorization: "Bearer bet-secret",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      outcome: "draw",
+      cancellationReason: "draw",
+      duelEndTime: 4_000,
     });
 
     routes.close();
