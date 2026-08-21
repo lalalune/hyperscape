@@ -947,8 +947,12 @@ export class DuelOrchestrator {
     }
 
     // --- Pick the overall best ---
-    // Prefer agent's own gear (equipped > inventory) over conjured manifest weapons
+    // Prefer agent's own gear (equipped > inventory) over conjured manifest weapons.
+    // The `equippedScore >= 0` gate rejects the common "all scores are -1" trap:
+    // a non-melee equipped item (e.g. a shortbow) scores -1 here, and without
+    // this gate -1 >= -1 trivially passes and we "keep" the wrong weapon.
     if (
+      equippedScore >= 0 &&
       equippedScore >= manifestBestScore &&
       equippedScore >= invBestScore &&
       equippedId
@@ -1043,10 +1047,12 @@ export class DuelOrchestrator {
       }
     }
 
-    // Pick best bow
+    // Pick best bow — see melee picker for the `>= 0` rationale (prevents a
+    // non-bow equipped item from being "kept" as a bow when every score is -1).
     let finalBowId: string;
     let bowAlreadyEquipped = false;
     if (
+      equippedBowScore >= 0 &&
       equippedBowScore >= manifestBowScore &&
       equippedBowScore >= invBowScore &&
       equippedId
@@ -1195,9 +1201,11 @@ export class DuelOrchestrator {
     }
 
     // Pick best staff
+    // See melee picker for the `>= 0` rationale.
     let staffId: string;
     let staffAlreadyEquipped = false;
     if (
+      equippedStaffScore >= 0 &&
       equippedStaffScore >= manifestStaffScore &&
       equippedStaffScore >= invStaffScore &&
       equippedId
@@ -1979,7 +1987,16 @@ export class DuelOrchestrator {
       arenaConfig.arenaLength / 2;
     const cx = arenaCenterX;
     const cz = arenaCenterZ;
-    const off = arenaConfig.spawnOffset;
+
+    // Spawn agents on ADJACENT tiles so melee combat can start immediately
+    // (`startCombat` requires range=1 for melee weapons; `ensureDuelProximity`
+    // enforces tileChebyshevDistance===1). The shared duel arena config's
+    // `spawnOffset` of 8 is designed for dramatic player-duel facing-off and
+    // leaves agents 16 tiles apart, which makes melee startCombat fail in
+    // every streaming duel. Ranged/mage agents then spread out via
+    // DuelCombatAI movement after combat has engaged.
+    const STREAMING_MELEE_SPAWN_OFFSET = 0.5;
+    const off = STREAMING_MELEE_SPAWN_OFFSET;
 
     let agent1X: number;
     let agent1Z: number;
@@ -2377,6 +2394,10 @@ export class DuelOrchestrator {
         "StreamingDuelScheduler",
         `Failed to start combat AIs: ${errMsg(err)}`,
       );
+      // Roll back any partially-locked services so agents aren't stranded in
+      // arena mode (bounds clamped, autonomy disabled) for the rest of the cycle.
+      // stopCombatAIs() is idempotent — safe to call even when nothing started.
+      this.stopCombatAIs();
     });
   }
 
@@ -3205,8 +3226,11 @@ export class DuelOrchestrator {
         winReason = "damage_advantage";
       } else {
         // True draw — both HP and damage equal (#24)
-        // Resolve as a proper draw: no winner/loser, just record it
-        this.onResolution(agent1.characterId, agent2.characterId, "draw");
+        // Route through startResolution so combat loop, retry timeout, and
+        // DuelCombatAI instances are all torn down. Calling onResolution()
+        // directly here skipped stopCombatAIs(), leaving services in arena
+        // mode (bounds clamped, autonomy disabled) until the next duel.
+        this.startResolution(agent1.characterId, agent2.characterId, "draw");
         return;
       }
     }

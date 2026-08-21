@@ -2224,6 +2224,95 @@ export function registerAdminRoutes(
     },
   );
 
+  /**
+   * GET /admin/duels/oracle/stuck
+   * List oracle records with at least one target in a failed state
+   * (lastError set). These are duels that exhausted their automatic
+   * retry budget and need operator triage before revenue can settle.
+   */
+  fastify.get(
+    "/admin/duels/oracle/stuck",
+    { preHandler: requireAdmin },
+    async (_request: FastifyRequest, reply: FastifyReply) => {
+      try {
+        const { getDuelArenaOraclePublisher } =
+          await import("../../oracle/DuelArenaOraclePublisher.js");
+        const publisher = getDuelArenaOraclePublisher(world);
+        if (!publisher) {
+          return reply.code(503).send({
+            error: "Duel arena oracle publisher is not enabled",
+          });
+        }
+        const stuck = publisher.getStuckRecords();
+        return reply.send({ count: stuck.length, records: stuck });
+      } catch (err) {
+        console.error("[AdminRoutes] oracle/stuck error:", err);
+        return reply.code(500).send({
+          error:
+            err instanceof Error
+              ? err.message
+              : "Failed to read stuck oracle records",
+        });
+      }
+    },
+  );
+
+  /**
+   * POST /admin/duels/oracle/clear/:duelId
+   * Operator triage for an oracle record that exhausted retries.
+   *
+   * Body: { forceRetry?: boolean }
+   *  - forceRetry=false (default): clear lastError on all stuck targets.
+   *    Use when the operator has reconciled the result manually off-chain
+   *    and wants to silence the alert.
+   *  - forceRetry=true: clear lastError AND immediately fire a fresh publish
+   *    attempt (with full retry schedule) for each stuck target. Use when
+   *    the operator believes the underlying failure has been fixed (e.g.
+   *    RPC endpoint recovered, contract upgraded) and wants the system to
+   *    try settlement again.
+   */
+  fastify.post<{ Params: { duelId: string } }>(
+    "/admin/duels/oracle/clear/:duelId",
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      try {
+        const { getDuelArenaOraclePublisher } =
+          await import("../../oracle/DuelArenaOraclePublisher.js");
+        const publisher = getDuelArenaOraclePublisher(world);
+        if (!publisher) {
+          return reply.code(503).send({
+            error: "Duel arena oracle publisher is not enabled",
+          });
+        }
+        const body = (request.body ?? {}) as { forceRetry?: unknown };
+        const forceRetry = body.forceRetry === true;
+        const result = await publisher.clearStuckRecord(request.params.duelId, {
+          forceRetry,
+        });
+        if (!result.cleared) {
+          return reply.code(result.reason === "not_found" ? 404 : 400).send({
+            error: result.reason ?? "clear_failed",
+            ...result,
+          });
+        }
+        return reply.send({
+          success: true,
+          duelId: request.params.duelId,
+          forceRetry,
+          ...result,
+        });
+      } catch (err) {
+        console.error("[AdminRoutes] oracle/clear error:", err);
+        return reply.code(500).send({
+          error:
+            err instanceof Error
+              ? err.message
+              : "Failed to clear stuck oracle record",
+        });
+      }
+    },
+  );
+
   // ==========================================================================
   // Standalone Sparbot Pool Endpoints
   // ==========================================================================

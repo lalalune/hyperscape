@@ -1621,23 +1621,31 @@ export class ClientCameraSystem extends SystemBase {
         };
       case "FIGHTING":
         return {
-          radiusMin: 4.0,
-          radiusMax: 7.5,
-          basePhi: Math.PI * 0.27,
-          driftSpeed: 0.018,
-          targetFov: 46,
-          orbitAmplitude: 0.07,
+          // Wider framing so ranged/mage agents (IDEAL_RANGE 5–8) stay
+          // comfortably on-screen when they kite apart.
+          radiusMin: 5.0,
+          radiusMax: 10.0,
+          // Slightly elevated — less side-scroller, more broadcast spectator.
+          basePhi: Math.PI * 0.3,
+          // More dynamic orbit drift so static engagements don't look frozen.
+          driftSpeed: 0.028,
+          // Wider FOV to admit both fighters + arena context.
+          targetFov: 54,
+          orbitAmplitude: 0.12,
           focusBias: 0.5,
         };
       case "RESOLUTION":
         return {
-          radiusMin: 5.5,
-          radiusMax: 8,
-          basePhi: Math.PI * 0.44,
-          driftSpeed: 0.025,
-          targetFov: 45,
-          orbitAmplitude: 0.06,
-          focusBias: 0.5,
+          // Hero framing on the winner — closer and lower than before
+          // so the victory emote reads clearly, with a wider FOV to include
+          // the defeated opponent for context.
+          radiusMin: 4.5,
+          radiusMax: 7.0,
+          basePhi: Math.PI * 0.35,
+          driftSpeed: 0.035,
+          targetFov: 50,
+          orbitAmplitude: 0.1,
+          focusBias: 0.7,
         };
       default:
         return {
@@ -2452,6 +2460,27 @@ export class ClientCameraSystem extends SystemBase {
       if (this.cinematicPhase === "FIGHTING") {
         radius *= 1 - this.cinematicPunchIn * 0.13;
         radius = clamp(radius, pp.radiusMin * 0.86, pp.radiusMax);
+      }
+
+      // Pre-fight push-in: during COUNTDOWN, smoothly shrink the radius from
+      // radiusMax → radiusMin over ~4s so the camera closes on the fighters
+      // as the fight starts. Without this the frame is static for 5 seconds.
+      if (this.cinematicPhase === "COUNTDOWN") {
+        const phaseElapsedSec = (now - this.cinematicPhaseChangedAt) / 1000;
+        const pushInT = clamp(phaseElapsedSec / 4, 0, 1);
+        const eased = pushInT * pushInT * (3 - 2 * pushInT);
+        radius = pp.radiusMax + (pp.radiusMin - pp.radiusMax) * eased;
+      }
+
+      // Post-fight push-in: during RESOLUTION, ease from radiusMax to a tight
+      // hero framing over ~1.5s, so the camera closes on the winner just as
+      // the victory emote plays (emote triggers at +600ms via DuelOrchestrator).
+      if (this.cinematicPhase === "RESOLUTION") {
+        const phaseElapsedSec = (now - this.cinematicPhaseChangedAt) / 1000;
+        const pushInT = clamp(phaseElapsedSec / 1.5, 0, 1);
+        const eased = pushInT * pushInT * (3 - 2 * pushInT);
+        const heroRadius = pp.radiusMin + 0.3;
+        radius = pp.radiusMax + (heroRadius - pp.radiusMax) * eased;
       }
 
       // Phase-aware phi (pitch angle) — smooth blend for close combat

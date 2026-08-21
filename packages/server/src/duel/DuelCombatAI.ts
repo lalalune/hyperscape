@@ -185,6 +185,14 @@ const POTION_PATTERNS = [
   "stamina",
 ];
 
+/** Static protection-prayer lookup. Hoisted out of `maybeActivateProtectionPrayer`
+ *  so it isn't reallocated every tick (called every 600ms per fighter). */
+const PROTECTION_PRAYER_MAP = {
+  melee: "protect_from_melee",
+  ranged: "protect_from_missiles",
+  magic: "protect_from_magic",
+} as const;
+
 export class DuelCombatAI {
   private service: EmbeddedHyperiaService;
   private runtime: AgentRuntime | null;
@@ -243,6 +251,11 @@ export class DuelCombatAI {
     equippedWeapon: undefined,
     position: null,
   };
+
+  /** Memoise detectOpponentAttackType — weapon changes rarely but the
+   *  function runs every tick via maybeActivateProtectionPrayer. */
+  private _lastDetectedWeapon: string | undefined = undefined;
+  private _lastDetectedAttackType: "melee" | "ranged" | "magic" | null = null;
 
   /** Movement AI: last time a move action was issued */
   private lastMoveTime = 0;
@@ -323,6 +336,10 @@ export class DuelCombatAI {
       ...DEFAULT_STRATEGY,
       prayer: OFFENSIVE_PRAYER[this.config.combatRole] ?? "superhuman_strength",
     };
+
+    // Reset memoised weapon→attack-type cache for the new opponent
+    this._lastDetectedWeapon = undefined;
+    this._lastDetectedAttackType = null;
 
     // Reset trash talk state for new fight
     this.firedOwnThresholds.clear();
@@ -446,9 +463,9 @@ export class DuelCombatAI {
     this.lastPhase = phase;
 
     // 5b. Protection prayer — activate based on opponent's visible weapon type.
-    // Fires every tick; activatePrayer no-ops if already active.
+    // Synchronous fast path: allocates no Promise when already active.
     if (opponentData) {
-      this.maybeActivateProtectionPrayer(opponentData).catch(() => {});
+      this.maybeActivateProtectionPrayer(opponentData);
     }
 
     // 6. Trash talk (fire-and-forget, never blocks tick)
@@ -860,46 +877,58 @@ export class DuelCombatAI {
   private detectOpponentAttackType(
     weapon: string | undefined,
   ): "melee" | "ranged" | "magic" | null {
-    if (!weapon) return null;
+    // Memoise: weapon IDs change rarely during a duel but this runs every tick.
+    // Avoids a .toLowerCase() allocation + 7 substring checks per tick per agent.
+    if (weapon === this._lastDetectedWeapon)
+      return this._lastDetectedAttackType;
+    this._lastDetectedWeapon = weapon;
+
+    if (!weapon) {
+      this._lastDetectedAttackType = null;
+      return null;
+    }
     const w = weapon.toLowerCase();
+    let result: "melee" | "ranged" | "magic";
     if (
       w.includes("staff") ||
       w.includes("wand") ||
       w.includes("battlestaff") ||
       w.includes("mystic")
-    )
-      return "magic";
-    if (
+    ) {
+      result = "magic";
+    } else if (
       w.includes("bow") ||
       w.includes("crossbow") ||
       w.includes("ballista") ||
       w.includes("blowpipe")
-    )
-      return "ranged";
-    return "melee";
+    ) {
+      result = "ranged";
+    } else {
+      result = "melee";
+    }
+    this._lastDetectedAttackType = result;
+    return result;
   }
 
   /**
    * Activate the appropriate protection prayer based on what the opponent is wielding.
    * Only activates — never deactivates — so it stacks with offensive prayers.
-   * Runs every tick but `activatePrayer` no-ops if the prayer is already active.
+   *
+   * Synchronous fast path: if no change is needed, returns without allocating a
+   * Promise at all. Before the sync short-circuit this created 2 Promise chains
+   * per 600ms tick (one per fighter) even when the prayer was already active.
    */
-  private async maybeActivateProtectionPrayer(
-    opponentData: OpponentData,
-  ): Promise<void> {
+  private maybeActivateProtectionPrayer(opponentData: OpponentData): void {
     const attackType = this.detectOpponentAttackType(
       opponentData.equippedWeapon,
     );
     if (!attackType) return;
-    const prayerMap: Record<string, string> = {
-      melee: "protect_from_melee",
-      ranged: "protect_from_missiles",
-      magic: "protect_from_magic",
-    };
-    const protPrayer = prayerMap[attackType];
-    if (protPrayer) {
-      await this.activatePrayer(protPrayer);
-    }
+    const protPrayer = PROTECTION_PRAYER_MAP[attackType];
+    if (!protPrayer) return;
+    // Already active — no-op synchronously, no Promise allocated.
+    if (this.activePrayers.has(protPrayer)) return;
+    // Need to toggle: fire-and-forget, errors swallowed to match prior behaviour.
+    void this.activatePrayer(protPrayer).catch(() => {});
   }
 
   private async tryPrayerSwitch(
@@ -1168,7 +1197,10 @@ export class DuelCombatAI {
         const text = (typeof response === "string" ? response : "")
           .trim()
           .replace(/^["']|["']$/g, "");
-        if (text && text.length <= 60) {
+        // Skip send if the duel ended while the LLM call was in-flight —
+        // otherwise a stale taunt lands on the agent after they're back in
+        // the overworld (confusing spectators and polluting chat).
+        if (this.isRunning && text && text.length <= 60) {
           try {
             sendChatAction(text);
           } catch {
@@ -1176,7 +1208,9 @@ export class DuelCombatAI {
           }
         }
       } catch (err) {
-        // On failure, use a scripted fallback
+        // On failure, use a scripted fallback — still respect isRunning so
+        // failures post-stop don't send lingering chat.
+        if (!this.isRunning) return;
         const pool =
           kind === "own_low"
             ? FALLBACK_TAUNTS_OWN_LOW

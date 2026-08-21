@@ -129,6 +129,12 @@ async function startServer() {
         errMsg(err),
       );
     }
+  } else if (streamingDuelEnabled) {
+    // Streaming duels run but no on-chain oracle will publish results.
+    // Flag this loudly — operators otherwise don't notice revenue is off.
+    console.warn(
+      "[Server] ⚠️ STREAMING_DUEL_ENABLED=true but DUEL_ARENA_ORACLE_ENABLED=false — duel results will NOT be published on-chain (no hyperbet settlement).",
+    );
   }
 
   // Step 3b: Initialize Web3 (EVM chain writer) if enabled
