@@ -43,7 +43,7 @@
     "@types/three": "0.184.1",
     "@types/ws": "^8.5.14",
     "eslint": "^10.0.2",
-    "three": "^0.184.0",
+    "three": "^0.185.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.8"
   },
